@@ -49,6 +49,13 @@ class SiteContractTests(unittest.TestCase):
     def test_current_source_passes(self) -> None:
         self.assertEqual(check_site.check(self.files), {"pages": 8, "referenceFiles": 8, "status": "contract-only"})
 
+    def test_relative_home_navigation_uses_inventory_paths(self) -> None:
+        self.assertEqual(check_site.resolve_reference("index.html", "./"), ("index.html", ""))
+        self.assertEqual(
+            check_site.resolve_reference("guides/contract-v1/start/index.html", "../../../#readiness"),
+            ("index.html", "readiness"),
+        )
+
     def test_missing_and_malformed_status_fail(self) -> None:
         del self.files["releases/status.json"]
         self.reject("releases/status.json")

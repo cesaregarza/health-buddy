@@ -100,7 +100,7 @@ def resolve_reference(page: str, raw: str) -> tuple[str, str]:
     require(path != ".." and not path.startswith("../"), f"link escapes site: {page}")
     if decoded.endswith("/") or path == ".":
         path = posixpath.join(path, "index.html")
-    return path, unquote(url.fragment)
+    return posixpath.normpath(path), unquote(url.fragment)
 
 
 def check(files: dict[str, bytes]) -> dict:
