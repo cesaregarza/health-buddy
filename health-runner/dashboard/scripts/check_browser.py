@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 from dashboard_fixture import AS_OF, snapshot
+from api_fixture import META
 from preview import render
 
 TABS = ("overview", "progress", "training", "labs", "notes")
@@ -326,7 +327,9 @@ def main():
         import subprocess
         if not args.html or subprocess.run(['git','-C',str(ROOT),'check-ignore','--quiet',str(args.html.resolve())],capture_output=True).returncode:
             parser.error('Screenshots require a gitignored --html preview')
-    html=args.html.read_text() if args.html else render(snapshot(),AS_OF)
+    fixture = snapshot()
+    fixture['meta'].update(META)
+    html=args.html.read_text() if args.html else render(fixture,AS_OF)
     from playwright.sync_api import sync_playwright, expect
     errors=[]
     with sync_playwright() as p:
@@ -377,6 +380,7 @@ def main():
         if not args.html:
             # Missing sources must render explicit empty states, never stale claims.
             data=snapshot()
+            data['meta'].update(META)
             for key in ('weight','weight7','bp','injections','intake','training','sleep','rhr','hrv','steps','energy','workouts'):
                 data[key]=[]
             data['tape']={'waist':[],'circumferences':[]}

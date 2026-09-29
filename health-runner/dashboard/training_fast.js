@@ -11,7 +11,7 @@ const TrainingFast = (() => {
     return node;
   };
 
-  function mount(host, {snapshot, revision, rows, enabled = true} = {}) {
+  function mount(host, {snapshot, revision, identity, rows, enabled = false} = {}) {
     activeController?.abort();
     activeController = new AbortController();
     const ownGeneration = ++generation;
@@ -27,7 +27,7 @@ const TrainingFast = (() => {
       return;
     }
     host.hidden = false;
-    const planKey = JSON.stringify([date, revision || '', recommendation.template]);
+    const planKey = JSON.stringify([identity?.installationId,identity?.datasetId,identity?.restoreEpoch,date,revision || '',recommendation.template]);
 
     const card = el('section', 'fast-mode');
     const header = el('div', 'fast-mode-head');
@@ -164,12 +164,11 @@ const TrainingFast = (() => {
       busy = true; renderStatus();
       const epoch = modeEpoch;
       try {
-        const url = `/api/training/fast?date=${encodeURIComponent(date)}&revision=${encodeURIComponent(revision || '')}`;
+        const url = `/v1/training/fast?date=${encodeURIComponent(date)}&revision=${encodeURIComponent(revision || '')}`;
         const response = await timedFetch(url, {method: 'GET', headers: {'Accept': 'application/json'}});
         if (!requestIsCurrent(epoch)) return;
-        const body = await response.json().catch(() => ({}));
+        const body = (await HealthAPI.envelope(response,identity)).data;
         if (!requestIsCurrent(epoch)) return;
-        if (!response.ok) throw new Error(body.error || `Could not load saved ranking (${response.status}).`);
         if (!validState(body)) throw new Error('The saved ranking did not match this workout. Retry to refresh it.');
         currentState = body; remember();
         busy = false;
@@ -196,14 +195,13 @@ const TrainingFast = (() => {
         for (let n = 0; n < MAX_STEPS; n++) {
           if (paused || !identityIsCurrent() || mode !== 'fast') break;
           const step = Number.isInteger(currentState?.step) ? currentState.step : 0;
-          const response = await timedFetch('/api/training/fast', {
+          const response = await timedFetch('/v1/training/fast', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Health-Action': 'rank-training'},
             body: JSON.stringify({date, revision, step}),
           });
-          const body = await response.json().catch(() => ({}));
+          const body = (await HealthAPI.envelope(response,identity)).data;
           if (!requestIsCurrent(epoch)) return;
-          if (!response.ok) throw new Error(body.error || (response.status === 409 ? 'This plan changed. Return to Full workout, then refresh this date before building again.' : `Jev could not continue (${response.status}).`));
           if (!validState(body, step)) throw new Error('Jev returned an invalid or unchanged ranking step. Your saved progress is still available; retry to resume.');
           currentState = body; remember();
           renderStatus();

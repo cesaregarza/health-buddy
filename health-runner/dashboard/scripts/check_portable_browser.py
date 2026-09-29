@@ -4,7 +4,9 @@
 import json
 import sys
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from playwright.sync_api import sync_playwright
 
@@ -34,6 +36,7 @@ def main():
         ]
         path.write_text(json.dumps(values))
         app = App.development(root)
+        today = datetime.now(ZoneInfo("Pacific/Auckland")).date()
         errors, outbound = [], []
         with running(Path(folder), workspace=root) as http:
             origin = http.origin
@@ -68,13 +71,16 @@ def main():
                     "measurement",
                     [
                         "--measured-at-local",
-                        "2020-01-01T08:00:00",
+                        (today - timedelta(days=2)).isoformat() + "T08:00:00",
                         "--weight-lb",
                         "150",
                     ],
                 )
                 page.goto(origin)
                 page.locator("[data-tab=progress]").click()
+                response = page.reload()
+                assert response.status == 200 and "tab=progress" in page.url
+                assert page.locator("[data-tab=progress]").get_attribute("aria-selected") == "true"
                 assert (
                     "at least two distinct"
                     in page.locator("#progress-tiles").inner_text()
@@ -84,7 +90,7 @@ def main():
                     "measurement",
                     [
                         "--measured-at-local",
-                        "2020-01-02T08:00:00",
+                        (today - timedelta(days=1)).isoformat() + "T08:00:00",
                         "--weight-lb",
                         "151",
                     ],

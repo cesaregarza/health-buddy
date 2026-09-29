@@ -401,7 +401,7 @@
     <div class="export-scopes" id="export-scopes" role="group" aria-label="Sections"></div>
     <div class="export-row">
       <span class="control-label">History</span>
-      <div class="seg" id="export-window" aria-label="History window"><button type="button" data-days="14" aria-pressed="false">14 days</button><button type="button" data-days="30" aria-pressed="true">30 days</button><button type="button" data-days="90" aria-pressed="false">90 days</button><button type="button" data-days="0" aria-pressed="false">All</button></div>
+      <div class="seg" id="export-window" aria-label="History window"><button type="button" data-days="14" aria-pressed="false">14 days</button><button type="button" data-days="30" aria-pressed="true">30 days</button><button type="button" data-days="90" aria-pressed="false">90 days</button><button type="button" data-days="366" aria-pressed="false">1 year</button></div>
     </div>
     <div class="export-row">
       <button type="button" class="act primary" id="export-build">Build pack</button>
@@ -1329,7 +1329,7 @@ function renderTraining() {
   const nextHost = document.getElementById('training-next'); nextHost.textContent = '';
   const nextRx = (TRAINING.prescriptions || []).find(p => p.date > today || (p.date === today && p.recommendation?.status !== 'completed')) || (TRAINING.prescriptions || []).at(-1);
   if (nextRx) renderRecommendation(nextRx, nextHost, true); else $('div', { class: 'empty', text: 'No daily prescription is available yet.' }, nextHost);
-  TrainingFast.mount(document.getElementById('training-fast'),{snapshot:nextRx,revision:DATA.meta.origin_full_sha,rows:nextHost.querySelector('.rx-list'),enabled:DATA.config ? DATA.config.integrations.jev.enabled : true});
+  TrainingFast.mount(document.getElementById('training-fast'),{snapshot:nextRx,revision:DATA.meta.origin_full_sha,identity:DATA.meta,rows:nextHost.querySelector('.rx-list'),enabled:DATA.config ? DATA.config.integrations.jev.enabled : false});
   HealthFeatures.renderWorkout(document.getElementById('health-buddy'),nextRx);
   renderLastSession(nextHost);
   renderTrainingDay(); renderTrainingHistory(); setGymView(gymView,false); trainingRendered = true;
@@ -1699,16 +1699,13 @@ const tab0 = params.get('tab') || (() => { try { return localStorage.getItem('he
 setTab(PANES[tab0] ? tab0 : 'overview', false);
 // ---------- context pack (export to another assistant) ----------
 // Context packs are assembled locally. Jev is used only for an explicit enabled action.
-const API_BASE = (DATA.config ? '/api' : (params.get('api') || '/api')).replace(/\/$/, '');
+const API_BASE = '/v1';
 const exportEl = document.getElementById('export'), exportOpenBtn = document.getElementById('export-open');
 const EXPORT = { catalog: null, days: 30, lastJev: null };
 const exq = (id) => document.getElementById(id);
 async function apiCall(path, opts) {
   const r = await fetch(API_BASE + path, { cache: 'no-store', ...opts });
-  const ct = r.headers.get('content-type') || '';
-  const body = ct.includes('json') ? await r.json() : await r.text();
-  if (!r.ok) throw new Error((body && body.error) || (typeof body === 'string' && body ? body.slice(0, 160) : 'HTTP ' + r.status));
-  return body;
+  return (await HealthAPI.envelope(r,DATA.meta)).data;
 }
 function exportStatus(msg, tone) { const el = exq('export-status'); el.textContent = msg || ''; el.dataset.tone = tone || ''; }
 function renderExportScopes() {
@@ -1755,7 +1752,8 @@ async function buildExportPack() {
   exportStatus('Building…');
   try {
     const q = new URLSearchParams({ scopes: scopes.join(','), days: String(EXPORT.days), ask: exq('export-ask').value.trim() });
-    const text = await apiCall('/context/pack?' + q);
+    const pack = await apiCall('/context?' + q);
+    const text = pack.text;
     out.hidden = false; out.value = text; copy.disabled = false;
     size.textContent = `${text.length.toLocaleString()} characters · about ${Math.round(text.length / 4).toLocaleString()} tokens`;
     exportStatus('');

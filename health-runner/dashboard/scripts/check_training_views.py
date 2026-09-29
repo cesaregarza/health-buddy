@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'tests')]
 from dashboard_fixture import snapshot, AS_OF
+from api_fixture import META,envelope
 from preview import render
 import training_fast as fast
 from playwright.sync_api import sync_playwright, expect
@@ -16,6 +17,8 @@ from playwright.sync_api import sync_playwright, expect
 
 def fixture():
     data = snapshot()
+    data['meta'].update(META)
+    data['config']={'integrations':{'jev':{'enabled':True}}}
     data['meta']['origin_full_sha'] = 'a' * 40
     # Add contrasting prescription detail and recorded evidence so both views
     # have meaningful content to reveal or keep available.
@@ -227,8 +230,8 @@ def main():
                             'probabilities':{option:float(option==winner) for option in spec['criteria']}}}
                     fast_fixture['state'] = fast.advance(plan, fast_fixture['state'], {'model':'fixture','answers':answers})
                     fast_fixture['posts'] += 1
-                route.fulfill(status=200, content_type='application/json', body=json.dumps(fast_fixture['state']))
-            page.route('**/api/training/fast**', fast_route)
+                route.fulfill(status=200, content_type='application/json', body=json.dumps(envelope(fast_fixture['state'])))
+            page.route('**/v1/training/fast**', fast_route)
             page.clock.set_fixed_time(datetime.fromisoformat('2026-08-20T15:00:00+00:00'))
             page.goto('http://localhost/training-views')
             page.locator('#tab-training').click()

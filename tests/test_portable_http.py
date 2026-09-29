@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 
@@ -35,7 +36,7 @@ def test_empty_dashboard_context_save_and_restart(tmp_path):
         assert request(http, "GET", "/icon.svg")[0] == 200
         assert request(http, "GET", "/api/context/pack?scopes=all")[0] == 200
         common = write_headers(http, "synthetic-workout-1")
-        payload = json.dumps(workout("2020-01-01"))
+        payload = json.dumps(workout(datetime.now(UTC).date().isoformat()))
         status, body, _ = request(http, "POST", "/api/workouts", payload, common)
         assert status == 200 and json.loads(body)["data"]["saved"]
         # Alias and canonical route share an operation/digest, including the

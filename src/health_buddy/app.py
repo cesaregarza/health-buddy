@@ -1,177 +1,158 @@
-"""Local development runtime. Production identity/auth are owned by CES-1067."""
+"""Native convenience adapter; health access goes through canonical operations."""
 
 from __future__ import annotations
 
+import argparse
 import json
-import tempfile
-from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from . import legacy, projection
+from . import legacy, loggers
+from .client_workflow import ClientWorkflow, decoded
 from .config import Config
-from .legacy_store import Store, StoreError
-from .providers import Jev
+from .domain import digest, normalize
+from .durability import atomic_bytes
+from .operations import open_service
+from .plans import to_wire
+from .policy import DEVELOPMENT_PRINCIPAL
+from .service_api import JSON, Identity, Operation, Operations, Principal, Request, ServiceError
 from .workspace import initialize
 
 
 class App:
-    def __init__(self, root: Path) -> None:
-        self.config: Config = initialize(root)
-        self.store = Store(
-            self.config.storage("manual"), self.config.path("operations")
-        )
-        self.jev = Jev(self.config)
+    def __init__(
+        self, root: Path, *, operations: Operations | None = None,
+        principal: Principal | None = None, configuration: Config | None = None,
+    ) -> None:
+        if operations is None:
+            service = open_service(root)
+            operations, configuration = service, service.config
+        self.config = configuration or initialize(root)
+        self.operations = operations
+        self.principal = principal
+        self.workflow = ClientWorkflow(self.config, operations, principal)
+
+    @classmethod
+    def development(cls, root: Path) -> App:
+        service = open_service(root, development=True)
+        return cls(root, operations=service, principal=DEVELOPMENT_PRINCIPAL,
+                   configuration=service.config)
+
+    def _read(self, operation: Operation, **query: str) -> JSON:
+        result = self.operations.execute(self.principal, Request(operation, query=query))
+        return decoded(result)["data"]
 
     def snapshot(self) -> dict[str, Any]:
-        return projection.project(self.config, self.store)
+        value = self._read("dashboard.read", format="json")
+        if not isinstance(value, dict):
+            raise ServiceError(503, "invalid_response", retryable=True)
+        return value
 
     def html(self) -> str:
-        return projection.render(self.snapshot())
+        result = self.operations.execute(self.principal, Request("dashboard.read"))
+        if not 200 <= result.status < 300:
+            decoded(result)
+        if len(result.body) > 4 * 1024 * 1024:
+            raise ServiceError(503, "invalid_response", retryable=True)
+        return result.body.decode("utf-8")
 
     def context(self, scopes: str = "all", days: int = 30, ask: str = "") -> str:
-        data = self.snapshot()
-        context = legacy.module("context_pack")
-        selected = {scope.id for scope in context.resolve_scopes(scopes.split(","))}
-        pack = cast(str, context.build_pack(data, sorted(selected), days, ask))
-        lines = [
-            "",
-            "## Workspace settings",
-            "",
-            f"Display name: {self.config.display_name}",
-        ]
-        lines += [
-            f"- Owner goal: {g['label']}: weight {g['direction']} "
-            f"{g['target']} {g['unit']} (owner input, not clinical advice)."
-            for g in self.config.values["goals"]
-            if selected & {"profile", "weight"}
-        ]
-        lines += [
-            f"- Equipment: {e['id']} ({e['label']}), exercise {e['exercise']}, "
-            f"load basis {e['loadBasis']}."
-            for e in self.config.values["equipment"]
-            if "training" in selected
-        ]
-        lines += [
-            f"- {name}: {state['availability']}; {state['freshness']}; "
-            f"{state['missingness']}."
-            for name, state in data["sources"].items()
-        ]
-        return pack + "\n".join(lines) + "\n"
+        value = self._read("context.read", scopes=scopes, days=str(days), ask=ask)
+        if not isinstance(value, dict) or not isinstance(value.get("text"), str):
+            raise ServiceError(503, "invalid_response", retryable=True)
+        return cast(str, value["text"])
 
-    def workout(self, payload: dict[str, Any]) -> dict[str, Any]:
-        # Validate the original shape before inspecting configured identities.
-        _session, normalized_sets = legacy.module("workout_store").normalize(
-            payload, datetime.now(self.config.zone).date()
-        )
-        equipment = {
-            (item["exercise"], alias): item
-            for item in self.config.values["equipment"]
-            for alias in item["aliases"] + [item["id"]]
-        }
-        identifiers = {item["id"]: item for item in self.config.values["equipment"]}
-        for item in normalized_sets:
-            known = identifiers.get(item["equipment"]) or equipment.get(
-                (item["exercise"], item["equipment"])
-            )
-            if known and (
-                item["exercise"] != known["exercise"]
-                or item["load_basis"] != known["loadBasis"]
-            ):
-                raise StoreError(
-                    "Configured equipment requires its matching exercise and load basis"
+    def workout(
+        self, payload: dict[str, Any], *, new_write: bool = False,
+        identity: Identity | None = None, if_match: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, JSON]:
+        intent = normalize(payload)
+        return self.workflow.write("workouts.write", lambda: intent, intent=intent,
+                                   new_write=new_write, identity=identity,
+                                   if_match=if_match, idempotency_key=idempotency_key)
+
+    def _logger_intent(self, kind: str, arguments: list[str]) -> dict[str, JSON]:
+        if kind not in loggers.FIELDS:
+            raise ServiceError(422, "invalid_request")
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+        for field in loggers.FIELDS[kind].split():
+            parser.add_argument("--" + field.replace("_", "-"),
+                                action="append" if field == "reading" else "store",
+                                default=argparse.SUPPRESS)
+        parser.add_argument("--replace-existing", action="store_true")
+        if kind == "circumference":
+            parser.add_argument("--apply", action="store_true")
+
+        def reject(_message: str) -> None:
+            raise ServiceError(422, "invalid_logger_arguments")
+
+        parser.error = reject  # type: ignore[method-assign]
+        parsed = vars(parser.parse_args(arguments))
+        replace_existing = parsed.pop("replace_existing", False)
+        parsed.pop("apply", None)
+        fields = {loggers.camel(key): cast(JSON, value) for key, value in parsed.items()}
+        # Pure shared parsing validates required flags, ranges and explicit
+        # timezone, while retaining omitted defaults until this first send.
+        normalized = loggers.namespace(kind, fields, self.config)
+        fields = {}
+        for name in loggers.FIELDS[kind].split():
+            value = getattr(normalized, name, None)
+            if value is not None:
+                fields[loggers.camel(name)] = (
+                    str(value) if isinstance(value, Decimal) else cast(JSON, value)
                 )
-        return self.store.workout(payload, as_of=datetime.now(self.config.zone).date())
+        return {"sourceId": "manual", "fields": fields,
+                "replaceExisting": bool(replace_existing)}
 
-    def log_record(self, kind: str, arguments: list[str]) -> dict[str, Any]:
-        if kind not in ("measurement", "intake"):
-            raise StoreError("Unsupported record type")
-        writer = legacy.module("log_" + kind)
-        if any(
-            arg == "--data-file" or arg.startswith("--data-file=") for arg in arguments
-        ):
-            raise StoreError(
-                "--data-file is unsupported; records use the configured manual store"
-            )
-        parser = writer._parser()
-        parser.allow_abbrev = False
-        options = parser.parse_args(arguments)
-        explicit_zone = any(
-            arg == "--timezone" or arg.startswith("--timezone=") for arg in arguments
+    def log_record(
+        self, kind: str, arguments: list[str], *, new_write: bool = False,
+    ) -> dict[str, JSON]:
+        if kind == "circumference" and "--apply" not in arguments:
+            denial = self.operations.preflight(self.principal, "logs.write")
+            if denial is not None:
+                decoded(denial)
+            intent = self._logger_intent(kind, arguments)
+            args = loggers.namespace(kind, cast(dict[str, JSON], intent["fields"]), self.config)
+            destination, _headers, row = legacy.module("log_circumference").build_row(args)
+            return {"preview": True, "target": destination.name, "row": row}
+        # Original flags identify a retry before any default timestamp is
+        # generated again. Pending replay never invokes this builder twice.
+        return self.workflow.write(
+            "logs.write", lambda: self._logger_intent(kind, arguments),
+            intent=cast(JSON, list(arguments)), resource_id=kind, new_write=new_write,
         )
-        options.timezone = options.timezone if explicit_zone else self.config.zone.key
-        try:
-            ZoneInfo(options.timezone)
-        except (ValueError, ZoneInfoNotFoundError) as exc:
-            raise StoreError("Record timezone must name a valid IANA zone") from exc
-        row = writer._row(options)
-        name = "data/measurements.csv" if kind == "measurement" else "data/intake.csv"
 
-        def change(files: dict[str, str]) -> dict[str, str]:
-            with tempfile.TemporaryDirectory(
-                prefix="record-", dir=self.config.storage("cache")
-            ) as folder:
-                path = Path(folder) / "record.csv"
-                path.write_text(files[name])
-                if kind == "measurement":
-                    writer.append_measurement(path, row)
-                else:
-                    writer.log_intake(
-                        path, row, replace_existing=options.replace_existing
-                    )
-                return {name: path.read_text()}
+    def set_plan(self, path: Path, *, new_write: bool = False) -> dict[str, JSON]:
+        with path.open("rb") as handle:
+            raw = handle.read(256 * 1024 + 1)
+        if len(raw) > 256 * 1024:
+            raise ServiceError(413, "request_too_large")
+        value = normalize(json.loads(raw))
 
-        return self.store.update(change)
+        def build_payload() -> JSON:
+            program = legacy.module("next_workout").validate_program(value)
+            return to_wire(cast(JSON, program))
 
-    def set_plan(self, path: Path) -> dict[str, Any]:
-        planner = legacy.module("next_workout")
-        program = planner.load_program(path)
-        return self.store.update(
-            lambda _files: {
-                "plans/current_program.json": json.dumps(program, allow_nan=False)
-                + "\n"
-            }
-        )
+        # Editing the same selected file is a new intent. Explicit pending
+        # retry remains available without rereading a changed or missing file.
+        return self.workflow.write("plan.write", build_payload,
+                                   intent=digest(value), new_write=new_write)
 
     def fast(self, body: dict[str, Any], *, write: bool) -> dict[str, Any]:
-        self.jev.require_enabled()
-        fast = legacy.module("training_fast")
-        model = self.config.values["integrations"]["jev"]["model"]
-        plan = fast.select_plan(
-            self.snapshot(), body.get("date"), body.get("revision"), model
+        operation: Operation = "training.fast.write" if write else "training.fast.read"
+        request = Request(operation, payload=normalize(body)) if write else Request(
+            operation, query={key: str(value) for key, value in body.items()}
         )
-        store = fast.Store(self.config.storage("cache") / "training-fast")
-
-        def check_current() -> None:
-            current = fast.select_plan(
-                self.snapshot(), body.get("date"), body.get("revision"), model
-            )
-            if plan["plan_id"] != current["plan_id"]:
-                raise fast.FastError(
-                    "The workout changed; refresh before continuing", 409
-                )
-
-        return cast(
-            dict[str, Any],
-            store.step(plan, body.get("step"), self.jev.ask, check_current)
-            if write
-            else store.get(plan),
-        )
+        value = decoded(self.operations.execute(self.principal, request))["data"]
+        if not isinstance(value, dict):
+            raise ServiceError(503, "invalid_response", retryable=True)
+        return value
 
     def write_html(self, output: Path) -> None:
         output = output.resolve()
         if not output.is_relative_to(self.config.storage("cache")):
-            raise StoreError("Private rendered output must stay within workspace cache")
+            raise ServiceError(422, "private_output_required")
         output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with tempfile.NamedTemporaryFile(
-            "w", dir=output.parent, delete=False
-        ) as handle:
-            temporary = Path(handle.name)
-            try:
-                handle.write(self.html())
-                handle.flush()
-            except BaseException:
-                temporary.unlink(missing_ok=True)
-                raise
-        temporary.replace(output)
+        atomic_bytes(output, self.html().encode("utf-8"))

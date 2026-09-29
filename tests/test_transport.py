@@ -221,7 +221,12 @@ async def test_malformed_envelopes_do_not_reach_execute(target, body, extra, sta
         ("/v1/context?scopes=%XZ", 400),
         ("/v1/context?" + "scopes=x&" * 33, 422),
         ("/v1/records?sourceIds=manual&fields=value", 200),
+        ("/v1/records?cursor=opaque-page&limit=500", 200),
+        ("/v1/records?cursor=a&cursor=b", 422),
+        ("/v1/records?cursor=%FF", 422),
+        ("/v1/records?cursor=" + "x" * 4096, 414),
         ("/?export=1", 200),
+        ("/?format=json&tab=training&theme=dark", 200),
         ("/api/training/fast?date=2030-01-01&revision=example", 200),
     ],
 )
