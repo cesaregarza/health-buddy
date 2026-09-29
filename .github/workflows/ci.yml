@@ -17,7 +17,6 @@ jobs:
       OPENBLAS_NUM_THREADS: "1"
       RAYON_NUM_THREADS: "1"
       RUFF_NUM_THREADS: "1"
-      HEALTH_BUDDY_TEST_SOCKET_ROOT: ${{ runner.temp }}/hb-uds
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,10 +25,16 @@ jobs:
       - run: python -m pip install '.[dev,sleepiq]'
       - name: Create private socket-test directory
         id: socket_root
+        env:
+          HEALTH_BUDDY_TEST_SOCKET_ROOT: ${{ runner.temp }}/hb-uds
         run: mkdir -m 0700 -- "$HEALTH_BUDDY_TEST_SOCKET_ROOT"
       - run: make contracts test dashboard-test lint typecheck package
+        env:
+          HEALTH_BUDDY_TEST_SOCKET_ROOT: ${{ runner.temp }}/hb-uds
       - run: python scripts/audit_distribution.py --root . --archives dist
       - run: git diff --check
       - name: Remove owned empty socket-test directory
         if: ${{ always() && steps.socket_root.outcome == 'success' }}
+        env:
+          HEALTH_BUDDY_TEST_SOCKET_ROOT: ${{ runner.temp }}/hb-uds
         run: rmdir -- "$HEALTH_BUDDY_TEST_SOCKET_ROOT"
