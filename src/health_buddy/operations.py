@@ -14,7 +14,7 @@ from health_ingest.models import BatchValidationError, parse_batch
 from health_ingest.storage import BatchConflictError
 
 from . import legacy, loggers, records
-from .domain import API_VERSION, MAX_BODY, MAX_HEALTH_BODY, WRITE_OPERATIONS, check_identity, digest, encode, envelope, error_response, identifier, identity_value, invalid, normalize, object_value, revision, text
+from .domain import API_VERSION, MAX_BODY, MAX_HEALTH_BODY, MAX_PLAN_BODY, WRITE_OPERATIONS, check_identity, digest, encode, envelope, error_response, identifier, identity_value, invalid, normalize, object_value, revision, text
 from .durability import check_deadline, exclusive, unavailable
 from .health_store import HealthStore
 from .journal import Effect, Journal, State
@@ -95,7 +95,7 @@ class Service:
                     if request.api_version != API_VERSION:
                         raise ServiceError(422, "unsupported_version")
                     payload = normalize(request.payload, max_nodes=40_000 if request.operation == "healthkit.ingest" else 20_000)
-                    maximum = MAX_HEALTH_BODY if request.operation == "healthkit.ingest" else MAX_BODY
+                    maximum = MAX_HEALTH_BODY if request.operation == "healthkit.ingest" else MAX_PLAN_BODY if request.operation == "plan.write" else MAX_BODY
                     if len(encode(payload)) > maximum:
                         raise ServiceError(413, "request_too_large")
                     if request.operation in WRITE_OPERATIONS:
@@ -163,8 +163,15 @@ class Service:
     def _write(self, authority: Authority, request: Request, payload: JSON, state: State) -> Response:
         payload, path, method = self._intent(authority, request, payload)
         health_batch = parse_batch(payload) if request.operation == "healthkit.ingest" else None
+        if health_batch is not None:
+            # An acknowledgement must still refer to a complete adopted store,
+            # even when the immutable original receipt already exists.
+            self.check_receiver(state.identity)
         key = health_batch.batch_id if health_batch else identifier(request.idempotency_key)
-        ledger_key = encode([authority.actor_id, state.identity.dataset_id, state.identity.restore_epoch, method, path, key]).decode()
+        # Schema-v1 HealthKit retries are device-scoped across credential
+        # rotation; ordinary operations retain the authenticated actor scope.
+        ledger_actor = "healthkit-device:" + health_batch.device_id if health_batch else authority.actor_id
+        ledger_key = encode([ledger_actor, state.identity.dataset_id, state.identity.restore_epoch, method, path, key]).decode()
         request_digest = digest({"payload": payload, "ifMatch": None if health_batch else request.if_match, "apiVersion": request.api_version})
         prior = self.journal.lookup(ledger_key, request_digest)
         if prior is not None:
@@ -193,6 +200,7 @@ class Service:
             if request.operation == "records.put":
                 changes, result = records.put(files, text(request.resource_id), payload, received_at=received_at, allowed_sources=authority.source_ids, registry=self.journal.sources())
             elif request.operation == "logs.write":
+                self._check_parent_source(authority, files, payload, text(request.resource_id))
                 changes, result = loggers.transition(text(request.resource_id), payload, files, self.config)
             elif request.operation == "workouts.write":
                 changes, result = loggers.completed(files, cast(dict[str, Any], payload), self.config, datetime.now(self.config.zone).date())
@@ -240,6 +248,17 @@ class Service:
             if old != after.get(record_id) and isinstance(old, dict) and old.get("sourceId") not in authority.source_ids:
                 raise ServiceError(403, "forbidden")
 
+    def _check_parent_source(self, authority: Authority, files: dict[str, str], payload: JSON, kind: str) -> None:
+        if kind not in {"workout-set", "workout-cardio", "workout-finish"}:
+            return
+        body = cast(dict[str, JSON], payload)
+        fields = cast(dict[str, JSON], body["fields"])
+        session_id = text(fields.get("sessionId"))
+        for entry in records.load_object(files, RECORD_INDEX).values():
+            if isinstance(entry, dict) and entry.get("path") == "data/sessions.csv" and entry.get("key") == [session_id] and not entry.get("deleted"):
+                if entry.get("sourceId") not in authority.source_ids or entry.get("sourceId") != body["sourceId"]:
+                    raise ServiceError(403, "forbidden")
+
     def _validate_plan(self, value: JSON) -> None:
         # The retained pure validator owns program semantics. Additional strict
         # public-input shape checks are supplied by the plan adapter.
@@ -263,6 +282,8 @@ class Service:
                 self.journal.recover()
                 state = self.journal.verify()
                 identifier(source_id)
+                if source_id in {"manual", "healthkit", "healthkit-import", "sleepiq", "sleepiq-export"}:
+                    raise invalid()
                 if source_kind not in {"connector", "healthkit"}:
                     raise invalid()
                 if source_kind == "healthkit":

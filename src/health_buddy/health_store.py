@@ -11,6 +11,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import time
 from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
@@ -208,14 +209,28 @@ class HealthStore:
             self.fault("health_sqlite_commit")
         self._sync()
 
-    def records(self) -> list[dict[str, JSON]]:
+    def records(self, *, source_id: str | None = None, type_id: str | None = None,
+                from_at: str = "0001-01-01", to_at: str = "9999-12-31", limit: int = 501) -> list[dict[str, JSON]]:
         if not self.receiver:
             return []
         private_file(self.path)
         connection = sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)
         connection.row_factory = sqlite3.Row
+        expires = time.monotonic() + 2
+        connection.set_progress_handler(lambda: int(time.monotonic() >= expires), 10_000)
         try:
-            rows = connection.execute("SELECT r.*, s.stream_id, p.source_id FROM canonical_records r JOIN stream_objects s ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id JOIN source_streams p ON p.stream_id=s.stream_id ORDER BY r.start_at,r.record_id").fetchall()
+            if not 1 <= limit <= 501:
+                raise unavailable()
+            clauses = ["julianday(r.start_at)>=julianday(?)", "julianday(r.start_at)<=julianday(?)"]
+            parameters: list[object] = [from_at, to_at]
+            if source_id is not None:
+                clauses.append("p.source_id=?")
+                parameters.append(source_id)
+            if type_id is not None:
+                clauses.append("r.type_identifier=?")
+                parameters.append(type_id)
+            parameters.append(limit)
+            rows = connection.execute("SELECT r.*, s.stream_id, p.source_id FROM canonical_records r JOIN stream_objects s ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id JOIN source_streams p ON p.stream_id=s.stream_id WHERE " + " AND ".join(clauses) + " ORDER BY julianday(r.start_at) DESC,r.record_id DESC LIMIT ?", parameters).fetchall()
             return [cast(dict[str, JSON], dict(row)) for row in rows]
         finally:
             connection.close()

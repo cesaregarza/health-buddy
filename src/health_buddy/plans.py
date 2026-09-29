@@ -17,22 +17,45 @@ SLOT = {"kind", "label", "template"}
 LEAD = {"start_date", "end_date", "template", "message"}
 PHASE = {"start_date", "end_date", "weekday", "sessions"}
 GYM = {"hours", "rule", "latest_useful_starts", "weekday_latest_useful_starts"}
-WORDS = TOP | TEMPLATE | EXERCISE | PROGRESSION | POLICY | SLOT | LEAD | PHASE | GYM | {"blood_pressure"}
-FROM_WIRE = {camel(word): word for word in WORDS}
+NODE_FIELDS = {"top": TOP, "template": TEMPLATE, "exercise": EXERCISE,
+               "progression": PROGRESSION, "policy": POLICY, "slot": SLOT,
+               "lead": LEAD, "phase": PHASE, "gym": GYM,
+               "monitoring": {"blood_pressure"},
+               "bp": {"protocol", "safety", "baseline", "maintenance"},
+               "session": {"time", "label", "work"}, "starts": {"full", "minimum"}}
+CHILDREN = {
+    ("top", "templates"): "map:template", ("template", "exercises"): "list:exercise",
+    ("exercise", "progression"): "progression", ("top", "progression_policy"): "policy",
+    ("top", "schedule"): "map:slot", ("top", "date_overrides"): "map:slot",
+    ("top", "lead_in"): "lead", ("top", "health_monitoring"): "monitoring",
+    ("monitoring", "blood_pressure"): "bp", ("bp", "baseline"): "phase",
+    ("bp", "maintenance"): "phase", ("phase", "sessions"): "list:session",
+    ("top", "gym_access"): "gym", ("gym", "latest_useful_starts"): "map:starts",
+    ("gym", "weekday_latest_useful_starts"): "map:map:starts",
+}
 
 
-def _convert(value: JSON, *, wire: bool) -> JSON:
-    if isinstance(value, list):
-        return [_convert(item, wire=wire) for item in value]
-    if isinstance(value, dict):
-        result: dict[str, JSON] = {}
-        for key, item in value.items():
-            converted = camel(key) if wire and key in WORDS else FROM_WIRE.get(key, key) if not wire else key
-            if converted in result:
-                raise invalid()
-            result[converted] = _convert(item, wire=wire)
-        return result
-    return value
+def _convert(value: JSON, *, wire: bool, node: str = "top") -> JSON:
+    if node.startswith("list:"):
+        if not isinstance(value, list):
+            raise invalid()
+        return [_convert(item, wire=wire, node=node[5:]) for item in value]
+    if not isinstance(value, dict):
+        raise invalid()
+    if node.startswith("map:"):
+        # Dynamic template IDs, dates and weekdays are values in the schema;
+        # preserve them verbatim even if they equal a documented field name.
+        return {key: _convert(item, wire=wire, node=node[4:]) for key, item in value.items()}
+    mapping = {word if wire else camel(word): word for word in NODE_FIELDS[node]}
+    result: dict[str, JSON] = {}
+    for key, item in value.items():
+        if key not in mapping:
+            raise invalid()
+        field = mapping[key]
+        target = camel(field) if wire else field
+        child = CHILDREN.get((node, field))
+        result[target] = _convert(item, wire=wire, node=child) if child else item
+    return result
 
 
 def to_wire(program: JSON) -> JSON:

@@ -251,13 +251,18 @@ def project(
 ) -> dict[str, Any]:
     now = (now or datetime.now(UTC)).astimezone(config.zone)
     revision, files = store.snapshot()
+    health, sources = optional_sources(config, now)
+    return project_files(config, files, revision, git_timestamp(store, revision), health, sources, now=now)
+
+
+def project_files(config: Config, files: dict[str, str], revision: str, stamp: str,
+                  health: dict[str, Any], sources: dict[str, Any], *, now: datetime) -> dict[str, Any]:
+    """Render only the caller's immutable, already scoped source snapshot."""
     reader = Reader(files, config)
     build = legacy.module("build_dashboard")
-    health, sources = optional_sources(config, now)
     records = sum(
         len(parse_csv(text)) for name, text in files.items() if name.endswith(".csv")
     )
-    stamp = git_timestamp(store, revision)
     sources["manual"] = source_state(
         "available" if records else "empty",
         "none" if records else "no_records",

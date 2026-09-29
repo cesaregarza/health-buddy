@@ -132,6 +132,7 @@ class Journal:
         base, files = self.manual.snapshot()
         if self.identity_path.exists() or CANONICAL_MARKER in files:
             raise unavailable()  # Never remint identity after losing its ledger.
+        self.manual.adoption_barrier()
         identity = Identity(str(uuid4()), str(uuid4()), str(uuid4()))
         marker = encode({"schemaVersion": 1, **identity_value(identity)})
         transaction_id = uuid4().hex

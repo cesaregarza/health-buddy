@@ -14,7 +14,8 @@ from uuid import UUID
 from .service_api import JSON, Identity, Operation, Response, ServiceError
 
 API_VERSION = "1"
-MAX_BODY = 1_048_576
+MAX_BODY = 65_536
+MAX_PLAN_BODY = 262_144
 MAX_HEALTH_BODY = 4_194_304
 MAX_MANIFEST = 8_388_608
 MAX_RESPONSE = 4_194_304
@@ -224,11 +225,12 @@ class Observation:
     received_at: str
     source_id: str
     source_kind: str
-    timezone: str
+    timezone: str | None
     missingness: str | None = None
 
     def wire(self) -> dict[str, JSON]:
         return {
+            "schemaVersion": 1,
             "id": self.record_id, "kind": self.kind, "value": self.value,
             "unit": self.unit, "observedAt": self.observed_at,
             "receivedAt": self.received_at, "sourceId": self.source_id,

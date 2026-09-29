@@ -184,7 +184,7 @@ def transition(kind: str, intent: JSON, files: dict[str, str], config: Config) -
             path = {"measurement": "data/measurements.csv", "intake": "data/intake.csv", "blood-pressure": "data/blood_pressure.csv"}[kind]
             if kind == "intake" and path in files:
                 rows = parse_csv(files[path])
-                if rows and list(rows[0]) not in (headers, writer.LEGACY_FIELDNAMES):
+                if files[path].splitlines()[0].split(",") not in (headers, writer.LEGACY_FIELDNAMES):
                     raise invalid()
                 rows = [{name: old.get(name, "") for name in headers} for old in rows]
             else:

@@ -27,9 +27,25 @@ class ManualStore:
     def snapshot(self) -> tuple[str, dict[str, str]]:
         return self.legacy.snapshot()
 
+    def adoption_barrier(self) -> None:
+        """Persist inherited/first-run objects and refs before first decision.
+
+        This runs once under the shared writer lock. New transaction barriers
+        can then rely on the durable base, including any pre-existing packs.
+        """
+        self.legacy.check()
+        entries = list(self.legacy.path.rglob("*"))
+        for path in entries:
+            if path.is_file():
+                fsync_path(path)
+        for path in sorted((path for path in entries if path.is_dir()), key=lambda path: len(path.parts), reverse=True):
+            fsync_path(path)
+        fsync_path(self.legacy.path)
+        fsync_path(self.legacy.path.parent)
+
     def _sync_objects(self, commit: str) -> None:
         # This backend never runs pack/gc. All newly prepared reachable objects
-        # are loose; existing packed inputs are read-only and already durable.
+        # are loose; adoption_barrier established durability of inherited data.
         objects = git(
             self.legacy.path, "rev-list", "--objects", commit, "--not", "--all"
         ).splitlines()

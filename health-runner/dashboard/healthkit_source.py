@@ -10,10 +10,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
-def read_healthkit(path: Path, zone: ZoneInfo) -> dict:
+def read_healthkit(path: Path, zone: ZoneInfo, *, source_ids: tuple[str, ...] | None = None, rows: list[dict] | None = None) -> dict:
     CT = zone
     with closing(
-        sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        sqlite3.connect(":memory:") if rows is not None
+        else sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
     ) as con:
 
         def P(s):
@@ -27,6 +28,25 @@ def read_healthkit(path: Path, zone: ZoneInfo) -> dict:
         def L(s):
             return P(s).astimezone(CT)
 
+        if rows is not None:
+            columns = ("start_at", "end_at", "local_date", "value_json", "type_identifier", "received_at", "deleted_at", "record_kind", "unit", "source_json", "workout_json")
+            con.execute("CREATE TEMP TABLE records (" + ",".join(name + " TEXT" for name in columns) + ")")
+            con.executemany("INSERT INTO records VALUES (" + ",".join("?" for _ in columns) + ")", (tuple(row.get(name) for name in columns) for row in rows))
+            con.execute("CREATE TEMP TABLE batches(received_at TEXT)")
+            con.execute("INSERT INTO batches SELECT MAX(received_at) FROM records")
+            con.commit()
+        elif source_ids is not None:
+            # Fixed canonical view plus bound IDs, never request SQL. A temp
+            # view shadows the historical table only on this read connection.
+            con.execute("CREATE TEMP TABLE admitted_sources(source_id TEXT PRIMARY KEY)")
+            con.executemany("INSERT INTO admitted_sources VALUES (?)", ((item,) for item in source_ids))
+            con.execute("""CREATE TEMP VIEW records AS
+                SELECT r.* FROM main.canonical_records r
+                JOIN main.stream_objects s ON r.record_id=s.record_id
+                  AND r.device_id=s.canonical_device_id
+                JOIN main.source_streams p ON p.stream_id=s.stream_id
+                JOIN admitted_sources a ON a.source_id=p.source_id""")
+            con.commit()
         con.execute("PRAGMA query_only=ON")
         con.execute("BEGIN")
         c = con.cursor()
@@ -39,7 +59,8 @@ def read_healthkit(path: Path, zone: ZoneInfo) -> dict:
 
         out = {}
         out["last_batch"] = c.execute(
-            "SELECT MAX(received_at) FROM batches"
+            "SELECT MAX(received_at) FROM records" if source_ids is not None
+            else "SELECT MAX(received_at) FROM batches"
         ).fetchone()[0]
         out["type_freshness"] = [
             {
