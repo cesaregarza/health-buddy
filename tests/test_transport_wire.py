@@ -156,7 +156,8 @@ def test_total_body_deadline_is_enforced_over_real_connection(http):
     server, _ = http
     partial = (
         f"POST /v1/workouts HTTP/1.1\r\nHost: 127.0.0.1:{server.server_port}\r\n"
-        f"Origin: {server.origin}\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{{"
+        f"Origin: {server.origin}\r\nContent-Type: application/json\r\n"
+        "Content-Length: 2\r\n\r\n{"
     ).encode()
     began = time.monotonic()
     answer = raw(server, partial, timeout=13)
@@ -171,8 +172,10 @@ def test_disconnect_after_submission_does_not_abandon_worker(http):
     with socket.create_connection(server.server_address, timeout=2) as peer:
         peer.sendall(
             (
-                f"POST /v1/workouts HTTP/1.1\r\nHost: 127.0.0.1:{server.server_port}\r\n"
-                f"Origin: {server.origin}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
+                "POST /v1/workouts HTTP/1.1\r\n"
+                f"Host: 127.0.0.1:{server.server_port}\r\n"
+                f"Origin: {server.origin}\r\nContent-Type: application/json\r\n"
+                f"Content-Length: {len(body)}\r\n\r\n"
             ).encode()
             + body
         )

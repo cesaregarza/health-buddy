@@ -114,7 +114,7 @@ class App:
         if kind == "circumference":
             parser.add_argument("--apply", action="store_true")
 
-        def reject(_message: str) -> Never:
+        def reject(message: str) -> Never:
             raise ServiceError(422, "invalid_logger_arguments")
 
         parser.error = reject  # type: ignore[method-assign]

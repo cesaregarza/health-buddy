@@ -17,7 +17,7 @@ def delegate_logger(kind: str, argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--development", action="store_true")
     parser.add_argument("--new-write", action="store_true")
 
-    def refuse(_message: str) -> Never:
+    def refuse(message: str) -> Never:
         raise ValueError("explicit workspace required")
 
     parser.error = refuse  # type: ignore[method-assign]

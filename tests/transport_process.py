@@ -69,7 +69,8 @@ def running(folder, *, workspace=None, development=True, fail_startup=False):
         PYTHONUNBUFFERED="1",
     )
     with (folder / "server.log").open("wb") as log:
-        process = subprocess.Popen(
+        # Fixed Python module/argument vector; synthetic fixture paths only.
+        process = subprocess.Popen(  # noqa: S603
             args,
             cwd=ROOT,
             env=environment,

@@ -28,7 +28,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--new-write",
         action="store_true",
-        help="Start a new intentionally repeated action; pending actions must be resolved first",
+        help=(
+            "Start a new intentionally repeated action; "
+            "pending actions must be resolved first"
+        ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init")
@@ -52,7 +55,10 @@ def main(argv: list[str] | None = None) -> int:
     pending.add_argument(
         "--acknowledge-possible-save",
         action="store_true",
-        help="Discard retry state knowing the original write may already have saved; this does not undo it",
+        help=(
+            "Discard retry state knowing the original write may already have saved; "
+            "this does not undo it"
+        ),
     )
     args = parser.parse_args(argv)
     try:
@@ -70,7 +76,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "init":
             open_service(args.workspace)
             print(
-                "Private canonical workspace ready. Optional sources stay explicitly configured."
+                "Private canonical workspace ready. "
+                "Optional sources stay explicitly configured."
             )
             return 0
         app = (
@@ -119,7 +126,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except (ConfigError, StoreError, OSError, ValueError, RuntimeError):
         print(
-            "Health Buddy could not open or update this workspace. Existing records and retry state were preserved.",
+            "Health Buddy could not open or update this workspace. "
+            "Existing records and retry state were preserved.",
             file=sys.stderr,
         )
         return 2

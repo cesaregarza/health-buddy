@@ -82,12 +82,12 @@ def response_identity(value: dict[str, JSON]) -> tuple[Identity, int]:
     current = meta.get("dataRevision")
     if (
         type(current) is not int
-        or not 0 <= cast(int, current) < 10**15
+        or not 0 <= current < 10**15
         or type(meta.get("apiVersion")) is not int
         or meta["apiVersion"] != 1
     ):
         raise ServiceError(503, "invalid_response", retryable=True)
-    return identity, cast(int, current)
+    return identity, current
 
 
 class ClientWorkflow:

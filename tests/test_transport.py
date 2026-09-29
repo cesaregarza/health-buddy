@@ -277,7 +277,8 @@ async def test_header_intent_and_immutable_receipts_cross_adapter_unchanged():
     operations.result = Response(
         201, raw, (("ETag", '"rev-1"'), ("Idempotency-Replayed", "true"))
     )
-    extra = IDENTITY_HEADERS + [
+    extra = [
+        *IDENTITY_HEADERS,
         (b"if-match", b'"rev-0"'),
         (b"idempotency-key", b"example-key"),
         (b"x-api-version", b"1"),
@@ -299,14 +300,18 @@ async def test_header_intent_and_immutable_receipts_cross_adapter_unchanged():
 
 async def test_healthkit_gzip_and_receiver_identity_are_preserved():
     operations = FakeOperations()
-    receipt = b'{"status":"accepted","batchId":"batch","recordsAccepted":1,"deletionsAccepted":0,"duplicateBatch":false}'
+    receipt = (
+        b'{"status":"accepted","batchId":"batch","recordsAccepted":1,'
+        b'"deletionsAccepted":0,"duplicateBatch":false}'
+    )
     operations.result = Response(
         200,
         receipt,
         tuple((key.decode(), value.decode()) for key, value in IDENTITY_HEADERS),
     )
     body = b'{"schemaVersion":1,"batchId":"batch","deviceId":"device"}'
-    extra = IDENTITY_HEADERS + [
+    extra = [
+        *IDENTITY_HEADERS,
         (b"content-encoding", b"gzip"),
         (b"x-health-device-id", b"device"),
     ]

@@ -6,6 +6,7 @@ import copy
 import json
 import sqlite3
 import stat
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -134,7 +135,7 @@ def test_unknown_duplicate_and_bad_endpoint_config(tmp_path):
     with pytest.raises(config.ConfigError, match="duplicate"):
         config.load(tmp_path)
     (tmp_path / "config.json").write_text('{"number":' + "1" * 5000 + "}")
-    with pytest.raises(config.ConfigError, match="Repair config.json"):
+    with pytest.raises(config.ConfigError, match=r"Repair config\.json"):
         config.load(tmp_path)
     values = config.defaults()
     values["integrations"]["jev"]["endpoint"] = "https://:example@example.invalid"
@@ -199,7 +200,7 @@ def test_initialization_preserves_malformed_owner_config(tmp_path):
     App(root)
     path = root / "config.json"
     path.write_text("{not-json}")
-    with pytest.raises(config.ConfigError, match="Repair config.json"):
+    with pytest.raises(config.ConfigError, match=r"Repair config\.json"):
         initialize(root)
     assert path.read_text() == "{not-json}"
 
@@ -226,7 +227,8 @@ def test_hostile_hooks_signing_and_config_never_execute(tmp_path, monkeypatch):
     marker = tmp_path / "hook-executed"
     config_file = tmp_path / "global.gitconfig"
     config_file.write_text(
-        f"[core]\n hooksPath = {tmp_path}\n[commit]\n gpgsign = true\n[gpg]\n program = /nonexistent\n"
+        f"[core]\n hooksPath = {tmp_path}\n"
+        "[commit]\n gpgsign = true\n[gpg]\n program = /nonexistent\n"
     )
     hook = tmp_path / "pre-commit"
     hook.write_text(f'#!/bin/sh\ntouch "{marker}"\n')
@@ -342,9 +344,35 @@ def test_disabled_jev_does_not_read_secret_or_invoke_ambient_tools(
         ):
             with pytest.raises(ProviderUnavailable, match="disabled"):
                 call()
-    for operation in ("context.intent", "training.fast.write"):
-        response = app.operations.execute(app.principal, Request(operation, payload={}))
-        assert response.status == 503
+    real_read_text = Path.read_text
+    secret = app.config.path(app.config.values["integrations"]["jev"]["apiKeyFile"])
+
+    def guarded_read_text(path, *args, **kwargs):
+        if path == secret:
+            raise AssertionError("Disabled provider must not read its secret")
+        return real_read_text(path, *args, **kwargs)
+
+    # Valid requests must reach the disabled-provider gate. Keep canonical
+    # Git reads real; only provider credential/network side effects are trapped.
+    requests = (
+        Request("context.intent", payload={"text": "Example request"}),
+        Request(
+            "training.fast.write",
+            payload={"date": "2020-01-03", "revision": "a" * 40, "step": 0},
+        ),
+    )
+    with (
+        patch.object(Path, "read_text", autospec=True, side_effect=guarded_read_text),
+        patch("urllib.request.build_opener", side_effect=AssertionError("No network")),
+        patch.object(
+            Jev, "require_enabled", autospec=True, side_effect=Jev.require_enabled
+        ) as enabled_gate,
+    ):
+        for request in requests:
+            response = app.operations.execute(app.principal, request)
+            assert response.status == 503
+            assert json.loads(response.body)["error"]["code"] == "provider_unavailable"
+        assert enabled_gate.call_count == len(requests)
 
 
 def test_enabled_provider_missing_probabilities_never_fabricates_confidence(tmp_path):
@@ -390,11 +418,18 @@ def test_healthkit_empty_auth_unknown_and_read_only(tmp_path):
         root, lambda values: values["integrations"]["healthkit"].update(enabled=True)
     )
     path = app.config.storage("healthkit")
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("CREATE TABLE batches(received_at TEXT)")
         connection.execute("""CREATE TABLE records(start_at TEXT, end_at TEXT,
             local_date TEXT, value_json TEXT, deleted_at TEXT, type_identifier TEXT,
-            record_kind TEXT, unit TEXT, received_at TEXT, workout_json TEXT, source_json TEXT)""")
+            record_kind TEXT, unit TEXT, received_at TEXT,
+            workout_json TEXT, source_json TEXT,
+            record_id TEXT NOT NULL DEFAULT 'synthetic-record',
+            device_id TEXT NOT NULL DEFAULT '00000000-0000-4000-8000-000000000002',
+            timezone TEXT DEFAULT 'UTC', device_json TEXT DEFAULT 'null',
+            creation_at TEXT,
+            record_sha256 TEXT NOT NULL DEFAULT 'synthetic-digest')""")
+    path.chmod(0o600)
     before = path.read_bytes()
     real_connect = sqlite3.connect
     calls = []
@@ -412,14 +447,16 @@ def test_healthkit_empty_auth_unknown_and_read_only(tmp_path):
     )
     assert data["sources"]["healthkit"]["missingness"] == "no_data_or_denied_read"
     assert before == path.read_bytes()
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute(
-            "INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            """INSERT INTO records(start_at,end_at,local_date,value_json,deleted_at,
+                    type_identifier,record_kind,unit,received_at,
+                    workout_json,source_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 "2020-01-01T12:00:00Z",
                 "2020-01-01T13:00:00Z",
                 None,
-                None,
+                "null",
                 None,
                 "HKWorkoutTypeIdentifier",
                 "workout",
@@ -431,10 +468,12 @@ def test_healthkit_empty_auth_unknown_and_read_only(tmp_path):
         )
     assert app.snapshot()["sources"]["healthkit"]["missingness"] == "source_error"
     for raw_value, kind in [("Infinity", "StepCount"), ("NaN", "BodyMass")]:
-        with sqlite3.connect(path) as connection:
+        with closing(sqlite3.connect(path)) as connection, connection:
             connection.execute("DELETE FROM records")
             connection.execute(
-                "INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                """INSERT INTO records(start_at,end_at,local_date,value_json,deleted_at,
+                    type_identifier,record_kind,unit,received_at,
+                    workout_json,source_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     "2020-01-01T12:00:00Z",
                     "2020-01-01T13:00:00Z",
@@ -489,11 +528,20 @@ def test_malformed_optional_fields_preserve_real_manual_projection(tmp_path):
     )
     before_revision = revision(app)
     path = app.config.storage("healthkit")
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("CREATE TABLE batches(received_at TEXT)")
         connection.execute("""CREATE TABLE records(start_at TEXT, end_at TEXT,
             local_date TEXT, value_json TEXT, deleted_at TEXT, type_identifier TEXT,
-            record_kind TEXT, unit TEXT, received_at TEXT, workout_json TEXT, source_json TEXT)""")
+            record_kind TEXT, unit TEXT, received_at TEXT,
+            workout_json TEXT, source_json TEXT,
+            record_id TEXT NOT NULL DEFAULT 'synthetic-record',
+            device_id TEXT NOT NULL DEFAULT '00000000-0000-4000-8000-000000000002',
+            timezone TEXT DEFAULT 'UTC', device_json TEXT DEFAULT 'null',
+            creation_at TEXT,
+            record_sha256 TEXT NOT NULL DEFAULT 'synthetic-digest')""")
+    path.chmod(0o600)
+    source_state = app.snapshot()["sources"]["healthkit"]
+    assert source_state["missingness"] == "no_data_or_denied_read"
     bad_workouts = [
         {"uuid": ["synthetic-id"], "activityType": "37"},
         {"id": {}},
@@ -591,15 +639,17 @@ def test_malformed_optional_fields_preserve_real_manual_projection(tmp_path):
         ),
     ]
     for kind, identifier, workout_json, source, start, end, local_date, value in cases:
-        with sqlite3.connect(path) as connection:
+        with closing(sqlite3.connect(path)) as connection, connection:
             connection.execute("DELETE FROM records")
             connection.execute(
-                "INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                """INSERT INTO records(start_at,end_at,local_date,value_json,deleted_at,
+                    type_identifier,record_kind,unit,received_at,
+                    workout_json,source_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     start,
                     end,
                     local_date,
-                    value,
+                    "null" if value is None else value,
                     None,
                     identifier,
                     kind,
@@ -609,8 +659,10 @@ def test_malformed_optional_fields_preserve_real_manual_projection(tmp_path):
                     source,
                 ),
             )
+        source_bytes = path.read_bytes()
         data = app.snapshot()
         assert data["sources"]["healthkit"]["missingness"] == "source_error"
+        assert path.read_bytes() == source_bytes
         assert data["weight"] == [{"d": "2020-01-01", "lb": 150, "src": "log"}]
         assert revision(app) == before_revision
         assert "150.0" in app.context("weight", days=30)

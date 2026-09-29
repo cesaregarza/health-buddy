@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
 
-    def refuse(_message: str) -> Never:
+    def refuse(message: str) -> Never:
         raise ValueError("retired receiver command")
 
     parser.error = refuse  # type: ignore[method-assign]

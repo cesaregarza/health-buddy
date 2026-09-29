@@ -69,7 +69,7 @@ def test_compatibility_main_routes_explicit_workspace(
     )
 
 
-def test_measurement_wrapper_uses_real_canonical_transaction_and_rejects_storage_override(
+def test_measurement_wrapper_is_canonical_and_rejects_storage_override(
     tmp_path, capsys
 ):
     workspace = tmp_path / "owner"
