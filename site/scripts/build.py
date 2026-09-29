@@ -28,6 +28,7 @@ SITE_FILES = [
     "releases/status.json"
 ]
 REFERENCE_FILES = [
+    "LICENSE",
     "docs/v1-contract.md",
     "docs/extensions.md",
     "contracts/v1/compatibility.json",

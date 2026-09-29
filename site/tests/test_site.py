@@ -47,7 +47,7 @@ class SiteContractTests(unittest.TestCase):
         self.files["index.html"] = contents.replace(before, after, 1).encode()
 
     def test_current_source_passes(self) -> None:
-        self.assertEqual(check_site.check(self.files), {"pages": 8, "referenceFiles": 7, "status": "contract-only"})
+        self.assertEqual(check_site.check(self.files), {"pages": 8, "referenceFiles": 8, "status": "contract-only"})
 
     def test_missing_and_malformed_status_fail(self) -> None:
         del self.files["releases/status.json"]

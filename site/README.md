@@ -17,7 +17,8 @@ Hosting-specific logs, retention, cookies, operator and contact are not decided.
 `scripts/build.py` packages only its explicit `SITE_FILES` and `REFERENCE_FILES`
 allowlists. It reads each input from the given committed SHA using Git, checks
 that SHA is the checkout's HEAD, and never walks runtime data or untracked files.
-Seven normative reference files are copied without rewriting from that commit;
+Eight reference files, including the exact MIT license, are copied without
+rewriting from that commit;
 `reference/index.json` binds their paths and SHA-256 digests to the source SHA.
 No extraction history, personal source or private configuration is packaged.
 
@@ -52,11 +53,14 @@ python3 site/tests/browser_site.py /tmp/site-build-a/public --screenshots /tmp/s
 
 Run serially with one browser process at a time. The browser harness serves only
 loopback under `/preview/health-buddy/`, checks eight pages at 320/375/390/768/1440
-pixels in Chromium, Firefox and WebKit, records requested URLs, asserts no page
+pixels in Chromium by default, records requested URLs, asserts no page
 errors or horizontal overflow, and captures screenshots. It checks skip-link
 keyboard access, keyboard-activated copy, denied-copy selection feedback and
-JS-disabled navigation/prompt fallback. Clipboard success and denial are stubbed
-inside the browser, so results do not certify an operating system clipboard.
+JS-disabled navigation/prompt fallback. Use `--engines chromium firefox webkit`
+only when the queue already has those
+engines and broader coverage is requested. The harness never installs browsers.
+Record the actual engines tested and any remaining engine gaps in the receipt.
+Clipboard success and denial are stubbed inside the browser, so results do not certify an operating system clipboard.
 
 Unit tests mutate missing/malformed or install-enabled metadata, version drift,
 reference bytes, missing assets/fragments, remote/escaping links, prompt text,

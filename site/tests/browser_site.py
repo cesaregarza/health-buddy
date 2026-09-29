@@ -110,7 +110,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--screenshots", type=Path, required=True)
-    parser.add_argument("--engines", nargs="+", choices=["chromium", "firefox", "webkit"], default=["chromium", "firefox", "webkit"])
+    parser.add_argument("--engines", nargs="+", choices=["chromium", "firefox", "webkit"], default=["chromium"])
     args = parser.parse_args()
     args.screenshots.mkdir(parents=True, exist_ok=False)
     server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(args.directory.resolve())))
