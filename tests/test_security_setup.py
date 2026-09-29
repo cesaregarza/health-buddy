@@ -143,3 +143,64 @@ def test_setup_rejects_traversal_symlink_and_unwritable_output_safely(tmp_path, 
     missing = root / "absent/output"
     assert main(["--workspace", str(root), "security", "bootstrap", "--proof-file", str(missing)]) == 2
     assert "Traceback" not in capsys.readouterr().err
+
+
+def test_native_owner_bootstrap_is_usable_without_https_and_never_recovers_implicitly(tmp_path, capsys):
+    root = tmp_path / "owner"
+    assert main(["--workspace", str(root), "init"]) == 0
+    output = root / "secrets/owner-token"
+    argv = ["--workspace", str(root), "security", "bootstrap", "--owner-token-file", str(output)]
+    assert main(argv) == 0
+    token = read_credential(output)
+    runtime = open_runtime(root)
+    admitted = runtime.security.authenticate(BearerProof(token))
+    assert runtime.ingress.external_origin is None
+    assert runtime.operations.execute(admitted.principal, Request("capabilities")).status == 200
+    assert main(["--workspace", str(root), "--credential-file", str(output), "status"]) == 0
+    assert main(argv[:-1] + [str(root / "secrets/another")]) == 2
+    assert runtime.security.describe(admitted.principal).security_epoch == admitted.client.security_epoch
+    (root / "security/authority.sqlite").unlink()
+    assert main(argv[:-1] + [str(root / "secrets/incomplete")]) == 2
+    assert not (root / "security/authority.sqlite").exists()
+    captured = capsys.readouterr()
+    assert token not in captured.out + captured.err
+
+
+def test_bootstrap_handoff_flags_are_mutually_exclusive(tmp_path):
+    root = tmp_path / "owner"
+    with pytest.raises(SystemExit) as failure:
+        main(["--workspace", str(root), "security", "bootstrap", "--proof-file", str(tmp_path / "proof"), "--owner-token-file", str(tmp_path / "owner-token")])
+    assert failure.value.code == 2
+    assert not root.exists()
+
+
+def test_interrupted_hot_journal_quarantine_preserves_split_files_and_stays_closed(tmp_path):
+    root = tmp_path / "owner"
+    runtime, _, old_token = secured(root)
+    before = runtime.operations.journal.state()
+    context = multiprocessing.get_context("spawn")
+    path = root / "security/authority.sqlite"
+    _child_join(context.Process(target=_make_hot, args=(str(path),)), 87)
+    journal = root / "security/authority.sqlite-journal"
+    original_database, original_journal = path.read_bytes(), journal.read_bytes()
+    assert len(original_journal) > 512 and any(original_journal[:8])
+    _child_join(context.Process(target=_recover_crash, args=(
+        str(root), str(root / "secrets/interrupted"), "security_quarantine_file",
+    )), 87)
+    retained = list((root / "security").glob("retired-*/authority.sqlite"))
+    assert len(retained) == 1 and retained[0].read_bytes() == original_database
+    assert not path.exists() and journal.read_bytes() == original_journal
+    inventory = json.loads((retained[0].parent / "inventory.json").read_text())
+    assert inventory["complete"] is False
+    assert set(inventory["files"]) == {"authority.sqlite", "authority.sqlite-journal"}
+    with pytest.raises(ServiceError):
+        open_runtime(root).security.authenticate(BearerProof(old_token))
+    output = root / "secrets/explicit-recovery"
+    setup_security(root, output, recover=True, confirm_revoke_all=True)
+    fresh = open_runtime(root)
+    assert fresh.security.authenticate(BearerProof(read_credential(output)))
+    with pytest.raises(ServiceError):
+        fresh.security.authenticate(BearerProof(old_token))
+    assert fresh.operations.journal.state() == before
+    journals = list((root / "security").glob("retired-*/authority.sqlite-journal"))
+    assert len(journals) == 1 and journals[0].read_bytes() == original_journal

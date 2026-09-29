@@ -97,6 +97,13 @@ consumed, expired or revoked. Device/agent inventories expose named grants,
 write `sourceIds`, and exact `readSources`/`readKinds`/`readFields`; null means all
 approved and an empty array means none. They never include credential digests.
 
+The mutually exclusive fresh native setup option is
+`security bootstrap --owner-token-file PATH`, a raw owner token in a create-only
+mode0600 file. It refuses existing/incomplete authority exactly like proof
+bootstrap and does not require browser HTTPS. Browser login requires explicit
+canonical externalOrigin and separately configured HTTPS ingress; default null
+origin deliberately denies it. See [owner setup](authorization.md).
+
 For loopback app-credential login after logout/expiry, the owner retains an
 explicit private credential handoff outside browser storage. If the browser-only
 bootstrap consumed the owner's sole proof and it was not retained, deliberate

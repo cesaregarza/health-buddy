@@ -3,7 +3,9 @@
 import multiprocessing
 import os
 import sqlite3
+import time
 from pathlib import Path
+from threading import Timer
 from uuid import uuid4
 
 import pytest
@@ -245,3 +247,43 @@ def test_owner_backup_quiesces_security_mutations_too(tmp_path):
         assert process.exitcode == 0
     finally:
         _stop([process], [parent, child])
+
+
+def _hold_security_sqlite(root, release, pipe):
+    try:
+        with sqlite3.connect(Path(root) / "security/authority.sqlite") as database:
+            database.execute("BEGIN IMMEDIATE")
+            pipe.send("locked")
+            if not release.wait(10):
+                raise RuntimeError("release timeout")
+    finally:
+        pipe.close()
+
+
+def test_security_mutation_deadline_is_rechecked_after_sqlite_wait(tmp_path):
+    root = tmp_path / "owner"
+    runtime, owner, _ = secured(root)
+    context = multiprocessing.get_context("spawn")
+    release = context.Event()
+    parent, child = context.Pipe(duplex=False)
+    process = context.Process(target=_hold_security_sqlite, args=(str(root), release, child))
+    timer = Timer(0.35, release.set)
+    try:
+        process.start()
+        child.close()
+        assert _result(parent) == "locked"
+        started = time.monotonic()
+        request = SecurityRequest("grants.create", payload=AgentGrant("Expired while waiting", ("records:read",)), identity=owner.client.identity, deadline=started + 0.1)
+        timer.start()
+        with pytest.raises(ServiceError) as expired:
+            runtime.security.execute(owner.principal, request)
+        assert expired.value.status == 503
+        assert time.monotonic() - started >= 0.2
+        process.join(15)
+        assert process.exitcode == 0
+    finally:
+        release.set()
+        timer.cancel()
+        _stop([process], [parent, child])
+    assert action(runtime, owner, "grants.list").data["items"] == []
+    assert runtime.operations.journal.state().revision == 0

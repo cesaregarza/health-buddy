@@ -7,17 +7,42 @@ mode remains a deliberate loopback development tool; it is not a login bypass fo
 an authenticated listener. Installer/proxy deployment and real-phone acceptance
 remain later delivery gates.
 
-Initialize the private workspace, then create a private bootstrap handoff. These
-commands are examples for the OS owner, not actions for a routine health token:
+For native use, initialize the private workspace and create a retained owner
+credential directly. These commands are OS-owner maintenance, not actions for a
+routine health token; they work without TLS, Tailscale or a model provider:
 
 ```sh
 health-buddy --workspace /path/to/private-workspace init
 health-buddy --workspace /path/to/private-workspace security bootstrap \
-  --proof-file /path/to/private-workspace/secrets/bootstrap.json
-health-buddy --workspace /path/to/private-workspace serve
+  --owner-token-file /path/to/private-workspace/secrets/owner-token
+health-buddy --workspace /path/to/private-workspace \
+  --credential-file /path/to/private-workspace/secrets/owner-token status
 ```
 
-The create-only mode0600 file contains a one-time proof and exact receiver tuple;
+This is fresh setup only: existing or incomplete authority state is refused,
+never implicitly recovered. The raw token file is create-only mode0600.
+
+Browser sign-in additionally requires deliberately configured HTTPS ingress.
+The default `security.externalOrigin: null` rejects browser login origins. For
+example, the following **synthetic placeholders** describe the security part
+of an owner configuration for an independently wired private Tailscale proxy:
+
+```json
+{"ingress":"tailscale-uds","externalOrigin":"https://synthetic.example.invalid",
+ "ownerSubject":"synthetic-owner@example.invalid","socketPath":"security/http.sock",
+ "sessionSeconds":3600}
+```
+
+Use the actual canonical HTTPS origin and exact verified owner subject when an
+operator configures the proxy. Source commands do not create HTTPS certificates,
+Tailscale Serve wiring or a trusted connection; deployment is CES-1068. Once
+that ingress is configured, `health-buddy --workspace PATH serve` starts the
+private backend. An existing retained owner credential can log in there.
+
+Alternatively, a fresh browser-first setup can choose
+`security bootstrap --proof-file /path/to/private-workspace/secrets/bootstrap.json`
+instead of `--owner-token-file`. The flags are mutually exclusive. This
+create-only mode0600 JSON file contains a one-time proof and exact receiver tuple;
 paste it only into this workspace's login form. The proof has256bits of entropy
 and expires after300seconds. The server stores only its purpose-separated digest.
 No proof appears in a URL, shell argument, ordinary log or health receipt.
@@ -28,7 +53,7 @@ Browser localStorage and URLs never store it. Session cookies are host-only,
 Secure, HttpOnly and SameSiteStrict. Cookie mutations require the session's CSRF
 proof and exact admitted origin. Session CSRF validation is per presentation.
 
-Native health commands require an explicit private token file:
+Native health commands require the explicit private token file:
 
 ```sh
 health-buddy --workspace /path/to/private-workspace \

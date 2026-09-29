@@ -43,7 +43,9 @@ def main(argv: list[str] | None = None) -> int:
     security = commands.add_parser("security")
     security_commands = security.add_subparsers(dest="security_command", required=True)
     bootstrap = security_commands.add_parser("bootstrap")
-    bootstrap.add_argument("--proof-file", type=Path, required=True)
+    handoff = bootstrap.add_mutually_exclusive_group(required=True)
+    handoff.add_argument("--proof-file", type=Path)
+    handoff.add_argument("--owner-token-file", type=Path)
     recovery = security_commands.add_parser("recover")
     recovery.add_argument("--owner-token-file", type=Path, required=True)
     recovery.add_argument("--confirm-revoke-all", action="store_true")
@@ -78,9 +80,11 @@ def main(argv: list[str] | None = None) -> int:
             if args.development or args.credential_file is not None:
                 raise ServiceError(422, "security_setup_requires_os_owner")
             recover = args.security_command == "recover"
+            native_owner = not recover and args.owner_token_file is not None
             setup_security(
-                args.workspace, args.owner_token_file if recover else args.proof_file,
+                args.workspace, args.owner_token_file if recover or native_owner else args.proof_file,
                 recover=recover, confirm_revoke_all=recover and args.confirm_revoke_all,
+                owner_token=native_owner,
             )
             print("Private security handoff created. Keep the file private; its contents are not recoverable from HTTP replies.")
             return 0

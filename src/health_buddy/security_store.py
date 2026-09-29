@@ -158,14 +158,14 @@ class SecurityStore:
         return value
 
     def initialize(
-        self, identity: Identity, *, recover: bool = False,
+        self, identity: Identity, *, recover: bool = False, owner_token: bool = False,
         fault: Callable[[str], None] | None = None,
     ) -> str:
         """Explicit OS-owner action; never called by runtime admission.
 
         An interrupted first setup leaves a binding marker and fails closed.
         Only explicit revoke-all recovery can replace incomplete metadata.
-        Returns a private bootstrap proof (or recovery owner token), once.
+        Returns a private bootstrap proof or explicit native owner token, once.
         """
         self.owner()
         boundary = fault or (lambda _point: None)
@@ -222,9 +222,9 @@ class SecurityStore:
             actor = uuid4().hex
             self.add_actor(connection, actor, "owner", "Owner", [], [], None, None, None)
             self.add_credential(
-                connection, actor, "owner" if recover else "bootstrap", token,
+                connection, actor, "owner" if recover or owner_token else "bootstrap", token,
                 epoch,
-                expires=None if recover else time.time() + 300,
+                expires=None if recover or owner_token else time.time() + 300,
             )
             connection.commit()
         finally:

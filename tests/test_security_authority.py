@@ -10,6 +10,7 @@ from health_buddy.security_api import (
     AgentGrant, BearerProof, BootstrapProof, ProxyProof, SecurityRequest, SessionProof,
 )
 from health_buddy.security_runtime import open_runtime, read_credential, setup_security
+from health_buddy.cli import main
 from health_buddy.service_api import Principal, Request, ServiceError
 from tests.canonical_fixtures import decoded, intent
 from tests.security_fixtures import action, secured
@@ -170,10 +171,12 @@ def test_lost_metadata_never_reinitializes_and_explicit_recovery_revokes_all(tmp
     assert recovered.operations.execute(fresh.principal, Request("capabilities")).status == 200
 
 
-def test_raw_security_health_files_and_reprs_do_not_contain_delivered_tokens(tmp_path):
+def test_raw_security_context_cli_and_reprs_exclude_delivered_tokens(tmp_path, capsys):
     root = tmp_path / "owner"
     runtime, owner, token = secured(root)
-    agent = action(runtime, owner, "grants.create", payload=AgentGrant("Synthetic", ("records:read",)))
+    agent = action(runtime, owner, "grants.create", payload=AgentGrant(
+        "Synthetic", ("records:read",), read_sources=None, read_kinds=None, read_fields=None,
+    ))
     session = action(runtime, owner, "session.create")
     secrets = [token, agent.secret.value, session.cookie.value]
     for path in (root / "security/authority.sqlite", root / "operations/control.sqlite", root / "security/epoch.json"):
@@ -181,6 +184,18 @@ def test_raw_security_health_files_and_reprs_do_not_contain_delivered_tokens(tmp
         assert all(value.encode() not in raw for value in secrets)
     for value in secrets:
         assert value not in repr(agent) + repr(session) + repr(BearerProof(value))
+    principal = runtime.security.authenticate(BearerProof(agent.secret.value)).principal
+    context = runtime.operations.execute(principal, Request("context.read", query={"scopes": "all", "days": "7"}))
+    assert context.status == 200, context.body
+    assert all(value.encode() not in context.body for value in secrets)
+    token_file = root / "secrets/synthetic-agent"
+    token_file.write_text(agent.secret.value + "\n")
+    token_file.chmod(0o600)
+    action(runtime, owner, "grants.revoke", resource=agent.data["id"])
+    assert main(["--workspace", str(root), "--credential-file", str(token_file), "status"]) == 2
+    output = capsys.readouterr()
+    assert all(value not in output.out + output.err for value in secrets)
+    assert "Traceback" not in output.err
     with runtime.operations.backup(owner.principal) as inventory:
         assert {root / "security/authority.sqlite", root / "security/epoch.json", root / "operations/security-binding.json"} <= set(inventory.required_paths)
 
