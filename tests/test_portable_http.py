@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import http.client
 import json
 import threading
 from contextlib import contextmanager
+from http.client import HTTPConnection
 
 import pytest
 
@@ -28,7 +28,7 @@ def running(app):
 
 
 def request(http, method, path, body=None, headers=None):
-    connection = http.client.HTTPConnection("127.0.0.1", http.server_port, timeout=20)
+    connection = HTTPConnection("127.0.0.1", http.server_port, timeout=20)
     try:
         connection.request(method, path, body=body, headers=headers or {})
         response = connection.getresponse()
@@ -45,6 +45,7 @@ def test_empty_dashboard_context_save_and_restart(tmp_path):
         status, html, headers = request(http, "GET", "/")
         assert status == 200 and b"no records yet" in html
         assert headers["Cache-Control"] == "no-store"
+        assert request(http, "GET", "/icon.svg")[0] == 200
         assert request(http, "GET", "/api/context/pack?scopes=all")[0] == 200
         common = {
             "Origin": f"http://127.0.0.1:{http.server_port}",

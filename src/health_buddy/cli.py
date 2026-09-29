@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
         app = App(args.workspace)
         if args.command == "init":
             print(
-                "Private workspace ready. Optional integrations are controlled by config.json."
+                "Private workspace ready. "
+                "Optional integrations are controlled by config.json."
             )
         elif args.command == "render":
             output = app.config.storage("cache") / "index.html"
@@ -70,7 +71,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except (OSError, ValueError, RuntimeError):
         print(
-            "Health Buddy could not open or update this workspace. Review configuration and source status; existing records were preserved.",
+            "Health Buddy could not open or update this workspace. "
+            "Review configuration and source status; existing records were preserved.",
             file=sys.stderr,
         )
         return 2

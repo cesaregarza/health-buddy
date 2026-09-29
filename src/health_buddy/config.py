@@ -225,10 +225,11 @@ def validate(values: Any, root: Path) -> Config:
         valid_endpoint = (
             endpoint.scheme == "https"
             and endpoint.hostname
-            and not endpoint.username
+            and endpoint.username is None
+            and endpoint.password is None
             and not endpoint.fragment
         )
-        endpoint.port
+        _ = endpoint.port  # Parsing validates a present port without echoing it.
     except ValueError as exc:
         raise ConfigError("Jev endpoint must be a valid HTTPS URL") from exc
     if not valid_endpoint:
@@ -259,7 +260,9 @@ def load(root: Path) -> Config:
         if len(raw) > 100_000:
             raise ConfigError("Configuration is too large")
         values = json.loads(raw, object_pairs_hook=_pairs, parse_constant=_nonfinite)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+    except ConfigError:
+        raise
+    except (OSError, UnicodeError, ValueError) as exc:
         raise ConfigError(
             "Repair config.json; existing records were preserved"
         ) from exc

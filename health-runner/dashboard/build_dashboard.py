@@ -24,7 +24,7 @@ from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 HERE = Path(__file__).resolve().parent
 sys.path.append(str(HERE.parents[1] / "scripts"))
@@ -36,7 +36,12 @@ from strength_identity import (
 
 ORIGIN_GIT_DIR = os.environ.get("HEALTH_ORIGIN_GIT_DIR", "/nonexistent/health-buddy-unconfigured")
 HEALTHKIT_DB = os.environ.get("HEALTHKIT_DB", "/nonexistent/health-buddy-unconfigured")
-CT = ZoneInfo(os.environ.get("HEALTH_TIMEZONE", "UTC"))
+try:
+    CT = ZoneInfo(os.environ.get("HEALTH_TIMEZONE", "UTC"))
+except (ZoneInfoNotFoundError, ValueError):
+    # Portable reads supply a validated request-local zone. An obsolete legacy
+    # environment setting must not prevent importing these pure calculations.
+    CT = ZoneInfo("UTC")
 OUT_DIR = Path(os.environ.get("HEALTH_DASH_OUT", str(HERE / "design/preview")))
 OUT = OUT_DIR / "index.html"
 ASSETS = HERE / "assets"

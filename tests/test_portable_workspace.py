@@ -110,6 +110,13 @@ def test_unknown_duplicate_and_bad_endpoint_config(tmp_path):
     (tmp_path / "config.json").write_text('{"schemaVersion":1,"schemaVersion":1}')
     with pytest.raises(config.ConfigError, match="duplicate"):
         config.load(tmp_path)
+    (tmp_path / "config.json").write_text('{"number":' + "1" * 5000 + "}")
+    with pytest.raises(config.ConfigError, match="Repair config.json"):
+        config.load(tmp_path)
+    values = config.defaults()
+    values["integrations"]["jev"]["endpoint"] = "https://:example@example.invalid"
+    with pytest.raises(config.ConfigError, match="without embedded"):
+        config.validate(values, tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -257,6 +264,9 @@ def test_records_timezone_equipment_goals_and_restart(tmp_path):
     app.store.workout(workout("2020-01-01"), as_of=datetime(2020, 1, 2).date())
     data = app.snapshot()
     assert data["weight"][0]["d"] == "2020-01-01"
+    assert data["weight"][0]["lb"] == 150
+    assert data["progress"]["weight"] is None
+    assert "at least two distinct" in data["progress"]["weight_error"]
     assert data["meta"]["tz"] == "America/Los_Angeles"
     assert data["config"]["goals"][0]["unit"] == "kg"
     assert "Example station" in app.html() and "weight above 75 kg" in app.context()
@@ -359,9 +369,9 @@ def test_healthkit_empty_auth_unknown_and_read_only(tmp_path):
     real_connect = sqlite3.connect
     calls = []
 
-    def read_only_connect(uri, **options):
-        calls.append((uri, options))
-        return real_connect(uri, **options)
+    def read_only_connect(database, **options):
+        calls.append((database, options))
+        return real_connect(database, **options)
 
     with patch("sqlite3.connect", side_effect=read_only_connect):
         data = app.snapshot()
@@ -424,6 +434,153 @@ def test_program_only_from_explicit_owner_file(tmp_path):
         == "synthetic-program"
     )
     assert not data["config"]["integrations"]["jev"]["enabled"]
+
+
+def test_malformed_optional_fields_preserve_real_manual_projection(tmp_path):
+    root = tmp_path / "owner"
+    App(root)
+    app = configure(
+        root, lambda values: values["integrations"]["healthkit"].update(enabled=True)
+    )
+    app.log_record(
+        "measurement",
+        ["--measured-at-local", "2020-01-01T08:00:00", "--weight-lb", "150"],
+    )
+    revision = app.store.revision()
+    path = app.config.storage("healthkit")
+    with sqlite3.connect(path) as connection:
+        connection.execute("CREATE TABLE batches(received_at TEXT)")
+        connection.execute("""CREATE TABLE records(start_at TEXT, end_at TEXT,
+            local_date TEXT, value_json TEXT, deleted_at TEXT, type_identifier TEXT,
+            record_kind TEXT, unit TEXT, received_at TEXT, workout_json TEXT, source_json TEXT)""")
+    bad_workouts = [
+        {"uuid": ["synthetic-id"], "activityType": "37"},
+        {"id": {}},
+        {"workoutUUID": 42},
+        {"activityType": []},
+        {"activityType": {}},
+        {"activityType": 10**400},
+        {"totalEnergyValue": []},
+        {"totalEnergyValue": -1},
+        {"totalEnergyValue": float("inf")},
+    ]
+    cases = [
+        (
+            "workout",
+            "HKWorkoutTypeIdentifier",
+            json.dumps(item),
+            None,
+            "2020-01-01T12:00:00Z",
+            "2020-01-01T13:00:00Z",
+            None,
+            None,
+        )
+        for item in bad_workouts
+    ]
+    cases += [
+        (
+            "category",
+            "HKCategoryTypeIdentifierSleepAnalysis",
+            None,
+            '{"name":42}',
+            "2020-01-01T00:00:00Z",
+            "2020-01-01T07:00:00Z",
+            None,
+            '"asleep"',
+        ),
+        (
+            "workout",
+            "HKWorkoutTypeIdentifier",
+            "{}",
+            None,
+            "2020-01-01T12:00:00",
+            "2020-01-01T13:00:00Z",
+            None,
+            None,
+        ),
+        (
+            "workout",
+            "HKWorkoutTypeIdentifier",
+            "{}",
+            None,
+            "2020-01-01T13:00:00Z",
+            "2020-01-01T12:00:00Z",
+            None,
+            None,
+        ),
+        (
+            "quantity",
+            "HKQuantityTypeIdentifierStepCount",
+            None,
+            None,
+            "2020-01-01T12:00:00Z",
+            "2020-01-01T13:00:00Z",
+            "bad-date",
+            "5",
+        ),
+        (
+            "quantity",
+            "HKQuantityTypeIdentifierBodyMass",
+            None,
+            None,
+            "2020-01-01T12:00:00Z",
+            "2020-01-01T13:00:00Z",
+            None,
+            "0",
+        ),
+        (
+            "quantity",
+            "HKQuantityTypeIdentifierBodyMass",
+            None,
+            None,
+            "2020-01-01T12:00:00Z",
+            "2020-01-01T13:00:00Z",
+            None,
+            "-1",
+        ),
+        (
+            "quantity", "HKQuantityTypeIdentifierBodyMass", None, None,
+            "2020-01-01T12:00:00Z", "2020-01-01T13:00:00Z", None, "0.0001",
+        ),
+    ]
+    for kind, identifier, workout_json, source, start, end, local_date, value in cases:
+        with sqlite3.connect(path) as connection:
+            connection.execute("DELETE FROM records")
+            connection.execute(
+                "INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    start,
+                    end,
+                    local_date,
+                    value,
+                    None,
+                    identifier,
+                    kind,
+                    None,
+                    "2020-01-01T13:00:00Z",
+                    workout_json,
+                    source,
+                ),
+            )
+        data = app.snapshot()
+        assert data["sources"]["healthkit"]["missingness"] == "source_error"
+        assert data["weight"] == [{"d": "2020-01-01", "lb": 150, "src": "log"}]
+        assert app.store.revision() == revision
+        assert "150.0" in app.context("weight", days=0)
+        assert "source_error" in app.html()
+
+
+def test_two_measurements_support_neutral_trend_without_treatment(tmp_path):
+    app = App(tmp_path / "owner")
+    for day, weight in [("2020-01-01", "150"), ("2020-01-02", "151")]:
+        app.log_record(
+            "measurement",
+            ["--measured-at-local", day + "T08:00:00", "--weight-lb", weight],
+        )
+    data = app.snapshot()
+    assert data["progress"]["weight"]["treatment"] is None
+    assert data["progress"]["weight"]["estimated_treatment_start"] is None
+    assert data["progress"]["weight_error"] is None
 
 
 def test_bad_present_manual_csv_is_not_reported_empty(tmp_path):

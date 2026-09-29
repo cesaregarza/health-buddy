@@ -63,16 +63,22 @@ def git(
         "protocol.allow=never",
         *args,
     ]
-    result = subprocess.run(
-        command,
-        input=data,
-        text=True,
-        capture_output=True,
-        env=env,
-        cwd=repo.parent,
-        timeout=30,
-        check=False,
-    )
+    try:
+        # Internal plumbing arguments only, no shell, clean environment.
+        result = subprocess.run(  # noqa: S603
+            command,
+            input=data,
+            text=True,
+            capture_output=True,
+            env=env,
+            cwd=repo.parent,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise StoreError(
+            "Local Git is unavailable or timed out; records preserved"
+        ) from exc
     if result.returncode:
         raise StoreError("Local store operation failed; existing records are preserved")
     return result.stdout
@@ -128,9 +134,10 @@ class Store:
                 raise StoreError(
                     "Manual store config changed; review it before opening"
                 )
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise StoreError(
-                "Manual store is incomplete; preserve it and restore from backup or choose a new empty storage path"
+                "Manual store is incomplete; preserve it and restore from backup "
+                "or choose a new empty storage path"
             ) from exc
 
     @contextmanager
@@ -247,7 +254,7 @@ class Store:
                 return {}
             return {
                 "data/sessions.csv": csv_text(
-                    validator.SESSION_FIELDS, sessions + [session]
+                    validator.SESSION_FIELDS, [*sessions, session]
                 ),
                 "data/sets.csv": csv_text(validator.SET_FIELDS, existing_sets + sets),
             }

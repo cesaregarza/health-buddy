@@ -34,7 +34,7 @@ class App:
         data = self.snapshot()
         context = legacy.module("context_pack")
         selected = {scope.id for scope in context.resolve_scopes(scopes.split(","))}
-        pack = context.build_pack(data, sorted(selected), days, ask)
+        pack = cast(str, context.build_pack(data, sorted(selected), days, ask))
         lines = [
             "",
             "## Workspace settings",
@@ -42,17 +42,20 @@ class App:
             f"Display name: {self.config.display_name}",
         ]
         lines += [
-            f"- Owner goal: {g['label']}: weight {g['direction']} {g['target']} {g['unit']} (owner input, not clinical advice)."
+            f"- Owner goal: {g['label']}: weight {g['direction']} "
+            f"{g['target']} {g['unit']} (owner input, not clinical advice)."
             for g in self.config.values["goals"]
             if selected & {"profile", "weight"}
         ]
         lines += [
-            f"- Equipment: {e['id']} ({e['label']}), exercise {e['exercise']}, load basis {e['loadBasis']}."
+            f"- Equipment: {e['id']} ({e['label']}), exercise {e['exercise']}, "
+            f"load basis {e['loadBasis']}."
             for e in self.config.values["equipment"]
             if "training" in selected
         ]
         lines += [
-            f"- {name}: {state['availability']}; {state['freshness']}; {state['missingness']}."
+            f"- {name}: {state['availability']}; {state['freshness']}; "
+            f"{state['missingness']}."
             for name, state in data["sources"].items()
         ]
         return pack + "\n".join(lines) + "\n"

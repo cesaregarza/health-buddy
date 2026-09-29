@@ -6,7 +6,7 @@ import json
 import math
 import sqlite3
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -103,9 +103,7 @@ def optional_sources(
                 # Preserve both source traces; manual check-ins retain precedence.
                 health["sleep"] = health["sleep"] + sleep
                 health["sleep_sources"] = health["sleep_sources"] + sleep
-                stamp = datetime.fromtimestamp(
-                    path.stat().st_mtime, timezone.utc
-                ).isoformat()
+                stamp = datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat()
                 states[name] = source_state(
                     "available" if records else "empty",
                     "none" if records else "no_records",
@@ -151,9 +149,15 @@ class Reader:
 
 def _weight_summary(
     weights: list[dict[str, Any]], config: Config, now: datetime
-) -> dict[str, Any] | None:
+) -> tuple[dict[str, Any] | None, str | None]:
     if not weights:
-        return None
+        return None, "No weight measurements recorded yet."
+    if any(not math.isfinite(point["lb"]) or point["lb"] <= 0 for point in weights):
+        raise StoreError(
+            "Weight records need review; values must be positive and finite"
+        )
+    if len(weights) < 2:
+        return None, "Trend unavailable: record at least two distinct measurement days."
     with tempfile.TemporaryDirectory(
         prefix="weight-", dir=config.storage("cache")
     ) as folder:
@@ -186,12 +190,16 @@ def _weight_summary(
             "notes",
         ]
         (root / "data/goals.csv").write_text(csv_text(goal_fields, []))
-        return cast(
-            dict[str, Any],
-            legacy.module("progress_summary").build_summary(
-                root, medication="", as_of=now.date()
-            ),
-        )
+        model = legacy.module("progress_summary")
+        try:
+            summary = model.build_summary(root, medication="", as_of=now.date())
+        except model.DataError:
+            # The generated model inputs above are validated observations and
+            # empty medication/goals. Sparse recent dates cannot support a fit.
+            return None, (
+                "Trend unavailable: need two observed days in its recent window."
+            )
+        return cast(dict[str, Any], summary), None
 
 
 def live_prescription(
@@ -241,7 +249,7 @@ def live_prescription(
 def project(
     config: Config, store: Store, *, now: datetime | None = None
 ) -> dict[str, Any]:
-    now = (now or datetime.now(timezone.utc)).astimezone(config.zone)
+    now = (now or datetime.now(UTC)).astimezone(config.zone)
     revision, files = store.snapshot()
     reader = Reader(files, config)
     build = legacy.module("build_dashboard")
@@ -259,6 +267,7 @@ def project(
     with build.read_context(reader, config.zone):
         try:
             weight, weight7 = build.weight_series(health["bodymass"])
+            weight_summary, weight_reason = _weight_summary(weight, config, now)
             bp = build.bp_series()
             sleep = build.sleep_series(health["sleep"])
             training = build.training_daily(health["workouts"])
@@ -299,7 +308,7 @@ def project(
                     "origin_full_sha": revision,
                     "origin_sha": revision[:7],
                     "origin_committed": stamp,
-                    "built_at": now.astimezone(timezone.utc).isoformat(),
+                    "built_at": now.astimezone(UTC).isoformat(),
                     "built_at_ct": now.strftime("%Y-%m-%d %H:%M %Z"),
                     "tz": config.zone.key,
                     "healthkit_last_batch": health["last_batch"],
@@ -315,7 +324,10 @@ def project(
                         {
                             "value": goal["target"]
                             * (2.2046226218 if goal["unit"] == "kg" else 1),
-                            "label": f"{goal['label']}: {goal['direction']} {goal['target']} {goal['unit']}",
+                            "label": (
+                                f"{goal['label']}: {goal['direction']} "
+                                f"{goal['target']} {goal['unit']}"
+                            ),
                         }
                         for goal in config.values["goals"]
                     ]
@@ -337,8 +349,8 @@ def project(
                 "workouts": health["workouts"],
                 "labs": build.labs_data([]),
                 "progress": {
-                    "weight": _weight_summary(weight, config, now),
-                    "weight_error": None,
+                    "weight": weight_summary,
+                    "weight_error": weight_reason,
                     "strength": build.strength_progress(
                         equipment_aliases=config.equipment_aliases()
                     ),

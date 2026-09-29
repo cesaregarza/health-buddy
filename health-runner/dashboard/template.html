@@ -897,9 +897,15 @@ function renderProgressTiles() {
   const est = W.estimated_treatment_start, cur = W.weight.current_7_day;
   const lost = Number.isFinite(est?.estimated_weight_lb) && Number.isFinite(cur?.average_weight_lb) ? est.estimated_weight_lb - cur.average_weight_lb : null;
   const hero = $('div', {class:'journey-hero'}, host);
-  $('div', {class:'meta',text:'Since inferred treatment start'}, hero);
-  $('div', {class:'value',text:lost == null ? 'Change unavailable' : `${fmtN(Math.abs(lost),1)} lb ${lost >= 0 ? 'down' : 'up'}`}, hero);
-  $('div', {class:'meta',text:`${fmtN(est?.estimated_weight_lb,1)} lb inferred start (${fmtD(est?.date)}) → ${fmtN(cur?.average_weight_lb,1)} lb current 7-day average${lost == null ? '' : ` · ${fmtN(Math.abs(lost / est.estimated_weight_lb * 100),1)}% change`}`}, hero);
+  if (Number.isFinite(est?.estimated_weight_lb)) {
+    $('div', {class:'meta',text:'Since inferred treatment start'}, hero);
+    $('div', {class:'value',text:lost == null ? 'Change unavailable' : `${fmtN(Math.abs(lost),1)} lb ${lost >= 0 ? 'down' : 'up'}`}, hero);
+    $('div', {class:'meta',text:`${fmtN(est.estimated_weight_lb,1)} lb inferred start (${fmtD(est.date)}) → ${fmtN(cur?.average_weight_lb,1)} lb current 7-day average${lost == null ? '' : ` · ${fmtN(Math.abs(lost / est.estimated_weight_lb * 100),1)}% change`}`}, hero);
+  } else {
+    $('div', {class:'meta',text:'Recorded weight trend'}, hero);
+    $('div', {class:'value',text:`${fmtN(cur?.average_weight_lb,1)} lb`}, hero);
+    $('div', {class:'meta',text:`Current 7-day average · ${cur?.days_observed || 0} observed days. No treatment baseline selected.`}, hero);
+  }
   const fw = W.weight.forward_30_day || {};
   $('div', {class:'meta',text:`${fmtN(fw.robust_loss_rate_lb_per_week,1)} lb/wk · latest 30-day robust pace · scenarios, not a quota`}, hero);
   const goals = $('div', {class:'goal-grid'}, hero);

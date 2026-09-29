@@ -7,8 +7,8 @@ import math
 import stat
 import urllib.error
 import urllib.request
-from http.client import HTTPMessage, HTTPResponse
-from typing import Any, cast
+from http.client import HTTPMessage
+from typing import IO, Any, cast
 
 from . import legacy
 from .config import Config
@@ -22,7 +22,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(
         self,
         req: urllib.request.Request,
-        fp: HTTPResponse,
+        fp: IO[bytes],
         code: int,
         msg: str,
         headers: HTTPMessage,
@@ -51,7 +51,8 @@ class Jev:
             key = path.read_text().strip()
             if not key or any(ord(char) < 33 for char in key):
                 raise ProviderUnavailable("Jev key file is empty or malformed")
-            request = urllib.request.Request(
+            # Config validates HTTPS; the opener below disallows redirects.
+            request = urllib.request.Request(  # noqa: S310
                 options["endpoint"],
                 data=json.dumps(
                     {**payload, "model": options["model"]}, allow_nan=False
@@ -104,7 +105,8 @@ class Jev:
             else:
                 probability = answer.get("noul")
                 if (
-                    type(probability) not in (float, int)
+                    not isinstance(probability, (float, int))
+                    or isinstance(probability, bool)
                     or not 0 <= probability <= 1
                     or not math.isfinite(probability)
                 ):

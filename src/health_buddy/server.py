@@ -97,9 +97,7 @@ def server(app: App, port: int = 8791) -> HTTPServer:
                 elif query.path == "/api/training/fast":
                     self.send(200, app.fast(parameters, write=False))
                 elif query.path in (
-                    "/favicon.svg",
-                    "/icon-192.svg",
-                    "/icon-512.svg",
+                    "/icon.svg",
                     "/manifest.webmanifest",
                 ):
                     path = legacy.DASHBOARD / "assets" / query.path.lstrip("/")
@@ -115,9 +113,7 @@ def server(app: App, port: int = 8791) -> HTTPServer:
             except Exception:
                 self.send(
                     503,
-                    {
-                        "error": "The view is unavailable; existing records were preserved"
-                    },
+                    {"error": "View unavailable; existing records were preserved"},
                 )
 
         def do_POST(self) -> None:
@@ -157,9 +153,7 @@ def server(app: App, port: int = 8791) -> HTTPServer:
             except ProviderUnavailable:
                 self.send(
                     503,
-                    {
-                        "error": "Jev is unavailable; manual context and logging remain available"
-                    },
+                    {"error": "Jev unavailable; manual context and logging work"},
                 )
             except (ValueError, UnicodeError):
                 self.send(
