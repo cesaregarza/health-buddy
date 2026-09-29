@@ -34,7 +34,7 @@ unconfigured.
 | Target | 4 KiB path/query; no encoded paths, traversal aliases or slash redirects |
 | Body | 64 KiB ordinary writes; 256 KiB plans; 4 MiB HealthKit, both compressed and expanded |
 | Receive | 10 seconds total from parsed headers, no reset for each chunk |
-| JSON | UTF-8 object; depth 32 and 20,000 nodes; duplicate keys, nonfinite values and lone surrogates rejected |
+| JSON | UTF-8 object; depth 32; 20,000 nodes ordinarily, 40,000 for HealthKit; duplicate keys, nonfinite values and lone surrogates rejected |
 | Response | 4 MiB before emission; context responses 128 KiB; no truncation or response compression |
 | Execution | 20-second service deadline; 10-second total send deadline; 25-second drain before supervisor's 30-second shutdown bound |
 
@@ -44,6 +44,9 @@ positive bounded Content-Length for writes, and accepts JSON only. HealthKit
 alone accepts exactly one complete gzip member with no trailing data. Query
 keys are explicitly listed per route; fields/source/time bounds then go to core.
 Dashboard `export=1` and Fast `date`/`revision` reads are preserved.
+HealthKit's separate node budget accommodates all 500 records and 500 deletions
+permitted by retained protocol v1, including all source/device/workout fields,
+while preserving the same depth and compressed/expanded byte limits.
 
 Core Response bytes/status/receipt headers pass unchanged. The adapter adds
 no-store/nosniff/no-referrer/frame-ancestors and bounded connection framing.

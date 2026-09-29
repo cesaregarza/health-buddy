@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import socket
@@ -39,13 +40,17 @@ def request(http, method, path, body=None, headers=None, timeout=15):
     try:
         connection.request(method, path, body=body, headers=values)
         response = connection.getresponse()
-        return response.status, response.read(), {key.lower(): value for key, value in response.getheaders()}
+        return (
+            response.status,
+            response.read(),
+            {key.lower(): value for key, value in response.getheaders()},
+        )
     finally:
         connection.close()
 
 
 @contextmanager
-def running(folder, *, workspace=None, development=True):
+def running(folder, *, workspace=None, development=True, fail_startup=False):
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
@@ -56,18 +61,34 @@ def running(folder, *, workspace=None, development=True):
         args += ["--evidence", str(folder / "factory.json")]
     if development:
         args += ["--development"]
-    environment = dict(os.environ, PYTHONPATH=str(ROOT / "src") + os.pathsep + str(ROOT), PYTHONUNBUFFERED="1")
+    if fail_startup:
+        args += ["--fail-startup"]
+    environment = dict(
+        os.environ,
+        PYTHONPATH=str(ROOT / "src") + os.pathsep + str(ROOT),
+        PYTHONUNBUFFERED="1",
+    )
     with (folder / "server.log").open("wb") as log:
         process = subprocess.Popen(
-            args, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
-            stdout=log, stderr=log, start_new_session=True,
+            args,
+            cwd=ROOT,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
         )
         http = RunningServer(port, process.pid)
         try:
+            (folder / "supervisor.json").write_text(
+                json.dumps({"supervisorPid": process.pid})
+            )
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
                 if process.poll() is not None:
-                    raise AssertionError("Production launcher exited; inspect synthetic server.log")
+                    raise AssertionError(
+                        "Production launcher exited; inspect synthetic server.log"
+                    )
                 try:
                     if request(http, "GET", "/livez", timeout=0.3)[0] == 200:
                         break
@@ -75,7 +96,9 @@ def running(folder, *, workspace=None, development=True):
                     pass
                 time.sleep(0.05)
             else:
-                raise AssertionError("Production launcher readiness exceeded 15 seconds")
+                raise AssertionError(
+                    "Production launcher readiness exceeded 15 seconds"
+                )
             yield http
         finally:
             # The fixture owns only this new process group, including Granian's

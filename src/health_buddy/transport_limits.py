@@ -24,6 +24,7 @@ class Limits:
     healthkit_body: int = 4 * 1024 * 1024
     json_depth: int = 32
     json_nodes: int = 20_000
+    healthkit_json_nodes: int = 40_000
     response_bytes: int = 4 * 1024 * 1024
     context_bytes: int = 128 * 1024
     active_requests: int = 8
@@ -39,10 +40,22 @@ DEFAULT_LIMITS = Limits()
 _HEADER_NAME = re.compile(rb"[!#$%&'*+.^_`|~0-9a-z-]+")
 _SINGLETONS = frozenset(
     {
-        "host", "origin", "authorization", "cookie", "content-length",
-        "content-type", "content-encoding", "transfer-encoding", "expect",
-        "x-installation-id", "x-dataset-id", "x-restore-epoch",
-        "x-health-device-id", "idempotency-key", "if-match", "x-api-version",
+        "host",
+        "origin",
+        "authorization",
+        "cookie",
+        "content-length",
+        "content-type",
+        "content-encoding",
+        "transfer-encoding",
+        "expect",
+        "x-installation-id",
+        "x-dataset-id",
+        "x-restore-epoch",
+        "x-health-device-id",
+        "idempotency-key",
+        "if-match",
+        "x-api-version",
         "sec-fetch-site",
     }
 )
@@ -63,7 +76,9 @@ def headers(raw: list[tuple[bytes, bytes]], limits: Limits) -> dict[str, str]:
     output: dict[str, str] = {}
     for key, value in raw:
         key = key.lower()
-        if not _HEADER_NAME.fullmatch(key) or any(byte < 32 or byte == 127 for byte in value):
+        if not _HEADER_NAME.fullmatch(key) or any(
+            byte < 32 or byte == 127 for byte in value
+        ):
             raise EnvelopeError(400, "invalid_headers")
         if len(value) > limits.header_value:
             raise EnvelopeError(431, "headers_too_large")
@@ -83,8 +98,12 @@ def headers(raw: list[tuple[bytes, bytes]], limits: Limits) -> dict[str, str]:
 def query(raw: bytes, allowed: frozenset[str]) -> dict[str, str]:
     try:
         pairs = parse_qsl(
-            raw.decode("ascii"), keep_blank_values=True, strict_parsing=True,
-            encoding="utf-8", errors="strict", max_num_fields=32,
+            raw.decode("ascii"),
+            keep_blank_values=True,
+            strict_parsing=True,
+            encoding="utf-8",
+            errors="strict",
+            max_num_fields=32,
         )
     except (UnicodeError, ValueError) as exc:
         raise EnvelopeError(422, "invalid_query") from exc
@@ -134,10 +153,14 @@ def _constant(_value: str) -> JSON:
     raise EnvelopeError(422, "invalid_number")
 
 
-def json_object(raw: bytes, limits: Limits) -> dict[str, JSON]:
+def json_object(
+    raw: bytes, limits: Limits, *, healthkit: bool = False
+) -> dict[str, JSON]:
     try:
         value = json.loads(
-            raw.decode("utf-8"), object_pairs_hook=_object, parse_constant=_constant,
+            raw.decode("utf-8"),
+            object_pairs_hook=_object,
+            parse_constant=_constant,
         )
     except (UnicodeError, ValueError, RecursionError) as exc:
         if isinstance(exc, EnvelopeError):
@@ -145,12 +168,13 @@ def json_object(raw: bytes, limits: Limits) -> dict[str, JSON]:
         raise EnvelopeError(422, "invalid_json") from exc
     if not isinstance(value, dict):
         raise EnvelopeError(422, "invalid_request")
-    pending = [(value, 1)]
+    pending: list[tuple[object, int]] = [(value, 1)]
     nodes = 0
+    maximum_nodes = limits.healthkit_json_nodes if healthkit else limits.json_nodes
     while pending:
         item, depth = pending.pop()
         nodes += 1
-        if nodes > limits.json_nodes or depth > limits.json_depth:
+        if nodes > maximum_nodes or depth > limits.json_depth:
             raise EnvelopeError(422, "json_too_complex")
         if isinstance(item, float) and not math.isfinite(item):
             raise EnvelopeError(422, "invalid_number")

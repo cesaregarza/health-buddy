@@ -38,14 +38,16 @@ class Jobs:
 
         async def invoke() -> T:
             return await anyio.to_thread.run_sync(
-                function, abandon_on_cancel=False, limiter=self.threads,
+                function,
+                abandon_on_cancel=False,
+                limiter=self.threads,
             )
 
         task = asyncio.create_task(invoke())
-        self.running.add(task)  # type: ignore[arg-type]
+        self.running.add(task)
 
         def finished(done: asyncio.Task[T]) -> None:
-            self.running.discard(done)  # type: ignore[arg-type]
+            self.running.discard(done)
             self.slots.release()
             # Retrieve a late failure even when its HTTP waiter has gone. Never
             # log arbitrary exception values, which may include private input.
@@ -55,7 +57,8 @@ class Jobs:
         task.add_done_callback(finished)
         try:
             return await asyncio.wait_for(
-                asyncio.shield(task), max(0.001, deadline - time.monotonic()),
+                asyncio.shield(task),
+                max(0.001, deadline - time.monotonic()),
             )
         except TimeoutError as exc:
             # The callable still owns its slot. Core's deadline decides whether
