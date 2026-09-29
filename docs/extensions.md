@@ -1,8 +1,9 @@
 # Durable personal workspace and extension API 1
 
-This contract is implemented by CES-1085; scaffolds, discovery and contract
-tests are CES-1086. Paths and commands below are target interfaces, not working
-commands in this contract-only repository.
+Durable extension lifecycle and activation are implemented by CES-1085;
+scaffolds and agent discovery are CES-1086. Their paths and commands below are
+target interfaces. The scoped canonical operation examples described at the end
+of this document are implemented in `src/health_buddy/extensions.py`.
 
 ## Ownership and discovery
 

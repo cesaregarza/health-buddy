@@ -199,7 +199,7 @@ class Store:
             legacy_intake = [field for field in fields if field != "sodium_mg"]
             if (
                 name == "data/intake.csv"
-                and files[name].splitlines()[0].split(",") == legacy_intake
+                and files[name].splitlines()[:1] == [",".join(legacy_intake)]
             ):
                 parse_csv(files[name], legacy_intake)
             else:

@@ -31,7 +31,8 @@ EXERCISE = set(
 PROGRESSION = set(
     (
         "exercise_id equipment_id load_basis baseline_load sets rep_min rep_max "
-        "baseline_reps next_load fallback_load backoff_sets backoff_rep_min backoff_rep_max"
+        "baseline_reps next_load fallback_load backoff_sets "
+        "backoff_rep_min backoff_rep_max"
     ).split()
 )
 POLICY = set(

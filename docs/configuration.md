@@ -12,7 +12,7 @@ python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" init
 python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development serve
 ```
 
-Open the printed `http://127.0.0.1:8791` address. This is a **local development
+Open `http://127.0.0.1:8791`. This is a **local development
 entrypoint**, without production authentication. It binds only loopback, checks
 the exact Host and same-origin mutation requests, and denies cross-origin
 preflight. Do not expose it through a proxy, tunnel or public interface. The
@@ -139,7 +139,7 @@ Jev is disabled by default. Setting `enabled:false` prevents secret lookup,
 network access and CLI credential fallback even when ambient credentials exist.
 To opt in, place the provider key in the configured private mode-0600 file under
 `secrets/` and set `enabled:true`. Provider calls happen only after an explicit
-UI action, use the configured endpoint/model, have a bounded timeout/response,
+request or UI action, use the configured endpoint/model, have a bounded timeout/response,
 and reject redirects. No ambient proxy or agent CLI is consulted. Failure leaves
 manual section selection and original workout available; incomplete provider
 answers never become invented confidence percentages.

@@ -12,7 +12,7 @@ from health_buddy import legacy
 from health_buddy.extensions import ScopedClient, latest_body_mass, water_connector
 from health_buddy.legacy_store import Store, csv_text
 from health_buddy.operations import Service
-from health_buddy.service_api import Principal, Request
+from health_buddy.service_api import Principal, Request, ServiceError
 from health_buddy.workspace import initialize
 from tests.canonical_fixtures import RegisteredPolicy, decoded, intent, metadata, setup
 
@@ -88,6 +88,18 @@ def test_metric_connector_share_data_revision_and_cannot_override_source(tmp_pat
         and metric.missingness is None
     )
     assert metric.data_revision == decoded(weight)["meta"]["dataRevision"]
+    dashboard = decoded(
+        service.execute(owner, Request("dashboard.read", query={"format": "json"}))
+    )
+    body_mass = [
+        row for row in dashboard["data"]["observations"] if row["kind"] == "body-mass"
+    ]
+    assert len(body_mass) == 1
+    assert body_mass[0]["id"] == "synthetic-weight"
+    assert body_mass[0]["value"] == metric.value
+    assert body_mass[0]["unit"] == metric.unit
+    assert body_mass[0]["sourceId"] == metric.source_ids[0]
+    assert dashboard["meta"]["dataRevision"] == metric.data_revision
     unknown = latest_body_mass(
         client,
         source_id="manual",
@@ -159,6 +171,16 @@ def test_extension_field_scope_applies_to_reads_and_metric(tmp_path):
     )
     data = ScopedClient(service, handle).records(sourceIds="manual")["data"]
     assert data["records"] == [{"id": "synthetic-weight", "value": 80}]
+    now = datetime.now(UTC)
+    with pytest.raises(ServiceError) as failure:
+        latest_body_mass(
+            ScopedClient(service, handle),
+            source_id="manual",
+            from_time=(now - timedelta(days=1)).isoformat(),
+            to_time=(now + timedelta(days=1)).isoformat(),
+        )
+    assert failure.value.status == 403
+    assert failure.value.code == "insufficient_read_fields"
     assert service.journal.state().revision == 1
 
 

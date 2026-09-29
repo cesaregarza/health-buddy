@@ -27,7 +27,7 @@ ignored `health-runner/dashboard/design/preview/` directory. Open that local
 HTML only; it is not an installation, live health endpoint or release demo.
 No secret store, account sync or provider is consulted by the synthetic render.
 Browser suites require the optional `browser` extra and a queue-owned Chromium
-installation; run the four `check_*` scripts listed in `docs/verification.md`.
+installation; run the six `check_*` scripts listed in `docs/verification.md`.
 
 CI is present as an explicitly dispatched Linux verification workflow. Pushes
 and pull requests do not run it during the user's GitHub-minutes hold. The

@@ -135,9 +135,8 @@ def adopt(files: dict[str, str], received_at: str) -> dict[str, str]:
     changes = {}
     path = "data/intake.csv"
     fields = headers()[path]
-    if files[path].splitlines()[0].split(",") == [
-        field for field in fields if field != "sodium_mg"
-    ]:
+    legacy_header = ",".join(field for field in fields if field != "sodium_mg")
+    if files[path].splitlines()[:1] == [legacy_header]:
         rows = [
             {field: row.get(field, "") for field in fields}
             for row in parse_csv(files[path])

@@ -602,7 +602,11 @@ def read(
             authority.read_sources,
         )
         capture = snapshots.capture(
-            service, state, window=window, kinds=kinds, sources=sources,
+            service,
+            state,
+            window=window,
+            kinds=kinds,
+            sources=sources,
             deadline=request.deadline,
         )
         response = _render(service, authority, request, state, capture)

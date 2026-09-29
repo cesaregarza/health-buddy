@@ -140,7 +140,10 @@ def _raw_health(
         for kind in selected:
             check_deadline(deadline)
             page = service.health.records(
-                source_id=source_id, type_id=kind, from_at=from_at, to_at=to_at,
+                source_id=source_id,
+                type_id=kind,
+                from_at=from_at,
+                to_at=to_at,
                 deadline=deadline,
             )
             if len(page) > 500:

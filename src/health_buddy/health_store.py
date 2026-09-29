@@ -412,7 +412,7 @@ class HealthStore:
             parameters.append(limit)
             # Only fixed clauses above enter SQL; all caller values are parameters.
             query = (
-                "SELECT r.*, s.stream_id, s.observation_id, p.source_id "  # noqa: S608
+                "SELECT r.*, s.stream_id, s.observation_id, p.source_id "
                 "FROM canonical_records r JOIN stream_objects s "
                 "ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id "
                 "JOIN source_streams p ON p.stream_id=s.stream_id WHERE "

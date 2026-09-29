@@ -186,7 +186,8 @@ strings; missing or malformed values are rejected by core in the documented
 order. HealthKit keeps its body batch identity and success acknowledgement,
 including receiver identity response headers. Missing server-owned metadata is
 never filled from client JSON. Logger intent is `{sourceId, fields, replaceExisting?}`. `fields` uses the
-fixed camelCase names in `loggers.FIELDS` (for example measuredAtLocal,
+camelCase equivalents of the fixed snake_case names in `loggers.FIELDS`
+(for example measuredAtLocal,
 weightLb, timezone). Only intake/blood-pressure support replaceExisting.
 Completed-workout JSON retains its documented dashboard schema. Plans use
 camelCase schemaVersion2 fields while dynamic template/date IDs remain literal.

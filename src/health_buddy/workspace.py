@@ -17,11 +17,12 @@ Keep personal source, assets, tests, notes and state in personal/. Keep secrets
 in secrets/; never commit or publish this directory. Back up the complete root.
 config.json schemaVersion 1 controls the local development runtime.
 
-stores/manual.git is a transitional local CSV backend, not the v1 journal/API.
+stores/manual.git is the local CSV/JSON backend of the canonical operations API.
 It has no remote and does not inherit Git hooks, identity or signing settings.
-Use the health-buddy entrypoint to write records. Do not copy a private Git
-repository into it. Canonical operations/auth/restore qualification follow in
-CES-1066/1067/1072. This local preview must not be exposed on a network.
+Use the health-buddy entrypoint to write records; never edit this store directly
+or copy a private Git repository into it. The operations journal owns revisions
+and recoverable writes. Production auth and restore qualification follow in
+CES-1067/1072. This development service must not be exposed on a network.
 """
 
 
