@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import os
 import sys
 import tempfile
@@ -200,30 +199,13 @@ def log_intake(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    namespace = _parser().parse_args(argv)
     try:
-        row = _row(namespace)
-        status, migrated = log_intake(
-            namespace.data_file,
-            row,
-            replace_existing=namespace.replace_existing,
-        )
-    except (OSError, ValueError) as exc:
-        print(f"log_intake: error: {exc}", file=sys.stderr)
+        from health_buddy.legacy_entrypoints import delegate_logger
+    except ImportError:
+        print("Install Health Buddy and use an explicit --workspace; "
+              "loose-file logging is retired.", file=sys.stderr)
         return 2
-
-    print(
-        json.dumps(
-            {
-                "data_file": str(namespace.data_file.expanduser().resolve()),
-                "event_at_local": row["event_at_local"],
-                "header_migrated": migrated,
-                "status": status,
-            },
-            sort_keys=True,
-        )
-    )
-    return 0
+    return delegate_logger('intake', argv)
 
 
 if __name__ == "__main__":

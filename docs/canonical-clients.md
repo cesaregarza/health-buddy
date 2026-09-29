@@ -6,6 +6,19 @@ or the explicit global `--development` flag selects the local development
 owner policy. This is not production authentication or a remotely accessible
 mode. The HTTP launcher constructs its service inside its one serving process.
 
+The historical `scripts/log_*.py` command names now require `--workspace` and
+delegate to that same CLI; `log_workout.py` retains its start/set/cardio/finish
+subcommands. Explicit loose-file output flags are refused. Pure legacy row,
+CSV and calculation helpers remain available for format compatibility and
+isolated fixtures; they are not supported authoritative write entrypoints.
+
+The standalone context HTTP server and remote Git workout writer are retired.
+`health-ingest` retains only explicit-workspace delegation to the canonical
+server. Its old database migration, direct token issue/revoke and loose export
+commands refuse without touching a repository. Workspace device administration
+requires the authorization/pairing implementation; the development owner policy
+does not implicitly become a phone upload credential.
+
 For a private owner workspace outside the release checkout:
 
 ```text

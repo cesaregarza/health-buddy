@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import sys
 from collections.abc import Sequence
 from datetime import datetime
@@ -132,25 +131,13 @@ def append_measurement(path: Path, row: dict[str, str]) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    namespace = _parser().parse_args(argv)
     try:
-        row = _row(namespace)
-        status = append_measurement(namespace.data_file, row)
-    except (OSError, ValueError) as exc:
-        print(f"log_measurement: error: {exc}", file=sys.stderr)
+        from health_buddy.legacy_entrypoints import delegate_logger
+    except ImportError:
+        print("Install Health Buddy and use an explicit --workspace; "
+              "loose-file logging is retired.", file=sys.stderr)
         return 2
-
-    print(
-        json.dumps(
-            {
-                "data_file": str(namespace.data_file.expanduser().resolve()),
-                "measured_at_local": row["measured_at_local"],
-                "status": status,
-            },
-            sort_keys=True,
-        )
-    )
-    return 0
+    return delegate_logger('measurement', argv)
 
 
 if __name__ == "__main__":

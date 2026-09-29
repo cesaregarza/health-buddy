@@ -1,16 +1,9 @@
-"""Jev question construction, the deterministic decision policy, and the HTTP wiring; no network."""
-import json
-import tempfile
-import threading
+"""Pure context question/decision regressions; legacy server refuses startup."""
 import unittest
-import urllib.error
-import urllib.request
-from http.server import ThreadingHTTPServer
-from pathlib import Path
+from unittest.mock import patch
 
 import context_pack as cp
 import context_service as svc
-from dashboard_fixture import snapshot
 
 
 class JevQuestionTests(unittest.TestCase):
@@ -65,75 +58,15 @@ class DecideTests(unittest.TestCase):
                 self.assertEqual(svc.decide(answers({"bp": 0.9}, window=choice))["days"], days)
 
 
-class RouteTests(unittest.TestCase):
-    def test_api_prefix_is_optional(self):
-        h = svc.Handler.__new__(svc.Handler)
-        h.path = "/api/context/pack?scopes=bp&days=14"
-        self.assertEqual(h._route(), ("/context/pack", {"scopes": "bp", "days": "14"}))
-        h.path = "/context/scopes"
-        self.assertEqual(h._route(), ("/context/scopes", {}))
+
+class RetiredContextTests(unittest.TestCase):
+    def test_old_preview_cannot_open_http_or_read_html(self):
+        with patch('socket.socket', side_effect=AssertionError('No socket')), patch('builtins.open', side_effect=AssertionError('No file')):
+            self.assertEqual(svc.main(['--serve-html', '/not-read/synthetic.html']), 2)
+        self.assertFalse(hasattr(svc, 'Handler'))
+        self.assertFalse(hasattr(svc, 'ask_jev'))
+        self.assertFalse(hasattr(svc, 'ask_training_jev'))
 
 
-class HttpTests(unittest.TestCase):
-    """Real loopback server over fixture data written as a fake served page."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory()
-        page = Path(cls.tmp.name) / "index.html"
-        page.write_text("<script>const DATA = " + json.dumps(snapshot()) + ";</script>")
-        cls.saved = (cp.HTML, dict(svc._DATA), dict(svc._KEY))
-        cp.HTML = page
-        svc._DATA.update(mtime=None, data=None)
-        svc._KEY.update(value=None, checked=float("inf"))  # never consult the secret store in tests
-        cls.env_key = svc.os.environ.pop("TYPESAFE_API_KEY", None)
-        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), svc.Handler)
-        cls.base = f"http://127.0.0.1:{cls.srv.server_address[1]}"
-        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.srv.shutdown()
-        cls.srv.server_close()
-        cp.HTML, saved_data, saved_key = cls.saved
-        svc._DATA.update(saved_data)
-        svc._KEY.update(saved_key)
-        if cls.env_key is not None:
-            svc.os.environ["TYPESAFE_API_KEY"] = cls.env_key
-        cls.tmp.cleanup()
-
-    def call(self, path, body=None):
-        req = urllib.request.Request(self.base + path, data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"content-type": "application/json"} if body is not None else {})
-        try:
-            with urllib.request.urlopen(req, timeout=5) as r:
-                return r.status, r.headers.get("content-type", ""), r.read().decode()
-        except urllib.error.HTTPError as err:
-            return err.code, err.headers.get("content-type", ""), err.read().decode()
-
-    def test_scopes_pack_and_errors(self):
-        status, ctype, body = self.call("/api/context/scopes")
-        self.assertEqual(status, 200)
-        self.assertEqual([s["id"] for s in json.loads(body)["scopes"]], cp.SCOPE_IDS)
-        status, ctype, body = self.call("/context/pack?scopes=bp&days=14&ask=hi")
-        self.assertEqual((status, ctype), (200, "text/plain; charset=utf-8"))
-        self.assertIn("## Blood pressure and pulse", body)
-        self.assertIn("## Request\n\nhi", body)
-        status, _, body = self.call("/api/context/pack?scopes=doctor")
-        self.assertEqual(status, 200)
-        self.assertIn("## Lab results", body)
-        status, _, body = self.call("/api/context/pack?scopes=nope")
-        self.assertEqual(status, 400)
-        self.assertIn("unknown scope", json.loads(body)["error"])
-        self.assertEqual(self.call("/api/nothing")[0], 404)
-
-    def test_intent_requires_text_and_a_key(self):
-        status, _, body = self.call("/api/context/intent", {"text": ""})
-        self.assertEqual(status, 400)
-        status, _, body = self.call("/api/context/intent", {"text": "how is my sleep"})
-        self.assertEqual(status, 503)
-        self.assertIn("TYPESAFE_API_KEY", json.loads(body)["error"])
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

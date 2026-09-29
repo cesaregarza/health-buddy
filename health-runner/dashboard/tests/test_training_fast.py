@@ -1,15 +1,10 @@
 """Synthetic Fast mode ranking, persistence and HTTP contracts; no external calls."""
 from copy import deepcopy
 import json
-import os
 from pathlib import Path
 import tempfile
-import threading
 import unittest
 from unittest.mock import Mock, patch
-from http.server import ThreadingHTTPServer
-import urllib.error
-import urllib.request
 
 import training_fast as fast
 import context_service as svc
@@ -194,71 +189,10 @@ class StoreTests(unittest.TestCase):
         other.assert_not_called()
 
 
-class HttpTests(unittest.TestCase):
-    def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir='/tmp')
-        self.addCleanup(self.temp.cleanup)
-        self.env = patch.dict(os.environ, {'HEALTH_WORKOUT_ALLOWED_USER': 'owner',
-            'HEALTH_WORKOUT_ALLOWED_ORIGIN': 'https://dashboard.test'})
-        self.env.start()
-        self.addCleanup(self.env.stop)
-        for name, value in [('data', Mock(return_value=snapshot())),
-                            ('FAST_STORE', fast.Store(self.temp.name)),
-                            ('ask_training_jev', Mock(side_effect=score_response))]:
-            patcher = patch.object(svc, name, value)
-            patcher.start()
-            self.addCleanup(patcher.stop)
-        self.server = ThreadingHTTPServer(('127.0.0.1', 0), svc.Handler)
-        self.base = f'http://127.0.0.1:{self.server.server_address[1]}'
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        self.addCleanup(self.server.server_close)
-        self.addCleanup(self.server.shutdown)
 
-    def call(self, body=None, headers=None, query=None):
-        supplied = {'Tailscale-User-Login': 'owner', 'Origin': 'https://dashboard.test',
-                    'X-Health-Action': 'rank-training', 'Content-Type': 'application/json'}
-        supplied.update(headers or {})
-        path = '/api/training/fast' + (query or '')
-        request = urllib.request.Request(self.base + path, headers=supplied,
-            data=json.dumps(body).encode() if body is not None else None)
-        try:
-            with urllib.request.urlopen(request, timeout=3) as response:
-                return response.status, json.load(response)
-        except urllib.error.HTTPError as error:
-            return error.code, json.load(error)
-
-    def test_read_is_free_and_advance_is_idempotent(self):
-        status, result = self.call(query=f'?date={DAY}&revision={REVISION}')
-        self.assertEqual((status, result['phase']), (200, 'not_started'))
-        svc.ask_training_jev.assert_not_called()
-        body = {'date': DAY, 'revision': REVISION, 'step': 0}
-        status, result = self.call(body)
-        self.assertEqual((status, result['step']), (200, 1))
-        self.assertEqual(self.call(body), (200, result))
-        self.assertEqual(svc.ask_training_jev.call_count, 1)
-
-    def test_auth_origin_action_validation_and_stale_rejected_before_calls(self):
-        body = {'date': DAY, 'revision': REVISION, 'step': 0}
-        for headers, status in [({'Tailscale-User-Login': 'other'}, 403),
-                ({'Origin': 'https://evil.test'}, 403), ({'X-Health-Action': 'save-workout'}, 403),
-                ({'Content-Type': 'text/plain'}, 415)]:
-            self.assertEqual(self.call(body, headers)[0], status)
-        for payload, status in [({**body, 'revision': 'b' * 40}, 409),
-                ({**body, 'exercises': []}, 400), ({**body, 'step': True}, 400),
-                ([], 400), ({**body, 'date': 'x' * 3000}, 413)]:
-            self.assertEqual(self.call(payload)[0], status)
-        svc.ask_training_jev.assert_not_called()
-
-
-
-class TransportTests(unittest.TestCase):
-    def test_transport_uses_logged_cli_without_shell_or_secret_arguments(self):
-        response = {'answers': {}}
-        with patch.object(svc, 'api_key', return_value='test-only-secret'), patch.object(svc.subprocess, 'run') as run:
-            run.return_value = Mock(returncode=0, stdout=json.dumps(response))
-            self.assertEqual(svc.ask_training_jev(fast.question(plan(), fast.initial(plan()))), response)
-            args, kwargs = run.call_args
-            self.assertNotIn('test-only-secret', str(args))
-            self.assertEqual(kwargs['env']['TYPESAFE_API_KEY'], 'test-only-secret')
-            self.assertEqual(kwargs['timeout'], 30)
-            self.assertFalse(kwargs.get('shell', False))
+class RetiredFastTransportTests(unittest.TestCase):
+    def test_no_ambient_cli_or_old_http_provider_path_remains(self):
+        with patch('subprocess.run', side_effect=AssertionError('No ambient CLI')):
+            self.assertEqual(svc.main(['--port', '8791']), 2)
+        self.assertFalse(hasattr(svc, 'Handler'))
+        self.assertFalse(hasattr(svc, 'ask_training_jev'))

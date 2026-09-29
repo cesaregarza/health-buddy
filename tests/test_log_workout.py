@@ -1,9 +1,12 @@
+"""Isolated legacy CSV helper fixtures; canonical logger semantics are separate."""
 from __future__ import annotations
 
 import csv
 from pathlib import Path
 
-from scripts.log_workout import main
+import pytest
+
+from scripts import log_workout as workout
 
 
 def _paths(tmp_path: Path) -> list[str]:
@@ -75,89 +78,62 @@ def _cardio_args() -> list[str]:
     ]
 
 
-def test_start_and_set_are_idempotent(tmp_path: Path, capsys) -> None:
+
+def fixture_write(arguments):
+    namespace = workout._parser().parse_args(arguments)
+    return getattr(workout, '_' + namespace.command)(namespace)
+
+
+def test_fixture_start_and_set_are_idempotent(tmp_path):
     prefix = _paths(tmp_path)
-    assert main([*prefix, *_start_args()]) == 0
-    assert '"status": "inserted"' in capsys.readouterr().out
-    assert main([*prefix, *_start_args()]) == 0
-    assert '"status": "unchanged"' in capsys.readouterr().out
-
-    assert main([*prefix, *_set_args()]) == 0
-    assert '"status": "inserted"' in capsys.readouterr().out
-    assert main([*prefix, *_set_args()]) == 0
-    assert '"status": "unchanged"' in capsys.readouterr().out
-
-    with (tmp_path / "sets.csv").open(newline="", encoding="utf-8") as handle:
+    assert fixture_write([*prefix, *_start_args()])[0] == 'inserted'
+    assert fixture_write([*prefix, *_start_args()])[0] == 'unchanged'
+    assert fixture_write([*prefix, *_set_args()])[0] == 'inserted'
+    assert fixture_write([*prefix, *_set_args()])[0] == 'unchanged'
+    path = tmp_path / 'sets.csv'
+    with path.open(newline='') as handle:
         rows = list(csv.DictReader(handle))
-    assert len(rows) == 1
-    assert rows[0]["load_lb"] == "30"
-    assert b"\r\n" not in (tmp_path / "sets.csv").read_bytes()
+    assert len(rows) == 1 and rows[0]['load_lb'] == '30'
+    assert b'\r\n' not in path.read_bytes()
 
 
-def test_conflicting_set_fails(tmp_path: Path, capsys) -> None:
+def test_fixture_conflicting_set_preserves_bytes(tmp_path):
     prefix = _paths(tmp_path)
-    assert main([*prefix, *_start_args()]) == 0
-    capsys.readouterr()
-    assert main([*prefix, *_set_args()]) == 0
-    capsys.readouterr()
+    fixture_write([*prefix, *_start_args()])
+    fixture_write([*prefix, *_set_args()])
+    before = (tmp_path / 'sets.csv').read_bytes()
+    changed = ['40' if value == '30' else value for value in _set_args()]
+    with pytest.raises(ValueError, match='conflicting row'):
+        fixture_write([*prefix, *changed])
+    assert (tmp_path / 'sets.csv').read_bytes() == before
 
-    conflicting = ["40" if value == "30" else value for value in _set_args()]
-    assert main([*prefix, *conflicting]) == 2
-    assert "conflicting row" in capsys.readouterr().err
 
-
-def test_finish_updates_session(tmp_path: Path, capsys) -> None:
+def test_fixture_finish_updates_session_once(tmp_path):
     prefix = _paths(tmp_path)
-    assert main([*prefix, *_start_args()]) == 0
-    capsys.readouterr()
-
-    finish = [
-        *prefix,
-        "finish",
-        "--session-id",
-        "2026-08-08-upper-gym-01",
-        "--duration-min",
-        "28",
-        "--notes",
-        "Reduced upper-body session",
-    ]
-    assert main(finish) == 0
-    assert '"status": "updated"' in capsys.readouterr().out
-    assert main(finish) == 0
-    assert '"status": "unchanged"' in capsys.readouterr().out
-
-    with (tmp_path / "sessions.csv").open(newline="", encoding="utf-8") as handle:
+    fixture_write([*prefix, *_start_args()])
+    finish = [*prefix, 'finish', '--session-id', '2026-08-08-upper-gym-01', '--duration-min', '28', '--notes', 'Synthetic completed session']
+    assert fixture_write(finish)[0] == 'updated'
+    assert fixture_write(finish)[0] == 'unchanged'
+    with (tmp_path / 'sessions.csv').open(newline='') as handle:
         row = next(csv.DictReader(handle))
-    assert row["status"] == "complete"
-    assert row["duration_min"] == "28"
+    assert row['status'] == 'complete' and row['duration_min'] == '28'
 
 
-def test_cardio_segment_is_structured_and_idempotent(tmp_path: Path, capsys) -> None:
+def test_fixture_cardio_segment_is_structured_and_idempotent(tmp_path):
     prefix = _paths(tmp_path)
-    assert main([*prefix, *_start_args()]) == 0
-    capsys.readouterr()
-
-    assert main([*prefix, *_cardio_args()]) == 0
-    assert '"status": "inserted"' in capsys.readouterr().out
-    assert main([*prefix, *_cardio_args()]) == 0
-    assert '"status": "unchanged"' in capsys.readouterr().out
-
-    with (tmp_path / "cardio.csv").open(newline="", encoding="utf-8") as handle:
+    fixture_write([*prefix, *_start_args()])
+    assert fixture_write([*prefix, *_cardio_args()])[0] == 'inserted'
+    assert fixture_write([*prefix, *_cardio_args()])[0] == 'unchanged'
+    path = tmp_path / 'cardio.csv'
+    with path.open(newline='') as handle:
         rows = list(csv.DictReader(handle))
-    assert len(rows) == 1
-    assert rows[0]["duration_seconds"] == "498"
-    assert rows[0]["speed_mph"] == "2.6"
-    assert rows[0]["incline_percent"] == "0"
-    assert b"\r\n" not in (tmp_path / "cardio.csv").read_bytes()
+    assert len(rows) == 1 and rows[0]['duration_seconds'] == '498'
+    assert rows[0]['speed_mph'] == '2.6' and rows[0]['incline_percent'] == '0'
+    assert b'\r\n' not in path.read_bytes()
 
 
-def test_set_requires_existing_session(tmp_path: Path, capsys) -> None:
+def test_fixture_set_requires_existing_session(tmp_path):
     prefix = _paths(tmp_path)
-    sessions = tmp_path / "sessions.csv"
-    sessions.write_text(
-        "session_id,date,workout_type,status,duration_min,bodyweight_lb,notes\n",
-        encoding="utf-8",
-    )
-
-    assert main([*prefix, *_set_args()]) == 2
-    assert "session does not exist" in capsys.readouterr().err
+    (tmp_path / 'sessions.csv').write_text(','.join(workout.SESSION_FIELDS) + '\n')
+    with pytest.raises(ValueError, match='session does not exist'):
+        fixture_write([*prefix, *_set_args()])
