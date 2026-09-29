@@ -11,7 +11,8 @@ import re
 import stat
 import time
 from collections.abc import Callable
-from dataclasses import replace
+from contextlib import AbstractContextManager, nullcontext
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -91,6 +92,14 @@ def response_identity(value: dict[str, JSON]) -> tuple[Identity, int]:
     return identity, current
 
 
+@dataclass(frozen=True)
+class WorkflowNamespace:
+    """One retained extension event; its completed receipt is never overwritten."""
+
+    extension_id: str
+    event_id: str
+
+
 class ClientWorkflow:
     def __init__(
         self,
@@ -99,23 +108,57 @@ class ClientWorkflow:
         principal: Principal | None,
         *,
         client_identity: Callable[[], ClientIdentity] | None = None,
+        namespace: WorkflowNamespace | None = None,
     ) -> None:
         self.config = config
         self.operations = operations
         self.principal = principal
         self.client_identity = client_identity
+        self.namespace = namespace
+        if namespace is not None and (
+            not isinstance(namespace, WorkflowNamespace)
+            or not isinstance(namespace.extension_id, str)
+            or len(namespace.extension_id) > 80
+            or not re.fullmatch(
+                r"[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*", namespace.extension_id
+            )
+            or not isinstance(namespace.event_id, str)
+            or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", namespace.event_id)
+        ):
+            raise ServiceError(422, "invalid_workflow_namespace")
+
+    def _storage_guard(self) -> AbstractContextManager[None]:
+        # Job/event lock -> brief workspace lock. No workspace lock is retained
+        # across Operations, and backup never waits for a client/job lock.
+        if self.namespace is not None:
+            return exclusive(self.config.path("operations/manual.lock"))
+        return nullcontext()
 
     def _paths(self) -> tuple[Path, Path]:
-        directory = self.config.path("personal/state")
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if not directory.is_dir() or stat.S_IMODE(directory.stat().st_mode) & 0o077:
-            raise ServiceError(503, "client_state_unavailable")
-        return (
-            self.config.path("personal/state/native-client.json"),
-            self.config.path("personal/state/native-client.lock"),
-        )
+        with self._storage_guard():
+            if self.namespace is None:
+                relative = "personal/state"
+                basename = "native-client"
+            else:
+                root = f"personal/extensions/{self.namespace.extension_id}"
+                if not self.config.path(root).is_dir():
+                    raise ServiceError(503, "client_state_unavailable")
+                relative = root + "/state/requests"
+                basename = digest({"eventId": self.namespace.event_id})
+            directory = self.config.path(relative)
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if not directory.is_dir() or stat.S_IMODE(directory.stat().st_mode) & 0o077:
+                raise ServiceError(503, "client_state_unavailable")
+            return (
+                self.config.path(f"{relative}/{basename}.json"),
+                self.config.path(f"{relative}/{basename}.lock"),
+            )
 
     def _load(self, path: Path) -> dict[str, Any] | None:
+        with self._storage_guard():
+            return self._load_locked(path)
+
+    def _load_locked(self, path: Path) -> dict[str, Any] | None:
         private_file(path, missing=True)
         if not path.exists():
             return None
@@ -153,7 +196,8 @@ class ClientWorkflow:
         raw = encode(state)
         if len(raw) > MAX_STATE:
             raise ServiceError(503, "client_state_unavailable")
-        atomic_bytes(path, raw)
+        with self._storage_guard():
+            atomic_bytes(path, raw)
 
     def _request(self, envelope: dict[str, Any]) -> Request:
         expected = {
@@ -337,6 +381,8 @@ class ClientWorkflow:
     ) -> dict[str, JSON]:
         if operation not in ROUTES:
             raise ServiceError(422, "invalid_request")
+        if self.namespace is not None and new_write:
+            raise ServiceError(409, "source_event_conflict")
         supplied = any(
             item is not None for item in (identity, if_match, idempotency_key)
         )
@@ -359,6 +405,8 @@ class ClientWorkflow:
             state = self._load(path)
             if state is not None:
                 same = state["intentDigest"] == intent_digest
+                if self.namespace is not None and (not same or new_write):
+                    raise ServiceError(409, "source_event_conflict")
                 if state["state"] == "pending":
                     if not same or new_write:
                         raise ServiceError(409, "pending_write_requires_resolution")
@@ -448,6 +496,10 @@ class ClientWorkflow:
         return {"state": "discarded", "retained": True, "outcome": "unknown"}
 
     def discard(self, *, acknowledge_possible_save: bool = False) -> dict[str, JSON]:
+        if self.namespace is not None:
+            # A source event may already exist in the canonical ledger. Recovery
+            # must replay it; do not erase its permanent conflict discriminator.
+            raise ServiceError(409, "source_event_requires_reconciliation")
         if not acknowledge_possible_save:
             raise ServiceError(409, "acknowledgement_required")
         if self.client_identity is not None:

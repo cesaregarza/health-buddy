@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Health Buddy installed extension manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "extensionApi", "kind", "stateSchema", "entrypoints", "dependencies", "scopes", "dataAccess", "egress", "secretReferences", "configSchema", "configFile", "paths"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "id": {"type": "string", "maxLength": 80, "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$"},
+    "version": {"$ref": "#/$defs/version"},
+    "extensionApi": {"type": "integer", "minimum": 1, "maximum": 99},
+    "kind": {"enum": ["metric-view", "connector-workflow"]},
+    "stateSchema": {"type": "integer", "minimum": 1, "maximum": 9999},
+    "entrypoints": {
+      "type": "object", "minProperties": 2, "maxProperties": 2,
+      "propertyNames": {"enum": ["metric", "view", "connector", "workflow"]},
+      "additionalProperties": {"type": "string", "maxLength": 120, "pattern": "^src/[a-z_]+\\.(py|js):[a-z_]+$"}
+    },
+    "dependencies": {
+      "type": "object", "maxProperties": 8,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$", "maxLength": 80},
+      "additionalProperties": {"$ref": "#/$defs/version"}
+    },
+    "scopes": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["records:read", "records:write"]}},
+    "dataAccess": {
+      "type": "object", "additionalProperties": false,
+      "required": ["readKinds", "readFields", "writeKinds"],
+      "properties": {
+        "readKinds": {"$ref": "#/$defs/names"},
+        "readFields": {"$ref": "#/$defs/names"},
+        "writeKinds": {"$ref": "#/$defs/names"}
+      }
+    },
+    "egress": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"type": "string", "maxLength": 300, "pattern": "^https://"}},
+    "secretReferences": {"$ref": "#/$defs/names"},
+    "configSchema": {"const": "config/schema.json"},
+    "configFile": {"const": "config/settings.json"},
+    "paths": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "assets", "config", "tests", "notes", "state", "migrations"],
+      "properties": {
+        "source": {"const": "src"}, "assets": {"const": "assets"},
+        "config": {"const": "config"}, "tests": {"const": "tests"},
+        "notes": {"const": "notes"}, "state": {"const": "state"},
+        "migrations": {"const": "migrations"}
+      }
+    }
+  },
+  "$defs": {
+    "version": {"type": "string", "maxLength": 30, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "names": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "maxLength": 80, "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"}}
+  }
+}
