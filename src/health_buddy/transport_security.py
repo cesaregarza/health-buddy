@@ -18,6 +18,7 @@ from .security_api import (
     Authenticated,
     BearerProof,
     BootstrapProof,
+    CredentialProof,
     PairingRedemption,
     PairingReservation,
     ProxyProof,
@@ -248,7 +249,8 @@ def security_response(
         else:
             raise EnvelopeError(503, "security_response_unavailable")
         headers["set-cookie"] = (
-            f"{COOKIE}={value}; Path=/; Max-Age={age}; Secure; HttpOnly; SameSite=Strict"
+            f"{COOKIE}={value}; Path=/; Max-Age={age}; "
+            "Secure; HttpOnly; SameSite=Strict"
         )
     try:
         raw = json.dumps(result, separators=(",", ":"), allow_nan=False).encode()
@@ -273,7 +275,7 @@ class SecurityTransport:
     async def authenticate(
         self, values: dict[str, str], method: str, *, session_create: bool = False
     ) -> Authenticated | None:
-        proof = credential(values)
+        proof: CredentialProof | None = credential(values)
         if proof is None and session_create:
             subject = values.get("tailscale-user-login")
             if (

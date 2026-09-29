@@ -6,8 +6,8 @@ import os
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from granian import Granian
 from granian.constants import HTTPModes, Interfaces, Loops, RuntimeModes, TaskImpl
 from granian.http import HTTP1Settings
 from starlette.types import ASGIApp
@@ -16,6 +16,13 @@ from .security_api import IngressConfig, Runtime
 from .service_api import Operations
 from .transport import create_app
 from .transport_ingress import VerifiedSocket, prepare_socket
+
+if TYPE_CHECKING:
+    # Concrete model for tested CPython3.12/GIL; no free-threaded qualification.
+    from granian.server.mp import MPServer as Granian
+else:
+    # Preserve the pinned package's MPServer/MTServer runtime selection.
+    from granian import Granian
 
 
 class _OwnedSocketServer(Granian):

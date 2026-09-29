@@ -1,5 +1,13 @@
 """Fabricated security authority for adapter evidence, never production policy."""
 
+import os
+import stat
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+
+import pytest
+
 from health_buddy.security_api import (
     Authenticated,
     BearerProof,
@@ -116,3 +124,31 @@ def fake_runtime(socket_path="", *, uds=False):
         ),
         boundary,
     )
+
+
+@contextmanager
+def short_socket_directory():
+    """Only the queue-admitted private parent; no ambient /tmp fallback."""
+    value = os.environ.get("HEALTH_BUDDY_TEST_SOCKET_ROOT")
+    if not value:
+        pytest.fail("Queue must supply HEALTH_BUDDY_TEST_SOCKET_ROOT")
+    parent = Path(value)
+    if (
+        not parent.is_absolute()
+        or ".." in parent.parts
+        or parent == Path("/tmp")
+        or parent.is_relative_to("/mnt")
+        or any(item.is_symlink() for item in (parent, *parent.parents))
+    ):
+        pytest.fail("Socket fixture requires its admitted native private parent")
+    details = parent.stat()
+    longest = parent / "u-xxxxxxxx/w/security/http.sock"
+    if (
+        not stat.S_ISDIR(details.st_mode)
+        or stat.S_IMODE(details.st_mode) != 0o700
+        or details.st_uid != os.geteuid()
+        or len(os.fsencode(longest)) > 107
+    ):
+        pytest.fail("Socket fixture parent is unsafe or too long")
+    with tempfile.TemporaryDirectory(prefix="u-", dir=parent) as folder:
+        yield Path(folder)

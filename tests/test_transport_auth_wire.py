@@ -8,22 +8,21 @@ A short queue-admitted HEALTH_BUDDY_TEST_SOCKET_ROOT contains only owned fixture
 No installed Tailscale daemon is exercised or qualified here.
 """
 
+import hashlib
 import json
 import os
 import signal
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from contextlib import contextmanager
 from http.client import HTTPConnection
-from pathlib import Path
 
 import pytest
 
 from health_buddy.transport_ingress import prepare_socket
-from tests.auth_transport_fixtures import ORIGIN, TOKEN
+from tests.auth_transport_fixtures import ORIGIN, TOKEN, short_socket_directory
 from tests.transport_process import ROOT
 
 
@@ -60,6 +59,37 @@ def request(path, method="GET", target="/livez", *, headers=None, body=None):
         connection.close()
 
 
+_READINESS_CODES = frozenset(
+    {
+        "untrusted_ingress",
+        "private_ingress_unavailable",
+        "invalid_host",
+        "origin_rejected",
+        "service_unavailable",
+        "service_busy",
+        "invalid_target",
+    }
+)
+
+
+def readiness_metadata(status, body):
+    """No response contents, headers or reflected arbitrary error strings."""
+    code = "unrecognized_response"
+    try:
+        value = json.loads(body)
+        candidate = value.get("error", {}).get("code")
+        if candidate in _READINESS_CODES:
+            code = candidate
+    except (ValueError, AttributeError, TypeError):
+        pass
+    return {
+        "status": status,
+        "code": code,
+        "bodyBytes": len(body),
+        "bodySha256": hashlib.sha256(body).hexdigest(),
+    }
+
+
 @contextmanager
 def server(folder, *, ready=True, workspace=None):
     path = (
@@ -88,7 +118,7 @@ def server(folder, *, ready=True, workspace=None):
     )
     with (folder / "server.log").open("ab") as log:
         # Fixed owned synthetic module/paths; queue cgroup bounds descendants.
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # noqa: S603
             args,
             cwd=ROOT,
             env=environment,
@@ -96,23 +126,29 @@ def server(folder, *, ready=True, workspace=None):
             stdout=log,
             stderr=log,
             start_new_session=True,
-        )  # noqa: S603
+        )
         try:
             if ready:
                 deadline = time.monotonic() + 15
+                last_reply = {"status": None, "code": "no_http_response"}
                 while time.monotonic() < deadline:
                     if process.poll() is not None:
                         raise AssertionError(
                             "Synthetic UDS startup failed; inspect server.log"
                         )
                     try:
-                        if request(path, headers=readiness)[0] == 200:
+                        status, body, _headers = request(path, headers=readiness)
+                        last_reply = readiness_metadata(status, body)
+                        if status == 200:
                             break
                     except OSError:
                         pass
                     time.sleep(0.05)
                 else:
-                    raise AssertionError("Synthetic UDS readiness timeout")
+                    (folder / "readiness.json").write_text(json.dumps(last_reply))
+                    raise AssertionError(
+                        "Synthetic UDS readiness timeout; inspect readiness metadata"
+                    )
             yield process, path
         finally:
             if process.poll() is None:
@@ -131,14 +167,7 @@ def server(folder, *, ready=True, workspace=None):
 
 @pytest.fixture
 def short_directory(tmp_path):
-    parent = os.environ.get("HEALTH_BUDDY_TEST_SOCKET_ROOT")
-    if not parent:
-        pytest.fail(
-            "Queue must supply its short admitted HEALTH_BUDDY_TEST_SOCKET_ROOT"
-        )
-    with tempfile.TemporaryDirectory(prefix="u-", dir=parent) as value:
-        folder = Path(value)
-        folder.chmod(0o700)
+    with short_socket_directory() as folder:
         try:
             yield folder
         finally:
@@ -147,6 +176,10 @@ def short_directory(tmp_path):
             if (folder / "server.log").exists():
                 (tmp_path / "auth-uds-server.log").write_bytes(
                     (folder / "server.log").read_bytes()
+                )
+            if (folder / "readiness.json").exists():
+                (tmp_path / "auth-uds-readiness.json").write_bytes(
+                    (folder / "readiness.json").read_bytes()
                 )
             (tmp_path / "auth-uds-cleanup.json").write_text(
                 json.dumps({"ownedPath": str(folder), "cleanup": "fixture-finally"})
@@ -203,22 +236,27 @@ def test_real_private_uds_graceful_restart_and_explicit_proxy_login(short_direct
 def test_untrusted_uid_cannot_connect_private_socket(short_directory):
     if os.geteuid() != 0:
         pytest.skip(
-            "Queue must provide root solely to launch a distinct unprivileged fixture UID"
+            "Queue must provide root only to launch a distinct fixture UID"
         )
     with server(short_directory) as (_process, path):
-        source = "import socket,sys\ns=socket.socket(socket.AF_UNIX)\ntry:\n s.connect(sys.argv[1])\nexcept PermissionError:\n sys.exit(0)\nelse:\n sys.exit(1)\n"
+        source = (
+            "import os,socket,sys\n"
+            "assert os.geteuid()==65534 and os.getegid()==65534\n"
+            "s=socket.socket(socket.AF_UNIX)\n"
+            "try:\n s.connect(sys.argv[1])\n"
+            "except PermissionError:\n sys.exit(0)\nelse:\n sys.exit(1)\n"
+        )
         # Fixed system Python and owned socket; privileges only decrease.
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             ["/usr/bin/python3", "-c", source, str(path)],
             user=65534,
             group=65534,
             extra_groups=[],
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=5,
             check=False,
-        )  # noqa: S603
+        )
         assert result.returncode == 0, (
             "Unprivileged UID unexpectedly connected or fixture failed"
         )

@@ -62,15 +62,21 @@ class VerifiedSocket:
             current = self.capture(self.path)
         except (OSError, ValueError) as exc:
             raise EnvelopeError(503, "private_ingress_unavailable") from exc
-        # Granian2.8.3 reports the UDS pathname and port0. None is the ASGI
-        # specification's spelling; neither accepts a TCP address or an absent
-        # server. The launcher's captured inode is independent of this scope.
+        # Granian2.8.3 asgi/utils.rs serializes port().to_string(): UDS is "0".
+        # Integer0/None cover equivalent ASGI adapters. Neither admits TCP or
+        # absent server evidence; captured inode remains launcher-owned.
         server = scope.get("server")
-        if (
-            current != self
-            or not server
-            or tuple(server) not in ((str(self.path), 0), (str(self.path), None))
-        ):
+        matches = (
+            isinstance(server, (tuple, list))
+            and len(server) == 2
+            and server[0] == str(self.path)
+            and (
+                server[1] is None
+                or (type(server[1]) is int and server[1] == 0)
+                or (type(server[1]) is str and server[1] == "0")
+            )
+        )
+        if current != self or not matches:
             raise EnvelopeError(403, "untrusted_ingress")
         origin = ingress.external_origin
         if not origin:

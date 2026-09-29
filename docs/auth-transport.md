@@ -30,7 +30,9 @@ Trusted proxy mode uses only a native Linux pathname Unix socket under a 0700
 service-owned directory, with 0600 socket and restrictive umask before bind. The
 launcher records the actual socket inode before workers start; the child checks
 the same inode and every request verifies the configured socket evidence plus
-exact forwarded host/proto. Direct TCP never accepts owner identity headers.
+exact forwarded host/proto. Pinned Granian 2.8.3 represents the UDS port as
+string `"0"` in its ASGI scope; the adapter matches the exact socket path and this
+finite spelling (also integer0/None for equivalent ASGI representations). Direct TCP never accepts owner identity headers.
 Funnel, duplicate forwarding headers, wrong subjects and encoded/non-ASCII subjects
 are rejected. Only explicit session creation maps the configured proxy owner;
 health routes always require current cookie or app bearer credentials. Tagged
@@ -64,6 +66,7 @@ or qualify an installed Tailscale daemon, deployment, restore or physical phone.
 
 Primary references for the pinned boundary: [Granian2.8.3 supervisor](https://raw.githubusercontent.com/emmett-framework/granian/v2.8.3/granian/server/common.py),
 [Granian socket creation](https://raw.githubusercontent.com/emmett-framework/granian/v2.8.3/src/net.rs),
+[Granian ASGI scope construction](https://raw.githubusercontent.com/emmett-framework/granian/v2.8.3/src/asgi/utils.rs),
 [Linux pathname socket permissions](https://man7.org/linux/man-pages/man7/unix.7.html),
 [Tailscale inspected Serve source](https://raw.githubusercontent.com/tailscale/tailscale/v1.102.2/ipn/ipnlocal/serve.go),
 and [current Tailscale security bulletins](https://tailscale.com/security-bulletins).

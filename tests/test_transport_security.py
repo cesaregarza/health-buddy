@@ -1,14 +1,24 @@
 """Focused security adapter cases; real authority integration is separate."""
 
 import json
+import os
+import socket
 
 import pytest
 
 from health_buddy.security_api import SecretDelivery
 from health_buddy.transport import create_app
 from health_buddy.transport_ingress import VerifiedSocket, prepare_socket
+from health_buddy.transport_limits import EnvelopeError
 from health_buddy.transport_security import COOKIE
-from tests.auth_transport_fixtures import CSRF, ORIGIN, SESSION, TOKEN, fake_runtime
+from tests.auth_transport_fixtures import (
+    CSRF,
+    ORIGIN,
+    SESSION,
+    TOKEN,
+    fake_runtime,
+    short_socket_directory,
+)
 from tests.test_transport import exchange
 
 ORIGIN_HEADER = (b"origin", ORIGIN.encode())
@@ -54,7 +64,10 @@ async def test_session_cookie_attributes_and_private_csrf_channel():
     assert status == 200 and b"secret" not in raw
     assert (
         headers[b"set-cookie"].decode()
-        == f"{COOKIE}={SESSION}; Path=/; Max-Age=3600; Secure; HttpOnly; SameSite=Strict"
+        == (
+            f"{COOKIE}={SESSION}; Path=/; Max-Age=3600; "
+            "Secure; HttpOnly; SameSite=Strict"
+        )
     )
     assert headers[b"cache-control"] == b"no-store"
     status, raw, _ = await exchange(
@@ -158,20 +171,50 @@ async def test_security_inputs_are_bounded_and_finite(body, extra, status):
     assert not runtime.security.calls
 
 
-def test_private_socket_configuration_refuses_unsafe_and_long_paths(tmp_path):
-    tmp_path.chmod(0o700)
-    path = tmp_path / "sock"
-    prepare_socket(path)
-    path.write_text("not a socket")
-    with pytest.raises(ValueError, match="already_exists"):
+def test_private_socket_configuration_refuses_unsafe_and_long_paths():
+    with short_socket_directory() as folder:
+        path = folder / "sock"
         prepare_socket(path)
-    with pytest.raises(ValueError, match="unavailable"):
-        VerifiedSocket.capture(path)
-    with pytest.raises(ValueError, match="unavailable"):
-        prepare_socket(tmp_path / ("x" * 108))
-    tmp_path.chmod(0o755)
-    with pytest.raises(ValueError, match="unavailable"):
-        prepare_socket(tmp_path / "different")
+        path.write_text("not a socket")
+        with pytest.raises(ValueError, match="already_exists"):
+            prepare_socket(path)
+        with pytest.raises(ValueError, match="unavailable"):
+            VerifiedSocket.capture(path)
+        with pytest.raises(ValueError, match="unavailable"):
+            prepare_socket(folder / ("x" * 108))
+        folder.chmod(0o755)
+        with pytest.raises(ValueError, match="unavailable"):
+            prepare_socket(folder / "different")
+
+
+def test_socket_scope_retains_exact_path_and_port_boundary():
+    with short_socket_directory() as folder:
+        path = folder / "sock"
+        with socket.socket(socket.AF_UNIX) as listener:
+            listener.bind(str(path))
+            os.chmod(path, 0o600)
+            verified = VerifiedSocket.capture(path)
+            ingress = fake_runtime(str(path), uds=True).ingress
+            headers = {
+                "host": "localhost",
+                "x-forwarded-host": "synthetic.example",
+                "x-forwarded-proto": "https",
+            }
+            for port in ("0", 0, None):
+                verified.check({"server": (str(path), port)}, headers, ingress)
+            for server in (
+                None,
+                ("127.0.0.1", "0"),
+                (str(path) + "-other", "0"),
+                (str(path), "00"),
+                (str(path), 80),
+                (str(path), "8791"),
+                (str(path), False),
+                (str(path), 0.0),
+                (str(path),),
+            ):
+                with pytest.raises(EnvelopeError, match="untrusted_ingress"):
+                    verified.check({"server": server}, headers, ingress)
 
 
 async def test_revoked_cookie_has_origin_protected_cleanup_without_authority():

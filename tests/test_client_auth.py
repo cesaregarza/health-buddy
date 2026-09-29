@@ -188,7 +188,7 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
     replies, requests = [], []
     execute = runtime.operations.execute
 
-    def lose_ack(principal, request):
+    def lose_ack(principal, request, execute=execute):
         reply = execute(principal, request)
         if request.operation == "logs.write":
             assert reply.status == 200
