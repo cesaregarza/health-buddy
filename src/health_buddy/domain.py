@@ -27,9 +27,15 @@ def invalid() -> ServiceError:
     return ServiceError(422, "invalid_request")
 
 
-def normalize(value: object, depth: int = 0, *, bounded: bool = True) -> JSON:
+def normalize(value: object, depth: int = 0, *, bounded: bool = True, max_nodes: int = 20_000, _budget: list[int] | None = None) -> JSON:
     """A finite, bounded JSON value; canonicalize integral floats as integers."""
-    if depth > (24 if bounded else 64):
+    if bounded:
+        if _budget is None:
+            _budget = [max_nodes]
+        _budget[0] -= 1
+        if _budget[0] < 0:
+            raise invalid()
+    if depth > (32 if bounded else 64):
         raise invalid()
     if value is None or isinstance(value, bool):
         return value
@@ -48,7 +54,7 @@ def normalize(value: object, depth: int = 0, *, bounded: bool = True) -> JSON:
     if isinstance(value, list):
         if bounded and len(value) > 1000:
             raise invalid()
-        return [normalize(item, depth + 1, bounded=bounded) for item in value]
+        return [normalize(item, depth + 1, bounded=bounded, _budget=_budget) for item in value]
     if isinstance(value, dict):
         if bounded and len(value) > 256:
             raise invalid()
@@ -56,7 +62,7 @@ def normalize(value: object, depth: int = 0, *, bounded: bool = True) -> JSON:
         for key, item in value.items():
             if not isinstance(key, str) or not key or (bounded and len(key) > 128):
                 raise invalid()
-            result[key] = normalize(item, depth + 1, bounded=bounded)
+            result[key] = normalize(item, depth + 1, bounded=bounded, _budget=_budget)
         return result
     raise invalid()
 

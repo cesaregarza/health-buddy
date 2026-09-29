@@ -10,10 +10,12 @@ import hashlib
 import json
 import os
 import sqlite3
+import tempfile
 from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
 from typing import cast
+from uuid import uuid4
 
 from health_ingest.models import Batch, parse_batch
 from health_ingest.storage import BatchConflictError, HealthRepository
@@ -23,7 +25,7 @@ from .durability import fsync_path, private_file, unavailable
 from .service_api import JSON, Identity, ServiceError
 
 SCHEMA = """
-CREATE TABLE canonical_receiver(identity_json TEXT NOT NULL);
+CREATE TABLE canonical_receiver(identity_json TEXT NOT NULL, receiver_id TEXT NOT NULL);
 CREATE TABLE canonical_effects(transaction_id TEXT PRIMARY KEY, manifest_digest TEXT NOT NULL);
 CREATE TABLE source_streams(source_id TEXT PRIMARY KEY, stream_id TEXT UNIQUE NOT NULL, active_device_id TEXT UNIQUE NOT NULL);
 CREATE TABLE stream_objects(
@@ -47,31 +49,58 @@ class HealthStore:
         self.repository = HealthRepository(path)
         self.fault = fault or (lambda _point: None)
 
-    def initialize(self, identity: Identity) -> None:
+    def initialize(self, identity: Identity, expected_id: str | None) -> str | None:
         """Explicit receiver-mode startup; refuse nonempty imported databases."""
         if not self.receiver:
-            return
+            return None
         private_file(self.path, missing=True)
-        if not self.path.exists():
-            self.repository.migrate()
-        with closing(self.repository._connect()) as connection:
-            connection.execute("PRAGMA synchronous=FULL")
-            exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='canonical_receiver'").fetchone()
-            if exists:
-                self._check_identity(connection, identity_value(identity))
-                return
-            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if not {"records", "devices", "batches", "tombstones"} <= tables:
-                raise ServiceError(409, "reconciliation_required")
-            for table in ("records", "devices", "batches", "tombstones"):
-                if connection.execute("SELECT 1 FROM " + table + " LIMIT 1").fetchone():
-                    raise ServiceError(409, "reconciliation_required", details={"reason": "nonempty_readonly_source_requires_operator_adoption"})
-            # Empty-only schema adoption is an explicit receiver-mode setup,
-            # not a health write or a private-data migration.
-            connection.executescript("BEGIN IMMEDIATE;" + SCHEMA)
-            connection.execute("INSERT INTO canonical_receiver VALUES (?)", (encode(identity_value(identity)).decode(),))
-            connection.commit()
+        if not self.path.exists() and expected_id is not None:
+            raise unavailable()
+        if self.path.exists():
+            with closing(sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)) as connection:
+                exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='canonical_receiver'").fetchone()
+                if exists:
+                    self._check_identity(connection, identity_value(identity))
+                    receiver_id = str(connection.execute("SELECT receiver_id FROM canonical_receiver").fetchone()[0])
+                    if expected_id is not None and receiver_id != expected_id:
+                        raise unavailable()
+                    if expected_id is not None:
+                        return receiver_id
+                elif expected_id is not None:
+                    raise unavailable()
+                tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                required = {"records", "devices", "batches", "tombstones"}
+                if not required <= tables or (not exists and tables != required):
+                    raise ServiceError(409, "reconciliation_required")
+                for table in sorted(required):
+                    if connection.execute("SELECT 1 FROM " + table + " LIMIT 1").fetchone():
+                        raise ServiceError(409, "reconciliation_required", details={"reason": "nonempty_readonly_source_requires_operator_adoption"})
+                if exists:
+                    return receiver_id  # Interrupted empty initialization only.
+        receiver_id = str(uuid4())
+        # Never expose a partly created schema at the authoritative path. An
+        # orphan stage after a pre-install crash has no acknowledged health data.
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with tempfile.TemporaryDirectory(prefix="receiver-initial-", dir=self.path.parent) as folder:
+            stage = Path(folder) / "healthkit.db"
+            staged = HealthRepository(stage)
+            staged.migrate()
+            with closing(staged._connect()) as connection:
+                connection.execute("PRAGMA synchronous=FULL")
+                connection.executescript("BEGIN IMMEDIATE;" + SCHEMA)
+                connection.execute("INSERT INTO canonical_receiver VALUES (?,?)", (encode(identity_value(identity)).decode(), receiver_id))
+                connection.commit()
+                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                connection.execute("PRAGMA journal_mode=DELETE")
+            fsync_path(stage)
+            fsync_path(stage.parent)
+            self.fault("receiver_staged")
+            if any(Path(str(self.path) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
+                raise unavailable()
+            os.replace(stage, self.path)
+            self.fault("receiver_installed")
         self._sync()
+        return receiver_id
 
     def _sync(self) -> None:
         fsync_path(self.path)
@@ -81,6 +110,21 @@ class HealthStore:
                 os.chmod(sibling, 0o600)
                 fsync_path(sibling)
         fsync_path(self.path.parent)
+
+    def verify_binding(self, identity: Identity, binding: dict[str, JSON]) -> None:
+        private_file(self.path)
+        with closing(sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)) as connection:
+            self._check_identity(connection, identity_value(identity))
+            receiver_id = connection.execute("SELECT receiver_id FROM canonical_receiver").fetchone()[0]
+            if receiver_id != binding["receiverId"]:
+                raise unavailable()
+            transaction_id = binding["transactionId"]
+            if transaction_id is not None:
+                marker = connection.execute("SELECT manifest_digest FROM canonical_effects WHERE transaction_id=?", (transaction_id,)).fetchone()
+                if marker is None or marker[0] != binding["manifestDigest"]:
+                    raise unavailable()
+            elif binding["manifestDigest"] is not None:
+                raise unavailable()
 
     def _check_identity(self, connection: sqlite3.Connection, expected: dict[str, JSON]) -> None:
         rows = connection.execute("SELECT identity_json FROM canonical_receiver").fetchall()
@@ -119,6 +163,11 @@ class HealthStore:
         connection.execute("INSERT INTO canonical_effects VALUES (?,?)", (transaction_id, effect_digest))
 
     def _apply_stream(self, connection: sqlite3.Connection, stream_id: str, batch: Batch, received_at: str) -> None:
+        # The retained batch receipt check must precede derived stream updates:
+        # replay of an old aggregate cannot relabel a newer canonical version.
+        result = self.repository.apply_batch(connection, batch, received_at)
+        if result.duplicate_batch:
+            return
         for record in batch.records:
             record_digest = hashlib.sha256(json.dumps(record.normalized, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()).hexdigest()
             prior = connection.execute("SELECT * FROM stream_objects WHERE stream_id=? AND record_id=?", (stream_id, record.record_id)).fetchone()
@@ -134,7 +183,6 @@ class HealthStore:
             if prior and prior[0] != deletion.type_identifier:
                 raise BatchConflictError("Canonical stream tombstone conflict")
             connection.execute("INSERT INTO stream_objects VALUES (?,?,?,NULL,NULL,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET deleted_at=excluded.deleted_at", (stream_id, deletion.record_id, deletion.type_identifier, deletion.observed_at))
-        self.repository.apply_batch(connection, batch, received_at)
 
     def validate(self, effect: dict[str, JSON]) -> None:
         """Domain conflict validation with rollback before the global decision."""

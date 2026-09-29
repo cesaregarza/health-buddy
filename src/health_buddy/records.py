@@ -69,13 +69,22 @@ def reindex(files: dict[str, str], *, received_at: str, source_id: str = "manual
             new_locators.add(pair)
             pending.append((path, row, locator))
     used: set[str] = set()
+    by_locator: dict[tuple[str, str], list[str]] = {}
+    by_key: dict[tuple[str, str], list[str]] = {}
+    for key, entry in old_entries.items():
+        if not entry.get("deleted"):
+            path = text(entry.get("path"))
+            locator = text(entry.get("locator"))
+            by_locator.setdefault((path, locator), []).append(key)
+            if (path, locator) not in new_locators:
+                by_key.setdefault((path, digest(entry.get("key"))), []).append(key)
     for path, row, locator in pending:
-        matches = [key for key, entry in old_entries.items() if entry.get("path") == path and entry.get("locator") == locator and not entry.get("deleted")]
+        matches = by_locator.get((path, locator), [])
         if len(matches) > 1:
             raise ServiceError(409, "reconciliation_required")
         unchanged = bool(matches)
         if not matches:
-            matches = [key for key, entry in old_entries.items() if key not in used and entry.get("path") == path and entry.get("key") == natural_key(path, row) and not entry.get("deleted") and (path, str(entry.get("locator"))) not in new_locators]
+            matches = [key for key in by_key.get((path, digest(natural_key(path, row))), []) if key not in used]
             if len(matches) > 1:
                 raise ServiceError(409, "reconciliation_required")
         record_id = matches[0] if matches else str(uuid4())
@@ -160,24 +169,31 @@ def json_observations(files: dict[str, str], timezone: str, registry: dict[str, 
     return result
 
 
-def put(files: dict[str, str], record_id: str, intent: JSON, *, received_at: str, allowed_sources: frozenset[str], registry: dict[str, dict[str, JSON]]) -> tuple[dict[str, str], dict[str, JSON]]:
-    identifier(record_id)
+def normalize_intent(intent: JSON) -> dict[str, JSON]:
     value = object_value(intent, {"kind", "value", "unit", "observedAt", "sourceId"})
     source_id = identifier(value["sourceId"])
-    if source_id not in allowed_sources or source_id not in registry:
-        raise ServiceError(403, "forbidden")
     kind, unit = text(value["kind"]), text(value["unit"])
     bounds = {("body-mass", "kg"): (0.000001, 680), ("body-mass", "lb"): (0.000001, 1500), ("water-intake", "L"): (0, 20), ("water-intake", "mL"): (0, 20_000)}
     if (kind, unit) not in bounds:
         raise invalid()
     measurement = number(value["value"], *bounds[(kind, unit)])
+    return {"kind": kind, "value": measurement, "unit": unit, "observedAt": instant(value["observedAt"]), "sourceId": source_id}
+
+
+def put(files: dict[str, str], record_id: str, intent: JSON, *, received_at: str, allowed_sources: frozenset[str], registry: dict[str, dict[str, JSON]]) -> tuple[dict[str, str], dict[str, JSON]]:
+    identifier(record_id)
+    value = normalize_intent(intent)
+    source_id = text(value["sourceId"])
+    kind = text(value["kind"])
+    if source_id not in allowed_sources or source_id not in registry:
+        raise ServiceError(403, "forbidden")
     current = load_object(files, OBSERVATIONS)
     if record_id in load_object(files, RECORD_INDEX):
         raise ServiceError(409, "record_conflict")
     prior = current.get(record_id)
     if prior is not None and (not isinstance(prior, dict) or prior.get("sourceId") != source_id or prior.get("kind") != kind):
         raise ServiceError(409, "record_conflict")
-    stored = {"kind": kind, "value": measurement, "unit": unit, "observedAt": instant(value["observedAt"]), "sourceId": source_id, "receivedAt": received_at}
+    stored = {**value, "receivedAt": received_at}
     current[record_id] = stored
     raw = encode(current)
     if len(raw) > MAX_STORE_JSON:

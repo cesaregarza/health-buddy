@@ -283,6 +283,13 @@ all supplied objects/deletions. A duplicate acknowledges either the original
 full counts or zero/zero; never partial counts. This legacy success body is an
 explicit exception to the general data/meta envelope: negotiated successful
 responses carry `X-Installation-ID`, `X-Dataset-ID` and `X-Restore-Epoch` headers.
+The canonical receiver retains the original accepted receipt unchanged. For a
+duplicate HealthKit batch it derives a deterministic acknowledgement with
+`duplicateBatch: true`, the original full counts and exact receiver tuple
+headers. This is the HealthKit-only replay-body exception; generic writes replay
+their original body byte-for-byte. Duplicate acknowledgement does not mutate
+records, stream metadata, tombstones or dataRevision, and still requires current
+authentication, device/source binding and the active identity epoch.
 Before advancing any anchor, the phone validates those response headers against
 its paired tuple as well as the body batch ID/status/counts. Missing or wrong
 response identity is not an acknowledgement, even with otherwise correct counts.

@@ -30,7 +30,8 @@ CREATE TABLE state (
     identity_json TEXT NOT NULL,
     revision INTEGER NOT NULL CHECK(revision>=0),
     manual_head TEXT NOT NULL,
-    bootstrapping INTEGER NOT NULL CHECK(bootstrapping IN (0,1))
+    bootstrapping INTEGER NOT NULL CHECK(bootstrapping IN (0,1)),
+    receiver_binding TEXT
 );
 CREATE TABLE transactions (
     transaction_id TEXT PRIMARY KEY,
@@ -70,9 +71,10 @@ class Effect:
     old_head: str
     new_head: str
     health: dict[str, JSON] | None = None
+    source: dict[str, JSON] | None = None
 
     def wire(self) -> dict[str, JSON]:
-        return {"oldHead": self.old_head, "newHead": self.new_head, "health": self.health}
+        return {"oldHead": self.old_head, "newHead": self.new_head, "health": self.health, "source": self.source}
 
 
 class Journal:
@@ -147,7 +149,7 @@ class Journal:
                 connection.execute("PRAGMA journal_mode=DELETE")
                 connection.executescript(SCHEMA)
                 with connection:
-                    connection.execute("INSERT INTO state VALUES (1,?,0,?,1)", (encode(identity_value(identity)).decode(), base))
+                    connection.execute("INSERT INTO state VALUES (1,?,0,?,1,NULL)", (encode(identity_value(identity)).decode(), base))
                     connection.execute(
                         "INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                         (transaction_id, "bootstrap", "bootstrap", "COMMIT_INTENT", 0, 0,
@@ -221,6 +223,8 @@ class Journal:
         self.fault("prepared")
         check_deadline(deadline)
         with self.connection() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            check_deadline(deadline)
             connection.execute("UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=? AND state='PREPARED'", (transaction_id,))
         self._sync()
         self.fault("commit_intent")
@@ -241,7 +245,7 @@ class Journal:
             if hashlib.sha256(raw).hexdigest() != row["manifest_digest"]:
                 raise unavailable()
             value = decode(raw, limit=MAX_MANIFEST, trusted=True)
-            if not isinstance(value, dict) or set(value) != {"oldHead", "newHead", "health"}:
+            if not isinstance(value, dict) or set(value) != {"oldHead", "newHead", "health", "source"}:
                 raise unavailable()
             old, new = value["oldHead"], value["newHead"]
             if not isinstance(old, str) or not isinstance(new, str) or old != state.manual_head or row["old_revision"] != state.revision:
@@ -261,6 +265,19 @@ class Journal:
                 atomic_bytes(self.identity_path, identity_bytes)
                 self.fault("bootstrap_identity")
             with self.connection() as connection, connection:
+                if health is not None:
+                    binding_row = connection.execute("SELECT receiver_binding FROM state WHERE singleton=1").fetchone()[0]
+                    binding = json.loads(binding_row) if binding_row else None
+                    if not isinstance(binding, dict):
+                        raise unavailable()
+                    binding["transactionId"] = row["transaction_id"]
+                    binding["manifestDigest"] = hashlib.sha256(encode(health)).hexdigest()
+                    connection.execute("UPDATE state SET receiver_binding=? WHERE singleton=1", (encode(binding).decode(),))
+                source = value["source"]
+                if source is not None:
+                    if not isinstance(source, dict) or set(source) != {"sourceId", "sourceKind", "deviceId", "streamId"}:
+                        raise unavailable()
+                    connection.execute("INSERT INTO sources VALUES (?,?,?,?)", (source["sourceId"], source["sourceKind"], source["deviceId"], source["streamId"]))
                 connection.execute("UPDATE state SET revision=?,manual_head=?,bootstrapping=0 WHERE singleton=1", (row["new_revision"], new))
                 connection.execute("UPDATE transactions SET state='COMMITTED' WHERE transaction_id=?", (row["transaction_id"],))
             self._sync()
@@ -271,6 +288,27 @@ class Journal:
         with self.connection() as connection:
             rows = connection.execute("SELECT * FROM sources ORDER BY source_id").fetchall()
         return {row["source_id"]: cast(dict[str, JSON], dict(row)) for row in rows}
+
+    def receiver_binding(self) -> dict[str, JSON] | None:
+        with self.connection() as connection:
+            value = connection.execute("SELECT receiver_binding FROM state WHERE singleton=1").fetchone()[0]
+        if value is None:
+            return None
+        parsed = decode(value)
+        if not isinstance(parsed, dict) or set(parsed) != {"receiverId", "path", "transactionId", "manifestDigest"}:
+            raise unavailable()
+        return parsed
+
+    def bind_receiver(self, receiver_id: str, relative_path: str) -> None:
+        binding = {"receiverId": receiver_id, "path": relative_path, "transactionId": None, "manifestDigest": None}
+        prior = self.receiver_binding()
+        if prior is not None:
+            if prior["receiverId"] != receiver_id or prior["path"] != relative_path:
+                raise unavailable()
+            return
+        with self.connection() as connection, connection:
+            connection.execute("UPDATE state SET receiver_binding=? WHERE singleton=1", (encode(binding).decode(),))
+        self._sync()
 
     def backup_inventory(self) -> tuple[Path, ...]:
         """Under canonical lock, complete decisions before consistent backup.

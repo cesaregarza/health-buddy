@@ -75,6 +75,12 @@ def load_program(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise ProgramError(f"{path}: invalid JSON") from exc
 
+    return validate_program(program, str(path))
+
+
+def validate_program(program: Any, path: str = "program") -> dict[str, Any]:
+    """Validate an already parsed owner program without reading a file."""
+
     if not isinstance(program, dict):
         raise ProgramError(f"{path}: program must be an object")
     for key in (

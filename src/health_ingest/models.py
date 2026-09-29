@@ -182,7 +182,7 @@ class HealthRecord:
     creation_date: str | None
     local_date: str | None
     # Native samples currently omit this field. Preserve that raw null; the
-    # deployment's analysis layer applies its explicit America/Chicago profile.
+    # deployment's analysis layer uses its configured IANA presentation zone.
     timezone: str | None
     value: int | float | str | None
     unit: str | None
