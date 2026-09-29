@@ -98,7 +98,30 @@ def test_direct_old_receiver_and_manual_ids_ignore_dense_unrequested_history(tmp
         ),
     )
     assert narrow.status == 200 and len(decoded(narrow)["data"]["records"]) == 10
+    dashboard = decoded(
+        service.execute(owner, Request("dashboard.read", query={"format": "json"}))
+    )["data"]
+    assert dashboard["meta"]["truncated"] is True
+    assert dashboard["meta"]["projectionState"] == "partial"
+    context = decoded(service.execute(owner, Request("context.read")))["data"]
+    assert "This context is limited; totals may be incomplete." in context["text"]
+    status = decoded(service.execute(owner, Request("projection.status")))["data"]
+    assert status["state"] == "partial" and status["truncated"] is True
     restricted = policy.issue(read_sources=frozenset({"manual"}))
+    mass_only = policy.issue(read_kinds=frozenset({"body-mass"}))
+    for handle in (restricted, mass_only):
+        scoped = decoded(
+            service.execute(
+                handle, Request("dashboard.read", query={"format": "json"})
+            )
+        )["data"]
+        assert scoped["meta"]["truncated"] is False
+        assert scoped["meta"]["projectionState"] == "current"
+        assert not any(
+            state.get("truncatedKinds") for state in scoped["sources"].values()
+        )
+        pack = decoded(service.execute(handle, Request("context.read")))["data"]
+        assert "This context is limited" not in pack["text"]
     assert (
         service.execute(restricted, Request("records.get", resource_id=old)).status
         == 404

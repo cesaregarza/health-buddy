@@ -142,6 +142,14 @@ reads explicit source/window pages from the same canonical IDs displayed by the
 dashboard, keeps a single revision and exposes unit, timezone, provenance source
 IDs, freshness and missingness. A missing measurement remains unknown.
 
+Dashboard metadata and `projection.status` distinguish `current` data from
+`partial` bounded views and `stale` views using last-good or unavailable-source
+data. `truncated:true` means an admitted source/type or dashboard domain exceeded
+its view budget; dashboard and copied context explicitly warn that totals may
+be incomplete. The flag is filtered by current source/kind grants. It does not
+claim the underlying records were deleted or that a bounded view is complete.
+Stale data can also be truncated, so callers must inspect both fields.
+
 The native and browser client workflows persist complete original pending
 requests before send and advance only after a matching validated receipt.
 Conflicts, unknown outcomes, corruption and epoch changes preserve the pending

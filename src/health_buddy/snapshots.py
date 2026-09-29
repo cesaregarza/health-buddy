@@ -696,6 +696,17 @@ def dashboard(
             **component["state"],
             **({"freshness": "stale"} if stale else {}),
         }
+        truncated_kinds = [
+            kind
+            for kind in component["state"].get("truncatedKinds", [])
+            if allowed(
+                authority,
+                name,
+                "body-mass" if kind == "HKQuantityTypeIdentifierBodyMass" else kind,
+            )
+        ]
+        sources[name]["truncatedKinds"] = truncated_kinds
+        truncated = truncated or bool(truncated_kinds)
         data = component["health"]
         health["available"] = health["available"] or data["available"]
         stamps = [
@@ -797,7 +808,9 @@ def dashboard(
             "dataRevision": captured["revision"],
             "apiVersion": 1,
             "revision_kind": "canonical-journal",
-            "projectionState": "stale" if partial else "current",
+            "projectionState": (
+                "stale" if partial else "partial" if truncated else "current"
+            ),
             "truncated": truncated,
             "windowDays": days,
             "runtime": "canonical-local",

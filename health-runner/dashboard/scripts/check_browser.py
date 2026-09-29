@@ -351,6 +351,8 @@ def main():
                 page.goto('http://localhost/dashboard')
                 assert not errors, f'JavaScript errors: {errors}'
                 expect(page.locator('#tiles .tile')).not_to_have_count(0)
+                if not args.html:
+                    expect(page.locator('#bounded-view-notice')).to_be_hidden()
                 maintenance = page.locator('#supporting-tiles .tile').filter(has_text='Maintenance estimate')
                 if not args.html:
                     expect(maintenance).to_contain_text('2,350')
@@ -381,6 +383,8 @@ def main():
             # Missing sources must render explicit empty states, never stale claims.
             data=snapshot()
             data['meta'].update(META)
+            # Disclosure is driven by canonical metadata, not source names.
+            data['meta']['truncated'] = True
             for key in ('weight','weight7','bp','injections','intake','training','sleep','rhr','hrv','steps','energy','workouts'):
                 data[key]=[]
             data['tape']={'waist':[],'circumferences':[]}
@@ -397,10 +401,14 @@ def main():
             page.on('pageerror',lambda e:capture_page_error(errors,e,phase='empty-snapshot',width=390,theme='default'))
             page.clock.set_fixed_time(datetime.fromisoformat(args.date).astimezone(timezone.utc))
             page.goto('http://localhost/dashboard')
+            notice = page.locator('#bounded-view-notice')
+            expect(notice).to_have_text('This view is limited; totals may be incomplete.')
+            expect(notice).to_be_visible()
             expect(page.locator('#today')).to_contain_text('No highlighted items')
             expect(page.locator('#supporting-tiles .energy-tile')).to_contain_text('need recent HealthKit energy data')
             for tab in TABS:
                 page.locator(f'#tab-{tab}').click()
+                expect(notice).to_be_visible()
                 layout(page)
             context.close()
         browser.close()

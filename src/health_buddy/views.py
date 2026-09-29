@@ -366,6 +366,8 @@ def _context(
         service, capture, authority, stale=stale, days=days, limit=limit
     )
     pack = str(context.build_pack(data, selected, days, ask))
+    if data["meta"]["truncated"]:
+        pack += "\nThis context is limited; totals may be incomplete.\n"
     lines = [
         "",
         "## Workspace settings",
@@ -444,6 +446,7 @@ def _render(
         dashboard = snapshots.dashboard(service, capture, authority, stale=stale)
         data = {
             "state": dashboard["meta"]["projectionState"],
+            "truncated": dashboard["meta"]["truncated"],
             "sources": dashboard["sources"],
             "dataRevision": capture["revision"],
         }

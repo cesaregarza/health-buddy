@@ -302,6 +302,11 @@ def test_dense_set_history_does_not_evict_weight_or_session_parent(tmp_path):
     assert view["weight"] and view["weight"][0]["lb"] == 176
     assert any(item["kind"] == "workout-session" for item in view["observations"])
     assert view["training"] and view["meta"]["truncated"] is True
+    assert view["meta"]["projectionState"] == "partial"
+    context = decoded(
+        service.execute(owner, Request("context.read", query={"scopes": "training"}))
+    )["data"]
+    assert "This context is limited; totals may be incomplete." in context["text"]
     assert (
         len([item for item in view["observations"] if item["kind"] == "workout-set"])
         == 500
