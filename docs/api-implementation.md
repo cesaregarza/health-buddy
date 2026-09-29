@@ -89,9 +89,12 @@ the decided transaction recoverable before admitting another canonical read.
   rejects protected requests. Development mode explicitly restricts loopback,
   Host and Origin and chooses only an explicit development principal; it must
   not cause a deny-policy service to accept a request.
-- CLI hook: `production_server.serve(operations, *, port=8791,
-  development=False) -> None`; explicit loopback bind, one process and bounded
-  worker resources. Production deployment configuration/auth remains later.
+- CLI hook: `production_server.serve(operations_factory, *, port=8791,
+  development=False) -> None`, with `Callable[[], Operations]`; an importable
+  factory or picklable partial constructs operations/policy inside the serving
+  child, never inheriting live store/lock/database handles. Explicit loopback
+  bind, one serving worker plus a lightweight supervisor, and bounded resources.
+  Production deployment configuration/auth remains later.
 - The integration owner will cherry-pick the independently reviewed transport
   changes, freeze an exact combined SHA and submit it to the one testing queue.
   Interface changes are coordinated before either side edits this module.
@@ -100,3 +103,6 @@ The retained manual Git adapter stays private/local with no remote, hooks,
 signing or code updates. The canonical coordinator journals immutable prepared
 commit/ref and HealthKit SQLite effects. Recovery/adoption and exact receipts
 must be proven by synthetic queue tests before this document can claim success.
+Core bounds complete response and receipt bytes before COMMIT_INTENT. A later
+temporary failure is a retryable, ambiguous 503; it never claims an already
+decided mutation was aborted. The exact original retry envelope is retained.
