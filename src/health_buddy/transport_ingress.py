@@ -55,7 +55,9 @@ class VerifiedSocket:
             raise ValueError("private_socket_unavailable")
         return cls(path, info.st_dev, info.st_ino)
 
-    def check(self, scope: Scope, values: dict[str, str], ingress: IngressConfig) -> None:
+    def check(
+        self, scope: Scope, values: dict[str, str], ingress: IngressConfig
+    ) -> None:
         try:
             current = self.capture(self.path)
         except (OSError, ValueError) as exc:
@@ -64,8 +66,10 @@ class VerifiedSocket:
         # specification's spelling; neither accepts a TCP address or an absent
         # server. The launcher's captured inode is independent of this scope.
         server = scope.get("server")
-        if current != self or not server or tuple(server) not in (
-            (str(self.path), 0), (str(self.path), None)
+        if (
+            current != self
+            or not server
+            or tuple(server) not in ((str(self.path), 0), (str(self.path), None))
         ):
             raise EnvelopeError(403, "untrusted_ingress")
         origin = ingress.external_origin

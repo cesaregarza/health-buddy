@@ -15,7 +15,9 @@ class AuthenticatedOperations:
         admitted = self.runtime.security.authenticate(self.proof)
         return self.runtime.security.describe(admitted.principal)
 
-    def preflight(self, principal: Principal | None, operation: Operation) -> Response | None:
+    def preflight(
+        self, principal: Principal | None, operation: Operation
+    ) -> Response | None:
         admitted = self.runtime.security.authenticate(self.proof)
         return self.runtime.operations.preflight(admitted.principal, operation)
 

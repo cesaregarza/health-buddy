@@ -16,18 +16,31 @@ from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from threading import RLock
 from pathlib import Path
+from threading import RLock
 from typing import TYPE_CHECKING, cast
 
 from .domain import check_identity
 from .durability import check_deadline, exclusive
 from .security_api import (
-    Authenticated, BearerProof, ClientIdentity, CredentialProof, Mechanism,
-    ProxyProof, SecurityAction, SecurityReply, SecurityRequest, SessionProof,
+    Authenticated,
+    BearerProof,
+    ClientIdentity,
+    CredentialProof,
+    Mechanism,
+    ProxyProof,
+    SecurityAction,
+    SecurityReply,
+    SecurityRequest,
+    SessionProof,
 )
 from .security_store import (
-    SecurityStore, csrf_value, denied, fingerprint, secret_value, unavailable, valid_secret,
+    SecurityStore,
+    csrf_value,
+    denied,
+    fingerprint,
+    secret_value,
+    valid_secret,
 )
 from .service_api import Authority, Identity, Operation, Principal, ServiceError
 
@@ -35,18 +48,40 @@ if TYPE_CHECKING:
     from .operations import Service
 
 PUBLIC_ACTIONS = frozenset({"bootstrap.redeem", "pairing.redeem"})
-OWNER_ACTIONS = frozenset({
-    "grants.create", "grants.list", "grants.rotate", "grants.revoke",
-    "pairing.create", "pairing.status", "pairing.handoff", "devices.list", "devices.revoke",
-})
-ALL_ACTIONS = PUBLIC_ACTIONS | OWNER_ACTIONS | {
-    "session.create", "session.get", "session.revoke",
-}
+OWNER_ACTIONS = frozenset(
+    {
+        "grants.create",
+        "grants.list",
+        "grants.rotate",
+        "grants.revoke",
+        "pairing.create",
+        "pairing.status",
+        "pairing.handoff",
+        "devices.list",
+        "devices.revoke",
+    }
+)
+ALL_ACTIONS = (
+    PUBLIC_ACTIONS
+    | OWNER_ACTIONS
+    | {
+        "session.create",
+        "session.get",
+        "session.revoke",
+    }
+)
 IDENTITY_ACTIONS = OWNER_ACTIONS - {"grants.list", "pairing.status", "devices.list"}
-OWNER_GRANTS = frozenset({
-    "records:read", "records:write", "operations:admin", "providers:invoke",
-    "devices:manage", "extensions:manage", "security:owner",
-})
+OWNER_GRANTS = frozenset(
+    {
+        "records:read",
+        "records:write",
+        "operations:admin",
+        "providers:invoke",
+        "devices:manage",
+        "extensions:manage",
+        "security:owner",
+    }
+)
 
 
 @dataclass
@@ -59,7 +94,9 @@ class Handle:
 
 
 class SecurityAuthority:
-    def __init__(self, service: Service, *, proxy_boundary: object | None = None) -> None:
+    def __init__(
+        self, service: Service, *, proxy_boundary: object | None = None
+    ) -> None:
         self.service = service
         self.store = SecurityStore(service.config.root)
         self.proxy_boundary = proxy_boundary
@@ -78,7 +115,11 @@ class SecurityAuthority:
                     yield connection
 
     def _handle(
-        self, credential: str, epoch: str, mechanism: Mechanism, csrf: str | None = None,
+        self,
+        credential: str,
+        epoch: str,
+        mechanism: Mechanism,
+        csrf: str | None = None,
     ) -> Principal:
         now = time.monotonic()
         with self.cache_lock:
@@ -98,9 +139,13 @@ class SecurityAuthority:
             return Principal(key)
 
     def _resolve(
-        self, connection: sqlite3.Connection, principal: Principal | None,
+        self,
+        connection: sqlite3.Connection,
+        principal: Principal | None,
     ) -> tuple[Handle, sqlite3.Row]:
-        if not isinstance(principal, Principal) or not isinstance(principal.credential_id, str):
+        if not isinstance(principal, Principal) or not isinstance(
+            principal.credential_id, str
+        ):
             raise denied()
         with self.cache_lock:
             handle = self.handles.get(principal.credential_id)
@@ -111,7 +156,10 @@ class SecurityAuthority:
             handle.used = time.monotonic()
             self.handles.move_to_end(principal.credential_id)
         if handle.mechanism == "proxy":
-            if self.proxy_boundary is None or self.service.config.ingress().mode != "tailscale-uds":
+            if (
+                self.proxy_boundary is None
+                or self.service.config.ingress().mode != "tailscale-uds"
+            ):
                 raise denied()
             actor = connection.execute(
                 "SELECT * FROM actors WHERE id=? AND active=1 AND role='owner'",
@@ -119,23 +167,30 @@ class SecurityAuthority:
             ).fetchone()
         else:
             row = connection.execute(
-                "SELECT * FROM credentials WHERE id=? AND active=1", (handle.credential,),
+                "SELECT * FROM credentials WHERE id=? AND active=1",
+                (handle.credential,),
             ).fetchone()
             if (
-                row is None or row["epoch"] != handle.epoch
+                row is None
+                or row["epoch"] != handle.epoch
                 or (row["expires"] is not None and time.time() >= row["expires"])
                 or row["kind"] == "bootstrap"
             ):
                 raise denied()
             actor = connection.execute(
-                "SELECT * FROM actors WHERE id=? AND active=1", (row["actor_id"],),
+                "SELECT * FROM actors WHERE id=? AND active=1",
+                (row["actor_id"],),
             ).fetchone()
         if actor is None:
             raise denied()
         return handle, actor
 
-    def _client(self, connection: sqlite3.Connection, actor: sqlite3.Row) -> ClientIdentity:
-        return ClientIdentity(actor["id"], self.store.epoch(connection), self._identity())
+    def _client(
+        self, connection: sqlite3.Connection, actor: sqlite3.Row
+    ) -> ClientIdentity:
+        return ClientIdentity(
+            actor["id"], self.store.epoch(connection), self._identity()
+        )
 
     def authenticate(self, proof: CredentialProof) -> Authenticated:
         with self._locked() as connection:
@@ -146,8 +201,10 @@ class SecurityAuthority:
             if isinstance(proof, ProxyProof):
                 ingress = self.service.config.ingress()
                 if (
-                    self.proxy_boundary is None or proof.boundary is not self.proxy_boundary
-                    or ingress.mode != "tailscale-uds" or proof.subject != ingress.owner_subject
+                    self.proxy_boundary is None
+                    or proof.boundary is not self.proxy_boundary
+                    or ingress.mode != "tailscale-uds"
+                    or proof.subject != ingress.owner_subject
                 ):
                     raise denied()
                 actor = connection.execute(
@@ -160,7 +217,11 @@ class SecurityAuthority:
                 if not isinstance(proof, BearerProof | SessionProof):
                     raise denied()
                 token = valid_secret(proof.token)
-                kinds = ("session",) if isinstance(proof, SessionProof) else ("owner", "agent", "device")
+                kinds = (
+                    ("session",)
+                    if isinstance(proof, SessionProof)
+                    else ("owner", "agent", "device")
+                )
                 row = None
                 for kind in kinds:
                     candidate = connection.execute(
@@ -170,7 +231,9 @@ class SecurityAuthority:
                     if candidate is not None:
                         row = candidate
                 if (
-                    row is None or not row["active"] or row["epoch"] != epoch
+                    row is None
+                    or not row["active"]
+                    or row["epoch"] != epoch
                     or (row["expires"] is not None and time.time() >= row["expires"])
                 ):
                     raise denied()
@@ -185,13 +248,19 @@ class SecurityAuthority:
                             fingerprint("csrf", proof.csrf), row["csrf_digest"]
                         )
                 actor = connection.execute(
-                    "SELECT * FROM actors WHERE id=? AND active=1", (row["actor_id"],),
+                    "SELECT * FROM actors WHERE id=? AND active=1",
+                    (row["actor_id"],),
                 ).fetchone()
                 if actor is None:
                     raise denied()
-            principal = self._handle(credential, epoch, cast(Mechanism, mechanism), csrf)
+            principal = self._handle(
+                credential, epoch, cast(Mechanism, mechanism), csrf
+            )
             return Authenticated(
-                principal, cast(Mechanism, mechanism), self._client(connection, actor), csrf_verified,
+                principal,
+                cast(Mechanism, mechanism),
+                self._client(connection, actor),
+                csrf_verified,
             )
 
     def describe(self, principal: Principal) -> ClientIdentity:
@@ -200,7 +269,9 @@ class SecurityAuthority:
             return self._client(connection, actor)
 
     @contextmanager
-    def guard(self, principal: Principal | None, operation: Operation) -> Iterator[Authority]:
+    def guard(
+        self, principal: Principal | None, operation: Operation
+    ) -> Iterator[Authority]:
         # Canonical Service already owns workspace/manual.lock here, including
         # preflight. Never reacquire that flock through another file descriptor.
         with exclusive(self.store.lock):
@@ -213,21 +284,34 @@ class SecurityAuthority:
                     self.store.budget(connection, "public", time.time())
                     raise
                 owner = actor["role"] == "owner"
+
                 def restriction(name: str) -> frozenset[str] | None:
-                    return None if actor[name] is None else frozenset(json.loads(actor[name]))
+                    return (
+                        None
+                        if actor[name] is None
+                        else frozenset(json.loads(actor[name]))
+                    )
+
                 yield Authority(
                     actor_id=actor["id"],
-                    grants=OWNER_GRANTS if owner else frozenset(json.loads(actor["grants"])),
-                    source_ids=frozenset(self.service.journal.sources()) if owner
+                    grants=OWNER_GRANTS
+                    if owner
+                    else frozenset(json.loads(actor["grants"])),
+                    source_ids=frozenset(self.service.journal.sources())
+                    if owner
                     else frozenset(json.loads(actor["sources"])),
                     read_sources=restriction("read_sources"),
                     read_kinds=restriction("read_kinds"),
                     read_fields=restriction("read_fields"),
-                    device_id=actor["device_id"], source_stream_id=actor["stream_id"],
+                    device_id=actor["device_id"],
+                    source_stream_id=actor["stream_id"],
                 )
 
     def _admit(
-        self, connection: sqlite3.Connection, principal: Principal | None, action: SecurityAction,
+        self,
+        connection: sqlite3.Connection,
+        principal: Principal | None,
+        action: SecurityAction,
     ) -> tuple[Handle | None, sqlite3.Row | None]:
         if not isinstance(action, str) or action not in ALL_ACTIONS:
             raise ServiceError(422, "invalid_request")
@@ -245,21 +329,36 @@ class SecurityAuthority:
         if not isinstance(action, str) or action not in ALL_ACTIONS:
             raise ServiceError(422, "invalid_request")
         with self._locked() as connection:
-            self.store.budget(connection, "public" if action in PUBLIC_ACTIONS else "security", time.time())
+            self.store.budget(
+                connection,
+                "public" if action in PUBLIC_ACTIONS else "security",
+                time.time(),
+            )
             self._admit(connection, principal, action)
 
-    def execute(self, principal: Principal | None, request: SecurityRequest) -> SecurityReply:
+    def execute(
+        self, principal: Principal | None, request: SecurityRequest
+    ) -> SecurityReply:
         from .security_actions import execute
 
-        if not isinstance(request, SecurityRequest) or not isinstance(request.action, str) or request.action not in ALL_ACTIONS:
+        if (
+            not isinstance(request, SecurityRequest)
+            or not isinstance(request.action, str)
+            or request.action not in ALL_ACTIONS
+        ):
             raise ServiceError(422, "invalid_request")
         if request.deadline is not None and (
             type(request.deadline) not in {int, float}
-            or not 0 <= request.deadline <= 1e15 or not math.isfinite(request.deadline)
+            or not 0 <= request.deadline <= 1e15
+            or not math.isfinite(request.deadline)
         ):
             raise ServiceError(422, "invalid_request")
         with self._locked(request.deadline) as connection:
-            self.store.budget(connection, "public" if request.action in PUBLIC_ACTIONS else "security", time.time())
+            self.store.budget(
+                connection,
+                "public" if request.action in PUBLIC_ACTIONS else "security",
+                time.time(),
+            )
             handle, actor = self._admit(connection, principal, request.action)
             if request.action in IDENTITY_ACTIONS or request.action in PUBLIC_ACTIONS:
                 check_identity(request.identity, self._identity())

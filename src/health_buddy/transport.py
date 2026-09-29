@@ -17,11 +17,17 @@ from starlette.responses import Response as HTTPResponse
 from starlette.routing import Route, Router
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .service_api import Identity, Operation, Operations, Principal, Request, Response, ServiceError
 from .security_api import Runtime
+from .service_api import (
+    Identity,
+    Operation,
+    Operations,
+    Principal,
+    Request,
+    Response,
+    ServiceError,
+)
 from .transport_ingress import VerifiedSocket
-from .transport_security import SecurityTransport, route as security_route
-from .transport_ui import shell as auth_shell, script as auth_script
 from .transport_jobs import Jobs
 from .transport_limits import (
     DEFAULT_LIMITS,
@@ -33,6 +39,10 @@ from .transport_limits import (
     json_object,
     query,
 )
+from .transport_security import SecurityTransport
+from .transport_security import route as security_route
+from .transport_ui import script as auth_script
+from .transport_ui import shell as auth_shell
 
 
 @dataclass(frozen=True)
@@ -157,8 +167,14 @@ def error(status: int, code: str) -> HTTPResponse:
 
 
 def login_redirect(scope: Scope, values: Mapping[str, str]) -> HTTPResponse | None:
-    if scope["method"] == "GET" and scope.get("raw_path") in (b"/", b"/index.html", b"/security") and "text/html" in values.get("accept", ""):
-        return HTTPResponse(status_code=303, headers={**_SECURITY, "location": "/login"})
+    if (
+        scope["method"] == "GET"
+        and scope.get("raw_path") in (b"/", b"/index.html", b"/security")
+        and "text/html" in values.get("accept", "")
+    ):
+        return HTTPResponse(
+            status_code=303, headers={**_SECURITY, "location": "/login"}
+        )
     return None
 
 
@@ -221,12 +237,26 @@ class Transport:
         self.active = 0
         self.runtime = runtime
         self.private_socket = private_socket
-        self.security = SecurityTransport(runtime, self.jobs, limits, proxy_verified=private_socket is not None) if runtime is not None and not development else None
-        if private_socket is not None and (runtime is None or runtime.ingress.mode != "tailscale-uds" or str(private_socket.path) != runtime.ingress.socket_path):
+        self.security = (
+            SecurityTransport(
+                runtime, self.jobs, limits, proxy_verified=private_socket is not None
+            )
+            if runtime is not None and not development
+            else None
+        )
+        if private_socket is not None and (
+            runtime is None
+            or runtime.ingress.mode != "tailscale-uds"
+            or str(private_socket.path) != runtime.ingress.socket_path
+        ):
             raise ValueError("private_ingress_mismatch")
         if runtime is not None and authenticate is not None:
             raise ValueError("ambiguous_security_provider")
-        if runtime is not None and runtime.ingress.mode == "tailscale-uds" and private_socket is None:
+        if (
+            runtime is not None
+            and runtime.ingress.mode == "tailscale-uds"
+            and private_socket is None
+        ):
             raise ValueError("private_ingress_unavailable")
 
         @asynccontextmanager
@@ -258,7 +288,9 @@ class Transport:
                 raise EnvelopeError(403, "origin_rejected")
             if values.get("sec-fetch-site", "none") not in ("none", "same-origin"):
                 raise EnvelopeError(403, "origin_rejected")
-            return Connection(scope.get("client"), tuple(scope["server"]), "https", scope["method"])
+            return Connection(
+                scope.get("client"), tuple(scope["server"]), "https", scope["method"]
+            )
         server = scope.get("server")
         if not server or server[0] not in ("127.0.0.1", "::1"):
             raise EnvelopeError(400, "invalid_host")
@@ -271,7 +303,11 @@ class Transport:
             raise EnvelopeError(400, "invalid_host")
         scheme = scope.get("scheme", "http")
         origin = values.get("origin")
-        expected_origin = self.runtime.ingress.external_origin if self.runtime is not None and not self.development else f"{scheme}://{host}"
+        expected_origin = (
+            self.runtime.ingress.external_origin
+            if self.runtime is not None and not self.development
+            else f"{scheme}://{host}"
+        )
         if origin is not None and origin != expected_origin:
             raise EnvelopeError(403, "origin_rejected")
         if values.get("sec-fetch-site", "none") not in ("none", "same-origin"):
@@ -349,21 +385,42 @@ class Transport:
                 if raw_path in (b"/login", b"/auth.js"):
                     if scope["method"] != "GET":
                         raise EnvelopeError(405, "method_not_allowed")
-                    arguments = query(raw_query, frozenset({"pairing"}) if raw_path == b"/login" else frozenset())
-                    if ("pairing" in arguments and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"])) or values.get("content-length", "0") != "0":
+                    arguments = query(
+                        raw_query,
+                        frozenset({"pairing"})
+                        if raw_path == b"/login"
+                        else frozenset(),
+                    )
+                    if (
+                        "pairing" in arguments
+                        and not re.fullmatch(
+                            r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"]
+                        )
+                    ) or values.get("content-length", "0") != "0":
                         raise EnvelopeError(422, "invalid_request")
-                    await (auth_shell() if raw_path == b"/login" else auth_script())(scope, receive, bounded_send)
+                    await (auth_shell() if raw_path == b"/login" else auth_script())(
+                        scope, receive, bounded_send
+                    )
                     return
                 selected = security_route(raw_path.decode("ascii"), scope["method"])
                 if selected is not None:
                     endpoint, resource = selected
-                    result = await self.security.handle(HTTPRequest(scope, receive), values, endpoint, resource, began)
+                    result = await self.security.handle(
+                        HTTPRequest(scope, receive), values, endpoint, resource, began
+                    )
                     await result(scope, receive, bounded_send)
                     return
                 admitted = await self.security.authenticate(values, scope["method"])
                 principal = admitted.principal if admitted is not None else None
-            elif self.development and raw_path == b"/v1/session" and scope["method"] == "GET" and not raw_query:
-                await response(Response(200, b'{"data":{"development":true},"meta":{}}'), 128)(scope, receive, bounded_send)
+            elif (
+                self.development
+                and raw_path == b"/v1/session"
+                and scope["method"] == "GET"
+                and not raw_query
+            ):
+                await response(
+                    Response(200, b'{"data":{"development":true},"meta":{}}'), 128
+                )(scope, receive, bounded_send)
                 return
             elif self.authenticate is not None:
                 principal = await self.jobs.call(
@@ -378,9 +435,25 @@ class Transport:
                 raise EnvelopeError(401, "unauthenticated")
             if self.security is not None and raw_path == b"/security":
                 arguments = query(raw_query, frozenset({"pairing"}))
-                if ("pairing" in arguments and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"])) or scope["method"] != "GET" or values.get("content-length", "0") != "0":
+                if (
+                    (
+                        "pairing" in arguments
+                        and not re.fullmatch(
+                            r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"]
+                        )
+                    )
+                    or scope["method"] != "GET"
+                    or values.get("content-length", "0") != "0"
+                ):
                     raise EnvelopeError(422, "invalid_request")
-                await self.jobs.call(partial(self.security.runtime.security.preflight, principal, "grants.list"), deadline=began + self.limits.admission_seconds)
+                await self.jobs.call(
+                    partial(
+                        self.security.runtime.security.preflight,
+                        principal,
+                        "grants.list",
+                    ),
+                    deadline=began + self.limits.admission_seconds,
+                )
                 await auth_shell(owner=True)(scope, receive, bounded_send)
                 return
             scope = dict(scope)
@@ -389,8 +462,14 @@ class Transport:
             await self.router(scope, receive, bounded_send)
         except (EnvelopeError, ServiceError) as exc:
             if not started:
-                redirect = login_redirect(scope, values) if exc.status == 401 and self.security is not None else None
-                await (redirect or error(exc.status, exc.code))(scope, receive, bounded_send)
+                redirect = (
+                    login_redirect(scope, values)
+                    if exc.status == 401 and self.security is not None
+                    else None
+                )
+                await (redirect or error(exc.status, exc.code))(
+                    scope, receive, bounded_send
+                )
         except (ClientDisconnect, TimeoutError):
             if not started:
                 await error(408, "request_timeout")(scope, receive, bounded_send)
@@ -510,4 +589,6 @@ def create_app(
         operations = runtime.operations
     if operations is None:
         raise ValueError("operations_required")
-    return Transport(operations, authenticate, development, limits, runtime, private_socket)
+    return Transport(
+        operations, authenticate, development, limits, runtime, private_socket
+    )

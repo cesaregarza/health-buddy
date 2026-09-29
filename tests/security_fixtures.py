@@ -15,7 +15,8 @@ def secured(root, *, receiver=False, proxy=False):
         value["integrations"]["healthkit"] = {"enabled": True, "mode": "receiver"}
     if proxy:
         value["security"].update(
-            ingress="tailscale-uds", externalOrigin="https://synthetic.example.invalid",
+            ingress="tailscale-uds",
+            externalOrigin="https://synthetic.example.invalid",
             ownerSubject="synthetic-owner@example.invalid",
         )
     path.write_text(json.dumps(value))
@@ -24,16 +25,26 @@ def secured(root, *, receiver=False, proxy=False):
     proof = json.loads(proof_file.read_text())["proof"]
     runtime = open_runtime(root)
     identity = runtime.operations.journal.state().identity
-    reply = runtime.security.execute(None, SecurityRequest(
-        "bootstrap.redeem", proof=BootstrapProof(proof), identity=identity,
-    ))
+    reply = runtime.security.execute(
+        None,
+        SecurityRequest(
+            "bootstrap.redeem",
+            proof=BootstrapProof(proof),
+            identity=identity,
+        ),
+    )
     token = reply.secret.value
     owner = runtime.security.authenticate(BearerProof(token))
     return runtime, owner, token
 
 
 def action(runtime, owner, name, *, payload=None, resource=None):
-    return runtime.security.execute(owner.principal if owner else None, SecurityRequest(
-        name, payload=payload, resource_id=resource,
-        identity=runtime.operations.journal.state().identity,
-    ))
+    return runtime.security.execute(
+        owner.principal if owner else None,
+        SecurityRequest(
+            name,
+            payload=payload,
+            resource_id=resource,
+            identity=runtime.operations.journal.state().identity,
+        ),
+    )

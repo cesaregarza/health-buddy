@@ -93,8 +93,12 @@ def response_identity(value: dict[str, JSON]) -> tuple[Identity, int]:
 
 class ClientWorkflow:
     def __init__(
-        self, config: Config, operations: Operations, principal: Principal | None,
-        *, client_identity: Callable[[], ClientIdentity] | None = None,
+        self,
+        config: Config,
+        operations: Operations,
+        principal: Principal | None,
+        *,
+        client_identity: Callable[[], ClientIdentity] | None = None,
     ) -> None:
         self.config = config
         self.operations = operations
@@ -131,8 +135,14 @@ class ClientWorkflow:
             or cast(int, value["cursor"]) < 0
             or not isinstance(value.get("envelope"), dict)
             or not isinstance(value.get("intentDigest"), str)
-            or (value["schemaVersion"] == 1 and not isinstance(value.get("principalBinding"), str))
-            or (value["schemaVersion"] == 2 and not isinstance(value.get("clientIdentity"), dict))
+            or (
+                value["schemaVersion"] == 1
+                and not isinstance(value.get("principalBinding"), str)
+            )
+            or (
+                value["schemaVersion"] == 2
+                and not isinstance(value.get("clientIdentity"), dict)
+            )
         ):
             raise ServiceError(503, "client_state_unavailable")
         state = cast(dict[str, Any], value)
@@ -225,8 +235,11 @@ class ClientWorkflow:
         ):
             raise ServiceError(503, "client_identity_unavailable")
         check_identity(value.identity, value.identity)
-        return {"actorBinding": value.actor_binding, "securityEpoch": value.security_epoch,
-                "identity": identity_value(value.identity)}
+        return {
+            "actorBinding": value.actor_binding,
+            "securityEpoch": value.security_epoch,
+            "identity": identity_value(value.identity),
+        }
 
     def _check_binding(self, state: dict[str, Any]) -> None:
         binding = self._binding()
@@ -406,7 +419,9 @@ class ClientWorkflow:
             if state is None:
                 return {"state": "empty", "cursor": 0}
             return {
-                "state": "legacy_requires_resolution" if self.client_identity is not None and state["schemaVersion"] == 1 else state["state"],
+                "state": "legacy_requires_resolution"
+                if self.client_identity is not None and state["schemaVersion"] == 1
+                else state["state"],
                 "cursor": state["cursor"],
                 "operation": state["envelope"]["operation"],
                 "lastError": state.get("lastError"),

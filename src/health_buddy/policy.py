@@ -46,9 +46,14 @@ class DevelopmentPolicy:
                 raise ServiceError(401, "unauthenticated")
             yield Authority(
                 actor_id="local-development-owner",
-                grants=frozenset({
-                    "records:read", "records:write", "operations:admin", "providers:invoke",
-                }),
+                grants=frozenset(
+                    {
+                        "records:read",
+                        "records:write",
+                        "operations:admin",
+                        "providers:invoke",
+                    }
+                ),
                 source_ids=frozenset({"manual"}),
             )
 

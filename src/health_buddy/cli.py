@@ -22,7 +22,11 @@ from .service_api import ServiceError
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--credential-file", type=Path, help="Explicit private owner/agent bearer file; never a token argument")
+    parser.add_argument(
+        "--credential-file",
+        type=Path,
+        help="Explicit private owner/agent bearer file; never a token argument",
+    )
     parser.add_argument(
         "--development",
         action="store_true",
@@ -82,11 +86,15 @@ def main(argv: list[str] | None = None) -> int:
             recover = args.security_command == "recover"
             native_owner = not recover and args.owner_token_file is not None
             setup_security(
-                args.workspace, args.owner_token_file if recover or native_owner else args.proof_file,
-                recover=recover, confirm_revoke_all=recover and args.confirm_revoke_all,
+                args.workspace,
+                args.owner_token_file if recover or native_owner else args.proof_file,
+                recover=recover,
+                confirm_revoke_all=recover and args.confirm_revoke_all,
                 owner_token=native_owner,
             )
-            print("Private security handoff created. Keep the file private; its contents are not recoverable from HTTP replies.")
+            print(
+                "Private security handoff created. Keep the file private; its contents are not recoverable from HTTP replies."
+            )
             return 0
         if args.command == "serve":
             from .production_server import serve
@@ -110,7 +118,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.development:
             app = App.development(args.workspace)
         elif args.credential_file is not None:
-            app = App.authenticated(args.workspace, proof=BearerProof(read_credential(args.credential_file)))
+            app = App.authenticated(
+                args.workspace, proof=BearerProof(read_credential(args.credential_file))
+            )
         else:
             raise ServiceError(401, "explicit_credential_file_required")
         if args.command == "render":

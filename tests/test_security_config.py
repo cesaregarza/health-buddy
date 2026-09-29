@@ -78,10 +78,15 @@ def test_uds_requires_both_origin_and_exact_owner_subject(tmp_path):
         validate(settings, tmp_path)
 
 
-@pytest.mark.parametrize("origin", [
-    "https://example.invalid", "https://example.invalid:8443",
-    "https://127.0.0.1", "https://[2001:db8::1]:8443",
-])
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://example.invalid",
+        "https://example.invalid:8443",
+        "https://127.0.0.1",
+        "https://[2001:db8::1]:8443",
+    ],
+)
 def test_canonical_origin_retains_exact_browser_origin(tmp_path, origin):
     settings = defaults()
     settings["security"]["externalOrigin"] = origin

@@ -572,7 +572,11 @@ class Service:
                 )
 
     def _provision_device_locked(
-        self, binding: DeviceBinding, *, identity: Identity, deadline: float | None,
+        self,
+        binding: DeviceBinding,
+        *,
+        identity: Identity,
+        deadline: float | None,
     ) -> None:
         """Private coordinator seam; workspace then security locks already held.
 
@@ -581,18 +585,32 @@ class Service:
         """
         check_identity(identity, self.journal.state().identity)
         self._register_source_locked(
-            binding.source_id, "healthkit", device_id=binding.device_id,
-            stream_id=binding.stream_id, deadline=deadline,
+            binding.source_id,
+            "healthkit",
+            device_id=binding.device_id,
+            stream_id=binding.stream_id,
+            deadline=deadline,
         )
 
     def _register_source_locked(
-        self, source_id: str, source_kind: str, *, device_id: str | None = None,
-        stream_id: str | None = None, deadline: float | None = None,
+        self,
+        source_id: str,
+        source_kind: str,
+        *,
+        device_id: str | None = None,
+        stream_id: str | None = None,
+        deadline: float | None = None,
     ) -> Response:
         self.journal.recover()
         state = self.journal.verify()
         identifier(source_id)
-        if source_id in {"manual", "healthkit", "healthkit-import", "sleepiq", "sleepiq-export"}:
+        if source_id in {
+            "manual",
+            "healthkit",
+            "healthkit-import",
+            "sleepiq",
+            "sleepiq-export",
+        }:
             raise invalid()
         if source_kind not in {"connector", "healthkit"}:
             raise invalid()
@@ -604,30 +622,50 @@ class Service:
         elif device_id is not None or stream_id is not None:
             raise invalid()
         source: dict[str, JSON] = {
-            "sourceId": source_id, "sourceKind": source_kind,
-            "deviceId": device_id, "streamId": stream_id,
+            "sourceId": source_id,
+            "sourceKind": source_kind,
+            "deviceId": device_id,
+            "streamId": stream_id,
         }
         prior = self.journal.sources().get(source_id)
         if prior:
             if prior != {
-                "source_id": source_id, "source_kind": source_kind,
-                "device_id": device_id, "source_stream_id": stream_id,
+                "source_id": source_id,
+                "source_kind": source_kind,
+                "device_id": device_id,
+                "source_stream_id": stream_id,
             }:
                 raise ServiceError(409, "record_conflict")
-            return envelope({"registered": True, "sourceId": source_id}, state.identity, state.revision)
+            return envelope(
+                {"registered": True, "sourceId": source_id},
+                state.identity,
+                state.revision,
+            )
         effect: dict[str, JSON] | None = None
         if source_kind == "healthkit":
             effect = {
-                "kind": "register", "identity": identity_value(state.identity),
-                "sourceId": source_id, "streamId": stream_id, "deviceId": device_id,
-                "receivedAt": _now(), "batch": None,
+                "kind": "register",
+                "identity": identity_value(state.identity),
+                "sourceId": source_id,
+                "streamId": stream_id,
+                "deviceId": device_id,
+                "receivedAt": _now(),
+                "batch": None,
             }
             self.health.validate(effect)
-        receipt = envelope({"registered": True, "sourceId": source_id}, state.identity, state.revision + 1)
+        receipt = envelope(
+            {"registered": True, "sourceId": source_id},
+            state.identity,
+            state.revision + 1,
+        )
         return self.journal.commit(
-            uuid4().hex, "register-source:" + source_id, digest(source),
-            Effect(state.manual_head, state.manual_head, effect, source), receipt,
-            expected_revision=state.revision, deadline=deadline,
+            uuid4().hex,
+            "register-source:" + source_id,
+            digest(source),
+            Effect(state.manual_head, state.manual_head, effect, source),
+            receipt,
+            expected_revision=state.revision,
+            deadline=deadline,
         )
 
 

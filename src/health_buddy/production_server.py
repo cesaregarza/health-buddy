@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from functools import partial
-import os
 from pathlib import Path
 
 from granian import Granian
@@ -14,8 +14,8 @@ from starlette.types import ASGIApp
 
 from .security_api import IngressConfig, Runtime
 from .service_api import Operations
-from .transport_ingress import VerifiedSocket, prepare_socket
 from .transport import create_app
+from .transport_ingress import VerifiedSocket, prepare_socket
 
 
 class _OwnedSocketServer(Granian):
@@ -39,16 +39,30 @@ class _OwnedSocketServer(Granian):
             owned.path.unlink()
 
 
-def _load(factory: Callable[[], Operations | Runtime], development: bool, ingress: IngressConfig | None, socket_evidence: list[VerifiedSocket]) -> ASGIApp:
+def _load(
+    factory: Callable[[], Operations | Runtime],
+    development: bool,
+    ingress: IngressConfig | None,
+    socket_evidence: list[VerifiedSocket],
+) -> ASGIApp:
     # Only values cross the child boundary. Stores and authority open here.
     value = factory()
     if isinstance(value, Runtime):
         if ingress is None or value.ingress != ingress:
             raise ValueError("ingress_configuration_changed")
-        private = socket_evidence[0] if ingress.mode == "tailscale-uds" and len(socket_evidence) == 1 else None
-        if ingress.mode == "tailscale-uds" and (private is None or VerifiedSocket.capture(Path(ingress.socket_path)) != private):
+        private = (
+            socket_evidence[0]
+            if ingress.mode == "tailscale-uds" and len(socket_evidence) == 1
+            else None
+        )
+        if ingress.mode == "tailscale-uds" and (
+            private is None
+            or VerifiedSocket.capture(Path(ingress.socket_path)) != private
+        ):
             raise ValueError("private_ingress_changed")
-        return create_app(runtime=value, development=development, private_socket=private)
+        return create_app(
+            runtime=value, development=development, private_socket=private
+        )
     if ingress is not None:
         raise ValueError("security_runtime_required")
     return create_app(value, development=development)
@@ -64,7 +78,11 @@ def serve(
     """Serve one loopback or private UDS listener; never configure a proxy."""
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError("HTTP port must be between 1 and 65535")
-    socket_path = Path(ingress.socket_path) if ingress is not None and ingress.mode == "tailscale-uds" else None
+    socket_path = (
+        Path(ingress.socket_path)
+        if ingress is not None and ingress.mode == "tailscale-uds"
+        else None
+    )
     if socket_path is not None:
         if development:
             raise ValueError("development_requires_loopback")
@@ -105,16 +123,20 @@ def serve(
     )
     socket_evidence: list[VerifiedSocket] = []
     if socket_path is not None:
+
         def capture_socket() -> None:
             runtime.owned_socket = VerifiedSocket.capture(socket_path)
             socket_evidence.append(runtime.owned_socket)
+
         runtime.on_startup(capture_socket)
     # No permissive creation window: directory already0700 and umask applies
     # before Granian binds. Child checks0600/inode before ASGI accepts work.
     previous_umask = os.umask(0o077) if socket_path is not None else None
     try:
         runtime.serve(
-            target_loader=partial(_load, operations_factory, development, ingress, socket_evidence),
+            target_loader=partial(
+                _load, operations_factory, development, ingress, socket_evidence
+            ),
             wrap_loader=False,
         )
     finally:

@@ -46,7 +46,9 @@ class App:
         self.config = configuration or initialize(root)
         self.operations = operations
         self.principal = principal
-        self.workflow = ClientWorkflow(self.config, operations, principal, client_identity=client_identity)
+        self.workflow = ClientWorkflow(
+            self.config, operations, principal, client_identity=client_identity
+        )
 
     @classmethod
     def authenticated(
@@ -59,8 +61,11 @@ class App:
         admitted = runtime.security.authenticate(proof)
         operations = AuthenticatedOperations(runtime, proof)
         return cls(
-            root, operations=operations, principal=admitted.principal,
-            configuration=initialize(root), client_identity=operations.describe,
+            root,
+            operations=operations,
+            principal=admitted.principal,
+            configuration=initialize(root),
+            client_identity=operations.describe,
         )
 
     @classmethod

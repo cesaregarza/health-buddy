@@ -134,9 +134,7 @@ class SecretDelivery:
     to that currently authenticated session and confers no authority itself.
     """
 
-    kind: Literal[
-        "owner-token", "agent-token", "device-token", "pairing-proof", "csrf"
-    ]
+    kind: Literal["owner-token", "agent-token", "device-token", "pairing-proof", "csrf"]
     value: str = field(repr=False)
 
 
@@ -173,9 +171,7 @@ class Security(Protocol):
         """Recheck current admission; return only this caller's stable binding."""
         ...
 
-    def preflight(
-        self, principal: Principal | None, action: SecurityAction
-    ) -> None:
+    def preflight(self, principal: Principal | None, action: SecurityAction) -> None:
         """Safe early admission/rate gate; errors raise safe ServiceError.
 
         Permits bounded parsing only; execute repeats all admission checks.

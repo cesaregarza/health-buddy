@@ -1,6 +1,7 @@
 """Stable authenticated actor/epoch ownership of exact native pending bytes."""
-from dataclasses import replace
+
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -16,12 +17,16 @@ def test_rotated_handle_same_authenticated_actor_retries_original(tmp_path):
     operations = ScriptedOperations(config)
     operations.lose_once = True
     identity = ClientIdentity("actor-one", "epoch-one", IDENTITY)
-    before = ClientWorkflow(config, operations, Principal("old-handle"), client_identity=lambda: identity)
+    before = ClientWorkflow(
+        config, operations, Principal("old-handle"), client_identity=lambda: identity
+    )
     with pytest.raises(ServiceError, match="outcome_unknown"):
         write(before)
     path = config.path("personal/state/native-client.json")
     original = json.loads(path.read_bytes())
-    after = ClientWorkflow(config, operations, Principal("new-handle"), client_identity=lambda: identity)
+    after = ClientWorkflow(
+        config, operations, Principal("new-handle"), client_identity=lambda: identity
+    )
     after.retry()
     saved = json.loads(path.read_bytes())
     assert saved["schemaVersion"] == 2 and "principalBinding" not in saved
@@ -36,13 +41,28 @@ def test_changed_authenticated_binding_preserves_pending_bytes(tmp_path, change)
     operations = ScriptedOperations(config)
     operations.lose_once = True
     identity = ClientIdentity("actor-one", "epoch-one", IDENTITY)
-    before = ClientWorkflow(config, operations, Principal("handle"), client_identity=lambda: identity)
+    before = ClientWorkflow(
+        config, operations, Principal("handle"), client_identity=lambda: identity
+    )
     with pytest.raises(ServiceError):
         write(before)
     path = config.path("personal/state/native-client.json")
     original = path.read_bytes()
-    new = replace(identity, actor_binding="actor-two") if change == "actor" else replace(identity, security_epoch="epoch-two") if change == "epoch" else replace(identity, identity=replace(IDENTITY, restore_epoch="00000000-0000-4000-8000-000000000009"))
-    after = ClientWorkflow(config, operations, Principal("new-handle"), client_identity=lambda: new)
+    new = (
+        replace(identity, actor_binding="actor-two")
+        if change == "actor"
+        else replace(identity, security_epoch="epoch-two")
+        if change == "epoch"
+        else replace(
+            identity,
+            identity=replace(
+                IDENTITY, restore_epoch="00000000-0000-4000-8000-000000000009"
+            ),
+        )
+    )
+    after = ClientWorkflow(
+        config, operations, Principal("new-handle"), client_identity=lambda: new
+    )
     with pytest.raises(ServiceError, match="client_identity_changed"):
         after.retry()
     assert path.read_bytes() == original and len(operations.requests) == 1
@@ -57,7 +77,12 @@ def test_legacy_pending_is_preserved_until_acknowledged_private_archive(tmp_path
         write(old)
     path = config.path("personal/state/native-client.json")
     original = path.read_bytes()
-    new = ClientWorkflow(config, operations, Principal("production-handle"), client_identity=lambda: ClientIdentity("actor-one", "epoch-one", IDENTITY))
+    new = ClientWorkflow(
+        config,
+        operations,
+        Principal("production-handle"),
+        client_identity=lambda: ClientIdentity("actor-one", "epoch-one", IDENTITY),
+    )
     with pytest.raises(ServiceError, match="legacy_client_state_requires_resolution"):
         new.retry()
     with pytest.raises(ServiceError, match="acknowledgement_required"):
@@ -70,10 +95,17 @@ def test_legacy_pending_is_preserved_until_acknowledged_private_archive(tmp_path
     assert archives[0].stat().st_mode & 0o077 == 0
 
 
-def test_corrupt_resolution_fsync_failure_never_claims_durable_success(tmp_path, monkeypatch):
+def test_corrupt_resolution_fsync_failure_never_claims_durable_success(
+    tmp_path, monkeypatch
+):
     config = initialize(tmp_path / "owner")
     operations = ScriptedOperations(config)
-    workflow = ClientWorkflow(config, operations, Principal("handle"), client_identity=lambda: ClientIdentity("actor", "epoch", IDENTITY))
+    workflow = ClientWorkflow(
+        config,
+        operations,
+        Principal("handle"),
+        client_identity=lambda: ClientIdentity("actor", "epoch", IDENTITY),
+    )
     directory = config.path("personal/state")
     directory.mkdir(mode=0o700)
     path = directory / "native-client.json"
@@ -89,7 +121,12 @@ def test_corrupt_resolution_fsync_failure_never_claims_durable_success(tmp_path,
         workflow.discard(acknowledge_possible_save=True)
     archives = list(directory.glob("native-client.resolved-*.json"))
     assert len(archives) == 1 and archives[0].read_bytes() == original
-    restarted = ClientWorkflow(config, operations, Principal("new"), client_identity=lambda: ClientIdentity("actor", "epoch", IDENTITY))
+    restarted = ClientWorkflow(
+        config,
+        operations,
+        Principal("new"),
+        client_identity=lambda: ClientIdentity("actor", "epoch", IDENTITY),
+    )
     assert restarted.inspect()["state"] == "empty"
     assert archives[0].read_bytes() == original
 
@@ -97,7 +134,7 @@ def test_corrupt_resolution_fsync_failure_never_claims_durable_success(tmp_path,
 def test_authenticated_wrapper_rechecks_revoked_proof_before_each_operation(tmp_path):
     from health_buddy.app import App
     from health_buddy.security_api import BearerProof, Runtime
-    from tests.auth_transport_fixtures import FakeSecurity, TOKEN, fake_runtime
+    from tests.auth_transport_fixtures import TOKEN, FakeSecurity, fake_runtime
 
     config = initialize(tmp_path / "owner")
     service = ScriptedOperations(config)
@@ -131,11 +168,19 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
 
     root = tmp_path / "owner"
     runtime, owner, _owner_token = secured(root)
-    grant = action(runtime, owner, "grants.create", payload=AgentGrant(
-        "Fabricated native agent", ("records:read", "records:write"),
-        source_ids=("manual",), read_sources=("manual",),
-        read_kinds=None, read_fields=None,
-    ))
+    grant = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant(
+            "Fabricated native agent",
+            ("records:read", "records:write"),
+            source_ids=("manual",),
+            read_sources=("manual",),
+            read_kinds=None,
+            read_fields=None,
+        ),
+    )
     original_token = grant.secret.value
     app = App.authenticated(root, proof=BearerProof(original_token), runtime=runtime)
     binding = app.operations.describe()
@@ -153,10 +198,20 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
         return reply
 
     arguments = [
-        "--event-at-local", datetime.now(UTC).isoformat(timespec="seconds"),
-        "--timezone", "UTC", "--item-name", "Fabricated retry oats",
-        "--calories-kcal", "123", "--status", "consumed",
-        "--category", "meal", "--source", "synthetic-entry",
+        "--event-at-local",
+        datetime.now(UTC).isoformat(timespec="seconds"),
+        "--timezone",
+        "UTC",
+        "--item-name",
+        "Fabricated retry oats",
+        "--calories-kcal",
+        "123",
+        "--status",
+        "consumed",
+        "--category",
+        "meal",
+        "--source",
+        "synthetic-entry",
     ]
     with monkeypatch.context() as patch:
         patch.setattr(runtime.operations, "execute", lose_ack)
@@ -178,7 +233,9 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
     with pytest.raises(ServiceError) as denied:
         App.authenticated(root, proof=BearerProof(original_token), runtime=reopened)
     assert denied.value.status == 401
-    after = App.authenticated(root, proof=BearerProof(rotated.secret.value), runtime=reopened)
+    after = App.authenticated(
+        root, proof=BearerProof(rotated.secret.value), runtime=reopened
+    )
     assert after.operations.describe() == binding
     execute_reopened = reopened.operations.execute
 
@@ -201,7 +258,13 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
     assert replies[0].body == replies[1].body
     assert base64.b64decode(complete["receipt"]["bodyBase64"]) == replies[0].body
     assert reopened.operations.journal.state().revision == first_revision + 1
-    records = decoded(after.operations.execute(after.principal, Request(
-        "records.list", query={"kinds":"intake"},
-    )))
+    records = decoded(
+        after.operations.execute(
+            after.principal,
+            Request(
+                "records.list",
+                query={"kinds": "intake"},
+            ),
+        )
+    )
     assert len(records["data"]["records"]) == 1

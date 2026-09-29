@@ -10,7 +10,13 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy.security_api import AgentGrant, BearerProof, PairingRedemption, PairingReservation, SecurityRequest
+from health_buddy.security_api import (
+    AgentGrant,
+    BearerProof,
+    PairingRedemption,
+    PairingReservation,
+    SecurityRequest,
+)
 from health_buddy.security_runtime import open_runtime
 from health_buddy.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded, intent
@@ -37,9 +43,11 @@ def _result(pipe):
 def _redeem(root, request, gate, pipe, fault_point=None):
     try:
         runtime = open_runtime(Path(root))
+
         def fault(point):
             if point == fault_point:
                 os._exit(87)
+
         runtime.operations.fault = fault
         pipe.send("ready")
         if not gate.wait(15):
@@ -56,9 +64,15 @@ def _redeem(root, request, gate, pipe, fault_point=None):
 
 
 def _request(runtime, owner):
-    reservation = action(runtime, owner, "pairing.create", payload=PairingReservation("Synthetic race"))
+    reservation = action(
+        runtime, owner, "pairing.create", payload=PairingReservation("Synthetic race")
+    )
     handoff = action(runtime, owner, "pairing.handoff", resource=reservation.data["id"])
-    return SecurityRequest("pairing.redeem", payload=PairingRedemption(handoff.secret.value, str(uuid4())), identity=runtime.operations.journal.state().identity)
+    return SecurityRequest(
+        "pairing.redeem",
+        payload=PairingRedemption(handoff.secret.value, str(uuid4())),
+        identity=runtime.operations.journal.state().identity,
+    )
 
 
 def test_simultaneous_redemption_has_one_secret_and_one_canonical_writer(tmp_path):
@@ -68,7 +82,10 @@ def test_simultaneous_redemption_has_one_secret_and_one_canonical_writer(tmp_pat
     context = multiprocessing.get_context("spawn")
     gate = context.Event()
     pairs = [context.Pipe(duplex=False) for _ in range(2)]
-    processes = [context.Process(target=_redeem, args=(str(root), request, gate, child)) for _, child in pairs]
+    processes = [
+        context.Process(target=_redeem, args=(str(root), request, gate, child))
+        for _, child in pairs
+    ]
     try:
         for process in processes:
             process.start()
@@ -85,8 +102,18 @@ def test_simultaneous_redemption_has_one_secret_and_one_canonical_writer(tmp_pat
     assert sorted(item["status"] for item in results) == [201, 409]
     assert sum(item["delivered"] for item in results) == 1
     with sqlite3.connect(root / "security/authority.sqlite") as database:
-        assert database.execute("SELECT count(*) FROM credentials WHERE kind='device' AND active=1").fetchone()[0] == 1
-        assert database.execute("SELECT count(*) FROM pairing WHERE state='consumed'").fetchone()[0] == 1
+        assert (
+            database.execute(
+                "SELECT count(*) FROM credentials WHERE kind='device' AND active=1"
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            database.execute(
+                "SELECT count(*) FROM pairing WHERE state='consumed'"
+            ).fetchone()[0]
+            == 1
+        )
     sources = runtime.operations.journal.sources()
     assert len(sources) == 2 and runtime.operations.journal.state().revision == 1
 
@@ -97,32 +124,52 @@ def _after_crash(root, owner_token, request, pipe):
         owner = runtime.security.authenticate(BearerProof(owner_token))
         rows = action(runtime, owner, "devices.list").data["items"]
         with sqlite3.connect(Path(root) / "security/authority.sqlite") as database:
-            active = database.execute("SELECT count(*) FROM credentials WHERE kind='device' AND active=1").fetchone()[0]
+            active = database.execute(
+                "SELECT count(*) FROM credentials WHERE kind='device' AND active=1"
+            ).fetchone()[0]
         try:
             runtime.security.execute(None, request)
             replay = 201
         except ServiceError as error:
             replay = error.status
-        pipe.send({"devices": rows, "active": active, "sources": len(runtime.operations.journal.sources()), "replay": replay})
+        pipe.send(
+            {
+                "devices": rows,
+                "active": active,
+                "sources": len(runtime.operations.journal.sources()),
+                "replay": replay,
+            }
+        )
     except BaseException as error:
         pipe.send({"failure": type(error).__name__})
     finally:
         pipe.close()
 
 
-@pytest.mark.parametrize("point,active,sources", [
-    ("pairing_consumed", 0, 1), ("pairing_provisioned", 0, 2), ("pairing_activated", 1, 2),
-])
-def test_pairing_hard_exit_never_activates_without_canonical_binding(tmp_path, point, active, sources):
+@pytest.mark.parametrize(
+    "point,active,sources",
+    [
+        ("pairing_consumed", 0, 1),
+        ("pairing_provisioned", 0, 2),
+        ("pairing_activated", 1, 2),
+    ],
+)
+def test_pairing_hard_exit_never_activates_without_canonical_binding(
+    tmp_path, point, active, sources
+):
     root = tmp_path / "owner"
     runtime, owner, token = secured(root, receiver=True)
     request = _request(runtime, owner)
     context = multiprocessing.get_context("spawn")
     gate = context.Event()
     parent, child = context.Pipe(duplex=False)
-    crash = context.Process(target=_redeem, args=(str(root), request, gate, child, point))
+    crash = context.Process(
+        target=_redeem, args=(str(root), request, gate, child, point)
+    )
     recovery_parent, recovery_child = context.Pipe(duplex=False)
-    recovery = context.Process(target=_after_crash, args=(str(root), token, request, recovery_child))
+    recovery = context.Process(
+        target=_after_crash, args=(str(root), token, request, recovery_child)
+    )
     try:
         crash.start()
         child.close()
@@ -142,9 +189,21 @@ def test_pairing_hard_exit_never_activates_without_canonical_binding(tmp_path, p
     # A completed activation can lose its reply. Never recover/re-deliver that
     # plaintext; explicit owner re-pair is required, including this lost-ACK case.
     device = observed["devices"][0]
-    reservation = action(runtime, owner, "pairing.create", payload=PairingReservation("Explicit recovery", device["id"]))
+    reservation = action(
+        runtime,
+        owner,
+        "pairing.create",
+        payload=PairingReservation("Explicit recovery", device["id"]),
+    )
     handoff = action(runtime, owner, "pairing.handoff", resource=reservation.data["id"])
-    reply = runtime.security.execute(None, SecurityRequest("pairing.redeem", payload=PairingRedemption(handoff.secret.value, device["deviceId"]), identity=request.identity))
+    reply = runtime.security.execute(
+        None,
+        SecurityRequest(
+            "pairing.redeem",
+            payload=PairingRedemption(handoff.secret.value, device["deviceId"]),
+            identity=request.identity,
+        ),
+    )
     assert reply.status == 201 and reply.data["sourceId"] == device["sourceIds"][0]
 
 
@@ -152,11 +211,13 @@ def _writer(root, token, request, gate, release, pipe):
     try:
         runtime = open_runtime(Path(root))
         principal = runtime.security.authenticate(BearerProof(token)).principal
+
         def fault(point):
             if point == "commit_intent":
                 pipe.send("decided")
                 if not release.wait(15):
                     raise RuntimeError("release timeout")
+
         runtime.operations.journal.fault = fault
         pipe.send("ready")
         if not gate.wait(15):
@@ -188,15 +249,35 @@ def _security_mutation(root, token, request, gate, pipe):
 def test_revocation_serializes_after_health_decision_then_blocks_replay(tmp_path):
     root = tmp_path / "owner"
     runtime, owner, owner_token = secured(root)
-    grant = action(runtime, owner, "grants.create", payload=AgentGrant("Synthetic writer", ("records:read", "records:write"), ("manual",), None, None, None))
+    grant = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant(
+            "Synthetic writer",
+            ("records:read", "records:write"),
+            ("manual",),
+            None,
+            None,
+            None,
+        ),
+    )
     write = intent(runtime.operations, owner.principal)
-    revoke = SecurityRequest("grants.revoke", resource_id=grant.data["id"], identity=write.identity)
+    revoke = SecurityRequest(
+        "grants.revoke", resource_id=grant.data["id"], identity=write.identity
+    )
     context = multiprocessing.get_context("spawn")
     write_gate, revoke_gate, release = context.Event(), context.Event(), context.Event()
     wp, wc = context.Pipe(duplex=False)
     rp, rc = context.Pipe(duplex=False)
-    writer = context.Process(target=_writer, args=(str(root), grant.secret.value, write, write_gate, release, wc))
-    revoker = context.Process(target=_security_mutation, args=(str(root), owner_token, revoke, revoke_gate, rc))
+    writer = context.Process(
+        target=_writer,
+        args=(str(root), grant.secret.value, write, write_gate, release, wc),
+    )
+    revoker = context.Process(
+        target=_security_mutation,
+        args=(str(root), owner_token, revoke, revoke_gate, rc),
+    )
     try:
         writer.start()
         revoker.start()
@@ -222,17 +303,28 @@ def test_revocation_serializes_after_health_decision_then_blocks_replay(tmp_path
     read = runtime.operations.execute(owner.principal, Request("records.list"))
     assert decoded(read)["data"]["records"][0]["value"] == 80
     with sqlite3.connect(root / "operations/control.sqlite") as database:
-        assert database.execute("SELECT count(*) FROM transactions WHERE state='COMMITTED' AND new_revision=1").fetchone()[0] == 1
+        assert (
+            database.execute(
+                "SELECT count(*) FROM transactions WHERE state='COMMITTED' AND new_revision=1"
+            ).fetchone()[0]
+            == 1
+        )
 
 
 def test_owner_backup_quiesces_security_mutations_too(tmp_path):
     root = tmp_path / "owner"
     runtime, owner, token = secured(root)
-    request = SecurityRequest("grants.create", payload=AgentGrant("Backup race", ("records:read",)), identity=owner.client.identity)
+    request = SecurityRequest(
+        "grants.create",
+        payload=AgentGrant("Backup race", ("records:read",)),
+        identity=owner.client.identity,
+    )
     context = multiprocessing.get_context("spawn")
     gate = context.Event()
     parent, child = context.Pipe(duplex=False)
-    process = context.Process(target=_security_mutation, args=(str(root), token, request, gate, child))
+    process = context.Process(
+        target=_security_mutation, args=(str(root), token, request, gate, child)
+    )
     try:
         process.start()
         child.close()
@@ -241,7 +333,9 @@ def test_owner_backup_quiesces_security_mutations_too(tmp_path):
             assert root / "security/authority.sqlite" in inventory.required_paths
             gate.set()
             assert _result(parent) == "attempting"
-            assert not parent.poll(0.2), "security mutation escaped the backup writer lock"
+            assert not parent.poll(0.2), (
+                "security mutation escaped the backup writer lock"
+            )
         assert _result(parent)["status"] == 201
         process.join(25)
         assert process.exitcode == 0
@@ -266,14 +360,21 @@ def test_security_mutation_deadline_is_rechecked_after_sqlite_wait(tmp_path):
     context = multiprocessing.get_context("spawn")
     release = context.Event()
     parent, child = context.Pipe(duplex=False)
-    process = context.Process(target=_hold_security_sqlite, args=(str(root), release, child))
+    process = context.Process(
+        target=_hold_security_sqlite, args=(str(root), release, child)
+    )
     timer = Timer(0.35, release.set)
     try:
         process.start()
         child.close()
         assert _result(parent) == "locked"
         started = time.monotonic()
-        request = SecurityRequest("grants.create", payload=AgentGrant("Expired while waiting", ("records:read",)), identity=owner.client.identity, deadline=started + 0.1)
+        request = SecurityRequest(
+            "grants.create",
+            payload=AgentGrant("Expired while waiting", ("records:read",)),
+            identity=owner.client.identity,
+            deadline=started + 0.1,
+        )
         timer.start()
         with pytest.raises(ServiceError) as expired:
             runtime.security.execute(owner.principal, request)

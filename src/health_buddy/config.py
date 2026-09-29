@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import math
 import re
-from ipaddress import IPv4Address, IPv6Address
 from copy import deepcopy
 from dataclasses import dataclass
+from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -300,7 +300,8 @@ def _canonical_origin(value: Any) -> None:
     origin = _text(value, "security.externalOrigin", 500)
     if (
         any(ord(char) <= 32 or ord(char) >= 127 for char in origin)
-        or "\\" in origin or "%" in origin
+        or "\\" in origin
+        or "%" in origin
     ):
         raise error
     try:
@@ -308,10 +309,15 @@ def _canonical_origin(value: Any) -> None:
         host = parsed.hostname
         port = parsed.port
         if (
-            parsed.scheme != "https" or not host
-            or parsed.username is not None or parsed.password is not None
-            or parsed.path or parsed.query or parsed.fragment
-            or port == 443 or (port is not None and not 1 <= port <= 65535)
+            parsed.scheme != "https"
+            or not host
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or port == 443
+            or (port is not None and not 1 <= port <= 65535)
         ):
             raise error
         if ":" in host:

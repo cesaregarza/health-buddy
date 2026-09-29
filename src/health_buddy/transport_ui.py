@@ -1,11 +1,16 @@
 """Small local auth shells, never a health snapshot or credential cache."""
+
 from starlette.responses import Response
 
 from .transport_security import SAFE_HEADERS
 
 _STYLE = "body{font:17px system-ui;max-width:42rem;margin:3rem auto;padding:0 1rem;color:#182d33;background:#f5f8f7}label,button,textarea,input,select{display:block;margin:1rem 0}textarea,input,button,select{font:inherit;max-width:100%;box-sizing:border-box}textarea,input,select{width:100%;padding:.65rem}button{padding:.6rem 1rem}pre{white-space:pre-wrap;overflow-wrap:anywhere}[hidden]{display:none}a{color:#165c63}"
-_HEAD = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Health Buddy access</title><style>' + _STYLE + '</style><body><main>'
-_LOGIN = '''<h1>Open your health workspace</h1>
+_HEAD = (
+    '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Health Buddy access</title><style>'
+    + _STYLE
+    + "</style><body><main>"
+)
+_LOGIN = """<h1>Open your health workspace</h1>
 <p>Use your private owner credential, a one-time local setup handoff, or the configured private proxy. Credentials stay in this page only while you sign in.</p>
 <label for="method">Sign-in method</label><select id="method"><option value="bearer">Owner credential</option><option value="bootstrap">One-time setup handoff</option><option value="proxy">Private proxy identity</option></select>
 <label for="proof">Private credential or setup JSON</label><textarea id="proof" rows="4" autocomplete="off" spellcheck="false"></textarea>
@@ -13,14 +18,14 @@ _LOGIN = '''<h1>Open your health workspace</h1>
 <section id="owner-retention" hidden><h2>Save your private owner credential</h2><p>Save this credential in your password manager or a private owner-only file before continuing. You need it for future sign-in after logout or expiry. This page does not save it for you. Keep it out of chats, shared links and logs.</p><textarea id="owner-credential" rows="3" readonly autocomplete="off" spellcheck="false"></textarea><button id="owner-continue" type="button">I saved it privately — continue</button><button id="owner-hide" type="button">Hide credential without continuing</button></section>
 <p><a id="open-workspace" href="/" hidden>Open workspace</a></p>
 <p>Clearing sign-in keeps saved drafts and original pending requests. If your only owner credential was lost, use deliberate local owner recovery.</p>
-'''
-_OWNER = '''<h1>Connect a phone</h1><p>Prepare a connection, then reveal its private handoff only when your phone is ready. The handoff expires after five minutes. A lost token response requires revoking the uncertain device and preparing a new connection.</p>
+"""
+_OWNER = """<h1>Connect a phone</h1><p>Prepare a connection, then reveal its private handoff only when your phone is ready. The handoff expires after five minutes. A lost token response requires revoking the uncertain device and preparing a new connection.</p>
 <label for="name">Device label</label><input id="name" maxlength="80" value="My phone"><label for="replacement">Same phone with a lost or replaced token (optional)</label><select id="replacement"><option value="">New phone</option></select><p>Refresh devices below, then deliberately choose its existing device reference to re-pair the same phone. A different phone must use New phone.</p><button id="prepare" type="button">Prepare connection</button>
 <label for="intent">Connection reference</label><input id="intent" maxlength="128" autocomplete="off"><button id="status" type="button">Check status</button><button id="handoff" type="button">Reveal private phone handoff once</button>
 <pre id="safe-result"></pre><section id="private-handoff" hidden><h2>Private phone handoff</h2><p>Transfer this code directly to your phone. Keep it out of chats, shared links and logs. This page never receives the phone's resulting upload token.</p><textarea id="handoff-code" rows="6" readonly autocomplete="off" spellcheck="false"></textarea><button id="hide-proof" type="button">Hide handoff</button></section>
 <h2>Connected devices</h2><button id="devices" type="button">Refresh devices</button><pre id="device-list"></pre><label for="device">Device reference to revoke</label><input id="device" maxlength="128"><button id="revoke" type="button">Revoke selected device</button>
 <p><a href="/">Back to workspace</a></p><button id="clear" type="button">Sign out</button>
-'''
+"""
 _TAIL = '<p id="message" role="status" aria-live="polite"></p><noscript>JavaScript is needed for this protected sign-in and private handoff. Local owner commands remain available.</noscript></main><script src="/auth.js"></script></body></html>'
 
 SCRIPT = r"""'use strict';
@@ -146,8 +151,14 @@ SCRIPT = r"""'use strict';
 
 def shell(owner: bool = False) -> Response:
     headers = dict(SAFE_HEADERS)
-    headers["content-security-policy"] = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
-    return Response(_HEAD + (_OWNER if owner else _LOGIN) + _TAIL, media_type="text/html", headers=headers)
+    headers["content-security-policy"] = (
+        "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
+    return Response(
+        _HEAD + (_OWNER if owner else _LOGIN) + _TAIL,
+        media_type="text/html",
+        headers=headers,
+    )
 
 
 def script() -> Response:

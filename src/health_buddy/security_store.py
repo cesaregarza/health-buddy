@@ -56,12 +56,18 @@ def secret_value() -> str:
 
 
 def fingerprint(kind: str, value: str) -> str:
-    return hashlib.sha256(("health-buddy/v1/" + kind + "\0" + value).encode()).hexdigest()
+    return hashlib.sha256(
+        ("health-buddy/v1/" + kind + "\0" + value).encode()
+    ).hexdigest()
 
 
 def valid_secret(value: object) -> str:
-    if not isinstance(value, str) or len(value) != 43 or not all(
-        char.isascii() and (char.isalnum() or char in "_-") for char in value
+    if (
+        not isinstance(value, str)
+        or len(value) != 43
+        or not all(
+            char.isascii() and (char.isalnum() or char in "_-") for char in value
+        )
     ):
         raise denied()
     return value
@@ -108,8 +114,10 @@ class SecurityStore:
             values.append(json.loads(path.read_bytes()))
         first = values[0]
         if (
-            not isinstance(first, dict) or first != values[1]
-            or set(first) != {"schemaVersion", "authorityId", "securityEpoch", "identity"}
+            not isinstance(first, dict)
+            or first != values[1]
+            or set(first)
+            != {"schemaVersion", "authorityId", "securityEpoch", "identity"}
             or first["schemaVersion"] != 1
             or first["identity"] != identity_value(identity)
             or not isinstance(first["authorityId"], str)
@@ -140,7 +148,9 @@ class SecurityStore:
             connection.execute("PRAGMA journal_mode=DELETE")
             if connection.execute("PRAGMA user_version").fetchone()[0] != 1:
                 raise unavailable()
-            row = connection.execute("SELECT value FROM metadata WHERE singleton=1").fetchone()
+            row = connection.execute(
+                "SELECT value FROM metadata WHERE singleton=1"
+            ).fetchone()
             if row is None or json.loads(row[0]) != binding:
                 raise unavailable()
             yield connection
@@ -151,14 +161,20 @@ class SecurityStore:
                 connection.close()
 
     def epoch(self, connection: sqlite3.Connection) -> str:
-        row = connection.execute("SELECT value FROM metadata WHERE singleton=1").fetchone()
+        row = connection.execute(
+            "SELECT value FROM metadata WHERE singleton=1"
+        ).fetchone()
         value = json.loads(row[0])["securityEpoch"]
         if not isinstance(value, str):
             raise unavailable()
         return value
 
     def initialize(
-        self, identity: Identity, *, recover: bool = False, owner_token: bool = False,
+        self,
+        identity: Identity,
+        *,
+        recover: bool = False,
+        owner_token: bool = False,
         fault: Callable[[str], None] | None = None,
     ) -> str:
         """Explicit OS-owner action; never called by runtime admission.
@@ -169,7 +185,9 @@ class SecurityStore:
         """
         self.owner()
         boundary = fault or (lambda _point: None)
-        sidecars = tuple(Path(str(self.path) + suffix) for suffix in ("-journal", "-wal", "-shm"))
+        sidecars = tuple(
+            Path(str(self.path) + suffix) for suffix in ("-journal", "-wal", "-shm")
+        )
         paths = (self.path, self.epoch_path, self.binding_path, *sidecars)
         if not recover and any(path.exists() or path.is_symlink() for path in paths):
             raise ServiceError(409, "security_already_initialized_or_incomplete")
@@ -197,17 +215,29 @@ class SecurityStore:
                 # Fixed known basenames only. Preserve old DB and all owned
                 # recognized sidecars; never attach an old hot journal to the
                 # replacement DB or silently discard crash evidence.
-                atomic_bytes(quarantine / "inventory.json", encode({
-                    "files": [path.name for path in old], "complete": False,
-                }))
+                atomic_bytes(
+                    quarantine / "inventory.json",
+                    encode(
+                        {
+                            "files": [path.name for path in old],
+                            "complete": False,
+                        }
+                    ),
+                )
                 for path in old:
                     os.replace(path, quarantine / path.name)
                     fsync_path(quarantine)
                     fsync_path(self.directory)
                     boundary("security_quarantine_file")
-                atomic_bytes(quarantine / "inventory.json", encode({
-                    "files": [path.name for path in old], "complete": True,
-                }))
+                atomic_bytes(
+                    quarantine / "inventory.json",
+                    encode(
+                        {
+                            "files": [path.name for path in old],
+                            "complete": True,
+                        }
+                    ),
+                )
         boundary("security_quarantined")
         temporary = self.directory / (".authority-" + uuid4().hex + ".sqlite")
         descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -220,9 +250,14 @@ class SecurityStore:
             connection.executescript(SCHEMA)
             connection.execute("INSERT INTO metadata VALUES (1,?)", (raw.decode(),))
             actor = uuid4().hex
-            self.add_actor(connection, actor, "owner", "Owner", [], [], None, None, None)
+            self.add_actor(
+                connection, actor, "owner", "Owner", [], [], None, None, None
+            )
             self.add_credential(
-                connection, actor, "owner" if recover or owner_token else "bootstrap", token,
+                connection,
+                actor,
+                "owner" if recover or owner_token else "bootstrap",
+                token,
                 epoch,
                 expires=None if recover or owner_token else time.time() + 300,
             )
@@ -238,29 +273,62 @@ class SecurityStore:
         return token
 
     def add_actor(
-        self, connection: sqlite3.Connection, actor: str, role: str, name: str,
-        grants: list[str], sources: list[str], read_sources: list[str] | None,
-        read_kinds: list[str] | None, read_fields: list[str] | None,
-        *, device: str | None = None, stream: str | None = None,
+        self,
+        connection: sqlite3.Connection,
+        actor: str,
+        role: str,
+        name: str,
+        grants: list[str],
+        sources: list[str],
+        read_sources: list[str] | None,
+        read_kinds: list[str] | None,
+        read_fields: list[str] | None,
+        *,
+        device: str | None = None,
+        stream: str | None = None,
     ) -> None:
         connection.execute(
             "INSERT INTO actors VALUES (?,?,?,?,?,?,?,?,?,?,1)",
-            (actor, role, name, encode(grants).decode(), encode(sources).decode(),
-             None if read_sources is None else encode(read_sources).decode(),
-             None if read_kinds is None else encode(read_kinds).decode(),
-             None if read_fields is None else encode(read_fields).decode(), device, stream),
+            (
+                actor,
+                role,
+                name,
+                encode(grants).decode(),
+                encode(sources).decode(),
+                None if read_sources is None else encode(read_sources).decode(),
+                None if read_kinds is None else encode(read_kinds).decode(),
+                None if read_fields is None else encode(read_fields).decode(),
+                device,
+                stream,
+            ),
         )
 
     def add_credential(
-        self, connection: sqlite3.Connection, actor: str, kind: str, token: str,
-        epoch: str, *, expires: float | None = None, active: bool = True,
+        self,
+        connection: sqlite3.Connection,
+        actor: str,
+        kind: str,
+        token: str,
+        epoch: str,
+        *,
+        expires: float | None = None,
+        active: bool = True,
     ) -> str:
         credential = uuid4().hex
         csrf = fingerprint("csrf", csrf_value(token)) if kind == "session" else None
         connection.execute(
             "INSERT INTO credentials VALUES (?,?,?,?,?,?,?,?,?)",
-            (credential, actor, kind, fingerprint(kind, token), csrf, epoch,
-             time.time(), expires, int(active)),
+            (
+                credential,
+                actor,
+                kind,
+                fingerprint(kind, token),
+                csrf,
+                epoch,
+                time.time(),
+                expires,
+                int(active),
+            ),
         )
         return credential
 
@@ -268,7 +336,9 @@ class SecurityStore:
         # Names are selected by code, never caller identities/IP/header values.
         limits = {"authenticate": 240, "public": 60, "security": 120}
         limit = limits[name]
-        row = connection.execute("SELECT window,used FROM budgets WHERE name=?", (name,)).fetchone()
+        row = connection.execute(
+            "SELECT window,used FROM budgets WHERE name=?", (name,)
+        ).fetchone()
         window, used = (now, 0) if row is None or now >= row[0] + 60 else tuple(row)
         if now < window:
             # A backwards wall clock never resets an exhausted budget.
@@ -284,7 +354,9 @@ class SecurityStore:
 
     def event(self, connection: sqlite3.Connection, action: str) -> None:
         # Safe finite action only; no peer, credential, proof or payload text.
-        connection.execute("INSERT INTO events(action,occurred) VALUES (?,?)", (action, time.time()))
+        connection.execute(
+            "INSERT INTO events(action,occurred) VALUES (?,?)", (action, time.time())
+        )
         connection.execute(
             "DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 256)"
         )
