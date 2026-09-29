@@ -4,21 +4,21 @@
 import json
 import sys
 import tempfile
-import threading
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
 from health_buddy.app import App
-from health_buddy.server import server
+from tests.transport_process import running
 
 
 def main():
     with tempfile.TemporaryDirectory(prefix="health-buddy-browser-") as folder:
         root = Path(folder) / "owner"
-        App(root)
+        App.development(root)
         path = root / "config.json"
         values = json.loads(path.read_text())
         values["identity"]["displayName"] = "Fabricated browser workspace"
@@ -33,13 +33,10 @@ def main():
             }
         ]
         path.write_text(json.dumps(values))
-        app = App(root)
-        http = server(app, 0)
-        thread = threading.Thread(target=http.serve_forever, daemon=True)
-        thread.start()
+        app = App.development(root)
         errors, outbound = [], []
-        origin = f"http://127.0.0.1:{http.server_port}"
-        try:
+        with running(Path(folder), workspace=root) as http:
+            origin = http.origin
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
                 page = browser.new_page(viewport={"width": 390, "height": 844})
@@ -128,10 +125,6 @@ def main():
                 assert not outbound, "Unexpected external browser requests"
                 assert not errors, errors
                 browser.close()
-        finally:
-            http.shutdown()
-            http.server_close()
-            thread.join(timeout=5)
     print(
         "PASS portable cold-start, configured equipment, manual context, real local save, page reload, no external browser requests"
     )

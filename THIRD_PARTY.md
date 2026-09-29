@@ -21,6 +21,10 @@ actual runtime image, including transitive dependencies and base-image notices.
 | Direct package observed in queue | License determination | Purpose / inclusion |
 | --- | --- | --- |
 | Python standard library | Python distribution license | Core dashboard and HealthKit runtime; runtime distributor retains notices |
+| Granian 2.8.3; Starlette 1.7.0 | BSD-3-Clause | Maintained production HTTP server and ASGI routing |
+| AnyIO 4.15.1 | MIT | Bounded non-abandoning service thread handoff |
+| Click 8.5.0; idna 3.20 | BSD-3-Clause | Resolved HTTP runtime transitive dependencies on Python 3.12 |
+| typing_extensions 4.16.0 | PSF-2.0 | Resolved Python 3.12 typing dependency |
 | asyncsleepiq 1.7.1 | MIT | Optional SleepIQ extra |
 | SQLAlchemy 2.1.1; Alembic 1.20.0 | MIT | Optional SleepIQ store and migrations |
 | tzdata 2026.4 | Apache-2.0; IANA data notice retained in distribution LICENSE | Optional timezone data |
@@ -49,3 +53,12 @@ No claim about an absent runtime image or future packaged dependency bundle is
 made by this source inventory. Generated distributions must pass the archive
 inspection command before publication. Dependency additions must update this
 inventory and retain all applicable upstream notices.
+
+The HTTP dependency-only queue inventory covered six Python wheels and every
+one of the selected Granian wheel SBOM's 147 Rust components, preserving 287
+actual Rust notice files plus Python notices. The tagged Cargo.lock declares
+43 further components absent from that SBOM; those are a broader inventory,
+not proven binary membership. Final binary redistribution must qualify the
+exact platform/artifact and include all applicable notices. See
+[HTTP dependency evidence](docs/http-dependencies.md) for scope and immutable
+evidence digests. No dependency source or binary is vendored by this change.
