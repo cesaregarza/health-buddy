@@ -1,7 +1,7 @@
 """Default-deny policy and explicit local development authority.
 
-Production credential/session/pairing providers are CES-1067. No request or
-extension may install a policy override through a canonical operation.
+Production credential/session/pairing authority lives in security.py. No request
+or extension may install a policy override through a canonical operation.
 """
 
 from __future__ import annotations
@@ -46,7 +46,9 @@ class DevelopmentPolicy:
                 raise ServiceError(401, "unauthenticated")
             yield Authority(
                 actor_id="local-development-owner",
-                grants=frozenset({"records:read", "records:write", "operations:admin"}),
+                grants=frozenset({
+                    "records:read", "records:write", "operations:admin", "providers:invoke",
+                }),
                 source_ids=frozenset({"manual"}),
             )
 
@@ -64,3 +66,6 @@ def require_grant(authority: Authority, operation: Operation) -> None:
         allowed = False
     if not allowed:
         raise ServiceError(403, "forbidden")
+    if operation in {"context.intent", "training.fast.read", "training.fast.write"}:
+        if "providers:invoke" not in authority.grants:
+            raise ServiceError(403, "forbidden")

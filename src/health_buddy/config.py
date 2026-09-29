@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from ipaddress import IPv4Address, IPv6Address
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -290,6 +291,51 @@ def validate(values: Any, root: Path) -> Config:
     return config
 
 
+def _canonical_origin(value: Any) -> None:
+    """Require browser-serialized HTTPS origins; never silently rewrite config."""
+    error = ConfigError(
+        "security.externalOrigin requires a canonical HTTPS origin: "
+        "lowercase ASCII host, no default port, credentials, path or whitespace"
+    )
+    origin = _text(value, "security.externalOrigin", 500)
+    if (
+        any(ord(char) <= 32 or ord(char) >= 127 for char in origin)
+        or "\\" in origin or "%" in origin
+    ):
+        raise error
+    try:
+        parsed = urlsplit(origin)
+        host = parsed.hostname
+        port = parsed.port
+        if (
+            parsed.scheme != "https" or not host
+            or parsed.username is not None or parsed.password is not None
+            or parsed.path or parsed.query or parsed.fragment
+            or port == 443 or (port is not None and not 1 <= port <= 65535)
+        ):
+            raise error
+        if ":" in host:
+            canonical_host = "[" + str(IPv6Address(host)) + "]"
+        elif re.fullmatch(r"[0-9.]+", host):
+            canonical_host = str(IPv4Address(host))
+        else:
+            if len(host) > 253 or not all(
+                re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+                for label in host.split(".")
+            ):
+                raise error
+            # WHATWG interprets numeric final labels as IPv4 forms. Avoid
+            # accepting a DNS spelling whose browser origin changes meaning.
+            if re.fullmatch(r"(?:[0-9]+|0x[0-9a-f]+)", host.split(".")[-1]):
+                raise error
+            canonical_host = host
+        authority = canonical_host + (f":{port}" if port is not None else "")
+        if origin != "https://" + authority:
+            raise error
+    except ValueError:
+        raise error from None
+
+
 def _security(config: Config) -> None:
     settings = _object(
         config.values["security"], set(defaults()["security"]), "security"
@@ -301,32 +347,13 @@ def _security(config: Config) -> None:
         raise ConfigError("security.sessionSeconds must be between 300 and 86400")
     origin = settings["externalOrigin"]
     if origin is not None:
-        try:
-            parsed = urlsplit(_text(origin, "security.externalOrigin", 500))
-            valid = (
-                parsed.scheme == "https"
-                and parsed.hostname
-                and parsed.username is None
-                and parsed.password is None
-                and not parsed.path
-                and not parsed.query
-                and not parsed.fragment
-                and origin == f"https://{parsed.netloc}"
-                and parsed.netloc.isascii()
-            )
-            _ = parsed.port
-        except ValueError as exc:
-            raise ConfigError(
-                "security.externalOrigin must be an HTTPS origin"
-            ) from exc
-        if not valid:
-            raise ConfigError("security.externalOrigin must be an HTTPS origin")
+        _canonical_origin(origin)
     subject = settings["ownerSubject"]
     if subject is not None:
         _text(subject, "security.ownerSubject", 254)
         if (
             not subject.isascii()
-            or any(char.isspace() for char in subject)
+            or any(ord(char) <= 32 or ord(char) >= 127 for char in subject)
             or "=?" in subject
         ):
             raise ConfigError("security.ownerSubject must be an exact ASCII subject")

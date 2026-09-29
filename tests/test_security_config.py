@@ -37,9 +37,27 @@ def test_private_uds_settings_are_explicit_and_not_public(tmp_path):
         ("externalOrigin", "https://:synthetic@example.invalid"),
         ("externalOrigin", "https://example.invalid/path"),
         ("externalOrigin", "https://[broken"),
+        ("externalOrigin", "https://example.invalid:443"),
+        ("externalOrigin", "https://EXAMPLE.invalid"),
+        ("externalOrigin", "https://example.invalid:0443"),
+        ("externalOrigin", "https://example.invalid:0"),
+        ("externalOrigin", "https://example.invalid:65536"),
+        ("externalOrigin", "https://example.invalid:"),
+        ("externalOrigin", "https://bad host.invalid"),
+        ("externalOrigin", "https://bad\\host.invalid"),
+        ("externalOrigin", "https://bad_host.invalid"),
+        ("externalOrigin", "https://-bad.invalid"),
+        ("externalOrigin", "https://example.invalid."),
+        ("externalOrigin", "https://127.1"),
+        ("externalOrigin", "https://2130706433"),
+        ("externalOrigin", "https://0x7f000001"),
+        ("externalOrigin", "https://example.invalid\x7f"),
+        ("externalOrigin", "https://[2001:0db8::1]"),
+        ("externalOrigin", "https://[fe80::1%25eth0]"),
         ("ownerSubject", " owner@example.invalid"),
         ("ownerSubject", "=?utf-8?B?synthetic?="),
         ("ownerSubject", []),
+        ("ownerSubject", "synthetic\x7f@example.invalid"),
         ("socketPath", "stores/health.sock"),
         ("socketPath", "security/authority.sqlite"),
         ("sessionSeconds", True),
@@ -58,3 +76,13 @@ def test_uds_requires_both_origin_and_exact_owner_subject(tmp_path):
     settings["security"]["ingress"] = "tailscale-uds"
     with pytest.raises(ConfigError):
         validate(settings, tmp_path)
+
+
+@pytest.mark.parametrize("origin", [
+    "https://example.invalid", "https://example.invalid:8443",
+    "https://127.0.0.1", "https://[2001:db8::1]:8443",
+])
+def test_canonical_origin_retains_exact_browser_origin(tmp_path, origin):
+    settings = defaults()
+    settings["security"]["externalOrigin"] = origin
+    assert validate(settings, tmp_path).ingress().external_origin == origin
