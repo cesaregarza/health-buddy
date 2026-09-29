@@ -11,12 +11,13 @@ const TrainingFast = (() => {
     return node;
   };
 
-  function mount(host, {snapshot, revision, rows} = {}) {
+  function mount(host, {snapshot, revision, rows, enabled = true} = {}) {
     activeController?.abort();
     activeController = new AbortController();
     const ownGeneration = ++generation;
     if (!host) return;
     host.textContent = '';
+    if (!enabled) { host.hidden = true; return; }
     const recommendation = snapshot?.recommendation;
     const exercises = recommendation?.template?.exercises || [];
     const date = recommendation?.date || '';

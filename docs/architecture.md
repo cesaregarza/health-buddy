@@ -34,3 +34,14 @@ The only supported extraction-stage demonstration is the fabricated dashboard
 preview. Its loopback context service is development-only and lacks the v1
 authorization boundary; neither it nor static health exports may be published.
 All actual validation/build execution follows the shared queue rule in AGENTS.md.
+# Portable local runtime
+
+`src/health_buddy` owns configuration, private workspace initialization and the
+transitional local manual-store adapter. `projection.py` supplies a request-local
+reader and selected zone to the extracted calculations; `healthkit_source.py`
+preserves the read-only HealthKit calculation path. `providers.py` owns explicit
+Jev policy, with no ambient credential fallback. `app.py`, `cli.py` and
+`server.py` provide the local development entrypoint described in
+[configuration.md](configuration.md). They do not implement the canonical v1
+API or production authorization. Personal code is never imported into the
+release by this adapter.
