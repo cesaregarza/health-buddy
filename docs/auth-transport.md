@@ -6,11 +6,17 @@ channel; security actions never use the immutable health receipt ledger.
 
 Production login is explicit at `/login`. The local bootstrap file is private
 JSON `{proof, identity, protocolVersion:1}`. The browser exchanges it once for an
-owner token held only in memory, then creates a Secure/HttpOnly/SameSite=Strict
-host-only session. `/security` is owner-protected phone connection status/private
+owner token shown once for deliberate retention in a password manager or a
+private owner-only file. Only after the owner acknowledges retention does it
+create a Secure/HttpOnly/SameSite=Strict host-only session and clear the page.
+Hide/page exit also clears the token. The browser never saves it automatically;
+ordinary logout or expiry uses the retained credential, without revoking phones. `/security` is owner-protected phone connection status/private
 handoff; safe approval URLs contain only a reference. Only `/v1/pairings` returns
 the resulting device token to the redeeming phone. No third-party QR or analytics
-service is used. Physical phone integration remains a separate acceptance gate.
+service is used. The owner may explicitly select an existing inventory actor
+reference to re-pair that same phone; a phone-supplied UUID never selects its
+predecessor. A revoked reservation is terminal; new owner preparation is required.
+Physical phone integration remains a separate acceptance gate.
 
 Cookie mutations require current session CSRF and exact configured Origin.
 Duplicate credentials and cookie+bearer fail. An expired or revoked HttpOnly

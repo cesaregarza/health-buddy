@@ -115,3 +115,93 @@ def test_authenticated_wrapper_rechecks_revoked_proof_before_each_operation(tmp_
         app.workflow.retry()
     assert config.path("personal/state/native-client.json").read_bytes() == original
     assert len(service.requests) == 1
+
+
+def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkeypatch):
+    """Actual authority/canonical commit; only reply delivery is fault injected."""
+    import base64
+    from datetime import UTC, datetime
+
+    from health_buddy.app import App
+    from health_buddy.client_workflow import decoded
+    from health_buddy.security_api import AgentGrant, BearerProof
+    from health_buddy.security_runtime import open_runtime
+    from health_buddy.service_api import Request
+    from tests.security_fixtures import action, secured
+
+    root = tmp_path / "owner"
+    runtime, owner, _owner_token = secured(root)
+    grant = action(runtime, owner, "grants.create", payload=AgentGrant(
+        "Fabricated native agent", ("records:read", "records:write"),
+        source_ids=("manual",), read_sources=("manual",),
+        read_kinds=None, read_fields=None,
+    ))
+    original_token = grant.secret.value
+    app = App.authenticated(root, proof=BearerProof(original_token), runtime=runtime)
+    binding = app.operations.describe()
+    first_revision = runtime.operations.journal.state().revision
+    replies, requests = [], []
+    execute = runtime.operations.execute
+
+    def lose_ack(principal, request):
+        reply = execute(principal, request)
+        if request.operation == "logs.write":
+            assert reply.status == 200
+            replies.append(reply)
+            requests.append(replace(request, deadline=None))
+            raise TimeoutError("Fabricated lost delivery after canonical commit")
+        return reply
+
+    arguments = [
+        "--event-at-local", datetime.now(UTC).isoformat(timespec="seconds"),
+        "--timezone", "UTC", "--item-name", "Fabricated retry oats",
+        "--calories-kcal", "123", "--status", "consumed",
+        "--category", "meal", "--source", "synthetic-entry",
+    ]
+    with monkeypatch.context() as patch:
+        patch.setattr(runtime.operations, "execute", lose_ack)
+        with pytest.raises(ServiceError, match="outcome_unknown"):
+            app.log_record("intake", arguments)
+    state_path = app.config.path("personal/state/native-client.json")
+    pending_bytes = state_path.read_bytes()
+    pending = json.loads(pending_bytes)
+    assert pending["state"] == "pending" and pending["cursor"] == 0
+    assert runtime.operations.journal.state().revision == first_revision + 1
+    rotated = action(runtime, owner, "grants.rotate", resource=grant.data["id"])
+    with pytest.raises(ServiceError) as denied:
+        app.workflow.retry()
+    assert denied.value.status == 401
+    assert state_path.read_bytes() == pending_bytes
+    del app, runtime, execute, lose_ack  # Per-operation connections are already closed.
+
+    reopened = open_runtime(root)
+    with pytest.raises(ServiceError) as denied:
+        App.authenticated(root, proof=BearerProof(original_token), runtime=reopened)
+    assert denied.value.status == 401
+    after = App.authenticated(root, proof=BearerProof(rotated.secret.value), runtime=reopened)
+    assert after.operations.describe() == binding
+    execute_reopened = reopened.operations.execute
+
+    def observe_replay(principal, request):
+        reply = execute_reopened(principal, request)
+        if request.operation == "logs.write":
+            requests.append(replace(request, deadline=None))
+            replies.append(reply)
+        return reply
+
+    with monkeypatch.context() as patch:
+        patch.setattr(reopened.operations, "execute", observe_replay)
+        after.workflow.retry()
+    complete = json.loads(state_path.read_bytes())
+    assert complete["envelope"] == pending["envelope"]
+    assert complete["clientIdentity"] == pending["clientIdentity"]
+    assert complete["state"] == "complete" and complete["cursor"] == 1
+    assert requests[0] == requests[1]
+    assert replies[0].status == replies[1].status == 200
+    assert replies[0].body == replies[1].body
+    assert base64.b64decode(complete["receipt"]["bodyBase64"]) == replies[0].body
+    assert reopened.operations.journal.state().revision == first_revision + 1
+    records = decoded(after.operations.execute(after.principal, Request(
+        "records.list", query={"kinds":"intake"},
+    )))
+    assert len(records["data"]["records"]) == 1

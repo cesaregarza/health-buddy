@@ -1,4 +1,7 @@
-"""Actual pinned Granian UDS/permission/lifecycle, synthetic authority only.
+"""Actual Granian UDS lifecycle with fake and real authority cases.
+
+The final integration case uses actual security SQLite and canonical operations;
+the preceding adapter lifecycle cases use an explicitly fake authority.
 
 Queue must run inside its transient cgroup, including all child process groups.
 A short queue-admitted HEALTH_BUDDY_TEST_SOCKET_ROOT contains only owned fixtures.
@@ -54,6 +57,12 @@ def server(folder, *, ready=True, workspace=None):
     args = [sys.executable, "-m", "tests.auth_transport_runner", "--socket", str(path)]
     if workspace is not None:
         args += ["--workspace", str(workspace)]
+    readiness = None
+    if workspace is not None:
+        from urllib.parse import urlsplit
+        from health_buddy.config import load
+
+        readiness = {"X-Forwarded-Host": urlsplit(load(workspace).ingress().external_origin).netloc}
     environment = dict(os.environ, PYTHONPATH=str(ROOT / "src") + os.pathsep + str(ROOT), PYTHONUNBUFFERED="1")
     with (folder / "server.log").open("ab") as log:
         # Fixed owned synthetic module/paths; queue cgroup bounds descendants.
@@ -65,7 +74,7 @@ def server(folder, *, ready=True, workspace=None):
                     if process.poll() is not None:
                         raise AssertionError("Synthetic UDS startup failed; inspect server.log")
                     try:
-                        if request(path)[0] == 200:
+                        if request(path, headers=readiness)[0] == 200:
                             break
                     except OSError:
                         pass

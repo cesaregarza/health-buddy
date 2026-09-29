@@ -15,6 +15,7 @@ ORIGIN = "https://synthetic.example"
 SESSION = "synthetic-session-" + "b" * 32
 CSRF = "synthetic-csrf-" + "c" * 32
 TOKEN = "synthetic-owner-" + "a" * 32
+BOOTSTRAP = "synthetic-bootstrap-" + "e" * 32
 PAIRING = "synthetic-pairing-" + "d" * 32
 IDENTITY = {"installationId":"00000000-0000-4000-8000-000000000001", "datasetId":"00000000-0000-4000-8000-000000000002", "restoreEpoch":"00000000-0000-4000-8000-000000000003"}
 
@@ -34,7 +35,10 @@ def main():
                 path = url.removeprefix(ORIGIN).split("?")[0]
                 headers = request.request.headers
                 method = request.request.method
-                if path in ("/login", "/security"):
+                if path == "/":
+                    assert live[0]
+                    request.fulfill(status=200, content_type="text/html", body="<!doctype html><title>Fabricated workspace</title><main>Signed in</main>")
+                elif path in ("/login", "/security"):
                     if path == "/security":
                         assert live[0]
                     request.fulfill(status=200, content_type="text/html", body=shell(owner=path=="/security").body)
@@ -48,12 +52,24 @@ def main():
                         assert headers.get("x-csrf-token") == CSRF
                     live[0] = False
                     request.fulfill(status=200, headers={"Set-Cookie":"__Host-health-buddy=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict"}, json={"data":{"cleared":True},"meta":{}})
+                elif path == "/v1/bootstrap":
+                    assert not headers.get("cookie")
+                    assert request.request.post_data_json == {"proof":BOOTSTRAP}
+                    assert headers.get("x-restore-epoch") == IDENTITY["restoreEpoch"]
+                    request.fulfill(status=201, json={"data":{},"meta":IDENTITY,"secret":{"kind":"owner-token","value":TOKEN}})
                 elif path == "/v1/sessions":
                     assert not headers.get("cookie"), "Invalid HttpOnly cookie must be explicitly cleared before bearer login"
                     assert headers.get("authorization") == "Bearer "+TOKEN
                     assert headers.get("origin") == ORIGIN and headers.get("x-health-buddy-browser") == "1"
                     live[0] = True
                     request.fulfill(status=200, headers={"Set-Cookie":f"__Host-health-buddy={SESSION}; Path=/; Max-Age=3600; Secure; HttpOnly; SameSite=Strict"}, json={"data":{},"meta":IDENTITY})
+                elif path == "/v1/devices":
+                    assert live[0]
+                    request.fulfill(status=200, json={"data":{"items":[{"id":"synthetic-device-actor","name":"Fabricated phone","active":False,"deviceId":"phone-supplied-uuid-is-not-the-actor"}]},"meta":IDENTITY})
+                elif path == "/v1/pairing-intents":
+                    assert live[0] and headers.get("x-csrf-token") == CSRF
+                    assert request.request.post_data_json == {"name":"My phone","replacementDeviceId":"synthetic-device-actor"}
+                    request.fulfill(status=201, json={"data":{"id":"synthetic-intent","status":"awaiting_owner","approvalPath":"/login?pairing=synthetic-intent"},"meta":IDENTITY})
                 elif path == "/v1/pairing-intents/synthetic-intent/handoff":
                     assert live[0] and headers.get("x-csrf-token") == CSRF
                     assert headers.get("x-restore-epoch") == IDENTITY["restoreEpoch"]
@@ -72,10 +88,30 @@ def main():
             page.locator("#clear").click()
             expect(page.locator("#message")).to_contain_text("Sign-in cleared")
             assert not context.cookies()
-            page.locator("#proof").fill(TOKEN)
+            page.locator("#method").select_option("bootstrap")
+            page.locator("#proof").fill(json.dumps({"proof":BOOTSTRAP,"identity":IDENTITY,"protocolVersion":1}))
             page.locator("#signin").click()
+            expect(page.locator("#owner-retention")).to_be_visible()
+            retained_token = page.locator("#owner-credential").input_value()
+            assert retained_token == TOKEN
+            assert not any(path=="/v1/sessions" for _,path in calls)
+            assert TOKEN not in page.evaluate("JSON.stringify({...localStorage,...sessionStorage})")
+            assert TOKEN not in page.url and BOOTSTRAP not in page.url
+            page.locator("#owner-continue").click()
             expect(page).to_have_url(ORIGIN+"/security?pairing=synthetic-intent")
+            page.goto(ORIGIN+"/login?pairing=synthetic-intent")
+            expect(page.locator("#owner-retention")).to_be_hidden()
+            expect(page.locator("#owner-credential")).to_have_value("")
+            expect(page.locator("#open-workspace")).to_be_visible()
+            expect(page.locator("#open-workspace")).to_have_attribute("href","/security?pairing=synthetic-intent")
+            page.locator("#open-workspace").click()
             expect(page.locator("#intent")).to_have_value("synthetic-intent")
+            page.locator("#devices").click()
+            expect(page.locator("#message")).to_contain_text("Device inventory refreshed")
+            page.locator("#replacement").select_option("synthetic-device-actor")
+            page.locator("#prepare").click()
+            expect(page.locator("#message")).to_contain_text("Connection prepared")
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             page.locator("#handoff").click()
             expect(page.locator("#private-handoff")).to_be_visible()
             handoff = json.loads(page.locator("#handoff-code").input_value())
@@ -89,6 +125,13 @@ def main():
             page.locator("#clear").click()
             expect(page).to_have_url(ORIGIN+"/login")
             assert page.evaluate("localStorage.getItem('health-workout-draft-v1')") == "synthetic-original-pending"
+            # The owner deliberately retained this token before first navigation.
+            # Routine logout must not require recovery or revoking paired phones.
+            page.locator("#proof").fill(retained_token)
+            page.locator("#signin").click()
+            expect(page).to_have_url(ORIGIN+"/")
+            assert sum(path=="/v1/bootstrap" for _,path in calls) == 1
+            assert sum(path=="/v1/sessions" for _,path in calls) == 2
             assert not errors
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             context.close()

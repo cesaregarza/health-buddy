@@ -1,4 +1,4 @@
-"""Queue-only UDS adapter runner; fake authority is not policy evidence."""
+"""Queue-only UDS runner: fake authority by default, actual runtime with --workspace."""
 import argparse
 from functools import partial
 from pathlib import Path
