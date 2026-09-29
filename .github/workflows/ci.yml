@@ -1,0 +1,28 @@
+name: Controlled verification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: controlled-verification
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTEST_ADDOPTS: ""
+      HEALTH_TIMEZONE: America/Chicago
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      RAYON_NUM_THREADS: "1"
+      RUFF_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install '.[dev,sleepiq]'
+      - run: make contracts test dashboard-test lint typecheck package
+      - run: python scripts/audit_distribution.py --root . --archives dist
+      - run: git diff --check
