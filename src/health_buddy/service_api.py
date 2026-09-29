@@ -104,6 +104,7 @@ class Request:
     identity: Identity | None = None
     if_match: str | None = None
     idempotency_key: str | None = None
+    health_device_id: str | None = None
     api_version: str = "1"
     deadline: float | None = None
 

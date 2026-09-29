@@ -62,6 +62,10 @@ including receiver identity response headers. Missing server-owned metadata is
 never filled from client JSON. The precise new logger/domain schemas are core
 owned and will be documented before final verification.
 
+The untrusted `X-Health-Device-ID` header populates `health_device_id`; core
+requires it to match both the schema-v1 body deviceId and policy-owned binding.
+It never creates or selects a device grant.
+
 `Request.deadline` is an optional monotonic deadline supplied by the trusted
 adapter, checked before the durable decision and excluded from intent digest.
 Expired admission cannot commit. After COMMIT_INTENT, cancellation/disconnect
