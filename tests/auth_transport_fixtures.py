@@ -136,7 +136,7 @@ def short_socket_directory():
     if (
         not parent.is_absolute()
         or ".." in parent.parts
-        or parent == Path("/tmp")
+        or parent == Path("/tmp")  # noqa: S108 - Reject the public temp root.
         or parent.is_relative_to("/mnt")
         or any(item.is_symlink() for item in (parent, *parent.parents))
     ):

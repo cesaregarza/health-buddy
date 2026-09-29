@@ -19,7 +19,7 @@ def test_cli_explicit_authority_and_same_action_replay(tmp_path, capsys):
     root = tmp_path / "owner"
     assert main(["--workspace", str(root), "init"]) == 0
     assert main(["--workspace", str(root), "status"]) == 2
-    assert "unauthenticated" in capsys.readouterr().err
+    assert "explicit_credential_file_required (HTTP 401)" in capsys.readouterr().err
     command = (
         "log",
         "measurement",
