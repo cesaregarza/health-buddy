@@ -265,6 +265,43 @@ def test_oversized_request_and_response_cannot_make_durable_decision(
 def test_tombstone_id_is_stable_and_removed_record_never_reappears(tmp_path):
     service, policy, owner = setup(tmp_path / "owner", receiver=True)
     phone, request = receiver_principal(service, policy, owner)
+    stamp = datetime.now(UTC).isoformat()
+    aggregate_deletion = {
+        **request.payload,
+        "records": [],
+        "deletions": [
+            {
+                "recordId": request.payload["records"][0]["recordId"],
+                "typeIdentifier": request.payload["records"][0]["typeIdentifier"],
+                "observedAt": stamp,
+            }
+        ],
+    }
+    before = service.journal.state(), service.manual.snapshot()
+    assert (
+        service.execute(phone, replace(request, payload=aggregate_deletion)).status
+        == 422
+    )
+    assert (service.journal.state(), service.manual.snapshot()) == before
+    # Daily aggregates intentionally do not accept tombstones. Exercise deletion
+    # with an explicit synthetic quantity, retaining the original batch for retry.
+    record = {
+        **request.payload["records"][0],
+        "recordId": "synthetic-deletable-mass",
+        "recordKind": "quantity",
+        "typeIdentifier": "HKQuantityTypeIdentifierBodyMass",
+        "startDate": stamp,
+        "endDate": stamp,
+        "creationDate": stamp,
+        "localDate": stamp[:10],
+        "timezone": "UTC",
+        "value": 80,
+        "unit": "kg",
+    }
+    request = replace(
+        request,
+        payload={**request.payload, "generatedAt": stamp, "records": [record]},
+    )
     assert service.execute(phone, request).status == 200
     row = service.health.records()[0]
     record_id = row["observation_id"]
@@ -284,7 +321,9 @@ def test_tombstone_id_is_stable_and_removed_record_never_reappears(tmp_path):
         service.execute(owner, Request("records.get", resource_id=record_id)).status
         == 404
     )
+    after_deletion = service.journal.state()
     assert service.execute(phone, request).status == 200
+    assert service.journal.state() == after_deletion
     assert service.health.records() == []
     with sqlite3.connect(service.health.path) as connection:
         assert (
