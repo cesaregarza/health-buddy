@@ -184,6 +184,12 @@ def execute(
                 store.event(connection, action)
                 return SecurityReply(201, {"id": target["id"], "rotated": True}, secret=SecretDelivery("agent-token", token))
             connection.execute("UPDATE actors SET active=0 WHERE id=?", (target["id"],))
+            if action == "devices.revoke":
+                connection.execute(
+                    "UPDATE pairing SET state='revoked',digest=NULL "
+                    "WHERE predecessor=? AND state IN ('awaiting_owner','ready')",
+                    (target["id"],),
+                )
             store.event(connection, action)
         return SecurityReply(200, {"revoked": True})
     if action == "pairing.create":
@@ -242,9 +248,15 @@ def _redeem(
     except (ValueError, TypeError, AttributeError):
         raise invalid() from None
     row = connection.execute(
-        "SELECT * FROM pairing WHERE digest=? AND state='ready'", (fingerprint("pairing", proof),),
+        "SELECT * FROM pairing WHERE digest=?", (fingerprint("pairing", proof),),
     ).fetchone()
-    if row is None or row["expires"] <= time.time():
+    if row is None:
+        raise denied()
+    if row["state"] == "consumed":
+        raise ServiceError(409, "pairing_consumed")
+    if row["expires"] <= time.time():
+        raise ServiceError(410, "pairing_expired")
+    if row["state"] != "ready":
         raise denied()
     current = security._identity()
     security.service.check_receiver(current)

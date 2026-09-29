@@ -221,19 +221,23 @@ mounts and secret grants reduce exposure but do not provide binary attestation.
 
 ## Pairing and restore recovery
 
-The owner creates an intent bound to the exact receiver identity tuple, expiring
+The owner first creates a safe, bounded approval reservation; it is not yet a
+redeemable intent. Explicit private owner handoff creates an intent bound to the exact receiver identity tuple, expiring
 after **300 seconds**, with a CSPRNG secret of at least 256 bits. Only its digest
 is stored. Redemption is rate-limited and atomically consumes it, binds the
 device UUID, and returns a random device token exactly once over HTTPS. No token
 or secret goes into a normal URL/query/log. Displayed QR/deep-link input is
 treated as secret and must not send it to public sites or analytics.
 
-Expired redemption returns 410; a consumed intent returns 409 even for an
+Known expired redemption returns 410; a consumed intent returns 409 even for an
 identical retry. If the response was lost, revoke the uncertain device grant and
 create a new intent; never replay a plaintext device token from the server.
 The phone stores the token in Keychain. Owner revocation takes effect before
 the next authenticated request, including duplicate batch retries. A re-pair
 must explicitly replace a prior binding; it cannot silently switch datasets.
+Owner revocation also invalidates outstanding replacement reservations/proofs.
+Re-pair after revocation requires a new owner decision. Bounded cleanup removes
+old reservations; a purged or unknown proof receives an authentication failure.
 
 Every restore invalidates all restored tokens, sessions, pairing intents and
 grant caches by rotating the restore/security epoch. Bootstrap locally and

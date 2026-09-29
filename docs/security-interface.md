@@ -1,8 +1,9 @@
 # Security implementation interface
 
-This checkpoint freezes the CES-1067 interface for parallel implementation. It
-does not claim the security runtime or its verification is complete. The accepted
-health Operations API and immutable health receipt bytes remain unchanged.
+This document describes the CES-1067 security owner and transport interface.
+The accepted health Operations API and immutable health receipt bytes remain
+separate from security state and one-time private replies. Execution evidence is
+recorded by the shared validation queue, not inferred from this source map.
 
 ## Ownership and factories
 
@@ -51,7 +52,7 @@ are excluded from reprs, logs, error details and ordinary reply data.
 | --- | --- | --- |
 | bootstrap.redeem, POST /v1/bootstrap | BootstrapProof; exact Identity | One-time owner-token; no cookie. Local setup proof only. |
 | session.create, POST /v1/sessions | BearerProof or ProxyProof | Fixed session CookieDirective + ClientIdentity; owner only. |
-| session.get, GET /v1/session | Current session principal | ClientIdentity + tagged csrf delivery. |
+| session.get, GET /v1/session | Current authenticated principal | ClientIdentity; only a session also receives tagged csrf delivery. |
 | session.revoke, DELETE /v1/session | Current session principal | Cookie clear and safe outcome. |
 | grants.create, POST /v1/grants | AgentGrant; exact Identity | Safe ID/name/scope metadata + one-time agent-token; owner only. |
 | grants.list, GET /v1/grants | No payload | Safe inventory, never digests/tokens; owner only. |
@@ -86,6 +87,16 @@ only to its current session. Owner bootstrap UI may immediately create a session
 with the returned owner token held briefly in memory, never localStorage or a
 health retry ledger. Failed delivery requires deliberate recovery.
 
+Native `security bootstrap --proof-file PATH` writes a create-only private JSON
+bundle with exactly `{proof, identity: {installationId, datasetId, restoreEpoch},
+protocolVersion: 1}`. Public login reveals no receiver tuple; the owner explicitly
+supplies this private bundle. Pairing reservation/status returns `{id, status,
+expiresAt, approvalPath}`. Handoff adds `identity` and `protocolVersion` to those
+safe fields and delivers the proof separately. Status is awaiting_owner, ready,
+consumed, expired or revoked. Device/agent inventories expose named grants,
+write `sourceIds`, and exact `readSources`/`readKinds`/`readFields`; null means all
+approved and an empty array means none. They never include credential digests.
+
 For loopback app-credential login after logout/expiry, the owner retains an
 explicit private credential handoff outside browser storage. If the browser-only
 bootstrap consumed the owner's sole proof and it was not retained, deliberate
@@ -108,6 +119,10 @@ Optional `security` configuration adds ingress, externalOrigin, ownerSubject,
 socketPath and sessionSeconds to schema1 without rewriting existing files.
 Defaults remain loopback, no external origin/owner mapping and3600second session.
 Security settings never appear in Config.public or health context.
+`externalOrigin` must already be a canonical browser HTTPS origin: lowercase
+ASCII DNS or canonical IP literal, no default443 port, credentials, path, query,
+fragment, whitespace, escapes or ambiguous numeric-host spellings. Invalid
+configuration is rejected with an actionable error; it is never silently rewritten.
 
 Loopback TCP never accepts proxy identity. Header mode binds only a Unix socket
 under a non-symlink service-owned0700 security directory; socket0600, restrictive

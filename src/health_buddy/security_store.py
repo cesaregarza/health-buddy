@@ -13,7 +13,7 @@ import secrets
 import sqlite3
 import stat
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -124,6 +124,14 @@ class SecurityStore:
         try:
             binding = self._binding(identity)
             private_owned(self.path)
+            for suffix in ("-journal", "-wal", "-shm"):
+                sidecar = Path(str(self.path) + suffix)
+                if sidecar.exists() or sidecar.is_symlink():
+                    private_owned(sidecar)
+                    if suffix != "-journal":
+                        # This authority uses DELETE mode only. Unexpected WAL
+                        # material requires explicit owner recovery, not guessing.
+                        raise unavailable()
             connection = sqlite3.connect(
                 self.path.as_uri() + "?mode=rw", uri=True, timeout=3
             )
@@ -149,7 +157,10 @@ class SecurityStore:
             raise unavailable()
         return value
 
-    def initialize(self, identity: Identity, *, recover: bool = False) -> str:
+    def initialize(
+        self, identity: Identity, *, recover: bool = False,
+        fault: Callable[[str], None] | None = None,
+    ) -> str:
         """Explicit OS-owner action; never called by runtime admission.
 
         An interrupted first setup leaves a binding marker and fails closed.
@@ -157,22 +168,47 @@ class SecurityStore:
         Returns a private bootstrap proof (or recovery owner token), once.
         """
         self.owner()
-        paths = (self.path, self.epoch_path, self.binding_path)
+        boundary = fault or (lambda _point: None)
+        sidecars = tuple(Path(str(self.path) + suffix) for suffix in ("-journal", "-wal", "-shm"))
+        paths = (self.path, self.epoch_path, self.binding_path, *sidecars)
         if not recover and any(path.exists() or path.is_symlink() for path in paths):
             raise ServiceError(409, "security_already_initialized_or_incomplete")
         for path in paths:
             if path.exists() or path.is_symlink():
                 private_owned(path)
+        epoch = uuid4().hex
         binding = {
             "schemaVersion": 1,
             "authorityId": uuid4().hex,
-            "securityEpoch": uuid4().hex,
+            "securityEpoch": epoch,
             "identity": identity_value(identity),
         }
         raw = encode(binding)
         # Durable independent marker comes first: losing the DB cannot turn a
         # previously initialized workspace into an automatically fresh one.
         atomic_bytes(self.binding_path, raw)
+        boundary("security_binding_written")
+        if recover:
+            old = [path for path in (self.path, *sidecars) if path.exists()]
+            if old:
+                quarantine = self.directory / ("retired-" + uuid4().hex)
+                quarantine.mkdir(mode=0o700)
+                fsync_path(self.directory)
+                # Fixed known basenames only. Preserve old DB and all owned
+                # recognized sidecars; never attach an old hot journal to the
+                # replacement DB or silently discard crash evidence.
+                atomic_bytes(quarantine / "inventory.json", encode({
+                    "files": [path.name for path in old], "complete": False,
+                }))
+                for path in old:
+                    os.replace(path, quarantine / path.name)
+                    fsync_path(quarantine)
+                    fsync_path(self.directory)
+                    boundary("security_quarantine_file")
+                atomic_bytes(quarantine / "inventory.json", encode({
+                    "files": [path.name for path in old], "complete": True,
+                }))
+        boundary("security_quarantined")
         temporary = self.directory / (".authority-" + uuid4().hex + ".sqlite")
         descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.close(descriptor)
@@ -187,7 +223,7 @@ class SecurityStore:
             self.add_actor(connection, actor, "owner", "Owner", [], [], None, None, None)
             self.add_credential(
                 connection, actor, "owner" if recover else "bootstrap", token,
-                binding["securityEpoch"],
+                epoch,
                 expires=None if recover else time.time() + 300,
             )
             connection.commit()
@@ -196,7 +232,9 @@ class SecurityStore:
         fsync_path(temporary)
         os.replace(temporary, self.path)
         fsync_path(self.directory)
+        boundary("security_db_installed")
         atomic_bytes(self.epoch_path, raw)
+        boundary("security_epoch_installed")
         return token
 
     def add_actor(

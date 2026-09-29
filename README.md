@@ -9,8 +9,9 @@ This repository contains the **v1 contract** and a clean source extraction of
 the dashboard, HealthKit ingest, manual operations and optional SleepIQ source.
 The source bundle now supports a private local first run, manual logging,
 dashboard and context packs with every optional integration disabled. Canonical v1 operations now join UI, CLI and scoped extension clients behind
-one durable coordinator. Production authorization, installer and agent packages
-remain later tickets. Passing these checks does not establish release qualification.
+one durable coordinator. Owner sessions, scoped agent grants and upload-only
+device pairing share a durable authorization authority. Installer and agent
+packages remain later tickets. Passing source checks does not establish release qualification.
 
 - [Product, API, identity, and security contract](docs/v1-contract.md)
 - [Personal workspace and extension contract](docs/extensions.md)
@@ -23,6 +24,7 @@ remain later tickets. Passing these checks does not establish release qualificat
 - [Portable local first run and owner configuration](docs/configuration.md)
 - [Canonical API and operation ownership](docs/api-implementation.md)
 - [Durable client retries and supported CLI](docs/canonical-clients.md)
+- [Owner, agent and device authorization](docs/authorization.md)
 - [Queue verification commands](docs/verification.md)
 - [Dependency and asset notices](THIRD_PARTY.md)
 

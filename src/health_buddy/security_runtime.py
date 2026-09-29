@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import stat
+from collections.abc import Callable
 from pathlib import Path
 
 from .domain import encode, identity_value
@@ -60,6 +61,7 @@ def read_credential(path: Path) -> str:
 def setup_security(
     workspace: Path, output: Path, *, recover: bool = False,
     confirm_revoke_all: bool = False,
+    fault: Callable[[str], None] | None = None,
 ) -> None:
     """OS-owner maintenance only, with a create-only private secret handoff.
 
@@ -81,7 +83,7 @@ def setup_security(
             descriptor = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
             try:
                 identity = service.journal.state().identity
-                token = store.initialize(identity, recover=recover)
+                token = store.initialize(identity, recover=recover, fault=fault)
                 content = (token + "\n").encode("ascii") if recover else encode({
                     "proof": token, "identity": identity_value(identity), "protocolVersion": 1,
                 }) + b"\n"

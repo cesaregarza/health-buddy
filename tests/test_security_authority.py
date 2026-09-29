@@ -141,6 +141,7 @@ def test_proxy_capability_requires_runtime_instance_config_and_exact_subject(tmp
         with pytest.raises(ServiceError):
             runtime.security.authenticate(proof)
     admitted = runtime.security.authenticate(ProxyProof(subject, runtime.proxy_boundary))
+    assert runtime.operations.execute(admitted.principal, Request("capabilities")).status == 403
     assert action(runtime, admitted, "session.create").cookie.action == "issue"
     direct, _, _ = secured(tmp_path / "direct")
     with pytest.raises(ServiceError):
@@ -182,3 +183,58 @@ def test_raw_security_health_files_and_reprs_do_not_contain_delivered_tokens(tmp
         assert value not in repr(agent) + repr(session) + repr(BearerProof(value))
     with runtime.operations.backup(owner.principal) as inventory:
         assert {root / "security/authority.sqlite", root / "security/epoch.json", root / "operations/security-binding.json"} <= set(inventory.required_paths)
+
+
+def test_session_expiry_rechecks_cached_handle(tmp_path, monkeypatch):
+    runtime, owner, _ = secured(tmp_path / "owner")
+    session = action(runtime, owner, "session.create")
+    admitted = runtime.security.authenticate(SessionProof(session.cookie.value))
+    import time
+    now = time.time()
+    monkeypatch.setattr("health_buddy.security_store.time.time", lambda: now + runtime.ingress.session_seconds + 1)
+    assert runtime.operations.execute(admitted.principal, Request("capabilities")).status == 401
+    with pytest.raises(ServiceError):
+        runtime.security.authenticate(SessionProof(session.cookie.value))
+
+
+def test_failed_authentication_budget_is_durable_global_and_bounded(tmp_path):
+    root = tmp_path / "owner"
+    runtime, _, _ = secured(root)
+    exhausted = False
+    for _ in range(245):
+        with pytest.raises(ServiceError) as rejection:
+            runtime.security.authenticate(BearerProof("x" * 43))
+        assert rejection.value.status in {401, 429}
+        if rejection.value.status == 429:
+            exhausted = True
+            break
+    assert exhausted
+    reopened = open_runtime(root)
+    with pytest.raises(ServiceError) as persistent:
+        reopened.security.authenticate(BearerProof("y" * 43))
+    assert persistent.value.status == 429
+    with sqlite3.connect(root / "security/authority.sqlite") as connection:
+        assert connection.execute("SELECT count(*) FROM budgets").fetchone()[0] <= 3
+        assert connection.execute("SELECT count(*) FROM credentials").fetchone()[0] == 2
+
+
+def test_handles_deduplicate_expire_and_never_become_database_authority(tmp_path, monkeypatch):
+    runtime, owner, token = secured(tmp_path / "owner")
+    for _ in range(50):
+        assert runtime.security.authenticate(BearerProof(token)).principal == owner.principal
+    assert len(runtime.security.handles) == 1
+    # Exercise the isolated bounded-cache helper without fabricating hundreds
+    # of durable actors or disguising its unit coverage as authentication.
+    for index in range(280):
+        runtime.security._handle("nonexistent-" + str(index), owner.client.security_epoch, "bearer")
+    assert len(runtime.security.handles) == 256
+    forged = Principal(next(iter(runtime.security.handles)))
+    assert runtime.operations.execute(forged, Request("capabilities")).status == 401
+    fresh = runtime.security.authenticate(BearerProof(token))
+    import time
+    now = time.monotonic()
+    monkeypatch.setattr("health_buddy.security.time.monotonic", lambda: now + 301)
+    with pytest.raises(ServiceError):
+        runtime.security.describe(fresh.principal)
+    renewed = runtime.security.authenticate(BearerProof(token))
+    assert renewed.principal != fresh.principal and renewed.client == fresh.client

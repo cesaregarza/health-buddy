@@ -8,6 +8,7 @@ security locks. A health guard retains that ordering through its commit decision
 from __future__ import annotations
 
 import json
+import math
 import secrets
 import sqlite3
 import time
@@ -204,7 +205,13 @@ class SecurityAuthority:
         # preflight. Never reacquire that flock through another file descriptor.
         with exclusive(self.store.lock):
             with self.store.connection(self._identity()) as connection:
-                _, actor = self._resolve(connection, principal)
+                try:
+                    handle, actor = self._resolve(connection, principal)
+                    if handle.mechanism == "proxy":
+                        raise ServiceError(403, "forbidden")
+                except ServiceError:
+                    self.store.budget(connection, "public", time.time())
+                    raise
                 owner = actor["role"] == "owner"
                 def restriction(name: str) -> frozenset[str] | None:
                     return None if actor[name] is None else frozenset(json.loads(actor[name]))
@@ -227,13 +234,18 @@ class SecurityAuthority:
         if action in PUBLIC_ACTIONS:
             return None, None
         handle, actor = self._resolve(connection, principal)
+        if handle.mechanism == "proxy" and action != "session.create":
+            raise ServiceError(403, "forbidden")
         if action in OWNER_ACTIONS or action == "session.create":
             if actor["role"] != "owner":
                 raise ServiceError(403, "forbidden")
         return handle, actor
 
     def preflight(self, principal: Principal | None, action: SecurityAction) -> None:
+        if not isinstance(action, str) or action not in ALL_ACTIONS:
+            raise ServiceError(422, "invalid_request")
         with self._locked() as connection:
+            self.store.budget(connection, "public" if action in PUBLIC_ACTIONS else "security", time.time())
             self._admit(connection, principal, action)
 
     def execute(self, principal: Principal | None, request: SecurityRequest) -> SecurityReply:
@@ -241,11 +253,17 @@ class SecurityAuthority:
 
         if not isinstance(request, SecurityRequest) or not isinstance(request.action, str) or request.action not in ALL_ACTIONS:
             raise ServiceError(422, "invalid_request")
+        if request.deadline is not None and (
+            type(request.deadline) not in {int, float}
+            or not math.isfinite(request.deadline) or request.deadline < 0
+        ):
+            raise ServiceError(422, "invalid_request")
         with self._locked(request.deadline) as connection:
             self.store.budget(connection, "public" if request.action in PUBLIC_ACTIONS else "security", time.time())
             handle, actor = self._admit(connection, principal, request.action)
             if request.action in IDENTITY_ACTIONS or request.action in PUBLIC_ACTIONS:
                 check_identity(request.identity, self._identity())
+            connection.execute("BEGIN IMMEDIATE")
             check_deadline(request.deadline)
             return execute(self, connection, handle, actor, request)
 
