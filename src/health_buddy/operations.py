@@ -382,6 +382,7 @@ class Service:
                 ),
             )
         else:
+            targets: set[tuple[str, str]] = set()
             if request.operation == "records.put":
                 changes, result = records.put(
                     files,
@@ -395,11 +396,11 @@ class Service:
                 self._check_parent_source(
                     authority, files, payload, text(request.resource_id)
                 )
-                changes, result = loggers.transition(
+                changes, result, targets = loggers.transition(
                     text(request.resource_id), payload, files, self.config
                 )
             elif request.operation == "workouts.write":
-                changes, result = loggers.completed(
+                changes, result, targets = loggers.completed(
                     files,
                     cast(dict[str, Any], payload),
                     self.config,
@@ -419,6 +420,7 @@ class Service:
                 updated, received_at=received_at, source_id=text(write_source)
             )
             self._check_changed_sources(authority, files, index)
+            self._check_target_sources(index, targets, text(write_source))
             changes[RECORD_INDEX] = index
             result["projection"] = {"state": "pending"}
             receipt = envelope(result, state.identity, state.revision + 1)
@@ -474,6 +476,24 @@ class Service:
         # applying the pending effect to a potentially replaced SQLite file.
         self.check_receiver(self.journal.state().identity)
         self.health.install(transaction_id, effect)
+
+    def _check_target_sources(
+        self, new_index: str, targets: set[tuple[str, str]], source_id: str
+    ) -> None:
+        # A duplicate/no-op still targets an existing authoritative row. The
+        # named source must match even when the principal has both grants.
+        matched = set()
+        index = records.load_object({RECORD_INDEX: new_index}, RECORD_INDEX)
+        for entry in index.values():
+            if not isinstance(entry, dict) or entry.get("deleted"):
+                continue
+            target = (text(entry["path"]), text(entry["locator"]))
+            if target in targets:
+                if entry["sourceId"] != source_id:
+                    raise ServiceError(403, "forbidden")
+                matched.add(target)
+        if matched != targets:
+            raise unavailable()
 
     def _check_changed_sources(
         self, authority: Authority, files: dict[str, str], new_index: str

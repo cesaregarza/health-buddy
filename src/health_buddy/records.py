@@ -22,7 +22,7 @@ from .domain import (
     object_value,
     text,
 )
-from .legacy_store import parse_csv
+from .legacy_store import csv_text, headers, parse_csv
 from .service_api import JSON, ServiceError
 from .stores import OBSERVATIONS, RECORD_INDEX
 
@@ -132,7 +132,20 @@ def reindex(
 def adopt(files: dict[str, str], received_at: str) -> dict[str, str]:
     if RECORD_INDEX in files or OBSERVATIONS in files:
         raise ServiceError(409, "reconciliation_required")
-    return {RECORD_INDEX: reindex(files, received_at=received_at), OBSERVATIONS: "{}\n"}
+    changes = {}
+    path = "data/intake.csv"
+    fields = headers()[path]
+    if files[path].splitlines()[0].split(",") == [
+        field for field in fields if field != "sodium_mg"
+    ]:
+        rows = [
+            {field: row.get(field, "") for field in fields}
+            for row in parse_csv(files[path])
+        ]
+        changes[path] = csv_text(fields, rows)
+    changes[RECORD_INDEX] = reindex(files | changes, received_at=received_at)
+    changes[OBSERVATIONS] = "{}\n"
+    return changes
 
 
 def row_time(row: dict[str, str], timezone: str) -> str:

@@ -27,7 +27,7 @@ from .domain import (
     instant,
     text,
 )
-from .durability import atomic_bytes, private_file, unavailable
+from .durability import atomic_bytes, check_deadline, private_file, unavailable
 from .journal import State
 from .legacy_store import csv_text, headers, parse_csv
 from .service_api import JSON, Authority, Identity, ServiceError
@@ -120,6 +120,7 @@ def _raw_health(
     start: datetime,
     end: datetime,
     kinds: set[str] | None,
+    deadline: float,
 ) -> tuple[list[dict[str, JSON]], list[str]]:
     selected = sorted(
         kind
@@ -137,8 +138,10 @@ def _raw_health(
     total_bytes = 0
     if service.health.receiver:
         for kind in selected:
+            check_deadline(deadline)
             page = service.health.records(
-                source_id=source_id, type_id=kind, from_at=from_at, to_at=to_at
+                source_id=source_id, type_id=kind, from_at=from_at, to_at=to_at,
+                deadline=deadline,
             )
             if len(page) > 500:
                 truncated.append(kind)
@@ -149,14 +152,16 @@ def _raw_health(
         return rows, truncated
     path = service.config.storage("healthkit")
     private_file(path)
-    connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+    connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.25)
     connection.row_factory = sqlite3.Row
-    expires = time.monotonic() + 2
+    expires = min(time.monotonic() + 2, deadline)
     connection.set_progress_handler(lambda: int(time.monotonic() >= expires), 10_000)
     try:
         for kind in selected:
+            check_deadline(deadline)
             if connection.execute(
-                "SELECT 1 FROM records WHERE deleted_at IS NULL AND type_identifier=? AND julianday(start_at) IS NULL LIMIT 1",
+                "SELECT 1 FROM records WHERE deleted_at IS NULL "
+                "AND type_identifier=? AND julianday(start_at) IS NULL LIMIT 1",
                 (kind,),
             ).fetchone():
                 raise unavailable()
@@ -167,7 +172,10 @@ def _raw_health(
                     "stream_id": "import:" + str(row["device_id"]),
                 }
                 for row in connection.execute(
-                    "SELECT * FROM records WHERE deleted_at IS NULL AND type_identifier=? AND julianday(start_at)>=julianday(?) AND julianday(start_at)<=julianday(?) ORDER BY julianday(start_at) DESC,record_id DESC LIMIT 501",
+                    "SELECT * FROM records WHERE deleted_at IS NULL "
+                    "AND type_identifier=? AND julianday(start_at)>=julianday(?) "
+                    "AND julianday(start_at)<=julianday(?) "
+                    "ORDER BY julianday(start_at) DESC,record_id DESC LIMIT 501",
                     (kind, from_at, to_at),
                 )
             ]
@@ -264,7 +272,9 @@ def capture(
     window: tuple[datetime, datetime] | None = None,
     kinds: set[str] | None = None,
     sources: set[str] | None = None,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
+    deadline = min(deadline or float("inf"), time.monotonic() + 15)
     head, files = service.manual.snapshot()
     registry = service.journal.sources()
     now = datetime.now(UTC)
@@ -315,7 +325,7 @@ def capture(
                     ),
                 }
             for name in names:
-                raw, truncated = _raw_health(service, name, start, end, kinds)
+                raw, truncated = _raw_health(service, name, start, end, kinds, deadline)
                 health = legacy.module("healthkit_source").read_healthkit(
                     service.config.storage("healthkit"), service.config.zone, rows=raw
                 )
@@ -496,7 +506,8 @@ def direct_health(
             )
             try:
                 found = connection.execute(
-                    "SELECT * FROM records WHERE deleted_at IS NULL AND observation_id(device_id,record_id)=? LIMIT 1",
+                    "SELECT * FROM records WHERE deleted_at IS NULL "
+                    "AND observation_id(device_id,record_id)=? LIMIT 1",
                     (record_id,),
                 ).fetchone()
                 row = (

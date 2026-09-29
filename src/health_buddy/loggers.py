@@ -16,18 +16,42 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import legacy
 from .config import Config
-from .domain import identifier, invalid, object_value
+from .domain import digest, identifier, invalid, object_value
 from .legacy_store import csv_text, parse_csv
 from .service_api import JSON, ServiceError
 
+type Transition = tuple[dict[str, str], dict[str, JSON], set[tuple[str, str]]]
+
 FIELDS = {
-    "measurement": "measured_at_local timezone weight_lb body_fat_pct muscle_mass_pct water_pct bmi bone_mass_pct source notes",
-    "intake": "event_at_local timezone status category item_name brand serving_quantity serving_unit calories_kcal protein_g carbohydrate_g fat_g sodium_mg caffeine_mg source notes",
-    "blood-pressure": "measured_at_local timezone systolic diastolic pulse arm reading_number measurement_session device source notes protocol_status protocol_notes",
-    "circumference": "measured_at_local timezone site side reading measurement_site source notes",
-    "workout-start": "session_id date workout_type status duration_min bodyweight_lb notes",
-    "workout-set": "session_id date exercise equipment set_number set_count load_lb load_basis reps rir form_quality status notes",
-    "workout-cardio": "session_id date activity equipment segment_number duration_seconds duration_minutes level steps_per_min speed_mph incline_percent distance_value distance_unit vertical_feet floors_climbed calories avg_heart_rate_bpm max_heart_rate_bpm source notes",
+    "measurement": (
+        "measured_at_local timezone weight_lb body_fat_pct muscle_mass_pct "
+        "water_pct bmi bone_mass_pct source notes"
+    ),
+    "intake": (
+        "event_at_local timezone status category item_name brand serving_quantity "
+        "serving_unit calories_kcal protein_g carbohydrate_g fat_g sodium_mg "
+        "caffeine_mg source notes"
+    ),
+    "blood-pressure": (
+        "measured_at_local timezone systolic diastolic pulse arm reading_number "
+        "measurement_session device source notes protocol_status protocol_notes"
+    ),
+    "circumference": (
+        "measured_at_local timezone site side reading measurement_site source notes"
+    ),
+    "workout-start": (
+        "session_id date workout_type status duration_min bodyweight_lb notes"
+    ),
+    "workout-set": (
+        "session_id date exercise equipment set_number set_count load_lb "
+        "load_basis reps rir form_quality status notes"
+    ),
+    "workout-cardio": (
+        "session_id date activity equipment segment_number duration_seconds "
+        "duration_minutes level steps_per_min speed_mph incline_percent "
+        "distance_value distance_unit vertical_feet floors_climbed calories "
+        "avg_heart_rate_bpm max_heart_rate_bpm source notes"
+    ),
     "workout-finish": "session_id duration_min notes",
 }
 
@@ -97,7 +121,7 @@ def namespace(kind: str, fields: dict[str, JSON], config: Config) -> argparse.Na
         if kind.startswith("workout-"):
             argv.insert(0, kind.split("-", 1)[1])
 
-    def reject(_message: str) -> Never:
+    def reject(message: str) -> Never:
         raise invalid()
 
     # Parser diagnostics can contain supplied values. Convert to a safe typed
@@ -215,7 +239,7 @@ def _append(
 
 def completed(
     files: dict[str, str], payload: dict[str, Any], config: Config, as_of: date
-) -> tuple[dict[str, str], dict[str, JSON]]:
+) -> Transition:
     validator = legacy.module("workout_store")
     session, sets = validator.normalize(payload, as_of=as_of)
     equipment(config, sets)
@@ -232,16 +256,19 @@ def completed(
             "data/sets.csv": csv_text(validator.SET_FIELDS, old_sets + sets),
         }
     )
-    return changes, {
+    result: dict[str, JSON] = {
         "saved": True,
         "sessionId": session["session_id"],
         "duplicate": bool(duplicate),
     }
+    targets = {("data/sessions.csv", digest(session))}
+    targets.update(("data/sets.csv", digest(row)) for row in sets)
+    return changes, result, targets
 
 
 def transition(
     kind: str, intent: JSON, files: dict[str, str], config: Config
-) -> tuple[dict[str, str], dict[str, JSON]]:
+) -> Transition:
     body = object_value(intent, {"sourceId", "fields"}, {"replaceExisting"})
     identifier(body["sourceId"])
     fields = body["fields"]
@@ -317,7 +344,11 @@ def transition(
                 rows.append(row)
             if kind == "intake":
                 rows.sort(key=lambda old: old[timestamp])
-        return {path: csv_text(headers, rows)}, {"saved": True, "duplicate": duplicate}
+        return (
+            {path: csv_text(headers, rows)},
+            {"saved": True, "duplicate": duplicate},
+            {(path, digest(row))},
+        )
     except (
         ValueError,
         TypeError,
@@ -330,7 +361,7 @@ def transition(
 
 def _workout(
     kind: str, args: argparse.Namespace, files: dict[str, str], config: Config
-) -> tuple[dict[str, str], dict[str, JSON]]:
+) -> Transition:
     writer = legacy.module("log_workout")
     session_id = writer._nonempty("session_id", args.session_id)
     sessions = _rows(files, "data/sessions.csv", writer.SESSION_FIELDS)
@@ -417,7 +448,11 @@ def _workout(
                 raise invalid()
             numeric = {
                 name: getattr(args, name)
-                for name in "level steps_per_min speed_mph incline_percent distance_value vertical_feet floors_climbed calories avg_heart_rate_bpm max_heart_rate_bpm".split()
+                for name in (
+                    "level steps_per_min speed_mph incline_percent distance_value "
+                    "vertical_feet floors_climbed calories avg_heart_rate_bpm "
+                    "max_heart_rate_bpm"
+                ).split()
             }
             if any(value is not None and value < 0 for value in numeric.values()):
                 raise invalid()
@@ -439,8 +474,8 @@ def _workout(
                 ("session_id", "activity", "segment_number"),
             )
         rows, duplicate = _append(_rows(files, path, headers), row, keys)
-    return {path: csv_text(headers, rows)}, {
-        "saved": True,
-        "sessionId": session_id,
-        "duplicate": duplicate,
-    }
+    return (
+        {path: csv_text(headers, rows)},
+        {"saved": True, "sessionId": session_id, "duplicate": duplicate},
+        {(path, digest(row))},
+    )

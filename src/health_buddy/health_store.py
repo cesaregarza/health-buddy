@@ -27,8 +27,10 @@ from .service_api import JSON, Identity, ServiceError
 
 SCHEMA = """
 CREATE TABLE canonical_receiver(identity_json TEXT NOT NULL, receiver_id TEXT NOT NULL);
-CREATE TABLE canonical_effects(transaction_id TEXT PRIMARY KEY, manifest_digest TEXT NOT NULL);
-CREATE TABLE source_streams(source_id TEXT PRIMARY KEY, stream_id TEXT UNIQUE NOT NULL, active_device_id TEXT UNIQUE NOT NULL);
+CREATE TABLE canonical_effects(
+ transaction_id TEXT PRIMARY KEY, manifest_digest TEXT NOT NULL);
+CREATE TABLE source_streams(source_id TEXT PRIMARY KEY,
+ stream_id TEXT UNIQUE NOT NULL, active_device_id TEXT UNIQUE NOT NULL);
 CREATE TABLE stream_objects(
  stream_id TEXT NOT NULL, record_id TEXT NOT NULL, type_identifier TEXT NOT NULL,
  canonical_device_id TEXT, record_digest TEXT, deleted_at TEXT,
@@ -65,7 +67,8 @@ class HealthStore:
                 sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)
             ) as connection:
                 exists = connection.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='canonical_receiver'"
+                    "SELECT 1 FROM sqlite_master WHERE type='table' "
+                    "AND name='canonical_receiver'"
                 ).fetchone()
                 if exists:
                     self._check_identity(connection, identity_value(identity))
@@ -89,15 +92,21 @@ class HealthStore:
                 required = {"records", "devices", "batches", "tombstones"}
                 if not required <= tables or (not exists and tables != required):
                     raise ServiceError(409, "reconciliation_required")
-                for table in sorted(required):
-                    if connection.execute(
-                        "SELECT 1 FROM " + table + " LIMIT 1"
-                    ).fetchone():
+                probes = (
+                    "SELECT 1 FROM records LIMIT 1",
+                    "SELECT 1 FROM devices LIMIT 1",
+                    "SELECT 1 FROM batches LIMIT 1",
+                    "SELECT 1 FROM tombstones LIMIT 1",
+                )
+                for query in probes:
+                    if connection.execute(query).fetchone():
                         raise ServiceError(
                             409,
                             "reconciliation_required",
                             details={
-                                "reason": "nonempty_readonly_source_requires_operator_adoption"
+                                "reason": (
+                                    "nonempty_readonly_source_requires_operator_adoption"
+                                )
                             },
                         )
                 if exists:
@@ -158,7 +167,8 @@ class HealthStore:
             transaction_id = binding["transactionId"]
             if transaction_id is not None:
                 marker = connection.execute(
-                    "SELECT manifest_digest FROM canonical_effects WHERE transaction_id=?",
+                    "SELECT manifest_digest FROM canonical_effects "
+                    "WHERE transaction_id=?",
                     (transaction_id,),
                 ).fetchone()
                 if marker is None or marker[0] != binding["manifestDigest"]:
@@ -233,7 +243,8 @@ class HealthStore:
             )
         elif payload["kind"] == "batch":
             binding = connection.execute(
-                "SELECT * FROM source_streams WHERE source_id=? AND stream_id=? AND active_device_id=?",
+                "SELECT * FROM source_streams WHERE source_id=? "
+                "AND stream_id=? AND active_device_id=?",
                 (source_id, stream_id, device_id),
             ).fetchone()
             if binding is None:
@@ -289,7 +300,10 @@ class HealthStore:
             ):
                 raise BatchConflictError("Canonical stream record conflict")
             connection.execute(
-                "INSERT INTO stream_objects VALUES (?,?,?,?,?,?,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET canonical_device_id=excluded.canonical_device_id,record_digest=excluded.record_digest",
+                "INSERT INTO stream_objects VALUES (?,?,?,?,?,?,?) "
+                "ON CONFLICT(stream_id,record_id) DO UPDATE SET "
+                "canonical_device_id=excluded.canonical_device_id,"
+                "record_digest=excluded.record_digest",
                 (
                     stream_id,
                     record.record_id,
@@ -301,7 +315,8 @@ class HealthStore:
                 ),
             )
             connection.execute(
-                "INSERT INTO delivery_provenance VALUES (?,?,?,?) ON CONFLICT(stream_id,record_id,device_id) DO NOTHING",
+                "INSERT INTO delivery_provenance VALUES (?,?,?,?) "
+                "ON CONFLICT(stream_id,record_id,device_id) DO NOTHING",
                 (stream_id, record.record_id, batch.device_id, received_at),
             )
         for deletion in batch.deletions:
@@ -312,13 +327,16 @@ class HealthStore:
                 )
             )
             prior = connection.execute(
-                "SELECT type_identifier FROM stream_objects WHERE stream_id=? AND record_id=?",
+                "SELECT type_identifier FROM stream_objects "
+                "WHERE stream_id=? AND record_id=?",
                 (stream_id, deletion.record_id),
             ).fetchone()
             if prior and prior[0] != deletion.type_identifier:
                 raise BatchConflictError("Canonical stream tombstone conflict")
             connection.execute(
-                "INSERT INTO stream_objects VALUES (?,?,?,NULL,NULL,?,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET deleted_at=excluded.deleted_at",
+                "INSERT INTO stream_objects VALUES (?,?,?,NULL,NULL,?,?) "
+                "ON CONFLICT(stream_id,record_id) "
+                "DO UPDATE SET deleted_at=excluded.deleted_at",
                 (
                     stream_id,
                     deletion.record_id,
@@ -364,13 +382,16 @@ class HealthStore:
         from_at: str = "0001-01-01",
         to_at: str = "9999-12-31",
         limit: int = 501,
+        deadline: float | None = None,
     ) -> list[dict[str, JSON]]:
         if not self.receiver:
             return []
         private_file(self.path)
-        connection = sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)
+        connection = sqlite3.connect(
+            self.path.as_uri() + "?mode=ro", uri=True, timeout=0.25
+        )
         connection.row_factory = sqlite3.Row
-        expires = time.monotonic() + 2
+        expires = min(time.monotonic() + 2, deadline or float("inf"))
         connection.set_progress_handler(
             lambda: int(time.monotonic() >= expires), 10_000
         )
@@ -389,12 +410,16 @@ class HealthStore:
                 clauses.append("r.type_identifier=?")
                 parameters.append(type_id)
             parameters.append(limit)
-            rows = connection.execute(
-                "SELECT r.*, s.stream_id, s.observation_id, p.source_id FROM canonical_records r JOIN stream_objects s ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id JOIN source_streams p ON p.stream_id=s.stream_id WHERE "
+            # Only fixed clauses above enter SQL; all caller values are parameters.
+            query = (
+                "SELECT r.*, s.stream_id, s.observation_id, p.source_id "  # noqa: S608
+                "FROM canonical_records r JOIN stream_objects s "
+                "ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id "
+                "JOIN source_streams p ON p.stream_id=s.stream_id WHERE "
                 + " AND ".join(clauses)
-                + " ORDER BY julianday(r.start_at) DESC,r.record_id DESC LIMIT ?",
-                parameters,
-            ).fetchall()
+                + " ORDER BY julianday(r.start_at) DESC,r.record_id DESC LIMIT ?"
+            )
+            rows = connection.execute(query, parameters).fetchall()
             return [cast(dict[str, JSON], dict(row)) for row in rows]
         finally:
             connection.close()
@@ -411,8 +436,10 @@ class HealthStore:
             row = connection.execute(
                 """SELECT r.*, s.stream_id, s.observation_id, p.source_id
                 FROM stream_objects s JOIN source_streams p ON p.stream_id=s.stream_id
-                JOIN records r ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id
-                WHERE s.observation_id=? AND s.deleted_at IS NULL AND r.deleted_at IS NULL""",
+                JOIN records r ON r.record_id=s.record_id
+                AND r.device_id=s.canonical_device_id
+                WHERE s.observation_id=? AND s.deleted_at IS NULL
+                AND r.deleted_at IS NULL""",
                 (observation_id,),
             ).fetchone()
             return cast(dict[str, JSON], dict(row)) if row else None

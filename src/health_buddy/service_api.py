@@ -10,10 +10,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
-from typing import Literal, Protocol, TypeAlias
+from typing import Literal, Protocol
 
-JSON: TypeAlias = None | bool | int | float | str | list["JSON"] | dict[str, "JSON"]
-Operation: TypeAlias = Literal[
+type JSON = bool | int | float | str | list[JSON] | dict[str, JSON] | None
+type Operation = Literal[
     "capabilities",
     "records.list",
     "records.get",

@@ -279,7 +279,8 @@ def test_two_process_writers_preserve_final_records_and_ledger(tmp_path, identic
     assert len(records) == (1 if identical else 2)
     with sqlite3.connect(current.journal.path) as database:
         entries = database.execute(
-            "SELECT new_revision,response FROM transactions WHERE state='COMMITTED' AND new_revision>0 ORDER BY new_revision"
+            "SELECT new_revision,response FROM transactions "
+            "WHERE state='COMMITTED' AND new_revision>0 ORDER BY new_revision"
         ).fetchall()
     assert [row[0] for row in entries] == ([1] if identical else [1, 2])
     assert all(json.loads(row[1])["data"]["recordId"] in records for row in entries)

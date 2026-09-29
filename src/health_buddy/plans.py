@@ -10,19 +10,35 @@ from .loggers import camel
 from .service_api import JSON
 
 TOP = set(
-    "schema_version program_id title canonical_source start_date end_date default_first_strength strength_rotation schedule templates lead_in health_monitoring gym_access date_overrides progression_policy".split()
+    (
+        "schema_version program_id title canonical_source start_date end_date "
+        "default_first_strength strength_rotation schedule templates lead_in "
+        "health_monitoring gym_access date_overrides progression_policy"
+    ).split()
 )
 TEMPLATE = set(
-    "label target_duration warmup cooldown exercises minimum_version minimum_session_guidance notes".split()
+    (
+        "label target_duration warmup cooldown exercises minimum_version "
+        "minimum_session_guidance notes"
+    ).split()
 )
 EXERCISE = set(
-    "exercise load work rir next_target available_from first_session_of_week_only progression notes".split()
+    (
+        "exercise load work rir next_target available_from "
+        "first_session_of_week_only progression notes"
+    ).split()
 )
 PROGRESSION = set(
-    "exercise_id equipment_id load_basis baseline_load sets rep_min rep_max baseline_reps next_load fallback_load backoff_sets backoff_rep_min backoff_rep_max".split()
+    (
+        "exercise_id equipment_id load_basis baseline_load sets rep_min rep_max "
+        "baseline_reps next_load fallback_load backoff_sets backoff_rep_min backoff_rep_max"
+    ).split()
 )
 POLICY = set(
-    "qualifying_rir small_increment_max_fraction qualifying_exposures_for_small_increment".split()
+    (
+        "qualifying_rir small_increment_max_fraction "
+        "qualifying_exposures_for_small_increment"
+    ).split()
 )
 SLOT = {"kind", "label", "template"}
 LEAD = {"start_date", "end_date", "template", "message"}

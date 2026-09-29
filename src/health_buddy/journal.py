@@ -232,7 +232,7 @@ class Journal:
         return Response(
             row["status"],
             bytes(row["response"]),
-            headers + (("Idempotency-Replayed", "true"),),
+            (*headers, ("Idempotency-Replayed", "true")),
         )
 
     def commit(
@@ -283,7 +283,8 @@ class Journal:
             connection.execute("BEGIN IMMEDIATE")
             check_deadline(deadline)
             connection.execute(
-                "UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=? AND state='PREPARED'",
+                "UPDATE transactions SET state='COMMIT_INTENT' "
+                "WHERE transaction_id=? AND state='PREPARED'",
                 (transaction_id,),
             )
         self._sync()
@@ -376,7 +377,8 @@ class Journal:
                         ),
                     )
                 connection.execute(
-                    "UPDATE state SET revision=?,manual_head=?,bootstrapping=0 WHERE singleton=1",
+                    "UPDATE state SET revision=?,manual_head=?,bootstrapping=0 "
+                    "WHERE singleton=1",
                     (row["new_revision"], new),
                 )
                 connection.execute(

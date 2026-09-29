@@ -194,7 +194,16 @@ class Store:
         for name, fields in headers().items():
             if name not in files:
                 raise StoreError("Manual store is missing required CSV headers")
-            parse_csv(files[name], fields)
+            # One retained intake schema predates sodium. Canonical adoption
+            # adds an unknown field atomically; no other header drift is valid.
+            legacy_intake = [field for field in fields if field != "sodium_mg"]
+            if (
+                name == "data/intake.csv"
+                and files[name].splitlines()[0].split(",") == legacy_intake
+            ):
+                parse_csv(files[name], legacy_intake)
+            else:
+                parse_csv(files[name], fields)
         return revision, files
 
     def _commit(self, changes: dict[str, str], base: str | None) -> str:

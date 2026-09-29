@@ -376,16 +376,19 @@ def _context(
         authority, "manual", "body-mass"
     ):
         lines.extend(
-            f"- Owner goal: {goal['label']}: weight {goal['direction']} {goal['target']} {goal['unit']} (owner input, not clinical advice)."
+            f"- Owner goal: {goal['label']}: weight {goal['direction']} "
+            f"{goal['target']} {goal['unit']} (owner input, not clinical advice)."
             for goal in service.config.values["goals"]
         )
     if "training" in selected and snapshots.allowed(authority, "manual", "workout-set"):
         lines.extend(
-            f"- Equipment: {item['id']} ({item['label']}), exercise {item['exercise']}, load basis {item['loadBasis']}."
+            f"- Equipment: {item['id']} ({item['label']}), "
+            f"exercise {item['exercise']}, load basis {item['loadBasis']}."
             for item in service.config.values["equipment"]
         )
     lines.extend(
-        f"- {name}: {source['availability']}; {source['freshness']}; {source['missingness']}."
+        f"- {name}: {source['availability']}; "
+        f"{source['freshness']}; {source['missingness']}."
         for name, source in data["sources"].items()
     )
     pack += "\n".join(lines) + "\n"
@@ -599,7 +602,8 @@ def read(
             authority.read_sources,
         )
         capture = snapshots.capture(
-            service, state, window=window, kinds=kinds, sources=sources
+            service, state, window=window, kinds=kinds, sources=sources,
+            deadline=request.deadline,
         )
         response = _render(service, authority, request, state, capture)
     except (OSError, StoreError):
