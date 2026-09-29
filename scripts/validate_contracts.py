@@ -108,6 +108,15 @@ def check_record(record):
         timestamp(value)
 
 
+def check_intent(intent, context):
+    require(set(intent) == {"kind", "value", "unit", "observedAt", "sourceId"},
+            "mutation intent contains server-owned or unknown fields")
+    require(intent["sourceId"] in context["allowedSourceIds"], "ungranted source")
+    require(intent["kind"] == "body_mass" and intent["unit"] == "kg", "intent units")
+    require(type(intent["value"]) in (int, float) and Decimal(str(intent["value"])).is_finite(), "intent value")
+    timestamp(intent["observedAt"])
+
+
 def check_corpus(corpus):
     schema_check(corpus, "scenarios.schema.json")
     cases = {case["id"]: case for case in corpus["scenarios"]}
@@ -148,9 +157,13 @@ def check_corpus(corpus):
             require(all(request["headers"].get(header) == identity[key] for key, header in IDENTITY_HEADERS.items()), "write identity headers")
             require("records:write" in context["grants"], "write grant")
             require(bool(request["headers"].get("Idempotency-Key")), "missing retry key")
-            check_record(request["body"])
+            check_intent(request["body"], context)
             if rule == "write":
-                require(response["status"] == 201 and body["data"]["record"] == request["body"], "create receipt")
+                record = body["data"]["record"]
+                check_record(record)
+                require(response["status"] == 201 and all(record[k] == request["body"][k] for k in ["kind", "value", "unit", "observedAt"]), "create receipt")
+                require(record["recordId"] == request["path"].rsplit("/", 1)[1] and record["receivedAt"] == context["serverNow"], "server-owned receipt fields")
+                require(record["provenance"] == {"sourceId": request["body"]["sourceId"], "sourceKind": "manual"}, "grant-bound provenance")
                 require(after == {"dataRevision": before["dataRevision"] + 1, "recordCount": before["recordCount"] + 1}, "create must commit once")
                 require(request["headers"]["If-Match"] == f'"rev-{before["dataRevision"]}"', "create precondition")
             elif rule == "retry":
@@ -193,7 +206,7 @@ def check_corpus(corpus):
         elif rule == "revoke":
             require("devices:manage" in context["grants"] and body["data"]["revoked"] and after["activeDevices"] == 0, "device revocation")
         elif rule == "healthkit":
-            check_healthkit(case, identity)
+            check_healthkit(case, identity, cases)
         elif rule == "restore":
             require(context["freshGrant"] and before["identity"]["restoreEpoch"] != request["headers"]["X-Restore-Epoch"], "restore precondition")
             error(case, 409, "restore_epoch_changed")
@@ -208,7 +221,7 @@ def check_corpus(corpus):
                 error(case, 409, "reconciliation_required")
 
 
-def check_healthkit(case, identity):
+def check_healthkit(case, identity, cases):
     request, response, context = case["request"], case["response"], case["context"]
     payload, receipt = request["body"], response["body"]
     require(set(payload) == {"schemaVersion", "batchId", "deviceId", "generatedAt", "records", "deletions"} and payload["schemaVersion"] == 1, "legacy payload schema changed")
@@ -219,8 +232,14 @@ def check_healthkit(case, identity):
     elif any(header not in request["headers"] for header in IDENTITY_HEADERS.values()):
         error(case, 428, "identity_required")
     else:
+        require("healthkit:ingest" in context["grants"], "ingest grant missing")
         require(all(request["headers"][header] == identity[key] for key, header in IDENTITY_HEADERS.items()), "ingest identity mismatch")
+        require(all(response["headers"].get(header) == identity[key] for key, header in IDENTITY_HEADERS.items()), "HealthKit acknowledgement identity mismatch")
         require(response["status"] == 200 and receipt["status"] == "accepted" and receipt["batchId"] == payload["batchId"], "HealthKit receipt identity")
+        if receipt["duplicateBatch"]:
+            prior = cases[context["prior"]]
+            require(request == prior["request"] and prior["response"]["status"] == 200,
+                    "duplicate acknowledgement has no identical prior batch")
         expected = (len(payload["records"]), len(payload["deletions"]))
         accepted = (receipt["recordsAccepted"], receipt["deletionsAccepted"])
         require(accepted == expected or (receipt["duplicateBatch"] and accepted == (0, 0)), "partial HealthKit acknowledgement")

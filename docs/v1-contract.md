@@ -126,6 +126,15 @@ receivedAt, typed value/unit, and provenance. Freshness states are `fresh`,
 `stale`, `unknown`; missingness is null for a present observation or a typed
 reason for absent data. Missing values are never substituted with zero.
 
+Mutation intent is distinct from the stored observation. The example PUT accepts
+only `kind`, `value`, `unit`, `observedAt` and a granted `sourceId`; record identity
+comes from the validated path. The server assigns `receivedAt`, resolves source
+kind from the authorized registry, and calculates freshness/missingness when
+reading. Caller-supplied receipt timestamps, freshness, provenance objects or
+other server-owned fields are rejected, not echoed as trusted facts. A source ID
+must belong to the caller's explicit allowed sources; record write scope alone
+does not permit impersonating a phone or another connector.
+
 ## Retry and revision invariants
 
 Every health write sends `X-Installation-ID`, `X-Dataset-ID`,
@@ -158,6 +167,8 @@ Relevant errors: `401 unauthenticated`/`credential_revoked`, `403 forbidden` or
 `503 source_unavailable`. Only explicit temporary failures (429/503, with
 bounded Retry-After) are automatically retryable. Network ambiguity allows an
 identical idempotent retry. A conflict requires resolution, not a blind retry.
+Uncertain replacement history uses `409 reconciliation_required`; it blocks
+canonical activation until reviewed rather than admitting ambiguous duplicates.
 
 ## Application and proxy security boundary
 
@@ -269,8 +280,13 @@ not yet delivered, and prevent delayed replay or replacement from resurrection.
 Acknowledgements retain `status: accepted`, matching batchId,
 recordsAccepted/deletionsAccepted and duplicateBatch. A new batch acknowledges
 all supplied objects/deletions. A duplicate acknowledges either the original
-full counts or zero/zero; never partial counts. The phone advances each anchor
-only after complete acknowledgement and persists it after that. Existing
+full counts or zero/zero; never partial counts. This legacy success body is an
+explicit exception to the general data/meta envelope: negotiated successful
+responses carry `X-Installation-ID`, `X-Dataset-ID` and `X-Restore-Epoch` headers.
+Before advancing any anchor, the phone validates those response headers against
+its paired tuple as well as the body batch ID/status/counts. Missing or wrong
+response identity is not an acknowledgement, even with otherwise correct counts.
+The phone persists anchors only after that complete acknowledgement. Existing
 cesar-health-sync PR #2 supplies reliability foundations; reuse them, do not
 replace them. Its Linux contract success does not prove physical-device behavior.
 

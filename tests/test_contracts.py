@@ -65,6 +65,26 @@ class ContractTests(unittest.TestCase):
         self.case("healthkit-accepted")["response"]["body"]["deletionsAccepted"] = 0
         self.rejected()
 
+    def test_healthkit_acknowledgement_must_match_paired_epoch(self):
+        self.case("healthkit-accepted")["response"]["headers"]["X-Restore-Epoch"] = "44444444-4444-4444-8444-444444444444"
+        self.rejected()
+
+    def test_healthkit_success_requires_ingest_grant(self):
+        self.case("healthkit-accepted")["context"]["grants"] = ["sync:status"]
+        self.rejected()
+
+    def test_healthkit_duplicate_must_match_prior_payload(self):
+        self.case("healthkit-duplicate")["request"]["body"]["deletions"][0]["recordId"] = "different-record"
+        self.rejected()
+
+    def test_caller_cannot_supply_server_freshness(self):
+        self.case("write-create")["request"]["body"]["freshness"] = {"status": "fresh"}
+        self.rejected()
+
+    def test_write_scope_cannot_impersonate_another_source(self):
+        self.case("write-create")["request"]["body"]["sourceId"] = "synthetic-other-device"
+        self.rejected()
+
     def test_missing_epoch_cannot_fall_back_to_legacy_ingest(self):
         self.case("healthkit-missing-epoch")["response"] = copy.deepcopy(self.case("healthkit-accepted")["response"])
         self.rejected()
