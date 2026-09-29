@@ -214,7 +214,8 @@ def test_actual_authority_canonical_write_revoke_and_phone_role(short_directory)
         assert status == 200
         assert request(path,"POST","/v1/logs/intake",headers=pending,body=payload)[1] == first
         action(runtime, owner, "grants.revoke", resource=created["data"]["id"])
-        assert request(path,"POST","/v1/logs/intake",headers=pending,body=payload)[0] == 401
+        denied_status, denied_body, _ = request(path,"POST","/v1/logs/intake",headers=pending,body=payload)
+        assert denied_status == 401
 
         status, raw, _ = request(path,"POST","/v1/pairing-intents",headers=bearer,body=b'{"name":"Fabricated phone"}')
         assert status == 201 and b"secret" not in raw
@@ -232,10 +233,25 @@ def test_actual_authority_canonical_write_revoke_and_phone_role(short_directory)
         assert request(path,target="/v1/devices",headers=device)[0] == 403
         status, raw, _ = request(path,target="/v1/session",headers=device)
         assert status == 200 and b"secret" not in raw
-        assert request(path,"POST","/v1/pairings",headers={**base, **tuple_headers},body=redeem)[0] == 409
+        consumed_status, consumed_body, _ = request(path,"POST","/v1/pairings",headers={**base, **tuple_headers},body=redeem)
+        assert consumed_status == 409
         action(runtime, owner, "devices.revoke", resource=phone["data"]["id"])
         assert request(path,target="/v1/capabilities",headers=device)[0] == 401
+        secrets = (owner_token, agent_token, device_token, proof, csrf, cookie.split("=", 1)[1])
+
+        def absent_from(blob):
+            # Report only absence/failure, never pytest's expanded secret/body.
+            if any(value.encode() in blob for value in secrets):
+                pytest.fail("Synthetic credential canary escaped its private reply", pytrace=False)
+
+        for response, code in ((denied_body, "unauthenticated"), (consumed_body, "pairing_consumed")):
+            absent_from(response)
+            assert json.loads(response) == {"error":{"code":code,"retryable":False},"meta":{}}
+        context_status, context_body, _ = request(path, target="/api/context/pack", headers=bearer)
+        assert context_status == 200
+        absent_from(context_body)
+        assert isinstance(json.loads(context_body)["data"]["text"], str)
         # Secret values never enter immutable health receipt storage.
-        ledger = (workspace / "operations/control.sqlite").read_bytes()
-        for value in (owner_token, agent_token, device_token, proof, csrf):
-            assert value.encode() not in ledger
+        absent_from((workspace / "operations/control.sqlite").read_bytes())
+    # Include graceful shutdown diagnostics without printing the server log.
+    absent_from((short_directory / "server.log").read_bytes())
