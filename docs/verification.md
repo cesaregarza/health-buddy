@@ -7,6 +7,31 @@ and `RUFF_NUM_THREADS=1` for Ruff. Synthetic fixtures use an
 explicit `America/Chicago` timezone to retain date-boundary regression cases;
 product configuration defaults to UTC.
 
+Native Linux socket tests require `HEALTH_BUDDY_TEST_SOCKET_ROOT` to name an
+existing, short, private directory owned by the current user with mode `0700`.
+The fixture's ownership, permissions, symlink and complete socket-path length
+checks remain authoritative. The project queue supplies its already admitted
+directory; preserve that value and directory rather than replacing them.
+For a separate developer validation session without an existing value, this
+subshell creates a private parent and removes only that empty directory afterward:
+
+```sh
+(
+  test -z "${HEALTH_BUDDY_TEST_SOCKET_ROOT:-}" || exit 1
+  HEALTH_BUDDY_TEST_SOCKET_ROOT="$(mktemp -d /tmp/hb-uds.XXXXXXXX)" || exit 1
+  export HEALTH_BUDDY_TEST_SOCKET_ROOT
+  trap 'rmdir -- "$HEALTH_BUDDY_TEST_SOCKET_ROOT"' EXIT
+  make test
+)
+```
+
+The manual-only workflow creates `${{ runner.temp }}/hb-uds` with mode `0700`
+before its test/build step. Cleanup uses `rmdir` under `always()` only if that
+create-only step succeeded; an existing directory is never adopted or removed.
+The UID/GID `65534` permission-negative case intentionally skips on a non-root
+hosted runner. The root-run local queue exercised that case; hosted validation
+does not provide equivalent evidence for it.
+
 1. Install `.[dev,sleepiq]` in a queue-owned native venv; record package versions
    and installed license metadata. No credentials or live sources are required.
 2. Run contract validation, root pytest, dashboard unittest, existing typed-source
