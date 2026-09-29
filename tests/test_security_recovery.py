@@ -305,7 +305,8 @@ def test_revocation_serializes_after_health_decision_then_blocks_replay(tmp_path
     with sqlite3.connect(root / "operations/control.sqlite") as database:
         assert (
             database.execute(
-                "SELECT count(*) FROM transactions WHERE state='COMMITTED' AND new_revision=1"
+                "SELECT count(*) FROM transactions WHERE state='COMMITTED' "
+                "AND new_revision=1"
             ).fetchone()[0]
             == 1
         )

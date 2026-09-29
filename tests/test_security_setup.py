@@ -237,13 +237,13 @@ def test_native_owner_bootstrap_is_usable_without_https_and_never_recovers_impli
         main(["--workspace", str(root), "--credential-file", str(output), "status"])
         == 0
     )
-    assert main(argv[:-1] + [str(root / "secrets/another")]) == 2
+    assert main([*argv[:-1], str(root / "secrets/another")]) == 2
     assert (
         runtime.security.describe(admitted.principal).security_epoch
         == admitted.client.security_epoch
     )
     (root / "security/authority.sqlite").unlink()
-    assert main(argv[:-1] + [str(root / "secrets/incomplete")]) == 2
+    assert main([*argv[:-1], str(root / "secrets/incomplete")]) == 2
     assert not (root / "security/authority.sqlite").exists()
     captured = capsys.readouterr()
     assert token not in captured.out + captured.err

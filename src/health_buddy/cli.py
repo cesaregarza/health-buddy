@@ -93,7 +93,8 @@ def main(argv: list[str] | None = None) -> int:
                 owner_token=native_owner,
             )
             print(
-                "Private security handoff created. Keep the file private; its contents are not recoverable from HTTP replies."
+                "Private security handoff created. Keep the file private; "
+                "its contents are not recoverable from HTTP replies."
             )
             return 0
         if args.command == "serve":

@@ -56,7 +56,8 @@ def _room(connection: sqlite3.Connection, *, actor: bool = False) -> None:
     # Remote churn is bounded even when old revoked material remains useful
     # for local audit. Cleanup never rewrites health receipts or actor IDs.
     connection.execute(
-        "DELETE FROM credentials WHERE active=0 OR (expires IS NOT NULL AND expires<=?)",
+        "DELETE FROM credentials WHERE active=0 "
+        "OR (expires IS NOT NULL AND expires<=?)",
         (time.time(),),
     )
     if connection.execute("SELECT count(*) FROM credentials").fetchone()[0] >= 512:
@@ -74,6 +75,8 @@ def _target(
     ).fetchone()
     if row is None:
         raise ServiceError(404, "not_found")
+    if not isinstance(row, sqlite3.Row):
+        raise ServiceError(503, "security_unavailable")
     return row
 
 
@@ -141,7 +144,8 @@ def execute(
         proof = valid_secret(request.proof.token)
         with connection:
             row = connection.execute(
-                "SELECT * FROM credentials WHERE kind='bootstrap' AND digest=? AND active=1",
+                "SELECT * FROM credentials WHERE kind='bootstrap' "
+                "AND digest=? AND active=1",
                 (fingerprint("bootstrap", proof),),
             ).fetchone()
             if row is None or row["epoch"] != epoch or row["expires"] <= time.time():
@@ -166,7 +170,8 @@ def execute(
         with connection:
             _room(connection)
             active = connection.execute(
-                "SELECT count(*) FROM credentials WHERE kind='session' AND active=1 AND actor_id=?",
+                "SELECT count(*) FROM credentials WHERE kind='session' "
+                "AND active=1 AND actor_id=?",
                 (actor["id"],),
             ).fetchone()[0]
             if active >= 32:
@@ -291,7 +296,8 @@ def execute(
                 raise ServiceError(429, "pairing_limit")
             key, now = uuid4().hex, time.time()
             connection.execute(
-                "INSERT INTO pairing VALUES (?,?,?,'awaiting_owner',?,?,NULL,NULL,NULL,NULL,NULL)",
+                "INSERT INTO pairing VALUES "
+                "(?,?,?,'awaiting_owner',?,?,NULL,NULL,NULL,NULL,NULL)",
                 (key, name, predecessor, now, now + 900),
             )
             store.event(connection, action)
@@ -405,7 +411,8 @@ def _redeem(
             active=False,
         )
         connection.execute(
-            "UPDATE pairing SET state='consumed',device_id=?,source_id=?,stream_id=?,credential_id=? WHERE id=?",
+            "UPDATE pairing SET state='consumed',device_id=?,source_id=?,"
+            "stream_id=?,credential_id=? WHERE id=?",
             (value.device_id, source_id, stream_id, credential, row["id"]),
         )
         security.store.event(connection, "pairing.redeem")

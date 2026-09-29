@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from dataclasses import replace
+from uuid import uuid4
 
 import pytest
 
@@ -51,13 +52,23 @@ def test_bootstrap_consumes_once_checks_tuple_and_expires(tmp_path, monkeypatch)
     setup_security(root, output)
     proof = BootstrapProof(json.loads(output.read_text())["proof"])
     identity = runtime.operations.journal.state().identity
-    with pytest.raises(ServiceError) as wrong:
+    with pytest.raises(ServiceError) as malformed:
         runtime.security.execute(
             None,
             SecurityRequest(
                 "bootstrap.redeem",
                 proof=proof,
                 identity=replace(identity, restore_epoch="wrong"),
+            ),
+        )
+    assert malformed.value.status == 422
+    with pytest.raises(ServiceError) as wrong:
+        runtime.security.execute(
+            None,
+            SecurityRequest(
+                "bootstrap.redeem",
+                proof=proof,
+                identity=replace(identity, restore_epoch=str(uuid4())),
             ),
         )
     assert wrong.value.status == 409

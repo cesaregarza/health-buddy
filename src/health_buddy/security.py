@@ -208,7 +208,8 @@ class SecurityAuthority:
                 ):
                     raise denied()
                 actor = connection.execute(
-                    "SELECT * FROM actors WHERE role='owner' AND active=1 ORDER BY id LIMIT 1"
+                    "SELECT * FROM actors WHERE role='owner' AND active=1 "
+                    "ORDER BY id LIMIT 1"
                 ).fetchone()
                 if actor is None:
                     raise denied()

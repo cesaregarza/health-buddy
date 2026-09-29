@@ -24,7 +24,8 @@ from .service_api import Identity, ServiceError
 
 SCHEMA = """
 BEGIN IMMEDIATE;
-CREATE TABLE metadata (singleton INTEGER PRIMARY KEY CHECK(singleton=1), value TEXT NOT NULL);
+CREATE TABLE metadata (singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+  value TEXT NOT NULL);
 CREATE TABLE actors (id TEXT PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL,
   grants TEXT NOT NULL, sources TEXT NOT NULL, read_sources TEXT, read_kinds TEXT,
   read_fields TEXT, device_id TEXT UNIQUE, stream_id TEXT, active INTEGER NOT NULL);
@@ -34,9 +35,12 @@ CREATE TABLE credentials (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL,
 CREATE INDEX actor_credentials ON credentials(actor_id);
 CREATE TABLE pairing (id TEXT PRIMARY KEY, name TEXT NOT NULL,
   predecessor TEXT, state TEXT NOT NULL, created REAL NOT NULL, expires REAL NOT NULL,
-  digest TEXT UNIQUE, device_id TEXT, source_id TEXT, stream_id TEXT, credential_id TEXT);
-CREATE TABLE budgets (name TEXT PRIMARY KEY, window REAL NOT NULL, used INTEGER NOT NULL);
-CREATE TABLE events (id INTEGER PRIMARY KEY, action TEXT NOT NULL, occurred REAL NOT NULL);
+  digest TEXT UNIQUE, device_id TEXT, source_id TEXT, stream_id TEXT,
+  credential_id TEXT);
+CREATE TABLE budgets (name TEXT PRIMARY KEY, window REAL NOT NULL,
+  used INTEGER NOT NULL);
+CREATE TABLE events (id INTEGER PRIMARY KEY, action TEXT NOT NULL,
+  occurred REAL NOT NULL);
 PRAGMA user_version=1;
 COMMIT;
 """
@@ -358,7 +362,8 @@ class SecurityStore:
             "INSERT INTO events(action,occurred) VALUES (?,?)", (action, time.time())
         )
         connection.execute(
-            "DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 256)"
+            "DELETE FROM events WHERE id NOT IN "
+            "(SELECT id FROM events ORDER BY id DESC LIMIT 256)"
         )
 
     def inventory(self) -> tuple[Path, ...]:
