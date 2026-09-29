@@ -42,5 +42,6 @@ triggers are a later explicit policy decision after the minutes hold ends.
 
 Preserve behavioral tests for retries, tombstones, validation, missing values,
 source provenance, progression, context and UI. Change one owning interface and
-its callers/tests together. Legacy command defaults are not the future portable
-configuration contract; consult CES-1065/1066 boundaries before adding behavior.
+its callers/tests together. Use the canonical API and client-workflow maps before adding behavior. Retained
+legacy helpers are pure calculations or explicit compatibility adapters; they
+must not introduce a second authoritative writer.

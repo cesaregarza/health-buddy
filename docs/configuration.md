@@ -1,13 +1,15 @@
-# Portable local first run (CES-1065)
+# Portable local first run and canonical operations
 
 Use Python 3.12+ and Git from a Health Buddy source checkout or unpacked source
-bundle. The core command has no third-party Python dependency, account, model
-key, global Git identity, signing setup, GitHub connection or host service.
+bundle. Native core operations need no model key, global Git identity, signing setup,
+GitHub connection or host service. Install the declared project dependencies
+for the maintained Granian/Starlette HTTP entrypoint; the testing queue owns
+installation and validation during this project work.
 
 ```sh
 export PYTHONPATH="$PWD/src"
 python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" init
-python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" serve
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development serve
 ```
 
 Open the printed `http://127.0.0.1:8791` address. This is a **local development
@@ -45,10 +47,10 @@ IANA zones, nonfinite numbers and ambiguous equipment aliases are rejected.
 | `timezone` | IANA display/logging zone, initially `UTC` |
 | `goals` | Empty; explicit `{id,label,metric:"weight",target,unit:"lb" or "kg",direction:"above" or "below"}` entries |
 | `equipment` | Empty; explicit `{id,label,exercise,loadBasis,aliases}` entries |
-| `storage.manual` | `stores/manual.git`, transitional private CSV backend |
-| `storage.healthkit` | `stores/healthkit.db`, optional read-only source |
+| `storage.manual` | `stores/manual.git`, private CSV/JSON backend behind canonical operations |
+| `storage.healthkit` | `stores/healthkit.db`, one selected optional read-only/receiver source |
 | `storage.cache` | `cache`, derived render/ranking state |
-| `integrations.healthkit.enabled` | `false` |
+| `integrations.healthkit` | `{enabled:false,mode:"read-only"}`; receiver mode is explicit opt-in |
 | `integrations.sleepiq` | `{enabled:false,exportFile:"stores/sleepiq.csv"}` |
 | `integrations.jev` | `enabled:false`; explicit `apiKeyFile`, HTTPS `endpoint`, `model` |
 
@@ -70,13 +72,13 @@ from those owner goals; it does not infer a treatment start.
 Fabricated examples (replace with the owner's intended input when using the app):
 
 ```sh
-python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" log measurement \
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development log measurement \
   --measured-at-local 2030-01-01T08:00:00 --weight-lb 150 --source manual_entry
-python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" log intake \
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development log intake \
   --event-at-local 2030-01-01T12:00:00 --status consumed --category meal \
   --item-name 'Example meal' --calories-kcal 400 --source manual_entry
-python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" context --scopes all
-python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" status
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development context --scopes all
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development status
 ```
 
 Workout JSON uses the existing validated dashboard payload and can be passed on
@@ -104,18 +106,25 @@ store, review/restore it from backup, or select a new empty storage path.
 `personal/` is for owner source, assets, configuration additions, tests, notes
 and state. Initialization adds only a create-if-absent README. `secrets/`,
 `operations/` and `security/` are separate private directories. Back up the
-entire workspace. This slice does not claim qualified backup/restore, canonical
-v1 operations, dataset identities or journal semantics: those remain later
-tickets. Git hashes shown by this transitional runtime are **data** revisions,
-not code revisions or canonical v1 `dataRevision` values.
+entire workspace. Canonical identity, durable receipts and integer dataRevision
+now come from the coordinator. Git hashes are internal data-object provenance,
+not the API revision or code release. Qualified archive/restore and production
+cutover remain separate work. Use the native owner backup context described in
+[api-implementation.md](api-implementation.md) to hold health mutation admission
+while copying the complete workspace.
 
 ## Optional sources and Jev
 
-Disabled adapters do not touch source files. HealthKit opens the configured
-SQLite database using `mode=ro` and query-only mode; a missing file is never
-created. An empty source means `no_data_or_denied_read`, without guessing read
+Disabled read adapters do not touch source files. In read-only mode, HealthKit
+opens the configured private mode-0600 SQLite database using `mode=ro`; a missing
+file is never created. Existing enabled-only config remains read-only. Explicit
+receiver mode may initialize an absent/empty database and registers devices via
+the coordinator; it refuses nonempty legacy databases pending operator adoption.
+After adoption, changing modes or losing/replacing the bound receiver requires
+reconciliation. The two modes never add overlapping datasets. An empty source means `no_data_or_denied_read`, without guessing read
 authorization. SleepIQ's local export contract is exactly `date,sleep_hours`,
-one reported local wake date and duration per row; export collection is a
+one unique reported local wake date and duration per row, bounded to 4 MiB and
+10,000 rows; export collection is a
 separate explicit optional-adapter workflow, never an automatic login.
 
 Source status distinguishes disabled, empty, available, missing and bad-present
@@ -137,5 +146,8 @@ answers never become invented confidence percentages.
 
 The source-only legacy `context_service.py`, old pipeline and host-oriented
 command wrappers are not this entrypoint. Do not start those to bypass config.
-CES-1066 will move this adapter behind canonical operations, and CES-1067 will
-replace this development HTTP boundary with the contracted identity policy.
+All supported health writes now use canonical operations. CES-1067 will supply
+the production identity policy. Without explicit development selection or an
+injected authenticated policy, native and HTTP operations deny protected access.
+See [canonical-clients.md](canonical-clients.md) for pending retries and the
+full current command syntax.

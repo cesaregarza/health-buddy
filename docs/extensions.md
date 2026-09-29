@@ -152,3 +152,13 @@ compatibility. Never overwrite a dirty fork to make an upgrade proceed.
 5. Record exact code artifacts, data snapshot/schema, host, agent packages,
    extension versions and raw evidence. A contract-oracle pass, source review,
    simulator or merged PR is not this end-to-end qualification.
+
+## Implemented canonical examples
+
+`src/health_buddy/extensions.py` provides a small `ScopedClient`, a typed
+`latest_body_mass` metric and a `water_connector`. They call the same canonical
+Operations seam as UI/CLI, with current policy/source/field checks and exact
+retry envelopes. See [API ownership and examples](api-implementation.md).
+No dynamic plugin loader, production credential minting or arbitrary-code
+sandbox is implied. Runtime extension packaging/activation and cross-agent
+qualification remain later gates; owner source/tests/state stay under personal/.
