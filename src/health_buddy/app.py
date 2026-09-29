@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -11,7 +10,7 @@ from typing import Any, cast
 from . import legacy, loggers
 from .client_workflow import ClientWorkflow, decoded
 from .config import Config
-from .domain import digest, normalize
+from .domain import decode, digest, normalize
 from .durability import atomic_bytes
 from .operations import open_service
 from .plans import to_wire
@@ -129,7 +128,7 @@ class App:
             raw = handle.read(256 * 1024 + 1)
         if len(raw) > 256 * 1024:
             raise ServiceError(413, "request_too_large")
-        value = normalize(json.loads(raw))
+        value = decode(raw, limit=256 * 1024)
 
         def build_payload() -> JSON:
             program = legacy.module("next_workout").validate_program(value)

@@ -262,6 +262,32 @@ def test_unreadable_retry_state_is_not_overwritten(fixture):
     assert path.read_text() == "{unreadable" and service.revision == 1
 
 
+@pytest.mark.parametrize("field,value", [("operation", []), ("ifMatch", {}), ("payload", []), ("idempotencyKey", "invalid key"), ("identity", None)])
+def test_malformed_pending_fields_fail_safely_without_overwrite(fixture, field, value):
+    config, service, workflow = fixture
+    service.lose_once = True
+    with pytest.raises(ServiceError):
+        write(workflow)
+    saved = state(config)
+    saved["envelope"][field] = value
+    path = config.path("personal/state/native-client.json")
+    path.write_text(json.dumps(saved))
+    before = path.read_bytes()
+    with pytest.raises(ServiceError, match="client_state_unavailable"):
+        workflow.retry()
+    assert path.read_bytes() == before and len(service.requests) == 1
+
+
+def test_plan_duplicate_keys_rejected_before_send(fixture, tmp_path):
+    config, service, _workflow = fixture
+    app = App(config.root, operations=service, principal=PRINCIPAL, configuration=config)
+    path = tmp_path / "program.json"
+    path.write_text('{"schema_version":2,"schema_version":2}')
+    with pytest.raises(ServiceError, match="invalid_request"):
+        app.set_plan(path)
+    assert not service.requests
+
+
 def test_failure_to_persist_before_send_does_not_execute(fixture):
     _config, service, workflow = fixture
     with patch("health_buddy.client_workflow.atomic_bytes", side_effect=OSError("disk unavailable")):

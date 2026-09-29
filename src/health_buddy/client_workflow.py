@@ -35,7 +35,10 @@ ROUTES = {
 
 def decoded(result: Response) -> dict[str, JSON]:
     """Decode an API envelope without exposing untrusted server diagnostics."""
-    value = decode(result.body, limit=MAX_RESPONSE, trusted=True)
+    try:
+        value = decode(result.body, limit=MAX_RESPONSE, trusted=True)
+    except ServiceError as exc:
+        raise ServiceError(503, "invalid_response", retryable=True) from exc
     if not isinstance(value, dict):
         raise ServiceError(503, "invalid_response", retryable=True)
     if not 200 <= result.status < 300:
@@ -86,16 +89,21 @@ class ClientWorkflow:
         private_file(path, missing=True)
         if not path.exists():
             return None
-        with path.open("rb") as handle:
-            value = decode(handle.read(MAX_STATE + 1), limit=MAX_STATE, trusted=True)
-        if (not isinstance(value, dict) or value.get("schemaVersion") != 1
+        try:
+            with path.open("rb") as handle:
+                value = decode(handle.read(MAX_STATE + 1), limit=MAX_STATE, trusted=True)
+        except ServiceError as exc:
+            raise ServiceError(503, "client_state_unavailable") from exc
+        if (not isinstance(value, dict) or type(value.get("schemaVersion")) is not int or value["schemaVersion"] != 1
             or value.get("state") not in ("pending", "complete", "discarded")
             or type(value.get("cursor")) is not int or cast(int, value["cursor"]) < 0
             or not isinstance(value.get("envelope"), dict)
             or not isinstance(value.get("intentDigest"), str)
             or not isinstance(value.get("principalBinding"), str)):
             raise ServiceError(503, "client_state_unavailable")
-        return cast(dict[str, Any], value)
+        state = cast(dict[str, Any], value)
+        self._request(state["envelope"])
+        return state
 
     def _save(self, path: Path, state: dict[str, Any]) -> None:
         raw = encode(state)
@@ -106,7 +114,8 @@ class ClientWorkflow:
     def _request(self, envelope: dict[str, Any]) -> Request:
         expected = {"operation", "resourceId", "method", "path", "query", "payload",
                     "identity", "ifMatch", "idempotencyKey", "apiVersion"}
-        if set(envelope) != expected or envelope["operation"] not in ROUTES:
+        if (set(envelope) != expected or not isinstance(envelope["operation"], str)
+            or envelope["operation"] not in ROUTES):
             raise ServiceError(503, "client_state_unavailable")
         operation = cast(Operation, envelope["operation"])
         method, path = ROUTES[operation]
@@ -119,12 +128,18 @@ class ClientWorkflow:
             raise ServiceError(503, "client_state_unavailable")
         if (envelope["method"] != method or envelope["path"] != path
             or envelope["query"] != {} or envelope["apiVersion"] != "1"
-            or not isinstance(envelope["idempotencyKey"], str)):
+            or not isinstance(envelope["payload"], dict)
+            or not isinstance(envelope["ifMatch"], str)
+            or not isinstance(envelope["idempotencyKey"], str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", envelope["idempotencyKey"])):
             raise ServiceError(503, "client_state_unavailable")
-        ident = object_value(envelope["identity"], {"installationId", "datasetId", "restoreEpoch"})
-        identity = Identity(*(cast(str, ident[key]) for key in ("installationId", "datasetId", "restoreEpoch")))
-        check_identity(identity, identity)
-        revision(envelope["ifMatch"])
+        try:
+            ident = object_value(envelope["identity"], {"installationId", "datasetId", "restoreEpoch"})
+            identity = Identity(*(cast(str, ident[key]) for key in ("installationId", "datasetId", "restoreEpoch")))
+            check_identity(identity, identity)
+            revision(envelope["ifMatch"])
+        except ServiceError as exc:
+            raise ServiceError(503, "client_state_unavailable") from exc
         return Request(operation, resource_id=resource, payload=envelope["payload"],
                        identity=identity, if_match=envelope["ifMatch"],
                        idempotency_key=envelope["idempotencyKey"], api_version="1")

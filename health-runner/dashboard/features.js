@@ -9,6 +9,12 @@ const HealthAPI = (() => {
   function sameIdentity(left, right) {
     return identityKeys.every(key => left?.[key] === right?.[key]);
   }
+  function pendingRequest(value, sessionId) {
+    if(!value||value.version!==1||value.method!=='POST'||value.path!=='/v1/workouts'||!metadata(value.identity)||typeof value.body!=='string'||new TextEncoder().encode(value.body).length>65536)return false;
+    const headers=value.headers,keys=['Content-Type','X-Installation-ID','X-Dataset-ID','X-Restore-Epoch','If-Match','Idempotency-Key'];
+    if(!headers||Object.keys(headers).sort().join('|')!==keys.sort().join('|')||headers['Content-Type']!=='application/json'||headers['X-Installation-ID']!==value.identity.installationId||headers['X-Dataset-ID']!==value.identity.datasetId||headers['X-Restore-Epoch']!==value.identity.restoreEpoch||headers['If-Match']!==`"rev-${value.identity.dataRevision}"`||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(headers['Idempotency-Key']||''))return false;
+    try{const payload=JSON.parse(value.body);return payload?.schema_version===1&&payload.session_id===sessionId;}catch(e){return false;}
+  }
   async function envelope(response, expected = null) {
     const body = await response.json().catch(() => null);
     if (!response.ok) {
@@ -25,7 +31,7 @@ const HealthAPI = (() => {
     }
     return body;
   }
-  return {metadata, sameIdentity, envelope};
+  return {metadata, sameIdentity, pendingRequest, envelope};
 })();
 
 /* Browser-only drafts and change history. Bundled into the static page. */
@@ -177,7 +183,7 @@ const HealthFeatures = (() => {
           if(!persist())throw new Error('Saving is paused until this browser can retain the original retry request.');
         }
         const pending=draft.pending;
-        if(pending.version!==1||pending.method!=='POST'||pending.path!=='/v1/workouts'||!HealthAPI.metadata(pending.identity)){
+        if(!HealthAPI.pendingRequest(pending,draft.session_id)){
           throw new Error('The saved retry request is invalid. Resolve it explicitly before creating another.');
         }
         // A changed epoch is never silently rebound. The same original body,
@@ -220,7 +226,8 @@ const HealthFeatures = (() => {
     else if(draft.pending){
       try{reviewed=JSON.parse(draft.pending.body);}catch(e){reviewed=null;}
       fields.disabled=true;review.hidden=true;save.hidden=false;save.textContent='Retry unchanged save';resolve.hidden=false;
-      showStatus('A save request is retained from this browser. Retry it unchanged or resolve its possible earlier outcome explicitly.');
+      if(!HealthAPI.pendingRequest(draft.pending,draft.session_id)){save.disabled=true;showStatus('The saved retry request is invalid. Its original state is retained; resolve its possible earlier outcome explicitly.');}
+      else showStatus('A save request is retained from this browser. Retry it unchanged or resolve its possible earlier outcome explicitly.');
     }
     else if(draft.sets.length)summary.textContent='Resume workout draft · '+draft.date;
     window.addEventListener('storage',e=>{if(e.key===DRAFT_KEY){blocked=true;fields.disabled=true;review.disabled=true;save.disabled=true;showStatus();}});

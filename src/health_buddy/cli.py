@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .app import App
 from .config import ConfigError
+from .domain import decode
 from .legacy_store import StoreError
 from .loggers import FIELDS
 from .operations import open_service
@@ -74,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
                 raw = sys.stdin.read(65537)
                 if len(raw.encode("utf-8")) > 65536:
                     raise ServiceError(413, "request_too_large")
-                payload = json.loads(raw)
+                payload = decode(raw, limit=65536)
                 if not isinstance(payload, dict):
                     raise ServiceError(422, "invalid_request")
                 result = app.workout(payload, new_write=args.new_write)

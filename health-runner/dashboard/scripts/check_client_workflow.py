@@ -88,6 +88,18 @@ def main():
         expect(owner.locator("#draft-status")).to_contain_text("lost response may already have saved")
         original = json.loads(retained(owner))["pending"]
         assert len(receipts) == 1
+        original_state = retained(owner)
+        malformed = json.loads(original_state)
+        malformed["pending"]["headers"]["If-Match"] = '"rev-999"'
+        owner.evaluate("([key,value]) => localStorage.setItem(key,value)", [DRAFT, json.dumps(malformed)])
+        owner.reload()
+        open_editor(owner)
+        expect(owner.locator("#draft-status")).to_contain_text("saved retry request is invalid")
+        expect(owner.locator("#save-workout")).to_be_disabled()
+        assert json.loads(retained(owner)) == malformed and len(calls) == 1
+        # The fixture restores its exact captured original to continue the
+        # separate unchanged-retry scenario; product code never repairs it.
+        owner.evaluate("([key,value]) => localStorage.setItem(key,value)", [DRAFT, original_state])
         owner.close()
         contender.reload()
         open_editor(contender)

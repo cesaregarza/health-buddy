@@ -1,5 +1,6 @@
 """Real local CLI adapters use the same canonical receipts and retry state."""
 
+import io
 import json
 from datetime import UTC, datetime
 
@@ -51,7 +52,7 @@ def test_cli_conflict_resolution_and_safe_diagnostics(tmp_path, capsys):
 def test_circumference_preview_has_no_write_or_retry_cursor(tmp_path):
     app = App.development(tmp_path / "owner")
     before = app.snapshot()["meta"]["dataRevision"]
-    result = app.log_record("circumference", ["--measured-at-local", "2020-01-01T08:00:00", "--site", "waist", "--reading", "80", "--measurement-site", "synthetic landmark"])
+    result = app.log_record("circumference", ["--measured-at-local", "2020-01-01T08:00:00", "--site", "waist", "--reading", "32", "--reading", "32.2", "--measurement-site", "synthetic landmark"])
     assert result["preview"] is True
     assert app.snapshot()["meta"]["dataRevision"] == before
     assert app.workflow.inspect() == {"state": "empty", "cursor": 0}
@@ -62,3 +63,13 @@ def test_default_app_cannot_read_or_write(tmp_path):
     for action in (app.snapshot, app.html, app.context, lambda: app.log_record("measurement", [])):
         with pytest.raises(ServiceError):
             action()
+
+
+def test_cli_duplicate_json_fields_rejected_before_write(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "owner"
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"schema_version":1,"schema_version":1}'))
+    assert main(arguments(root, "log", "workout")) == 2
+    assert "invalid_request" in capsys.readouterr().err
+    app = App.development(root)
+    assert app.snapshot()["meta"]["dataRevision"] == 0
+    assert app.workflow.inspect()["state"] == "empty"
