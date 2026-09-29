@@ -255,7 +255,7 @@ class SecurityAuthority:
             raise ServiceError(422, "invalid_request")
         if request.deadline is not None and (
             type(request.deadline) not in {int, float}
-            or not math.isfinite(request.deadline) or request.deadline < 0
+            or not 0 <= request.deadline <= 1e15 or not math.isfinite(request.deadline)
         ):
             raise ServiceError(422, "invalid_request")
         with self._locked(request.deadline) as connection:
