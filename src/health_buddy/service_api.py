@@ -48,7 +48,8 @@ class Principal:
 
     This is not a bearer token and contains no caller-selected scopes. The
     policy must resolve/recheck this handle on every admission; constructing
-    this dataclass does not confer authority.
+    this dataclass does not confer authority. It must be a policy-issued
+    authenticated handle, never merely a discoverable credential database ID.
     """
 
     credential_id: str

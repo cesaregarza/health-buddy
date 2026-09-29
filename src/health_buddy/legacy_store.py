@@ -187,7 +187,7 @@ class Store:
         files = {}
         for name in names:
             # CSV/JSON projections only. Owner executables are never loaded.
-            if name.startswith(("data/", "plans/")) and name.endswith(
+            if name.startswith(("data/", "plans/", "metadata/")) and name.endswith(
                 (".csv", ".json")
             ):
                 files[name] = git(self.path, "show", f"{revision}:{name}")
@@ -231,6 +231,8 @@ class Store:
     ) -> dict[str, Any]:
         with self.locked():
             revision, files = self.snapshot()
+            if "metadata/canonical.json" in files:
+                raise StoreError("Use canonical operations to update an adopted store")
             changes = change(files)
             changes = {
                 name: text for name, text in changes.items() if files.get(name) != text

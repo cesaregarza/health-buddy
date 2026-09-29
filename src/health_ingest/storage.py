@@ -235,178 +235,188 @@ class HealthRepository:
             raise AuthenticationError("invalid device credentials")
 
     def ingest(self, batch: Batch) -> IngestResult:
-        payload_hash = _canonical_hash(batch)
-        received_at = _now()
+        """Historical internal helper; supported entrypoints use canonical ops."""
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            existing = connection.execute(
+            return self.apply_batch(connection, batch, _now())
+
+    def apply_batch(
+        self, connection: sqlite3.Connection, batch: Batch, received_at: str
+    ) -> IngestResult:
+        """Apply to the caller's transaction; no commit or clock read here.
+
+        Canonical operations validate in a rolled-back savepoint, then install
+        the prepared effect and its transaction marker in one SQLite commit.
+        """
+        payload_hash = _canonical_hash(batch)
+        existing = connection.execute(
+            """
+            SELECT payload_sha256
+            FROM batches
+            WHERE device_id = ? AND batch_id = ?
+            """,
+            (batch.device_id, batch.batch_id),
+        ).fetchone()
+        if existing is not None:
+            if existing["payload_sha256"] != payload_hash:
+                raise BatchConflictError(
+                    "batchId was already used with different content"
+                )
+            return IngestResult(
+                batch_id=batch.batch_id,
+                duplicate_batch=True,
+                records_accepted=0,
+                deletions_accepted=0,
+            )
+
+        for record in batch.records:
+            record_json = json.dumps(
+                record.normalized,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            record_hash = hashlib.sha256(record_json.encode("utf-8")).hexdigest()
+            tombstone = connection.execute(
                 """
-                SELECT payload_sha256
-                FROM batches
-                WHERE device_id = ? AND batch_id = ?
+                SELECT observed_at, type_identifier
+                FROM tombstones
+                WHERE device_id = ? AND record_id = ?
                 """,
-                (batch.device_id, batch.batch_id),
+                (batch.device_id, record.record_id),
             ).fetchone()
-            if existing is not None:
-                if existing["payload_sha256"] != payload_hash:
+            if tombstone and tombstone["type_identifier"] != record.type_identifier:
+                raise BatchConflictError(
+                    "recordId conflicts with a tombstone for another type"
+                )
+            existing_record = connection.execute(
+                """
+                SELECT record_kind, type_identifier, record_sha256
+                FROM records
+                WHERE device_id = ? AND record_id = ?
+                """,
+                (batch.device_id, record.record_id),
+            ).fetchone()
+            if existing_record is not None:
+                if existing_record["type_identifier"] != record.type_identifier:
                     raise BatchConflictError(
-                        "batchId was already used with different content"
+                        "recordId conflicts with a record for another type"
                     )
-                return IngestResult(
-                    batch_id=batch.batch_id,
-                    duplicate_batch=True,
-                    records_accepted=0,
-                    deletions_accepted=0,
-                )
-
-            for record in batch.records:
-                record_json = json.dumps(
-                    record.normalized,
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                )
-                record_hash = hashlib.sha256(record_json.encode("utf-8")).hexdigest()
-                tombstone = connection.execute(
-                    """
-                    SELECT observed_at, type_identifier
-                    FROM tombstones
-                    WHERE device_id = ? AND record_id = ?
-                    """,
-                    (batch.device_id, record.record_id),
-                ).fetchone()
-                if tombstone and tombstone["type_identifier"] != record.type_identifier:
-                    raise BatchConflictError(
-                        "recordId conflicts with a tombstone for another type"
-                    )
-                existing_record = connection.execute(
-                    """
-                    SELECT record_kind, type_identifier, record_sha256
-                    FROM records
-                    WHERE device_id = ? AND record_id = ?
-                    """,
-                    (batch.device_id, record.record_id),
-                ).fetchone()
-                if existing_record is not None:
-                    if existing_record["type_identifier"] != record.type_identifier:
-                        raise BatchConflictError(
-                            "recordId conflicts with a record for another type"
-                        )
-                    if (
-                        record.record_kind != "dailyAggregate"
-                        and existing_record["record_sha256"] != record_hash
-                    ):
-                        raise BatchConflictError(
-                            "an immutable HealthKit record changed content"
-                        )
-                deleted_at = tombstone["observed_at"] if tombstone else None
-                connection.execute(
-                    """
-                    INSERT INTO records(
-                        device_id, record_id, record_kind, type_identifier,
-                        start_at, end_at, creation_at, local_date, timezone,
-                        value_json, unit, source_json, device_json, workout_json,
-                        record_sha256, received_at, deleted_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(device_id, record_id) DO UPDATE SET
-                        record_kind = excluded.record_kind,
-                        type_identifier = excluded.type_identifier,
-                        start_at = excluded.start_at,
-                        end_at = excluded.end_at,
-                        creation_at = excluded.creation_at,
-                        local_date = excluded.local_date,
-                        timezone = excluded.timezone,
-                        value_json = excluded.value_json,
-                        unit = excluded.unit,
-                        source_json = excluded.source_json,
-                        device_json = excluded.device_json,
-                        workout_json = excluded.workout_json,
-                        record_sha256 = excluded.record_sha256,
-                        received_at = excluded.received_at,
-                        deleted_at = COALESCE(records.deleted_at, excluded.deleted_at)
-                    """,
-                    (
-                        batch.device_id,
-                        record.record_id,
-                        record.record_kind,
-                        record.type_identifier,
-                        record.start_date,
-                        record.end_date,
-                        record.creation_date,
-                        record.local_date,
-                        record.timezone,
-                        json.dumps(record.value, ensure_ascii=False),
-                        record.unit,
-                        json.dumps(record.source, ensure_ascii=False, sort_keys=True),
-                        json.dumps(record.device, ensure_ascii=False, sort_keys=True),
-                        json.dumps(record.workout, ensure_ascii=False, sort_keys=True),
-                        record_hash,
-                        received_at,
-                        deleted_at,
-                    ),
-                )
-
-            for deletion in batch.deletions:
-                existing_record = connection.execute(
-                    """
-                    SELECT type_identifier
-                    FROM records
-                    WHERE device_id = ? AND record_id = ?
-                    """,
-                    (batch.device_id, deletion.record_id),
-                ).fetchone()
                 if (
-                    existing_record is not None
-                    and existing_record["type_identifier"] != deletion.type_identifier
+                    record.record_kind != "dailyAggregate"
+                    and existing_record["record_sha256"] != record_hash
                 ):
                     raise BatchConflictError(
-                        "deletion type does not match the stored record"
+                        "an immutable HealthKit record changed content"
                     )
-                connection.execute(
-                    """
-                    INSERT INTO tombstones(
-                        device_id, record_id, type_identifier,
-                        observed_at, received_at
-                    ) VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(device_id, record_id) DO UPDATE SET
-                        type_identifier = excluded.type_identifier,
-                        observed_at = excluded.observed_at,
-                        received_at = excluded.received_at
-                    """,
-                    (
-                        batch.device_id,
-                        deletion.record_id,
-                        deletion.type_identifier,
-                        deletion.observed_at,
-                        received_at,
-                    ),
-                )
-                connection.execute(
-                    """
-                    UPDATE records
-                    SET deleted_at = ?
-                    WHERE device_id = ? AND record_id = ?
-                    """,
-                    (deletion.observed_at, batch.device_id, deletion.record_id),
-                )
-
+            deleted_at = tombstone["observed_at"] if tombstone else None
             connection.execute(
                 """
-                INSERT INTO batches(
-                    device_id, batch_id, payload_sha256, generated_at,
-                    received_at, record_count, deletion_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO records(
+                    device_id, record_id, record_kind, type_identifier,
+                    start_at, end_at, creation_at, local_date, timezone,
+                    value_json, unit, source_json, device_json, workout_json,
+                    record_sha256, received_at, deleted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(device_id, record_id) DO UPDATE SET
+                    record_kind = excluded.record_kind,
+                    type_identifier = excluded.type_identifier,
+                    start_at = excluded.start_at,
+                    end_at = excluded.end_at,
+                    creation_at = excluded.creation_at,
+                    local_date = excluded.local_date,
+                    timezone = excluded.timezone,
+                    value_json = excluded.value_json,
+                    unit = excluded.unit,
+                    source_json = excluded.source_json,
+                    device_json = excluded.device_json,
+                    workout_json = excluded.workout_json,
+                    record_sha256 = excluded.record_sha256,
+                    received_at = excluded.received_at,
+                    deleted_at = COALESCE(records.deleted_at, excluded.deleted_at)
                 """,
                 (
                     batch.device_id,
-                    batch.batch_id,
-                    payload_hash,
-                    batch.generated_at,
+                    record.record_id,
+                    record.record_kind,
+                    record.type_identifier,
+                    record.start_date,
+                    record.end_date,
+                    record.creation_date,
+                    record.local_date,
+                    record.timezone,
+                    json.dumps(record.value, ensure_ascii=False),
+                    record.unit,
+                    json.dumps(record.source, ensure_ascii=False, sort_keys=True),
+                    json.dumps(record.device, ensure_ascii=False, sort_keys=True),
+                    json.dumps(record.workout, ensure_ascii=False, sort_keys=True),
+                    record_hash,
                     received_at,
-                    len(batch.records),
-                    len(batch.deletions),
+                    deleted_at,
                 ),
             )
+
+        for deletion in batch.deletions:
+            existing_record = connection.execute(
+                """
+                SELECT type_identifier
+                FROM records
+                WHERE device_id = ? AND record_id = ?
+                """,
+                (batch.device_id, deletion.record_id),
+            ).fetchone()
+            if (
+                existing_record is not None
+                and existing_record["type_identifier"] != deletion.type_identifier
+            ):
+                raise BatchConflictError(
+                    "deletion type does not match the stored record"
+                )
+            connection.execute(
+                """
+                INSERT INTO tombstones(
+                    device_id, record_id, type_identifier,
+                    observed_at, received_at
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(device_id, record_id) DO UPDATE SET
+                    type_identifier = excluded.type_identifier,
+                    observed_at = excluded.observed_at,
+                    received_at = excluded.received_at
+                """,
+                (
+                    batch.device_id,
+                    deletion.record_id,
+                    deletion.type_identifier,
+                    deletion.observed_at,
+                    received_at,
+                ),
+            )
+            connection.execute(
+                """
+                UPDATE records
+                SET deleted_at = ?
+                WHERE device_id = ? AND record_id = ?
+                """,
+                (deletion.observed_at, batch.device_id, deletion.record_id),
+            )
+
+        connection.execute(
+            """
+            INSERT INTO batches(
+                device_id, batch_id, payload_sha256, generated_at,
+                received_at, record_count, deletion_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                batch.device_id,
+                batch.batch_id,
+                payload_hash,
+                batch.generated_at,
+                received_at,
+                len(batch.records),
+                len(batch.deletions),
+            ),
+        )
 
         return IngestResult(
             batch_id=batch.batch_id,
