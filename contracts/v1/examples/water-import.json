@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "id": "local.water-import", "version": "1.0.0", "extensionApi": 1,
+    "kind": "connector-workflow", "stateSchema": 1,
+    "entrypoints": {"connector": "src/connector.py:normalize", "workflow": "src/workflow.py:run"},
+    "scopes": ["records:write"], "egress": [], "secretReferences": [],
+    "paths": {"source": "src", "assets": "assets", "config": "config", "tests": "tests", "notes": "notes", "state": "state", "migrations": "migrations"}
+  },
+  "cases": [
+    {"id": "normalize", "input": {"eventId": "synthetic-event-001", "value": 250, "unit": "mL", "sourceId": "synthetic-water"}, "output": {"value": 0.25, "unit": "L", "sourceId": "synthetic-water", "idempotencyKey": "local.water-import:synthetic-event-001"}},
+    {"id": "retry", "input": {"eventId": "synthetic-event-001", "value": 250, "unit": "mL", "sourceId": "synthetic-water"}, "output": {"value": 0.25, "unit": "L", "sourceId": "synthetic-water", "idempotencyKey": "local.water-import:synthetic-event-001"}}
+  ]
+}

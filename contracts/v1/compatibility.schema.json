@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Health Buddy contract compatibility manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "manifestVersion", "contractVersion", "release", "interfaces", "components", "hosts", "publicHostname", "deprecation"],
+  "properties": {
+    "$schema": {"const": "./compatibility.schema.json"},
+    "manifestVersion": {"const": 1},
+    "contractVersion": {"const": "1.0.0"},
+    "release": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "version", "sourceRevision", "artifacts"],
+      "properties": {"status": {"const": "contract-only"}, "version": {"type": "null"}, "sourceRevision": {"type": "null"}, "artifacts": {"const": []}}
+    },
+    "interfaces": {"$ref": "#/$defs/interfaces"},
+    "components": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runtime", "installer", "codex", "claudeCode", "iphone"],
+      "properties": {"runtime": {"$ref": "#/$defs/component"}, "installer": {"$ref": "#/$defs/component"}, "codex": {"$ref": "#/$defs/component"}, "claudeCode": {"$ref": "#/$defs/component"}, "iphone": {"$ref": "#/$defs/component"}}
+    },
+    "hosts": {"type": "object", "additionalProperties": false, "required": ["os", "architectures", "qualification"], "properties": {"os": {"const": "linux"}, "architectures": {"const": ["amd64", "arm64"]}, "qualification": {"const": "pending"}}},
+    "publicHostname": {"type": "null"},
+    "deprecation": {"type": "object", "additionalProperties": false, "required": ["minimumStableReleaseOverlap", "blockIncompatibleActivation"], "properties": {"minimumStableReleaseOverlap": {"type": "integer", "minimum": 2}, "blockIncompatibleActivation": {"const": true}}}
+  },
+  "$defs": {
+    "interfaces": {"type": "object", "additionalProperties": false, "required": ["api", "storage", "extensions", "pairing", "phonePayload", "agentTools"], "properties": {"api": {"const": 1}, "storage": {"const": 1}, "extensions": {"const": 1}, "pairing": {"const": 1}, "phonePayload": {"const": 1}, "agentTools": {"const": 1}}},
+    "component": {"type": "object", "additionalProperties": false, "required": ["requires"], "properties": {"requires": {"type": "object", "minProperties": 1, "propertyNames": {"enum": ["api", "storage", "extensions", "pairing", "phonePayload", "agentTools"]}, "additionalProperties": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}}}}}
+  }
+}

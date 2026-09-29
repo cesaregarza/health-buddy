@@ -1,0 +1,17 @@
+{
+  "$schema": "./compatibility.schema.json",
+  "manifestVersion": 1,
+  "contractVersion": "1.0.0",
+  "release": {"status": "contract-only", "version": null, "sourceRevision": null, "artifacts": []},
+  "interfaces": {"api": 1, "storage": 1, "extensions": 1, "pairing": 1, "phonePayload": 1, "agentTools": 1},
+  "components": {
+    "runtime": {"requires": {"api": [1], "storage": [1], "extensions": [1], "pairing": [1], "phonePayload": [1], "agentTools": [1]}},
+    "installer": {"requires": {"api": [1], "storage": [1], "extensions": [1], "pairing": [1]}},
+    "codex": {"requires": {"api": [1], "extensions": [1], "agentTools": [1]}},
+    "claudeCode": {"requires": {"api": [1], "extensions": [1], "agentTools": [1]}},
+    "iphone": {"requires": {"pairing": [1], "phonePayload": [1]}}
+  },
+  "hosts": {"os": "linux", "architectures": ["amd64", "arm64"], "qualification": "pending"},
+  "publicHostname": null,
+  "deprecation": {"minimumStableReleaseOverlap": 2, "blockIncompatibleActivation": true}
+}
