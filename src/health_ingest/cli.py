@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from typing import Never
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
 
-    def refuse(_message: str) -> None:
+    def refuse(_message: str) -> Never:
         raise ValueError("retired receiver command")
 
     parser.error = refuse  # type: ignore[method-assign]

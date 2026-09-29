@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Never, cast
 
 from . import legacy, loggers
 from .client_workflow import ClientWorkflow, decoded
@@ -84,7 +84,7 @@ class App:
         if kind == "circumference":
             parser.add_argument("--apply", action="store_true")
 
-        def reject(_message: str) -> None:
+        def reject(_message: str) -> Never:
             raise ServiceError(422, "invalid_logger_arguments")
 
         parser.error = reject  # type: ignore[method-assign]
