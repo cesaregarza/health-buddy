@@ -62,7 +62,7 @@ const TrainingFast = (() => {
       if (parentSignal.aborted) cancel();
       else parentSignal.addEventListener('abort', cancel, {once: true});
       const timeout = setTimeout(cancel, 90000);
-      try { return await fetch(url, {...options, signal: controller.signal}); }
+      try { return await HealthAPI.request(url, {...options, signal: controller.signal}); }
       finally { clearTimeout(timeout); parentSignal.removeEventListener('abort', cancel); }
     };
 

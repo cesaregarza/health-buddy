@@ -385,6 +385,8 @@
       <button data-theme="dark" aria-pressed="false">Dark</button>
     </div>
     <div class="meta">Auto follows your device. Preferences stay in this browser.</div>
+    <h2 class="settings-sub">Access</h2>
+    <p><a class="act" href="/security">Phone connections and sign-out</a></p>
     <h2 class="settings-sub">Context pack</h2>
     <button type="button" class="act" id="export-open" aria-expanded="false" aria-controls="export">Export for another assistant…</button>
     <div class="meta">Choose sections manually to build a local summary for any assistant. If enabled, Jev can suggest sections from the request you type.</div>
@@ -1706,7 +1708,7 @@ const exportEl = document.getElementById('export'), exportOpenBtn = document.get
 const EXPORT = { catalog: null, days: 30, lastJev: null };
 const exq = (id) => document.getElementById(id);
 async function apiCall(path, opts) {
-  const r = await fetch(API_BASE + path, { cache: 'no-store', ...opts });
+  const r = await HealthAPI.request(API_BASE + path, { cache: 'no-store', ...opts });
   return (await HealthAPI.envelope(r,DATA.meta)).data;
 }
 function exportStatus(msg, tone) { const el = exq('export-status'); el.textContent = msg || ''; el.dataset.tone = tone || ''; }

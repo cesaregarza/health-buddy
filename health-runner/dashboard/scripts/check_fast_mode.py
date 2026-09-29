@@ -64,8 +64,9 @@ def add_mock_fetch(page, delayed_step=None, fail_step_once=None, uncertain=False
       const base={{schema_version:1,plan_id:'mock-plan',date,source_revision:revision,phase:'not_started',step:0,ranked:[],remaining:['e0','e1','e2'],scores:{{}},must_count:null,threshold_probability:null,threshold_uncertain:false,model:null}};
       const response=(body,status=200)=>Promise.resolve(new Response(JSON.stringify(status<300?{{data:body,meta:{json.dumps(META)}}}:{{error:{{code:'provider_unavailable'}},meta:{{}}}}),{{status,headers:{{'Content-Type':'application/json'}}}}));
       window.fetch=async (url,options={{}})=>{{
+        if(String(url).endsWith('/v1/session')) return new Response(JSON.stringify({{data:{{development:true}},meta:{{}}}}),{{status:200}});
         const method=(options.method||'GET').toUpperCase();
-        const call={{method,url:String(url),body:options.body?JSON.parse(options.body):null,headers:options.headers||{{}}}};
+        const call={{method,url:String(url),body:options.body?JSON.parse(options.body):null,headers:Object.fromEntries(new Headers(options.headers||{{}}).entries())}};
         window.__apiCalls.push(call);
         if(method==='GET') return response(base);
         const step=call.body.step;
@@ -108,7 +109,7 @@ def check_success(browser, width):
     expect(first.locator('details div')).to_have_text('keep shoulder relaxed')
     posts = [c for c in calls(page) if c['method'] == 'POST']
     assert [c['body']['step'] for c in posts] == [0, 1, 2, 3]
-    assert posts[0]['headers'].get('X-Health-Action') == 'rank-training'
+    assert posts[0]['headers'].get('x-health-action') == 'rank-training'
     assert posts[0]['body'] == {'date': DATE, 'revision': REVISION, 'step': 0}
     page.locator('#training-fast button', has_text='Full workout').click()
     assert page.locator('#training-next .rx-row').evaluate_all('rows=>rows.map(r=>r.dataset.exerciseIndex)') == ['0', '1', '2']
