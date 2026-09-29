@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "status": "contract-only",
+  "contractVersion": "1.0.0",
+  "codeRelease": null,
+  "installAvailable": false,
+  "runtimeArtifacts": [],
+  "installer": null,
+  "guideKind": "implementation-target",
+  "guideRoot": "../guides/contract-v1/",
+  "pendingInputs": ["CES-1068", "CES-1086"],
+  "publicHostname": null
+}
