@@ -119,24 +119,6 @@ def test_compound_units_missingness_and_present_zero_are_explicit(tmp_path):
         "unit": "mg",
         "missingness": "not_recorded",
     }
-
-
-def test_empty_intake_fails_adoption_without_changing_owner_data(tmp_path):
-    from health_buddy.legacy_store import Store, StoreError, git
-    from health_buddy.operations import Service
-    from health_buddy.workspace import initialize
-
-    root = tmp_path / "owner"
-    config = initialize(root)
-    store = Store(config.storage("manual"), config.path("operations"))
-    store.update(lambda _files: {"data/intake.csv": ""})
-    original = store.revision()
-    with pytest.raises(StoreError, match="unexpected headers"):
-        Service(root)
-    assert store.revision() == original
-    assert git(store.path, "show", f"{original}:data/intake.csv") == ""
-    assert not (root / "identity.json").exists()
-    assert not config.path("operations/control.sqlite").exists()
     assert data["records"][0]["unit"] == "composite"
     assert data["records"][0]["provenance"] == {
         "sourceId": "manual",
@@ -164,6 +146,24 @@ def test_empty_intake_fails_adoption_without_changing_owner_data(tmp_path):
         service.execute(limited, Request("records.get", resource_id=row["id"]))
     )["data"]["record"]
     assert set(projected) == {"id", "value", "unit"}
+
+
+def test_empty_intake_fails_adoption_without_changing_owner_data(tmp_path):
+    from health_buddy.legacy_store import Store, StoreError, git
+    from health_buddy.operations import Service
+    from health_buddy.workspace import initialize
+
+    root = tmp_path / "owner"
+    config = initialize(root)
+    store = Store(config.storage("manual"), config.path("operations"))
+    store.update(lambda _files: {"data/intake.csv": ""})
+    original = store.revision()
+    with pytest.raises(StoreError, match="unexpected headers"):
+        Service(root)
+    assert store.revision() == original
+    assert git(store.path, "show", f"{original}:data/intake.csv") == ""
+    assert not (root / "identity.json").exists()
+    assert not config.path("operations/control.sqlite").exists()
 
 
 def test_foreign_blood_pressure_replacement_rejects_b_only_and_both_grants(tmp_path):

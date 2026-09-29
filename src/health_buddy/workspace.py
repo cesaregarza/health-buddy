@@ -22,7 +22,7 @@ It has no remote and does not inherit Git hooks, identity or signing settings.
 Use the health-buddy entrypoint to write records; never edit this store directly
 or copy a private Git repository into it. The operations journal owns revisions
 and recoverable writes. Production auth and restore qualification follow in
-CES-1067/1072. This development service must not be exposed on a network.
+CES-1067 and CES-1070/1083. Do not expose this development service on a network.
 """
 
 
