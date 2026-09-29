@@ -18,7 +18,19 @@ from playwright.sync_api import sync_playwright, expect
 def fixture():
     data = snapshot()
     data['meta'].update(META)
-    data['config']={'integrations':{'jev':{'enabled':True}}}
+    # Match Config.public's complete shape; a partial config aborts the real
+    # synchronous page initialization before the closure-end test hook runs.
+    data['config'] = {
+        'displayName': 'Fabricated training workspace',
+        'timezone': data['meta']['tz'],
+        'goals': [],
+        'equipment': [],
+        'integrations': {
+            'healthkit': {'enabled': False},
+            'sleepiq': {'enabled': False},
+            'jev': {'enabled': True},
+        },
+    }
     data['meta']['origin_full_sha'] = 'a' * 40
     # Add contrasting prescription detail and recorded evidence so both views
     # have meaningful content to reveal or keep available.
@@ -169,7 +181,7 @@ def check_published_views(html):
             assert not errors, errors
             highlighted_count = page.locator('#training-next .progression-increase').count()
             assert highlighted_count > 0, 'Saved page contains no numeric progression highlights'
-            assert page.locator('#training-next .progression-increase').evaluate_all('''els=>els.every(el=>{
+            assert page.locator('#training-next .progression-increase').evaluate_all(r'''els=>els.every(el=>{
                 const probe=document.createElement('span');probe.style.color='var(--s1)';el.parentElement.append(probe);
                 const valid=/^\d+(?:\.\d+)?$/.test(el.textContent) && ['load','reps'].includes(el.dataset.increase)
                     && getComputedStyle(el).color===getComputedStyle(probe).color
@@ -234,7 +246,22 @@ def main():
             page.route('**/v1/training/fast**', fast_route)
             page.clock.set_fixed_time(datetime.fromisoformat('2026-08-20T15:00:00+00:00'))
             page.goto('http://localhost/training-views')
+            assert not errors, f'Dashboard startup errors: {errors}'
+            expect(page.locator('#workspace-status')).to_contain_text(
+                'Fabricated training workspace'
+            )
+            assert page.evaluate("""() => {
+                const hooks = window.__trainingRegression;
+                return hooks && ['renderProgressionTarget', 'renderRecommendation',
+                    'renderTraining'].every(name => typeof hooks[name] === 'function');
+            }"""), 'Dashboard closure did not complete its test-hook initialization'
             page.locator('#tab-training').click()
+            expect(page.locator('#pane-training')).to_be_visible()
+            expect(page.locator('#training-next .gym-target').first).to_be_visible()
+            # The editor's exclusive Web Lock is asynchronous; readiness must
+            # be observed without moving the render hook ahead of startup.
+            expect(page.locator('#workout-form fieldset')).to_be_enabled()
+            assert not errors, f'Training initialization errors: {errors}'
             check_numeric_highlights(page)
             comparisons = page.locator('#last-session > .training-list > li')
             assert comparisons.count() == 3
