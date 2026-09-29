@@ -19,10 +19,13 @@ product configuration defaults to UTC.
    fabricated hostile-entry tests and scan the new history independently.
 4. Render the default synthetic preview. Run `check_browser.py`,
    `check_followups.py`, `check_training_views.py`, `check_fast_mode.py`,
-   `check_portable_browser.py` and `check_client_workflow.py` serially from the
-   dashboard directory, using the queue-owned existing Chromium/runtime cache. They use
+   `check_portable_browser.py`, `check_client_workflow.py` and
+   `check_auth_browser.py` serially from the dashboard directory, using the
+   queue-owned existing Chromium/runtime cache. They use
    fabricated sources/mocked optional provider responses. Never run a live Jev
-   probe or connect a personal data source.
+   probe or connect a personal data source. The auth browser uses a routed
+   synthetic security model; root pytest separately exercises the real security
+   authority and canonical service over the pinned Unix-socket server.
 5. Record exact commands, SHA, dependency versions, failures, raw logs and skipped
    checks. Package/browser/fixture failures require repair before acceptance.
 
