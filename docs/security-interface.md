@@ -83,9 +83,10 @@ Proof DTOs are selected by the finite route, not caller-controlled role strings.
 `cookie` and `secret` are separate typed private channels. Transport explicitly
 serializes the expected secret kind for each action; it never serializes a DTO
 or Authenticated wholesale. Session CSRF is the sole repeatable secret channel,
-only to its current session. Owner bootstrap UI may immediately create a session
-with the returned owner token held briefly in memory, never localStorage or a
-health retry ledger. Failed delivery requires deliberate recovery.
+only to its current session. Owner bootstrap UI pauses for deliberate private
+retention of the returned owner token before creating a session. The page holds
+it only in memory, never localStorage or a health retry ledger. A lost sole
+credential requires deliberate local recovery.
 
 Native `security bootstrap --proof-file PATH` writes a create-only private JSON
 bundle with exactly `{proof, identity: {installationId, datasetId, restoreEpoch},
