@@ -5,8 +5,9 @@ Every supported UI, native CLI, compatibility logger and extension reaches
 policy-issued authenticated handle; knowing a persisted credential identifier
 is not authentication. The default policy denies every request. Explicit
 `--development` installs the local owner policy for native use and loopback
-HTTP. Production credentials, pairing, browser sessions and deployment remain
-CES-1067/CES-1068. Owner-trusted Python is not a hostile-code sandbox.
+HTTP. [Security authority](security-interface.md) supplies owner/scoped credentials,
+pairing and browser sessions; deployed runtime qualification remains CES-1068.
+Owner-trusted Python is not a hostile-code sandbox.
 
 ## Find the implementation
 
@@ -153,9 +154,10 @@ Stale data can also be truncated, so callers must inspect both fields.
 The native and browser client workflows persist complete original pending
 requests before send and advance only after a matching validated receipt.
 Conflicts, unknown outcomes, corruption and epoch changes preserve the pending
-intent for explicit reconciliation. Real credential rotation and stable actor
-binding are CES-1067 integration; tests use explicit synthetic authenticated
-handles and no configured external provider calls.
+intent for explicit reconciliation. Current credential rotation retains a stable
+authenticated actor binding; a changed actor/epoch cannot adopt the pending
+intent. Tests distinguish synthetic policy fixtures from the real digest-only
+authority and make no configured external provider calls.
 
 ## Fixed routes and requests
 

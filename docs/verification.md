@@ -38,7 +38,9 @@ use the already installed backend with `--no-isolation`; identify that command
 and its difference from an isolated hosted build in the receipt. Validation does
 not authorize dependency downloads outside the queue or any hosted CI run.
 
-Deferred evidence: production credentials/pairing (CES-1067), runtime images and
+Security authority, synthetic pairing and native/HTTP admission are source
+verification gates; the actual-authority UDS case is separate from fake-authority
+wire fixtures and the routed-model auth browser. Deferred evidence: runtime images and
 ARM64 execution (1068), copied archive/restore qualification (1070), physical
 phone/Pi, private migration/cutover, cross-agent/upgrade qualification and release.
 Process hard exits plus fsync source review do not prove physical power-loss
