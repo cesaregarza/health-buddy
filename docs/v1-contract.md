@@ -112,7 +112,9 @@ values, bearer tokens, pairing codes or full request bodies.
 | Revoke device | `DELETE /v1/devices/{id}`, `devices:manage` |
 | HealthKit ingest | `POST /v1/healthkit/batches`, device `healthkit:ingest` only |
 
-Capabilities describe available operations/versions and each source's
+Capabilities describe available operations/versions and advertise
+`sourceStatusOperation: "projection.status"` for a `records:read` principal.
+That separately admitted projection describes each currently granted source's
 `availability`, `lastSuccessAt`, `freshness` and `missingness`, with measured
 timestamps rather than a universal freshness claim. Empty fresh installations,
 disabled optional sources, unavailable/error sources, stale data and unknown
@@ -120,6 +122,8 @@ HealthKit read authorization are distinct. HealthKit empty reads mean
 `no_data_or_denied_read`, never proof of denied permission or a measured zero.
 Requested time ranges, bounds and requested fields must constrain agent context;
 provider transmission is explicit and previewable, not an automatic full dump.
+The `sync:status` device capability response has no source status projection or
+owner health data. Capability/CAS discovery never scans optional health history.
 
 Every observation carries stable record/source IDs, source kind, observedAt and
 receivedAt, typed value/unit, and provenance. Freshness states are `fresh`,

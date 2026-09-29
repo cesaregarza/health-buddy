@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -27,6 +29,14 @@ from .workspace import initialize
 
 def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+@dataclass(frozen=True)
+class BackupInventory:
+    identity: Identity
+    data_revision: int
+    workspace: Path
+    required_paths: tuple[Path, ...]
 
 
 class Service:
@@ -67,6 +77,26 @@ class Service:
             return None
         except ServiceError as exc:
             return error_response(exc)
+
+    @contextmanager
+    def backup(self, principal: Principal | None) -> Iterator[BackupInventory]:
+        """Native owner seam: keep this context open while copying workspace.
+
+        The complete workspace includes personal code/config/tests/state and
+        secrets. Required paths are an integrity inventory, not a file allowlist.
+        This is not a restore/cutover command or an HTTP endpoint.
+        """
+        with exclusive(self.lock):
+            with self.policy.guard(principal, "capabilities") as authority:
+                if "operations:admin" not in authority.grants:
+                    raise ServiceError(403, "forbidden")
+                paths = list(self.journal.backup_inventory())
+                state = self.journal.verify()
+                if self.journal.receiver_binding() is not None:
+                    self.check_receiver(state.identity)
+                    paths.append(self.health.path)
+                paths.extend((self.config.root / "config.json", self.config.root / "personal"))
+                yield BackupInventory(state.identity, state.revision, self.config.root, tuple(paths))
 
     def execute(self, principal: Principal | None, request: Request) -> Response:
         state: State | None = None
@@ -119,6 +149,8 @@ class Service:
             raise invalid()
         if operation == "records.put":
             resource = identifier(request.resource_id)
+            if resource.startswith(("hk:", "sleep:")):
+                raise invalid()
             value = records.normalize_intent(payload)
             self._source(authority, value["sourceId"])
             payload = value
@@ -131,7 +163,9 @@ class Service:
                 raise invalid()
             if "replaceExisting" in value and not isinstance(value["replaceExisting"], bool):
                 raise invalid()
-            loggers.namespace(kind, value["fields"], self.config)
+            loggers.validate_input(kind, value["fields"], self.config)
+            if value.get("replaceExisting", False) and kind not in {"intake", "blood-pressure"}:
+                raise invalid()
             path, method = "/v1/logs/" + kind, "POST"
         elif operation == "workouts.write":
             self._source(authority, "manual")
@@ -167,6 +201,9 @@ class Service:
             # An acknowledgement must still refer to a complete adopted store,
             # even when the immutable original receipt already exists.
             self.check_receiver(state.identity)
+        expected_revision = None if health_batch else revision(request.if_match)
+        if health_batch is None and request.idempotency_key is None:
+            raise ServiceError(428, "idempotency_required")
         key = health_batch.batch_id if health_batch else identifier(request.idempotency_key)
         # Schema-v1 HealthKit retries are device-scoped across credential
         # rotation; ordinary operations retain the authenticated actor scope.
@@ -182,7 +219,7 @@ class Service:
                 duplicate["duplicateBatch"] = True
                 return Response(prior.status, encode(duplicate), prior.headers)
             return prior
-        if health_batch is None and revision(request.if_match) != state.revision:
+        if health_batch is None and expected_revision != state.revision:
             raise ServiceError(409, "revision_conflict")
         old_head, files = self.manual.snapshot()
         received_at, transaction_id = _now(), uuid4().hex
@@ -230,6 +267,8 @@ class Service:
         return candidates[0]
 
     def check_receiver(self, identity: Identity) -> None:
+        if not self.health.receiver:
+            raise ServiceError(503, "source_unavailable", details={"reason": "healthkit_receiver_mode_required"})
         binding = self.journal.receiver_binding()
         if binding is None or binding["path"] != self.config.values["storage"]["healthkit"]:
             raise unavailable()
@@ -293,13 +332,13 @@ class Service:
                             raise invalid()
                 elif device_id is not None or stream_id is not None:
                     raise invalid()
-                source = {"sourceId": source_id, "sourceKind": source_kind, "deviceId": device_id, "streamId": stream_id}
+                source: dict[str, JSON] = {"sourceId": source_id, "sourceKind": source_kind, "deviceId": device_id, "streamId": stream_id}
                 prior = self.journal.sources().get(source_id)
                 if prior:
                     if prior != {"source_id": source_id, "source_kind": source_kind, "device_id": device_id, "source_stream_id": stream_id}:
                         raise ServiceError(409, "record_conflict")
                     return envelope({"registered": True, "sourceId": source_id}, state.identity, state.revision)
-                effect = None
+                effect: dict[str, JSON] | None = None
                 if source_kind == "healthkit":
                     effect = {"kind": "register", "identity": identity_value(state.identity), "sourceId": source_id, "streamId": stream_id, "deviceId": device_id, "receivedAt": _now(), "batch": None}
                     self.health.validate(effect)

@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any, cast
 
 from . import legacy
-from .domain import JSON, invalid, object_value, text
+from .domain import invalid, object_value, text
 from .loggers import camel
+from .service_api import JSON
 
 TOP = set("schema_version program_id title canonical_source start_date end_date default_first_strength strength_rotation schedule templates lead_in health_monitoring gym_access date_overrides progression_policy".split())
 TEMPLATE = set("label target_duration warmup cooldown exercises minimum_version minimum_session_guidance notes".split())
@@ -85,6 +86,9 @@ def validate_plan(value: JSON) -> dict[str, Any]:
         template = _allowed(value, TEMPLATE)
         for key in ("label", "target_duration"):
             text(template.get(key), limit=500)
+        for key in ("minimum_version", "minimum_session_guidance", "notes"):
+            if key in template:
+                text(template[key], limit=2000, empty=True)
         for key in ("warmup", "cooldown"):
             items = template.get(key, [])
             if not isinstance(items, list) or len(items) > 40:
@@ -97,7 +101,7 @@ def validate_plan(value: JSON) -> dict[str, Any]:
         for raw in exercises:
             exercise = _allowed(raw, EXERCISE)
             text(exercise.get("exercise"), limit=200)
-            for key in ("load", "work", "rir", "next_target"):
+            for key in ("load", "work", "rir", "next_target", "notes"):
                 if key in exercise:
                     text(exercise[key], limit=2000, empty=True)
             if "progression" in exercise:
@@ -111,13 +115,19 @@ def validate_plan(value: JSON) -> dict[str, Any]:
         if not isinstance(slots, dict) or len(slots) > 100:
             raise invalid()
         for slot in slots.values():
-            _allowed(slot, SLOT)
-    _allowed(program.get("lead_in"), LEAD)
+            entry = _allowed(slot, SLOT)
+            for item in entry.values():
+                text(item, limit=2000)
+    lead = _allowed(program.get("lead_in"), LEAD)
+    for item in lead.values():
+        text(item, limit=2000)
     monitoring = object_value(program.get("health_monitoring"), {"blood_pressure"})
     bp = object_value(monitoring["blood_pressure"], {"protocol", "safety", "baseline", "maintenance"})
+    for key in ("protocol", "safety"):
+        text(bp[key], limit=2000)
     for key in ("baseline", "maintenance"):
         phase = _allowed(bp[key], PHASE)
-        if "weekday" in phase and (type(phase["weekday"]) is not int or not 0 <= cast(int, phase["weekday"]) <= 6):
+        if "weekday" in phase and (type(phase["weekday"]) is not int or not 0 <= phase["weekday"] <= 6):
             raise invalid()
         sessions = phase.get("sessions")
         if not isinstance(sessions, list) or not 1 <= len(sessions) <= 10:

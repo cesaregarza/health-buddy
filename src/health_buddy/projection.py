@@ -92,10 +92,18 @@ def optional_sources(
                 health = candidate
             else:
                 # Explicit export contract: reported local wake date and duration.
+                if path.stat().st_size > 4_194_304:
+                    raise ValueError("Sleep export exceeds bounded source size")
                 records = parse_csv(path.read_text(), ["date", "sleep_hours"])
+                if len(records) > 10_000:
+                    raise ValueError("Sleep export exceeds bounded record count")
                 sleep = []
+                dates = set()
                 for row in records:
                     day = datetime.strptime(row["date"], "%Y-%m-%d").date().isoformat()
+                    if day in dates:
+                        raise ValueError("Sleep export has conflicting daily identity")
+                    dates.add(day)
                     hours = float(row["sleep_hours"])
                     if not math.isfinite(hours) or not 0 <= hours <= 24:
                         raise ValueError("Invalid duration")

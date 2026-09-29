@@ -11,14 +11,14 @@ import argparse
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Never, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import legacy
 from .config import Config
-from .domain import JSON, identifier, invalid, object_value
+from .domain import identifier, invalid, object_value
 from .legacy_store import csv_text, parse_csv
-from .service_api import ServiceError
+from .service_api import JSON, ServiceError
 
 FIELDS = {
     "measurement": "measured_at_local timezone weight_lb body_fat_pct muscle_mass_pct water_pct bmi bone_mass_pct source notes",
@@ -89,7 +89,7 @@ def namespace(kind: str, fields: dict[str, JSON], config: Config) -> argparse.Na
         if kind.startswith("workout-"):
             argv.insert(0, kind.split("-", 1)[1])
 
-    def reject(_message: str) -> None:
+    def reject(_message: str) -> Never:
         raise invalid()
 
     # Parser diagnostics can contain supplied values. Convert to a safe typed
@@ -122,6 +122,33 @@ def equipment(config: Config, rows: list[dict[str, str]]) -> None:
         known = identifiers.get(row["equipment"]) or aliases.get((row["exercise"], row["equipment"]))
         if known and (row["exercise"] != known["exercise"] or row["load_basis"] != known["loadBasis"]):
             raise invalid()
+
+
+def validate_input(kind: str, fields: dict[str, JSON], config: Config) -> None:
+    """Validate typed row values before retry lookup; no store reads here."""
+    args = namespace(kind, fields, config)
+    try:
+        if kind == "circumference":
+            legacy.module("log_circumference").build_row(args)
+        elif not kind.startswith("workout-"):
+            legacy.module("log_" + kind.replace("-", "_"))._row(args)
+        else:
+            writer = legacy.module("log_workout")
+            writer._nonempty("session_id", args.session_id)
+            if hasattr(args, "date"):
+                writer._date(args.date)
+            for field in ("duration_min", "load_lb", "duration_minutes", "duration_seconds", "level", "steps_per_min", "speed_mph", "incline_percent", "distance_value", "vertical_feet", "floors_climbed", "calories", "avg_heart_rate_bpm", "max_heart_rate_bpm"):
+                value = getattr(args, field, None)
+                if value is not None and value < 0:
+                    raise invalid()
+            for field in ("set_number", "set_count", "reps", "segment_number", "bodyweight_lb"):
+                value = getattr(args, field, None)
+                if value is not None and value <= 0:
+                    raise invalid()
+            if getattr(args, "rir", None) is not None and not 0 <= args.rir <= 10:
+                raise invalid()
+    except (ValueError, TypeError, KeyError, OverflowError) as exc:
+        raise invalid() from exc
 
 
 def _rows(files: dict[str, str], path: str, fields: list[str]) -> list[dict[str, str]]:
@@ -190,17 +217,17 @@ def transition(kind: str, intent: JSON, files: dict[str, str], config: Config) -
             else:
                 rows = _rows(files, path, headers)
             timestamp = "event_at_local" if kind == "intake" else "measured_at_local"
-            matches = [index for index, old in enumerate(rows) if old[timestamp] == row[timestamp]]
+            matched_indices = [index for index, old in enumerate(rows) if old[timestamp] == row[timestamp]]
             duplicate = row in rows
             if replace:
-                if len(matches) != 1:
+                if len(matched_indices) != 1:
                     raise conflict()
-                rows[matches[0]] = row
+                rows[matched_indices[0]] = row
             elif kind == "intake":
                 if not duplicate:
                     rows.append(row)
-            elif matches:
-                if len(matches) != 1 or not duplicate:
+            elif matched_indices:
+                if len(matched_indices) != 1 or not duplicate:
                     raise conflict()
             else:
                 rows.append(row)

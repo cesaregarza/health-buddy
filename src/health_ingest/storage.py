@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -101,7 +102,7 @@ class HealthRepository:
         self.database_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.database_path.exists():
             os.chmod(self.database_path, 0o600)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version not in {0, SCHEMA_VERSION}:
                 raise RuntimeError(
@@ -188,7 +189,8 @@ class HealthRepository:
         token = secrets.token_urlsafe(TOKEN_BYTES)
         salt = secrets.token_bytes(16)
         token_hash = _hash_token(token, salt)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
+            self._require_historical_store(connection)
             try:
                 connection.execute(
                     """
@@ -204,7 +206,8 @@ class HealthRepository:
 
     def revoke_device(self, device_id: str) -> bool:
         normalized_id = _device_uuid(device_id)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
+            self._require_historical_store(connection)
             cursor = connection.execute(
                 """
                 UPDATE devices
@@ -219,7 +222,7 @@ class HealthRepository:
         normalized_id = _device_uuid(device_id)
         if not token:
             raise AuthenticationError("invalid device credentials")
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             row = connection.execute(
                 """
                 SELECT token_salt, token_hash, revoked_at
@@ -236,9 +239,15 @@ class HealthRepository:
 
     def ingest(self, batch: Batch) -> IngestResult:
         """Historical internal helper; supported entrypoints use canonical ops."""
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
+            self._require_historical_store(connection)
             connection.execute("BEGIN IMMEDIATE")
             return self.apply_batch(connection, batch, _now())
+
+    @staticmethod
+    def _require_historical_store(connection: sqlite3.Connection) -> None:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE name='canonical_receiver'").fetchone():
+            raise ValueError("Use canonical operations for an adopted receiver")
 
     def apply_batch(
         self, connection: sqlite3.Connection, batch: Batch, received_at: str
@@ -427,7 +436,7 @@ class HealthRepository:
 
     def device_status(self, device_id: str) -> dict[str, str | int | None]:
         normalized_id = _device_uuid(device_id)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             row = connection.execute(
                 """
                 SELECT
@@ -470,7 +479,7 @@ class HealthRepository:
     def export_daily(self, output_path: Path) -> int:
         destination = output_path.expanduser().resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             rows = connection.execute(
                 """
                 SELECT

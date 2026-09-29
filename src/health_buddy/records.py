@@ -55,7 +55,7 @@ def natural_key(path: str, row: dict[str, str]) -> list[JSON]:
 def reindex(files: dict[str, str], *, received_at: str, source_id: str = "manual") -> str:
     prior = load_object(files, RECORD_INDEX)
     result: dict[str, JSON] = {}
-    old_entries = {key: cast(dict[str, JSON], value) for key, value in prior.items() if isinstance(value, dict)}
+    old_entries = {key: value for key, value in prior.items() if isinstance(value, dict)}
     if len(old_entries) != len(prior):
         raise ServiceError(409, "reconciliation_required")
     new_locators: set[tuple[str, str]] = set()
@@ -126,6 +126,33 @@ def row_time(row: dict[str, str], timezone: str) -> str:
         raise invalid() from exc
 
 
+# Units belong to individual measurements, never inferred from zero/empty data.
+NUMERIC_UNITS = {
+    "weight_lb": "lb", "bodyweight_lb": "lb", "load_lb": "lb",
+    "body_fat_pct": "%", "muscle_mass_pct": "%", "water_pct": "%", "bone_mass_pct": "%",
+    "bmi": "kg/m2", "waist_in": "in", "circumference_in": "in",
+    "calories_kcal": "kcal", "protein_g": "g", "carbohydrate_g": "g", "fat_g": "g",
+    "sodium_mg": "mg", "caffeine_mg": "mg", "systolic_mm_hg": "mmHg", "diastolic_mm_hg": "mmHg",
+    "pulse_bpm": "bpm", "avg_heart_rate_bpm": "bpm", "max_heart_rate_bpm": "bpm",
+    "duration_min": "min", "duration_seconds": "s", "speed_mph": "mi/h", "incline_percent": "%",
+    "steps_per_min": "count/min", "vertical_feet": "ft", "calories": "kcal",
+    "reading_number": "count", "set_number": "count", "set_count": "count", "segment_number": "count",
+    "reps": "count", "rir": "count", "floors_climbed": "count", "level": "device-level",
+}
+
+
+def typed_row(row: dict[str, str]) -> dict[str, JSON]:
+    values: dict[str, JSON] = {}
+    units = NUMERIC_UNITS | {"serving_quantity": row.get("serving_unit") or None, "distance_value": row.get("distance_unit") or None}
+    for key, value in row.items():
+        if key in units:
+            measurement = number(float(value), 0, 1_000_000_000) if value else None
+            values[key] = {"value": measurement, "unit": units[key], "missingness": None if value else "not_recorded"}
+        else:
+            values[key] = {"value": value or None, "unit": None, "missingness": None if value else "not_recorded"}
+    return values
+
+
 def csv_observations(files: dict[str, str], timezone: str, registry: dict[str, dict[str, JSON]]) -> list[Observation]:
     index = load_object(files, RECORD_INDEX)
     rows = {(path, digest(row)): row for path in KINDS for row in (parse_csv(files[path]) if path in files else [])}
@@ -144,14 +171,15 @@ def csv_observations(files: dict[str, str], timezone: str, registry: dict[str, d
         if source is None:
             raise ServiceError(503, "source_unavailable", retryable=True)
         unit: str | None = "composite"
-        measured: JSON = dict(row)
+        attributes = typed_row(row)
+        measured: JSON = attributes
         if path.endswith("measurements.csv"):
             measured = number(float(row["weight_lb"]), 0.000001, 1500)
             unit = "lb"
         elif path.endswith("waist.csv") or path.endswith("body_circumferences.csv"):
             measured = number(float(row.get("waist_in") or row["circumference_in"]), 0.000001, 200)
             unit = "in"
-        result.append(Observation(record_id, KINDS[path], measured, unit, row_time(row, timezone), instant(value.get("receivedAt")), source_id, text(source.get("source_kind")), row.get("timezone") or timezone))
+        result.append(Observation(record_id, KINDS[path], measured, unit, row_time(row, timezone), instant(value.get("receivedAt")), source_id, text(source.get("source_kind")), row.get("timezone") or timezone, attributes=attributes if unit != "composite" else None))
     if rows:
         raise ServiceError(503, "source_unavailable", retryable=True)
     return result
@@ -165,6 +193,7 @@ def json_observations(files: dict[str, str], timezone: str, registry: dict[str, 
         source = registry.get(source_id)
         if source is None:
             raise ServiceError(503, "source_unavailable", retryable=True)
+        normalize_intent({key: value for key, value in entry.items() if key != "receivedAt"})
         result.append(Observation(record_id, text(entry["kind"]), entry["value"], text(entry["unit"]), instant(entry["observedAt"]), instant(entry["receivedAt"]), source_id, text(source.get("source_kind")), timezone))
     return result
 
@@ -182,6 +211,8 @@ def normalize_intent(intent: JSON) -> dict[str, JSON]:
 
 def put(files: dict[str, str], record_id: str, intent: JSON, *, received_at: str, allowed_sources: frozenset[str], registry: dict[str, dict[str, JSON]]) -> tuple[dict[str, str], dict[str, JSON]]:
     identifier(record_id)
+    if record_id.startswith(("hk:", "sleep:")):
+        raise invalid()
     value = normalize_intent(intent)
     source_id = text(value["sourceId"])
     kind = text(value["kind"])

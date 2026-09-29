@@ -8,17 +8,18 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from . import legacy, plans, projection, snapshots
-from .domain import API_VERSION, MAX_BODY, MAX_DAYS, MAX_HEALTH_BODY, MAX_PLAN_BODY, MAX_RESPONSE, MAX_ROWS, check_identity, decode, digest, encode, envelope, identifier, invalid, object_value, text
+from .domain import API_VERSION, MAX_BODY, MAX_DAYS, MAX_HEALTH_BODY, MAX_PLAN_BODY, MAX_RESPONSE, MAX_ROWS, READ_OPERATIONS, WRITE_OPERATIONS, check_identity, decode, digest, encode, envelope, identifier, invalid, object_value, text
 from .durability import check_deadline, unavailable
 from .journal import State
 from .legacy_store import StoreError
 from .providers import Jev, ProviderUnavailable
-from .service_api import JSON, Authority, Request, Response, ServiceError
+from .policy import require_grant
+from .service_api import JSON, Authority, Operation, Request, Response, ServiceError
 
 if TYPE_CHECKING:
     from .operations import Service
 
-RECORD_FIELDS = frozenset({"schemaVersion", "id", "kind", "value", "unit", "observedAt", "receivedAt", "sourceId", "sourceKind", "timezone", "missingness", "provenance", "freshness"})
+RECORD_FIELDS = frozenset({"schemaVersion", "id", "kind", "value", "unit", "observedAt", "receivedAt", "sourceId", "sourceKind", "timezone", "missingness", "provenance", "freshness", "attributes"})
 LOGGER_KINDS = ("measurement", "intake", "blood-pressure", "circumference", "workout-start", "workout-set", "workout-cardio", "workout-finish")
 QUERY_KEYS = {
     "records.list": {"from", "to", "kinds", "sourceIds", "fields", "limit", "cursor"},
@@ -96,9 +97,18 @@ def _window(request: Request, service: Service) -> tuple[datetime, datetime]:
 
 
 def _records(service: Service, authority: Authority, request: Request, capture: dict[str, Any], stale: bool) -> dict[str, JSON]:
+    requested_sources = _csv(request.query.get("sourceIds"))
+    requested_kinds = _selection(_csv(request.query.get("kinds")), authority.read_kinds)
+    requested_window = _window(request, service) if "from" in request.query or "to" in request.query else None
+    statuses: dict[str, JSON] = {}
     for name, component in capture["components"].items():
         if authority.read_sources is not None and name not in authority.read_sources:
             continue
+        if requested_sources is not None and name not in requested_sources:
+            continue
+        statuses[name] = component["state"]
+        if not snapshots.covers(component["coverage"], requested_window, requested_kinds):
+            raise unavailable()
         truncated = component["state"].get("truncatedKinds", [])
         if truncated:
             raise ServiceError(413, "source_window_too_large", details={"reason": "narrow_date_range_or_record_kinds"})
@@ -115,8 +125,8 @@ def _records(service: Service, authority: Authority, request: Request, capture: 
         item = next((row for row in values if row["id"] == record_id), None)
         if item is None:
             raise ServiceError(404, "not_found")
-        return {"record": filtered(item), "stale": stale}
-    start, end = _window(request, service)
+        return {"record": filtered(item), "stale": stale or item.get("freshness") == "stale"}
+    start, end = requested_window or tuple(datetime.fromisoformat(value) for value in capture["window"])
     kinds, sources = _csv(request.query.get("kinds")), _csv(request.query.get("sourceIds"))
     limit = _count(request.query.get("limit"), 100, MAX_ROWS)
     values = [item for item in values if (kinds is None or item["kind"] in kinds) and (sources is None or item["sourceId"] in sources) and start <= datetime.fromisoformat(text(item["observedAt"]).replace("Z", "+00:00")) <= end]
@@ -140,7 +150,35 @@ def _records(service: Service, authority: Authority, request: Request, capture: 
     next_cursor = None
     if len(values) > limit:
         next_cursor = base64.urlsafe_b64encode(encode({"revision": capture["revision"], "scope": scope, "last": [page[-1]["observedAt"], page[-1]["id"]]})).decode()
-    return {"records": cast(list[JSON], [filtered(item) for item in page]), "nextCursor": next_cursor, "window": {"from": start.isoformat(), "to": end.isoformat()}, "timezone": service.config.zone.key, "stale": stale}
+    partial = stale or any(cast(dict[str, JSON], status)["availability"] == "unavailable" for status in statuses.values())
+    return {"records": cast(list[JSON], [filtered(item) for item in page]), "nextCursor": next_cursor, "window": {"from": start.isoformat(), "to": end.isoformat()}, "timezone": service.config.zone.key, "stale": partial, "sources": statuses}
+
+
+def _selection(requested: set[str] | None, granted: frozenset[str] | None) -> set[str] | None:
+    return requested if granted is None else set(granted) if requested is None else requested & granted
+
+
+def _get(service: Service, authority: Authority, request: Request, state: State) -> Response:
+    record_id = identifier(request.resource_id)
+    if record_id.startswith("hk:"):
+        item = snapshots.direct_health(service, state, record_id, authority)
+    elif record_id.startswith("sleep:"):
+        if not snapshots.allowed(authority, "sleepiq-export", "sleep-duration"):
+            raise ServiceError(404, "not_found")
+        capture = snapshots.capture(service, state, sources={"sleepiq-export"}, kinds={"sleep-duration"})
+        component = capture["components"].get("sleepiq-export")
+        if component is None or component["state"]["availability"] == "unavailable":
+            raise unavailable()
+        item = next((row for row in component["records"] if row["id"] == record_id), None)
+    else:
+        # Manual IDs never depend on optional history size or availability.
+        capture = snapshots.capture(service, state, sources=set())
+        item = next((row for row in snapshots.observations(capture, authority, service.config.zone.key) if row["id"] == record_id), None)
+    if item is None:
+        raise ServiceError(404, "not_found")
+    if authority.read_fields is not None:
+        item = {key: value for key, value in item.items() if key in authority.read_fields}
+    return envelope({"record": item, "stale": False}, state.identity, state.revision)
 
 
 def _context(service: Service, authority: Authority, request: Request, capture: dict[str, Any], stale: bool) -> dict[str, JSON]:
@@ -196,12 +234,12 @@ def _render(service: Service, authority: Authority, request: Request, state: Sta
         if stale:
             raise unavailable()
         provider = Jev(service.config)
+        fast = legacy.module("training_fast")
         try:
             provider.require_enabled()
             body = dict(request.query) if operation == "training.fast.read" else object_value(request.payload, {"date", "revision", "step"})
             day, revision_value = text(body.get("date"), limit=10), text(body.get("revision"), limit=40)
             dashboard = snapshots.dashboard(service, capture, authority)
-            fast = legacy.module("training_fast")
             plan = fast.select_plan(dashboard, day, revision_value, service.config.values["integrations"]["jev"]["model"])
             cache = fast.Store(service.config.storage("cache") / "training-fast")
 
@@ -215,6 +253,9 @@ def _render(service: Service, authority: Authority, request: Request, state: Sta
             data = cast(JSON, cache.step(plan, body.get("step"), provider.ask, still_current) if operation == "training.fast.write" else cache.get(plan))
         except ProviderUnavailable as exc:
             raise ServiceError(503, "provider_unavailable") from exc
+        except fast.FastError as exc:
+            status = exc.status if exc.status in {400, 409, 422, 503} else 422
+            raise ServiceError(status, "revision_conflict" if status == 409 else "invalid_plan" if status != 503 else "provider_unavailable") from exc
     else:
         raise invalid()
     return envelope(data, state.identity, capture["revision"])
@@ -224,7 +265,18 @@ def read(service: Service, authority: Authority, request: Request, state: State)
     validate(request, state)
     writable = "records:write" in authority.grants
     if request.operation == "capabilities":
-        data = {"apiVersion": 1, "schemaVersion": 1, "writable": writable, "healthkitReceiver": service.health.receiver, "limits": {"maxRows": MAX_ROWS, "maxDays": MAX_DAYS, "maxBodyBytes": MAX_BODY, "maxPlanBodyBytes": MAX_PLAN_BODY, "maxHealthkitBodyBytes": MAX_HEALTH_BODY}, "recordKinds": ["body-mass", "water-intake", "intake", "blood-pressure", "circumference", "workout-session", "workout-set", "cardio-segment"], "loggerKinds": list(LOGGER_KINDS)}
+        data: dict[str, JSON] = {"apiVersion": 1, "schemaVersion": 1, "writable": writable, "healthkitReceiver": service.health.receiver, "limits": {"maxRows": MAX_ROWS, "maxDays": MAX_DAYS, "maxBodyBytes": MAX_BODY, "maxPlanBodyBytes": MAX_PLAN_BODY, "maxHealthkitBodyBytes": MAX_HEALTH_BODY}, "recordKinds": ["body-mass", "water-intake", "intake", "blood-pressure", "circumference", "workout-session", "workout-set", "cardio-segment"], "loggerKinds": list(LOGGER_KINDS)}
+        available: list[JSON] = []
+        for operation in sorted(READ_OPERATIONS | WRITE_OPERATIONS | {"capabilities"}):
+            try:
+                require_grant(authority, cast(Operation, operation))
+            except ServiceError:
+                continue
+            if operation in {"context.intent", "training.fast.read", "training.fast.write"} and not service.config.enabled("jev"):
+                continue
+            available.append(operation)
+        data["availableOperations"] = available
+        data["sourceStatusOperation"] = "projection.status" if "records:read" in authority.grants else None
         return envelope(cast(JSON, data), state.identity, state.revision)
     if request.operation == "workouts.status":
         return envelope({"available": True, "writable": writable, "mode": "canonical-local", "reason": None}, state.identity, state.revision)
@@ -232,13 +284,13 @@ def read(service: Service, authority: Authority, request: Request, state: State)
         return envelope(_catalog(), state.identity, state.revision)
     if request.operation == "asset.read":
         name = request.resource_id
-        kinds = {"icon.svg": "image/svg+xml", "manifest.webmanifest": "application/manifest+json"}
-        if name not in kinds:
+        media_types = {"icon.svg": "image/svg+xml", "manifest.webmanifest": "application/manifest+json"}
+        if name not in media_types:
             raise ServiceError(404, "not_found")
-        raw = (legacy.DASHBOARD / "assets" / cast(str, name)).read_bytes()
+        raw = (legacy.DASHBOARD / "assets" / name).read_bytes()
         if len(raw) > 65536:
             raise unavailable()
-        return Response(200, raw, (("Content-Type", kinds[cast(str, name)]),))
+        return Response(200, raw, (("Content-Type", media_types[name]),))
     if request.operation == "context.intent":
         body = object_value(request.payload, {"text"})
         try:
@@ -248,11 +300,18 @@ def read(service: Service, authority: Authority, request: Request, state: State)
         result["days"] = min(MAX_DAYS, result["days"] or MAX_DAYS)
         return envelope(cast(JSON, result), state.identity, state.revision)
     try:
+        if request.operation == "records.get":
+            return _get(service, authority, request, state)
         window = _window(request, service) if request.operation == "records.list" else None
-        kinds = _csv(request.query.get("kinds")) if request.operation == "records.list" else None
-        capture = snapshots.capture(service, state, window=window, kinds=kinds)
+        kinds = _selection(_csv(request.query.get("kinds")) if request.operation == "records.list" else None, authority.read_kinds)
+        sources = _selection(_csv(request.query.get("sourceIds")) if request.operation == "records.list" else None, authority.read_sources)
+        capture = snapshots.capture(service, state, window=window, kinds=kinds, sources=sources)
         response = _render(service, authority, request, state, capture)
     except (OSError, StoreError):
+        return fallback(service, authority, request, state)
+    except ServiceError as exc:
+        if exc.code != "source_unavailable":
+            raise
         return fallback(service, authority, request, state)
     snapshots.remember(service, capture)
     return response
@@ -265,10 +324,21 @@ def fallback(service: Service, authority: Authority, request: Request, state: St
     capture = snapshots.cached(service, state)
     if capture is None:
         raise unavailable()
+    if request.operation == "records.get":
+        values = snapshots.observations(capture, authority, service.config.zone.key, stale=True)
+        item = next((row for row in values if row["id"] == identifier(request.resource_id)), None)
+        if item is None:
+            raise unavailable()
+        if authority.read_fields is not None:
+            item = {key: value for key, value in item.items() if key in authority.read_fields}
+        return envelope({"record": item, "stale": True}, state.identity, capture["revision"])
     # A narrow successful read never becomes an apparently complete fallback
     # for a broader request. Full dashboard captures have kinds=None.
-    if capture["kinds"] is not None:
-        requested = _csv(request.query.get("kinds")) if request.operation == "records.list" else None
-        if requested is None or not requested <= set(capture["kinds"]):
-            raise unavailable()
+    kinds = _selection(_csv(request.query.get("kinds")) if request.operation == "records.list" else None, authority.read_kinds)
+    sources = _selection(_csv(request.query.get("sourceIds")) if request.operation == "records.list" else None, authority.read_sources)
+    window = _window(request, service) if request.operation == "records.list" and ("from" in request.query or "to" in request.query) else None
+    if not snapshots.covers(capture, window, kinds):
+        raise unavailable()
+    if capture["sources"] is not None and (sources is None or not sources <= set(capture["sources"])):
+        raise unavailable()
     return _render(service, authority, request, state, capture, stale=True)

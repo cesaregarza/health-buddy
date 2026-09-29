@@ -16,7 +16,7 @@ from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
 from typing import cast
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from health_ingest.models import Batch, parse_batch
 from health_ingest.storage import BatchConflictError, HealthRepository
@@ -32,6 +32,7 @@ CREATE TABLE source_streams(source_id TEXT PRIMARY KEY, stream_id TEXT UNIQUE NO
 CREATE TABLE stream_objects(
  stream_id TEXT NOT NULL, record_id TEXT NOT NULL, type_identifier TEXT NOT NULL,
  canonical_device_id TEXT, record_digest TEXT, deleted_at TEXT,
+ observation_id TEXT UNIQUE NOT NULL,
  PRIMARY KEY(stream_id,record_id));
 CREATE TABLE delivery_provenance(
  stream_id TEXT NOT NULL, record_id TEXT NOT NULL, device_id TEXT NOT NULL,
@@ -170,20 +171,22 @@ class HealthStore:
         if result.duplicate_batch:
             return
         for record in batch.records:
+            observation_id = "hk:" + str(uuid5(NAMESPACE_URL, "health-buddy:" + stream_id + ":" + record.record_id))
             record_digest = hashlib.sha256(json.dumps(record.normalized, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()).hexdigest()
             prior = connection.execute("SELECT * FROM stream_objects WHERE stream_id=? AND record_id=?", (stream_id, record.record_id)).fetchone()
             if prior and (prior["type_identifier"] != record.type_identifier or (prior["record_digest"] is not None and prior["record_digest"] != record_digest and record.record_kind != "dailyAggregate")):
                 raise BatchConflictError("Canonical stream record conflict")
             connection.execute(
-                "INSERT INTO stream_objects VALUES (?,?,?,?,?,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET canonical_device_id=excluded.canonical_device_id,record_digest=excluded.record_digest",
-                (stream_id, record.record_id, record.type_identifier, batch.device_id, record_digest, None),
+                "INSERT INTO stream_objects VALUES (?,?,?,?,?,?,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET canonical_device_id=excluded.canonical_device_id,record_digest=excluded.record_digest",
+                (stream_id, record.record_id, record.type_identifier, batch.device_id, record_digest, None, observation_id),
             )
             connection.execute("INSERT INTO delivery_provenance VALUES (?,?,?,?) ON CONFLICT(stream_id,record_id,device_id) DO NOTHING", (stream_id, record.record_id, batch.device_id, received_at))
         for deletion in batch.deletions:
+            observation_id = "hk:" + str(uuid5(NAMESPACE_URL, "health-buddy:" + stream_id + ":" + deletion.record_id))
             prior = connection.execute("SELECT type_identifier FROM stream_objects WHERE stream_id=? AND record_id=?", (stream_id, deletion.record_id)).fetchone()
             if prior and prior[0] != deletion.type_identifier:
                 raise BatchConflictError("Canonical stream tombstone conflict")
-            connection.execute("INSERT INTO stream_objects VALUES (?,?,?,NULL,NULL,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET deleted_at=excluded.deleted_at", (stream_id, deletion.record_id, deletion.type_identifier, deletion.observed_at))
+            connection.execute("INSERT INTO stream_objects VALUES (?,?,?,NULL,NULL,?,?) ON CONFLICT(stream_id,record_id) DO UPDATE SET deleted_at=excluded.deleted_at", (stream_id, deletion.record_id, deletion.type_identifier, deletion.observed_at, observation_id))
 
     def validate(self, effect: dict[str, JSON]) -> None:
         """Domain conflict validation with rollback before the global decision."""
@@ -230,7 +233,20 @@ class HealthStore:
                 clauses.append("r.type_identifier=?")
                 parameters.append(type_id)
             parameters.append(limit)
-            rows = connection.execute("SELECT r.*, s.stream_id, p.source_id FROM canonical_records r JOIN stream_objects s ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id JOIN source_streams p ON p.stream_id=s.stream_id WHERE " + " AND ".join(clauses) + " ORDER BY julianday(r.start_at) DESC,r.record_id DESC LIMIT ?", parameters).fetchall()
+            rows = connection.execute("SELECT r.*, s.stream_id, s.observation_id, p.source_id FROM canonical_records r JOIN stream_objects s ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id JOIN source_streams p ON p.stream_id=s.stream_id WHERE " + " AND ".join(clauses) + " ORDER BY julianday(r.start_at) DESC,r.record_id DESC LIMIT ?", parameters).fetchall()
             return [cast(dict[str, JSON], dict(row)) for row in rows]
         finally:
             connection.close()
+
+    def get(self, observation_id: str) -> dict[str, JSON] | None:
+        """Indexed stable identity lookup, independent of projection windows."""
+        if not self.receiver:
+            raise unavailable()
+        private_file(self.path)
+        with closing(sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute("""SELECT r.*, s.stream_id, s.observation_id, p.source_id
+                FROM stream_objects s JOIN source_streams p ON p.stream_id=s.stream_id
+                JOIN records r ON r.record_id=s.record_id AND r.device_id=s.canonical_device_id
+                WHERE s.observation_id=? AND s.deleted_at IS NULL AND r.deleted_at IS NULL""", (observation_id,)).fetchone()
+            return cast(dict[str, JSON], dict(row)) if row else None

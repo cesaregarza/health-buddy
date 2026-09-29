@@ -195,7 +195,7 @@ def error_response(error: ServiceError, identity: Identity | None = None, data_r
     meta: dict[str, JSON] = {}
     if identity is not None and data_revision is not None and error.status != 401:
         meta = identity_value(identity) | {"dataRevision": data_revision, "apiVersion": 1}
-    headers = (("Content-Type", "application/json; charset=utf-8"),)
+    headers: tuple[tuple[str, str], ...] = (("Content-Type", "application/json; charset=utf-8"),)
     if error.retryable:
         headers += (("Retry-After", "2"),)
     return Response(error.status, encode({"error": detail, "meta": meta}), headers)
@@ -227,6 +227,7 @@ class Observation:
     source_kind: str
     timezone: str | None
     missingness: str | None = None
+    attributes: dict[str, JSON] | None = None
 
     def wire(self) -> dict[str, JSON]:
         return {
@@ -237,6 +238,7 @@ class Observation:
             "sourceKind": self.source_kind, "timezone": self.timezone,
             "missingness": self.missingness,
             "provenance": {"sourceId": self.source_id, "sourceKind": self.source_kind},
+            **({"attributes": self.attributes} if self.attributes is not None else {}),
         }
 
 
