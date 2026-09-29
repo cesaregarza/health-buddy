@@ -18,11 +18,26 @@ from uuid import uuid4
 
 from .config import Config
 from .domain import (
-    MAX_RESPONSE, check_identity, decode, digest, encode, identity_value,
-    object_value, revision,
+    MAX_RESPONSE,
+    check_identity,
+    decode,
+    digest,
+    encode,
+    identity_value,
+    object_value,
+    revision,
 )
 from .durability import atomic_bytes, exclusive, private_file
-from .service_api import JSON, Identity, Operation, Operations, Principal, Request, Response, ServiceError
+from .service_api import (
+    JSON,
+    Identity,
+    Operation,
+    Operations,
+    Principal,
+    Request,
+    Response,
+    ServiceError,
+)
 
 MAX_STATE = 8 * 1024 * 1024
 ROUTES = {
@@ -65,14 +80,20 @@ def response_identity(value: dict[str, JSON]) -> tuple[Identity, int]:
     except ServiceError as exc:
         raise ServiceError(503, "invalid_response", retryable=True) from exc
     current = meta.get("dataRevision")
-    if (type(current) is not int or not 0 <= cast(int, current) < 10**15
-        or type(meta.get("apiVersion")) is not int or meta["apiVersion"] != 1):
+    if (
+        type(current) is not int
+        or not 0 <= cast(int, current) < 10**15
+        or type(meta.get("apiVersion")) is not int
+        or meta["apiVersion"] != 1
+    ):
         raise ServiceError(503, "invalid_response", retryable=True)
     return identity, cast(int, current)
 
 
 class ClientWorkflow:
-    def __init__(self, config: Config, operations: Operations, principal: Principal | None) -> None:
+    def __init__(
+        self, config: Config, operations: Operations, principal: Principal | None
+    ) -> None:
         self.config = config
         self.operations = operations
         self.principal = principal
@@ -82,8 +103,10 @@ class ClientWorkflow:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         if not directory.is_dir() or stat.S_IMODE(directory.stat().st_mode) & 0o077:
             raise ServiceError(503, "client_state_unavailable")
-        return (self.config.path("personal/state/native-client.json"),
-                self.config.path("personal/state/native-client.lock"))
+        return (
+            self.config.path("personal/state/native-client.json"),
+            self.config.path("personal/state/native-client.lock"),
+        )
 
     def _load(self, path: Path) -> dict[str, Any] | None:
         private_file(path, missing=True)
@@ -91,15 +114,22 @@ class ClientWorkflow:
             return None
         try:
             with path.open("rb") as handle:
-                value = decode(handle.read(MAX_STATE + 1), limit=MAX_STATE, trusted=True)
+                value = decode(
+                    handle.read(MAX_STATE + 1), limit=MAX_STATE, trusted=True
+                )
         except ServiceError as exc:
             raise ServiceError(503, "client_state_unavailable") from exc
-        if (not isinstance(value, dict) or type(value.get("schemaVersion")) is not int or value["schemaVersion"] != 1
+        if (
+            not isinstance(value, dict)
+            or type(value.get("schemaVersion")) is not int
+            or value["schemaVersion"] != 1
             or value.get("state") not in ("pending", "complete", "discarded")
-            or type(value.get("cursor")) is not int or cast(int, value["cursor"]) < 0
+            or type(value.get("cursor")) is not int
+            or cast(int, value["cursor"]) < 0
             or not isinstance(value.get("envelope"), dict)
             or not isinstance(value.get("intentDigest"), str)
-            or not isinstance(value.get("principalBinding"), str)):
+            or not isinstance(value.get("principalBinding"), str)
+        ):
             raise ServiceError(503, "client_state_unavailable")
         state = cast(dict[str, Any], value)
         self._request(state["envelope"])
@@ -112,37 +142,71 @@ class ClientWorkflow:
         atomic_bytes(path, raw)
 
     def _request(self, envelope: dict[str, Any]) -> Request:
-        expected = {"operation", "resourceId", "method", "path", "query", "payload",
-                    "identity", "ifMatch", "idempotencyKey", "apiVersion"}
-        if (set(envelope) != expected or not isinstance(envelope["operation"], str)
-            or envelope["operation"] not in ROUTES):
+        expected = {
+            "operation",
+            "resourceId",
+            "method",
+            "path",
+            "query",
+            "payload",
+            "identity",
+            "ifMatch",
+            "idempotencyKey",
+            "apiVersion",
+        }
+        if (
+            set(envelope) != expected
+            or not isinstance(envelope["operation"], str)
+            or envelope["operation"] not in ROUTES
+        ):
             raise ServiceError(503, "client_state_unavailable")
         operation = cast(Operation, envelope["operation"])
         method, path = ROUTES[operation]
         resource = envelope["resourceId"]
         if operation in ("records.put", "logs.write"):
-            if not isinstance(resource, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", resource):
+            if not isinstance(resource, str) or not re.fullmatch(
+                r"[A-Za-z0-9_.:-]{1,128}", resource
+            ):
                 raise ServiceError(503, "client_state_unavailable")
             path += resource
         elif resource is not None:
             raise ServiceError(503, "client_state_unavailable")
-        if (envelope["method"] != method or envelope["path"] != path
-            or envelope["query"] != {} or envelope["apiVersion"] != "1"
+        if (
+            envelope["method"] != method
+            or envelope["path"] != path
+            or envelope["query"] != {}
+            or envelope["apiVersion"] != "1"
             or not isinstance(envelope["payload"], dict)
             or not isinstance(envelope["ifMatch"], str)
             or not isinstance(envelope["idempotencyKey"], str)
-            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", envelope["idempotencyKey"])):
+            or not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", envelope["idempotencyKey"]
+            )
+        ):
             raise ServiceError(503, "client_state_unavailable")
         try:
-            ident = object_value(envelope["identity"], {"installationId", "datasetId", "restoreEpoch"})
-            identity = Identity(*(cast(str, ident[key]) for key in ("installationId", "datasetId", "restoreEpoch")))
+            ident = object_value(
+                envelope["identity"], {"installationId", "datasetId", "restoreEpoch"}
+            )
+            identity = Identity(
+                *(
+                    cast(str, ident[key])
+                    for key in ("installationId", "datasetId", "restoreEpoch")
+                )
+            )
             check_identity(identity, identity)
             revision(envelope["ifMatch"])
         except ServiceError as exc:
             raise ServiceError(503, "client_state_unavailable") from exc
-        return Request(operation, resource_id=resource, payload=envelope["payload"],
-                       identity=identity, if_match=envelope["ifMatch"],
-                       idempotency_key=envelope["idempotencyKey"], api_version="1")
+        return Request(
+            operation,
+            resource_id=resource,
+            payload=envelope["payload"],
+            identity=identity,
+            if_match=envelope["ifMatch"],
+            idempotency_key=envelope["idempotencyKey"],
+            api_version="1",
+        )
 
     def _execute(self, path: Path, state: dict[str, Any]) -> dict[str, JSON]:
         binding = digest(self.principal.credential_id if self.principal else None)
@@ -161,24 +225,46 @@ class ClientWorkflow:
                 raise ServiceError(503, "invalid_receipt", retryable=True) from exc
             headers = {name.lower(): item for name, item in result.headers}
             data = value["data"]
-            if (headers.get("etag") != f'"rev-{current}"'
+            if (
+                headers.get("etag") != f'"rev-{current}"'
                 or current != revision(request.if_match) + 1
-                or not isinstance(data, dict) or data.get("saved") is not True
-                or (request.operation == "workouts.write" and (
-                    not isinstance(request.payload, dict)
-                    or data.get("sessionId") != request.payload.get("session_id")))
-                or (request.operation == "records.put" and data.get("recordId") != request.resource_id)
-                or (request.operation == "plan.write" and (
-                    not isinstance(request.payload, dict)
-                    or data.get("planId") != request.payload.get("programId")))):
+                or not isinstance(data, dict)
+                or data.get("saved") is not True
+                or (
+                    request.operation == "workouts.write"
+                    and (
+                        not isinstance(request.payload, dict)
+                        or data.get("sessionId") != request.payload.get("session_id")
+                    )
+                )
+                or (
+                    request.operation == "records.put"
+                    and data.get("recordId") != request.resource_id
+                )
+                or (
+                    request.operation == "plan.write"
+                    and (
+                        not isinstance(request.payload, dict)
+                        or data.get("planId") != request.payload.get("programId")
+                    )
+                )
+            ):
                 raise ServiceError(503, "invalid_receipt", retryable=True)
             if state["state"] == "complete":
                 prior = state.get("receipt")
-                if (not isinstance(prior, dict) or prior.get("status") != result.status
-                    or prior.get("bodyBase64") != base64.b64encode(result.body).decode("ascii")):
+                if (
+                    not isinstance(prior, dict)
+                    or prior.get("status") != result.status
+                    or prior.get("bodyBase64")
+                    != base64.b64encode(result.body).decode("ascii")
+                ):
                     raise ServiceError(503, "receipt_changed", retryable=True)
         except Exception as exc:
-            safe = exc if isinstance(exc, ServiceError) else ServiceError(503, "outcome_unknown", retryable=True)
+            safe = (
+                exc
+                if isinstance(exc, ServiceError)
+                else ServiceError(503, "outcome_unknown", retryable=True)
+            )
             state["lastError"] = {"code": safe.code, "status": safe.status}
             self._save(path, state)
             raise safe from None
@@ -186,25 +272,45 @@ class ClientWorkflow:
             state["cursor"] += 1
         state["state"] = "complete"
         state["lastError"] = None
-        state["receipt"] = {"status": result.status, "bodyBase64": base64.b64encode(result.body).decode("ascii"),
-                            "headers": [list(item) for item in result.headers]}
+        state["receipt"] = {
+            "status": result.status,
+            "bodyBase64": base64.b64encode(result.body).decode("ascii"),
+            "headers": [list(item) for item in result.headers],
+        }
         self._save(path, state)
         return value
 
     def write(
-        self, operation: Operation, build_payload: Callable[[], JSON], *,
-        intent: JSON, resource_id: str | None = None, new_write: bool = False,
-        identity: Identity | None = None, if_match: str | None = None,
+        self,
+        operation: Operation,
+        build_payload: Callable[[], JSON],
+        *,
+        intent: JSON,
+        resource_id: str | None = None,
+        new_write: bool = False,
+        identity: Identity | None = None,
+        if_match: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, JSON]:
         if operation not in ROUTES:
             raise ServiceError(422, "invalid_request")
-        supplied = any(item is not None for item in (identity, if_match, idempotency_key))
-        if supplied and any(item is None for item in (identity, if_match, idempotency_key)):
+        supplied = any(
+            item is not None for item in (identity, if_match, idempotency_key)
+        )
+        if supplied and any(
+            item is None for item in (identity, if_match, idempotency_key)
+        ):
             raise ServiceError(422, "incomplete_preconditions")
-        intent_digest = digest({"operation": operation, "resourceId": resource_id, "intent": intent,
-                                "identity": identity_value(identity) if identity else None,
-                                "ifMatch": if_match, "key": idempotency_key})
+        intent_digest = digest(
+            {
+                "operation": operation,
+                "resourceId": resource_id,
+                "intent": intent,
+                "identity": identity_value(identity) if identity else None,
+                "ifMatch": if_match,
+                "key": idempotency_key,
+            }
+        )
         path, lock = self._paths()
         with exclusive(lock, time.monotonic() + 40):
             state = self._load(path)
@@ -216,7 +322,9 @@ class ClientWorkflow:
                     return self._execute(path, state)
                 if state["state"] == "complete" and same and not new_write:
                     return self._execute(path, state)
-            capabilities = self.operations.execute(self.principal, Request("capabilities"))
+            capabilities = self.operations.execute(
+                self.principal, Request("capabilities")
+            )
             meta = decoded(capabilities)
             current_identity, current_revision = response_identity(meta)
             payload = build_payload()
@@ -224,16 +332,30 @@ class ClientWorkflow:
             if operation in ("records.put", "logs.write"):
                 route += resource_id or ""
             envelope = {
-                "operation": operation, "resourceId": resource_id, "method": method,
-                "path": route, "query": {}, "payload": payload,
+                "operation": operation,
+                "resourceId": resource_id,
+                "method": method,
+                "path": route,
+                "query": {},
+                "payload": payload,
                 "identity": identity_value(identity or current_identity),
                 "ifMatch": if_match or f'"rev-{current_revision}"',
-                "idempotencyKey": idempotency_key or str(uuid4()), "apiVersion": "1",
+                "idempotencyKey": idempotency_key or str(uuid4()),
+                "apiVersion": "1",
             }
             self._request(envelope)
-            state = {"schemaVersion": 1, "state": "pending", "cursor": state["cursor"] if state else 0,
-                     "intentDigest": intent_digest, "envelope": envelope, "receipt": None, "lastError": None,
-                     "principalBinding": digest(self.principal.credential_id if self.principal else None)}
+            state = {
+                "schemaVersion": 1,
+                "state": "pending",
+                "cursor": state["cursor"] if state else 0,
+                "intentDigest": intent_digest,
+                "envelope": envelope,
+                "receipt": None,
+                "lastError": None,
+                "principalBinding": digest(
+                    self.principal.credential_id if self.principal else None
+                ),
+            }
             self._save(path, state)
             return self._execute(path, state)
 
@@ -244,8 +366,12 @@ class ClientWorkflow:
             state = self._load(path)
             if state is None:
                 return {"state": "empty", "cursor": 0}
-            return {"state": state["state"], "cursor": state["cursor"],
-                    "operation": state["envelope"]["operation"], "lastError": state.get("lastError")}
+            return {
+                "state": state["state"],
+                "cursor": state["cursor"],
+                "operation": state["envelope"]["operation"],
+                "lastError": state.get("lastError"),
+            }
 
     def retry(self) -> dict[str, JSON]:
         path, lock = self._paths()

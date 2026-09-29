@@ -7,11 +7,21 @@ server provenance; its row fingerprint locates bytes, never generates an ID.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import cast
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from .domain import Observation, decode, digest, encode, identifier, instant, invalid, number, object_value, text
+from .domain import (
+    Observation,
+    decode,
+    digest,
+    encode,
+    identifier,
+    instant,
+    invalid,
+    number,
+    object_value,
+    text,
+)
 from .legacy_store import parse_csv
 from .service_api import JSON, ServiceError
 from .stores import OBSERVATIONS, RECORD_INDEX
@@ -52,10 +62,14 @@ def natural_key(path: str, row: dict[str, str]) -> list[JSON]:
     return [row["session_id"], row["activity"], row["segment_number"]]
 
 
-def reindex(files: dict[str, str], *, received_at: str, source_id: str = "manual") -> str:
+def reindex(
+    files: dict[str, str], *, received_at: str, source_id: str = "manual"
+) -> str:
     prior = load_object(files, RECORD_INDEX)
     result: dict[str, JSON] = {}
-    old_entries = {key: value for key, value in prior.items() if isinstance(value, dict)}
+    old_entries = {
+        key: value for key, value in prior.items() if isinstance(value, dict)
+    }
     if len(old_entries) != len(prior):
         raise ServiceError(409, "reconciliation_required")
     new_locators: set[tuple[str, str]] = set()
@@ -84,7 +98,11 @@ def reindex(files: dict[str, str], *, received_at: str, source_id: str = "manual
             raise ServiceError(409, "reconciliation_required")
         unchanged = bool(matches)
         if not matches:
-            matches = [key for key in by_key.get((path, digest(natural_key(path, row))), []) if key not in used]
+            matches = [
+                key
+                for key in by_key.get((path, digest(natural_key(path, row))), [])
+                if key not in used
+            ]
             if len(matches) > 1:
                 raise ServiceError(409, "reconciliation_required")
         record_id = matches[0] if matches else str(uuid4())
@@ -93,9 +111,13 @@ def reindex(files: dict[str, str], *, received_at: str, source_id: str = "manual
         used.add(record_id)
         old = old_entries.get(record_id, {})
         result[record_id] = {
-            "path": path, "key": natural_key(path, row), "locator": locator,
+            "path": path,
+            "key": natural_key(path, row),
+            "locator": locator,
             "sourceId": old.get("sourceId", source_id),
-            "receivedAt": old.get("receivedAt", received_at) if unchanged else received_at,
+            "receivedAt": old.get("receivedAt", received_at)
+            if unchanged
+            else received_at,
             "deleted": False,
         }
     for key, entry in old_entries.items():
@@ -114,13 +136,20 @@ def adopt(files: dict[str, str], received_at: str) -> dict[str, str]:
 
 
 def row_time(row: dict[str, str], timezone: str) -> str:
-    raw = row.get("measured_at_local") or row.get("event_at_local") or row.get("date") or row.get("session_date")
+    raw = (
+        row.get("measured_at_local")
+        or row.get("event_at_local")
+        or row.get("date")
+        or row.get("session_date")
+    )
     if raw is None:
         raise invalid()
     try:
         timestamp = datetime.fromisoformat(raw)
         if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=ZoneInfo(row.get("timezone") or timezone))
+            timestamp = timestamp.replace(
+                tzinfo=ZoneInfo(row.get("timezone") or timezone)
+            )
         return timestamp.astimezone(UTC).isoformat().replace("+00:00", "Z")
     except (ValueError, OverflowError) as exc:
         raise invalid() from exc
@@ -128,34 +157,77 @@ def row_time(row: dict[str, str], timezone: str) -> str:
 
 # Units belong to individual measurements, never inferred from zero/empty data.
 NUMERIC_UNITS = {
-    "weight_lb": "lb", "bodyweight_lb": "lb", "load_lb": "lb",
-    "body_fat_pct": "%", "muscle_mass_pct": "%", "water_pct": "%", "bone_mass_pct": "%",
-    "bmi": "kg/m2", "waist_in": "in", "circumference_in": "in",
-    "calories_kcal": "kcal", "protein_g": "g", "carbohydrate_g": "g", "fat_g": "g",
-    "sodium_mg": "mg", "caffeine_mg": "mg", "systolic_mm_hg": "mmHg", "diastolic_mm_hg": "mmHg",
-    "pulse_bpm": "bpm", "avg_heart_rate_bpm": "bpm", "max_heart_rate_bpm": "bpm",
-    "duration_min": "min", "duration_seconds": "s", "speed_mph": "mi/h", "incline_percent": "%",
-    "steps_per_min": "count/min", "vertical_feet": "ft", "calories": "kcal",
-    "reading_number": "count", "set_number": "count", "set_count": "count", "segment_number": "count",
-    "reps": "count", "rir": "count", "floors_climbed": "count", "level": "device-level",
+    "weight_lb": "lb",
+    "bodyweight_lb": "lb",
+    "load_lb": "lb",
+    "body_fat_pct": "%",
+    "muscle_mass_pct": "%",
+    "water_pct": "%",
+    "bone_mass_pct": "%",
+    "bmi": "kg/m2",
+    "waist_in": "in",
+    "circumference_in": "in",
+    "calories_kcal": "kcal",
+    "protein_g": "g",
+    "carbohydrate_g": "g",
+    "fat_g": "g",
+    "sodium_mg": "mg",
+    "caffeine_mg": "mg",
+    "systolic_mm_hg": "mmHg",
+    "diastolic_mm_hg": "mmHg",
+    "pulse_bpm": "bpm",
+    "avg_heart_rate_bpm": "bpm",
+    "max_heart_rate_bpm": "bpm",
+    "duration_min": "min",
+    "duration_seconds": "s",
+    "speed_mph": "mi/h",
+    "incline_percent": "%",
+    "steps_per_min": "count/min",
+    "vertical_feet": "ft",
+    "calories": "kcal",
+    "reading_number": "count",
+    "set_number": "count",
+    "set_count": "count",
+    "segment_number": "count",
+    "reps": "count",
+    "rir": "count",
+    "floors_climbed": "count",
+    "level": "device-level",
 }
 
 
 def typed_row(row: dict[str, str]) -> dict[str, JSON]:
     values: dict[str, JSON] = {}
-    units = NUMERIC_UNITS | {"serving_quantity": row.get("serving_unit") or None, "distance_value": row.get("distance_unit") or None}
+    units = NUMERIC_UNITS | {
+        "serving_quantity": row.get("serving_unit") or None,
+        "distance_value": row.get("distance_unit") or None,
+    }
     for key, value in row.items():
         if key in units:
             measurement = number(float(value), 0, 1_000_000_000) if value else None
-            values[key] = {"value": measurement, "unit": units[key], "missingness": None if value else "not_recorded"}
+            values[key] = {
+                "value": measurement,
+                "unit": units[key],
+                "missingness": None if value else "not_recorded",
+            }
         else:
-            values[key] = {"value": value or None, "unit": None, "missingness": None if value else "not_recorded"}
+            values[key] = {
+                "value": value or None,
+                "unit": None,
+                "missingness": None if value else "not_recorded",
+            }
     return values
 
 
-def csv_observations(files: dict[str, str], timezone: str, registry: dict[str, dict[str, JSON]]) -> list[Observation]:
+def csv_observations(
+    files: dict[str, str], timezone: str, registry: dict[str, dict[str, JSON]]
+) -> list[Observation]:
     index = load_object(files, RECORD_INDEX)
-    rows = {(path, digest(row)): row for path in KINDS for row in (parse_csv(files[path]) if path in files else [])}
+    rows = {
+        (path, digest(row)): row
+        for path in KINDS
+        for row in (parse_csv(files[path]) if path in files else [])
+    }
     result = []
     for record_id, value in index.items():
         if not isinstance(value, dict):
@@ -177,24 +249,57 @@ def csv_observations(files: dict[str, str], timezone: str, registry: dict[str, d
             measured = number(float(row["weight_lb"]), 0.000001, 1500)
             unit = "lb"
         elif path.endswith("waist.csv") or path.endswith("body_circumferences.csv"):
-            measured = number(float(row.get("waist_in") or row["circumference_in"]), 0.000001, 200)
+            measured = number(
+                float(row.get("waist_in") or row["circumference_in"]), 0.000001, 200
+            )
             unit = "in"
-        result.append(Observation(record_id, KINDS[path], measured, unit, row_time(row, timezone), instant(value.get("receivedAt")), source_id, text(source.get("source_kind")), row.get("timezone") or timezone, attributes=attributes if unit != "composite" else None))
+        result.append(
+            Observation(
+                record_id,
+                KINDS[path],
+                measured,
+                unit,
+                row_time(row, timezone),
+                instant(value.get("receivedAt")),
+                source_id,
+                text(source.get("source_kind")),
+                row.get("timezone") or timezone,
+                attributes=attributes if unit != "composite" else None,
+            )
+        )
     if rows:
         raise ServiceError(503, "source_unavailable", retryable=True)
     return result
 
 
-def json_observations(files: dict[str, str], timezone: str, registry: dict[str, dict[str, JSON]]) -> list[Observation]:
+def json_observations(
+    files: dict[str, str], timezone: str, registry: dict[str, dict[str, JSON]]
+) -> list[Observation]:
     result = []
     for record_id, value in load_object(files, OBSERVATIONS).items():
-        entry = object_value(value, {"kind", "value", "unit", "observedAt", "receivedAt", "sourceId"})
+        entry = object_value(
+            value, {"kind", "value", "unit", "observedAt", "receivedAt", "sourceId"}
+        )
         source_id = text(entry["sourceId"])
         source = registry.get(source_id)
         if source is None:
             raise ServiceError(503, "source_unavailable", retryable=True)
-        normalize_intent({key: value for key, value in entry.items() if key != "receivedAt"})
-        result.append(Observation(record_id, text(entry["kind"]), entry["value"], text(entry["unit"]), instant(entry["observedAt"]), instant(entry["receivedAt"]), source_id, text(source.get("source_kind")), timezone))
+        normalize_intent(
+            {key: value for key, value in entry.items() if key != "receivedAt"}
+        )
+        result.append(
+            Observation(
+                record_id,
+                text(entry["kind"]),
+                entry["value"],
+                text(entry["unit"]),
+                instant(entry["observedAt"]),
+                instant(entry["receivedAt"]),
+                source_id,
+                text(source.get("source_kind")),
+                timezone,
+            )
+        )
     return result
 
 
@@ -202,14 +307,33 @@ def normalize_intent(intent: JSON) -> dict[str, JSON]:
     value = object_value(intent, {"kind", "value", "unit", "observedAt", "sourceId"})
     source_id = identifier(value["sourceId"])
     kind, unit = text(value["kind"]), text(value["unit"])
-    bounds = {("body-mass", "kg"): (0.000001, 680), ("body-mass", "lb"): (0.000001, 1500), ("water-intake", "L"): (0, 20), ("water-intake", "mL"): (0, 20_000)}
+    bounds = {
+        ("body-mass", "kg"): (0.000001, 680),
+        ("body-mass", "lb"): (0.000001, 1500),
+        ("water-intake", "L"): (0, 20),
+        ("water-intake", "mL"): (0, 20_000),
+    }
     if (kind, unit) not in bounds:
         raise invalid()
     measurement = number(value["value"], *bounds[(kind, unit)])
-    return {"kind": kind, "value": measurement, "unit": unit, "observedAt": instant(value["observedAt"]), "sourceId": source_id}
+    return {
+        "kind": kind,
+        "value": measurement,
+        "unit": unit,
+        "observedAt": instant(value["observedAt"]),
+        "sourceId": source_id,
+    }
 
 
-def put(files: dict[str, str], record_id: str, intent: JSON, *, received_at: str, allowed_sources: frozenset[str], registry: dict[str, dict[str, JSON]]) -> tuple[dict[str, str], dict[str, JSON]]:
+def put(
+    files: dict[str, str],
+    record_id: str,
+    intent: JSON,
+    *,
+    received_at: str,
+    allowed_sources: frozenset[str],
+    registry: dict[str, dict[str, JSON]],
+) -> tuple[dict[str, str], dict[str, JSON]]:
     identifier(record_id)
     if record_id.startswith(("hk:", "sleep:")):
         raise invalid()
@@ -222,7 +346,11 @@ def put(files: dict[str, str], record_id: str, intent: JSON, *, received_at: str
     if record_id in load_object(files, RECORD_INDEX):
         raise ServiceError(409, "record_conflict")
     prior = current.get(record_id)
-    if prior is not None and (not isinstance(prior, dict) or prior.get("sourceId") != source_id or prior.get("kind") != kind):
+    if prior is not None and (
+        not isinstance(prior, dict)
+        or prior.get("sourceId") != source_id
+        or prior.get("kind") != kind
+    ):
         raise ServiceError(409, "record_conflict")
     stored = {**value, "receivedAt": received_at}
     current[record_id] = stored

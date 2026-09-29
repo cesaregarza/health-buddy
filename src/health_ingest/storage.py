@@ -246,7 +246,9 @@ class HealthRepository:
 
     @staticmethod
     def _require_historical_store(connection: sqlite3.Connection) -> None:
-        if connection.execute("SELECT 1 FROM sqlite_master WHERE name='canonical_receiver'").fetchone():
+        if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='canonical_receiver'"
+        ).fetchone():
             raise ValueError("Use canonical operations for an adopted receiver")
 
     def apply_batch(

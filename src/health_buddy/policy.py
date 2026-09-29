@@ -25,7 +25,9 @@ class _Denied(AbstractContextManager[Authority]):
 
 
 class DenyPolicy:
-    def guard(self, principal: Principal | None, operation: Operation) -> AbstractContextManager[Authority]:
+    def guard(
+        self, principal: Principal | None, operation: Operation
+    ) -> AbstractContextManager[Authority]:
         return _Denied()
 
 
@@ -36,7 +38,9 @@ class DevelopmentPolicy:
         self._lock = RLock()
 
     @contextmanager
-    def guard(self, principal: Principal | None, operation: Operation) -> Iterator[Authority]:
+    def guard(
+        self, principal: Principal | None, operation: Operation
+    ) -> Iterator[Authority]:
         with self._lock:
             if principal != DEVELOPMENT_PRINCIPAL:
                 raise ServiceError(401, "unauthenticated")

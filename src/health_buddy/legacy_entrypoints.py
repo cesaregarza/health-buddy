@@ -30,7 +30,8 @@ def delegate_logger(kind: str, argv: Sequence[str] | None = None) -> int:
     except ValueError:
         print(
             "Legacy logging requires explicit --workspace and a supported "
-            "operation; loose-file output is retired.", file=sys.stderr,
+            "operation; loose-file output is retired.",
+            file=sys.stderr,
         )
         return 2
     from .cli import main

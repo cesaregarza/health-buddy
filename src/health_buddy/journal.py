@@ -20,7 +20,13 @@ from typing import cast
 from uuid import uuid4
 
 from .domain import MAX_MANIFEST, MAX_RESPONSE, decode, encode, identity_value
-from .durability import atomic_bytes, check_deadline, fsync_path, private_file, unavailable
+from .durability import (
+    atomic_bytes,
+    check_deadline,
+    fsync_path,
+    private_file,
+    unavailable,
+)
 from .service_api import JSON, Identity, Response, ServiceError
 from .stores import CANONICAL_MARKER, ManualStore
 
@@ -74,7 +80,12 @@ class Effect:
     source: dict[str, JSON] | None = None
 
     def wire(self) -> dict[str, JSON]:
-        return {"oldHead": self.old_head, "newHead": self.new_head, "health": self.health, "source": self.source}
+        return {
+            "oldHead": self.old_head,
+            "newHead": self.new_head,
+            "health": self.health,
+            "source": self.source,
+        }
 
 
 class Journal:
@@ -119,8 +130,15 @@ class Journal:
             raise unavailable()
         try:
             value = json.loads(row["identity_json"])
-            identity = Identity(value["installationId"], value["datasetId"], value["restoreEpoch"])
-            return State(identity, row["revision"], row["manual_head"], bool(row["bootstrapping"]))
+            identity = Identity(
+                value["installationId"], value["datasetId"], value["restoreEpoch"]
+            )
+            return State(
+                identity,
+                row["revision"],
+                row["manual_head"],
+                bool(row["bootstrapping"]),
+            )
         except (ValueError, TypeError, KeyError) as exc:
             raise unavailable() from exc
 
@@ -140,7 +158,9 @@ class Journal:
         target = self.manual.prepare(changes, base, transaction_id)
         self.fault("bootstrap_objects")
         manifest = encode(Effect(base, target).wire())
-        descriptor, name = tempfile.mkstemp(prefix=".control-initial-", dir=self.directory)
+        descriptor, name = tempfile.mkstemp(
+            prefix=".control-initial-", dir=self.directory
+        )
         os.close(descriptor)
         stage = Path(name)
         try:
@@ -150,11 +170,25 @@ class Journal:
                 connection.execute("PRAGMA journal_mode=DELETE")
                 connection.executescript(SCHEMA)
                 with connection:
-                    connection.execute("INSERT INTO state VALUES (1,?,0,?,1,NULL)", (encode(identity_value(identity)).decode(), base))
+                    connection.execute(
+                        "INSERT INTO state VALUES (1,?,0,?,1,NULL)",
+                        (encode(identity_value(identity)).decode(), base),
+                    )
                     connection.execute(
                         "INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                        (transaction_id, "bootstrap", "bootstrap", "COMMIT_INTENT", 0, 0,
-                         manifest, hashlib.sha256(manifest).hexdigest(), 200, b"", b"[]"),
+                        (
+                            transaction_id,
+                            "bootstrap",
+                            "bootstrap",
+                            "COMMIT_INTENT",
+                            0,
+                            0,
+                            manifest,
+                            hashlib.sha256(manifest).hexdigest(),
+                            200,
+                            b"",
+                            b"[]",
+                        ),
                     )
             finally:
                 connection.close()
@@ -176,13 +210,18 @@ class Journal:
         if self.identity_path.read_bytes() != expected:
             raise unavailable()
         head, files = self.manual.snapshot()
-        if head != state.manual_head or files.get(CANONICAL_MARKER, "").strip().encode() != expected:
+        if (
+            head != state.manual_head
+            or files.get(CANONICAL_MARKER, "").strip().encode() != expected
+        ):
             raise unavailable()
         return state
 
     def lookup(self, key: str, request_digest: str) -> Response | None:
         with self.connection() as connection:
-            row = connection.execute("SELECT * FROM transactions WHERE ledger_key=?", (key,)).fetchone()
+            row = connection.execute(
+                "SELECT * FROM transactions WHERE ledger_key=?", (key,)
+            ).fetchone()
         if row is None:
             return None
         if row["request_digest"] != request_digest:
@@ -190,7 +229,11 @@ class Journal:
         if row["state"] != "COMMITTED":
             raise unavailable()
         headers = tuple(tuple(item) for item in json.loads(row["headers"]))
-        return Response(row["status"], bytes(row["response"]), headers + (("Idempotency-Replayed", "true"),))
+        return Response(
+            row["status"],
+            bytes(row["response"]),
+            headers + (("Idempotency-Replayed", "true"),),
+        )
 
     def commit(
         self,
@@ -203,7 +246,10 @@ class Journal:
         expected_revision: int,
         deadline: float | None,
     ) -> Response:
-        if len(receipt.body) > MAX_RESPONSE or len(encode([list(h) for h in receipt.headers])) > 8192:
+        if (
+            len(receipt.body) > MAX_RESPONSE
+            or len(encode([list(h) for h in receipt.headers])) > 8192
+        ):
             raise ServiceError(413, "response_too_large")
         state = self.verify()
         if state.revision != expected_revision or state.manual_head != effect.old_head:
@@ -216,9 +262,19 @@ class Journal:
         with self.connection() as connection, connection:
             connection.execute(
                 "INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (transaction_id, key, request_digest, "PREPARED", state.revision, state.revision + 1,
-                 manifest, hashlib.sha256(manifest).hexdigest(), receipt.status, receipt.body,
-                 encode([list(h) for h in receipt.headers])),
+                (
+                    transaction_id,
+                    key,
+                    request_digest,
+                    "PREPARED",
+                    state.revision,
+                    state.revision + 1,
+                    manifest,
+                    hashlib.sha256(manifest).hexdigest(),
+                    receipt.status,
+                    receipt.body,
+                    encode([list(h) for h in receipt.headers]),
+                ),
             )
         self._sync()
         self.fault("prepared")
@@ -226,7 +282,10 @@ class Journal:
         with self.connection() as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
             check_deadline(deadline)
-            connection.execute("UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=? AND state='PREPARED'", (transaction_id,))
+            connection.execute(
+                "UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=? AND state='PREPARED'",
+                (transaction_id,),
+            )
         self._sync()
         self.fault("commit_intent")
         # No deadline or cancellation check can abort this durable decision.
@@ -238,7 +297,9 @@ class Journal:
         state = self.state()
         with self.connection() as connection, connection:
             connection.execute("DELETE FROM transactions WHERE state='PREPARED'")
-            rows = connection.execute("SELECT * FROM transactions WHERE state='COMMIT_INTENT'").fetchall()
+            rows = connection.execute(
+                "SELECT * FROM transactions WHERE state='COMMIT_INTENT'"
+            ).fetchall()
         if len(rows) > 1:
             raise unavailable()
         for row in rows:
@@ -246,10 +307,20 @@ class Journal:
             if hashlib.sha256(raw).hexdigest() != row["manifest_digest"]:
                 raise unavailable()
             value = decode(raw, limit=MAX_MANIFEST, trusted=True)
-            if not isinstance(value, dict) or set(value) != {"oldHead", "newHead", "health", "source"}:
+            if not isinstance(value, dict) or set(value) != {
+                "oldHead",
+                "newHead",
+                "health",
+                "source",
+            }:
                 raise unavailable()
             old, new = value["oldHead"], value["newHead"]
-            if not isinstance(old, str) or not isinstance(new, str) or old != state.manual_head or row["old_revision"] != state.revision:
+            if (
+                not isinstance(old, str)
+                or not isinstance(new, str)
+                or old != state.manual_head
+                or row["old_revision"] != state.revision
+            ):
                 raise unavailable()
             self.manual.install(old, new)
             self.fault("git_installed")
@@ -260,55 +331,103 @@ class Journal:
                 self.apply_health(row["transaction_id"], health)
                 self.fault("health_installed")
             if state.bootstrapping:
-                identity_bytes = encode({"schemaVersion": 1, **identity_value(state.identity)})
-                if self.identity_path.exists() and self.identity_path.read_bytes() != identity_bytes:
+                identity_bytes = encode(
+                    {"schemaVersion": 1, **identity_value(state.identity)}
+                )
+                if (
+                    self.identity_path.exists()
+                    and self.identity_path.read_bytes() != identity_bytes
+                ):
                     raise unavailable()
                 atomic_bytes(self.identity_path, identity_bytes)
                 self.fault("bootstrap_identity")
             with self.connection() as connection, connection:
                 if health is not None:
-                    binding_row = connection.execute("SELECT receiver_binding FROM state WHERE singleton=1").fetchone()[0]
+                    binding_row = connection.execute(
+                        "SELECT receiver_binding FROM state WHERE singleton=1"
+                    ).fetchone()[0]
                     binding = json.loads(binding_row) if binding_row else None
                     if not isinstance(binding, dict):
                         raise unavailable()
                     binding["transactionId"] = row["transaction_id"]
-                    binding["manifestDigest"] = hashlib.sha256(encode(health)).hexdigest()
-                    connection.execute("UPDATE state SET receiver_binding=? WHERE singleton=1", (encode(binding).decode(),))
+                    binding["manifestDigest"] = hashlib.sha256(
+                        encode(health)
+                    ).hexdigest()
+                    connection.execute(
+                        "UPDATE state SET receiver_binding=? WHERE singleton=1",
+                        (encode(binding).decode(),),
+                    )
                 source = value["source"]
                 if source is not None:
-                    if not isinstance(source, dict) or set(source) != {"sourceId", "sourceKind", "deviceId", "streamId"}:
+                    if not isinstance(source, dict) or set(source) != {
+                        "sourceId",
+                        "sourceKind",
+                        "deviceId",
+                        "streamId",
+                    }:
                         raise unavailable()
-                    connection.execute("INSERT INTO sources VALUES (?,?,?,?)", (source["sourceId"], source["sourceKind"], source["deviceId"], source["streamId"]))
-                connection.execute("UPDATE state SET revision=?,manual_head=?,bootstrapping=0 WHERE singleton=1", (row["new_revision"], new))
-                connection.execute("UPDATE transactions SET state='COMMITTED' WHERE transaction_id=?", (row["transaction_id"],))
+                    connection.execute(
+                        "INSERT INTO sources VALUES (?,?,?,?)",
+                        (
+                            source["sourceId"],
+                            source["sourceKind"],
+                            source["deviceId"],
+                            source["streamId"],
+                        ),
+                    )
+                connection.execute(
+                    "UPDATE state SET revision=?,manual_head=?,bootstrapping=0 WHERE singleton=1",
+                    (row["new_revision"], new),
+                )
+                connection.execute(
+                    "UPDATE transactions SET state='COMMITTED' WHERE transaction_id=?",
+                    (row["transaction_id"],),
+                )
             self._sync()
             self.fault("finalized")
         self.verify()
 
     def sources(self) -> dict[str, dict[str, JSON]]:
         with self.connection() as connection:
-            rows = connection.execute("SELECT * FROM sources ORDER BY source_id").fetchall()
+            rows = connection.execute(
+                "SELECT * FROM sources ORDER BY source_id"
+            ).fetchall()
         return {row["source_id"]: cast(dict[str, JSON], dict(row)) for row in rows}
 
     def receiver_binding(self) -> dict[str, JSON] | None:
         with self.connection() as connection:
-            value = connection.execute("SELECT receiver_binding FROM state WHERE singleton=1").fetchone()[0]
+            value = connection.execute(
+                "SELECT receiver_binding FROM state WHERE singleton=1"
+            ).fetchone()[0]
         if value is None:
             return None
         parsed = decode(value)
-        if not isinstance(parsed, dict) or set(parsed) != {"receiverId", "path", "transactionId", "manifestDigest"}:
+        if not isinstance(parsed, dict) or set(parsed) != {
+            "receiverId",
+            "path",
+            "transactionId",
+            "manifestDigest",
+        }:
             raise unavailable()
         return parsed
 
     def bind_receiver(self, receiver_id: str, relative_path: str) -> None:
-        binding = {"receiverId": receiver_id, "path": relative_path, "transactionId": None, "manifestDigest": None}
+        binding = {
+            "receiverId": receiver_id,
+            "path": relative_path,
+            "transactionId": None,
+            "manifestDigest": None,
+        }
         prior = self.receiver_binding()
         if prior is not None:
             if prior["receiverId"] != receiver_id or prior["path"] != relative_path:
                 raise unavailable()
             return
         with self.connection() as connection, connection:
-            connection.execute("UPDATE state SET receiver_binding=? WHERE singleton=1", (encode(binding).decode(),))
+            connection.execute(
+                "UPDATE state SET receiver_binding=? WHERE singleton=1",
+                (encode(binding).decode(),),
+            )
         self._sync()
 
     def backup_inventory(self) -> tuple[Path, ...]:

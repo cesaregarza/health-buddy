@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import math
 import re
-from dataclasses import dataclass
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -223,7 +223,10 @@ def validate(values: Any, root: Path) -> Config:
         source = _object(integrations[name], fields, f"integrations.{name}")
         if type(source["enabled"]) is not bool:
             raise ConfigError(f"integrations.{name}.enabled must be boolean")
-    if not isinstance(healthkit["mode"], str) or healthkit["mode"] not in {"read-only", "receiver"}:
+    if not isinstance(healthkit["mode"], str) or healthkit["mode"] not in {
+        "read-only",
+        "receiver",
+    }:
         raise ConfigError("HealthKit mode must be read-only or receiver")
     relative_path(integrations["sleepiq"]["exportFile"], "sleepiq.exportFile")
     relative_path(integrations["jev"]["apiKeyFile"], "jev.apiKeyFile")

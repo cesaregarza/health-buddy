@@ -20,10 +20,16 @@ from .service_api import ServiceError
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--development", action="store_true",
-                        help="Explicit local owner authority; never remote authentication")
-    parser.add_argument("--new-write", action="store_true",
-                        help="Start a new intentionally repeated action; pending actions must be resolved first")
+    parser.add_argument(
+        "--development",
+        action="store_true",
+        help="Explicit local owner authority; never remote authentication",
+    )
+    parser.add_argument(
+        "--new-write",
+        action="store_true",
+        help="Start a new intentionally repeated action; pending actions must be resolved first",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init")
     commands.add_parser("render")
@@ -40,9 +46,14 @@ def main(argv: list[str] | None = None) -> int:
     log.add_argument("kind", choices=(*FIELDS, "workout"))
     log.add_argument("arguments", nargs=argparse.REMAINDER)
     pending = commands.add_parser("pending")
-    pending.add_argument("action", choices=("show", "retry", "discard"), nargs="?", default="show")
-    pending.add_argument("--acknowledge-possible-save", action="store_true",
-                         help="Discard retry state knowing the original write may already have saved; this does not undo it")
+    pending.add_argument(
+        "action", choices=("show", "retry", "discard"), nargs="?", default="show"
+    )
+    pending.add_argument(
+        "--acknowledge-possible-save",
+        action="store_true",
+        help="Discard retry state knowing the original write may already have saved; this does not undo it",
+    )
     args = parser.parse_args(argv)
     try:
         if args.command == "serve":
@@ -50,14 +61,21 @@ def main(argv: list[str] | None = None) -> int:
 
             # Construct the service inside Granian's child, never in this
             # supervisor before the factory crosses its process boundary.
-            serve(partial(open_service, args.workspace, development=args.development),
-                  port=args.port, development=args.development)
+            serve(
+                partial(open_service, args.workspace, development=args.development),
+                port=args.port,
+                development=args.development,
+            )
             return 0
         if args.command == "init":
             open_service(args.workspace)
-            print("Private canonical workspace ready. Optional sources stay explicitly configured.")
+            print(
+                "Private canonical workspace ready. Optional sources stay explicitly configured."
+            )
             return 0
-        app = App.development(args.workspace) if args.development else App(args.workspace)
+        app = (
+            App.development(args.workspace) if args.development else App(args.workspace)
+        )
         if args.command == "render":
             output = app.config.storage("cache") / "index.html"
             app.write_html(output)
@@ -80,13 +98,17 @@ def main(argv: list[str] | None = None) -> int:
                     raise ServiceError(422, "invalid_request")
                 result = app.workout(payload, new_write=args.new_write)
             else:
-                result = app.log_record(args.kind, args.arguments, new_write=args.new_write)
+                result = app.log_record(
+                    args.kind, args.arguments, new_write=args.new_write
+                )
             print(json.dumps(result))
         elif args.command == "pending":
             if args.action == "retry":
                 result = app.workflow.retry()
             elif args.action == "discard":
-                result = app.workflow.discard(acknowledge_possible_save=args.acknowledge_possible_save)
+                result = app.workflow.discard(
+                    acknowledge_possible_save=args.acknowledge_possible_save
+                )
             else:
                 result = app.workflow.inspect()
             print(json.dumps(result))
@@ -96,7 +118,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Health Buddy: {exc.code} (HTTP {exc.status}).", file=sys.stderr)
         return 2
     except (ConfigError, StoreError, OSError, ValueError, RuntimeError):
-        print("Health Buddy could not open or update this workspace. Existing records and retry state were preserved.", file=sys.stderr)
+        print(
+            "Health Buddy could not open or update this workspace. Existing records and retry state were preserved.",
+            file=sys.stderr,
+        )
         return 2
     return 0
 

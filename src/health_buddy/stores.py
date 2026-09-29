@@ -38,7 +38,11 @@ class ManualStore:
         for path in entries:
             if path.is_file():
                 fsync_path(path)
-        for path in sorted((path for path in entries if path.is_dir()), key=lambda path: len(path.parts), reverse=True):
+        for path in sorted(
+            (path for path in entries if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
             fsync_path(path)
         fsync_path(self.legacy.path)
         fsync_path(self.legacy.path.parent)
@@ -66,20 +70,38 @@ class ManualStore:
             raise unavailable()
         if not changes:
             return base
-        with tempfile.TemporaryDirectory(prefix="prepare-", dir=self.legacy.locks) as folder:
+        with tempfile.TemporaryDirectory(
+            prefix="prepare-", dir=self.legacy.locks
+        ) as folder:
             index = Path(folder) / "index"
             git(self.legacy.path, "read-tree", base, index=index)
             for name, content in changes.items():
                 # Paths are chosen by pure store adapters, still fail closed.
-                if not name.startswith(("data/", "plans/", "metadata/")) or any(
-                    part in ("", ".", "..") for part in name.split("/")
-                ) or not name.endswith((".csv", ".json")):
+                if (
+                    not name.startswith(("data/", "plans/", "metadata/"))
+                    or any(part in ("", ".", "..") for part in name.split("/"))
+                    or not name.endswith((".csv", ".json"))
+                ):
                     raise unavailable()
-                blob = git(self.legacy.path, "hash-object", "-w", "--stdin", data=content).strip()
-                git(self.legacy.path, "update-index", "--add", "--cacheinfo", f"100644,{blob},{name}", index=index)
+                blob = git(
+                    self.legacy.path, "hash-object", "-w", "--stdin", data=content
+                ).strip()
+                git(
+                    self.legacy.path,
+                    "update-index",
+                    "--add",
+                    "--cacheinfo",
+                    f"100644,{blob},{name}",
+                    index=index,
+                )
             tree = git(self.legacy.path, "write-tree", index=index).strip()
             commit = git(
-                self.legacy.path, "commit-tree", "--no-gpg-sign", tree, "-p", base,
+                self.legacy.path,
+                "commit-tree",
+                "--no-gpg-sign",
+                tree,
+                "-p",
+                base,
                 data="Canonical health transaction\n",
             ).strip()
         if not OID.fullmatch(commit):

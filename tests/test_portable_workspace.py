@@ -6,7 +6,7 @@ import copy
 import json
 import sqlite3
 import stat
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -24,7 +24,7 @@ from tests.synthetic_workspace import START, program
 class FixedDatetime(datetime):
     @classmethod
     def now(cls, tz=None):
-        value = datetime(2020, 1, 3, tzinfo=timezone.utc)
+        value = datetime(2020, 1, 3, tzinfo=UTC)
         return value.astimezone(tz) if tz else value.replace(tzinfo=None)
 
 
@@ -406,7 +406,10 @@ def test_healthkit_empty_auth_unknown_and_read_only(tmp_path):
     with patch("sqlite3.connect", side_effect=read_only_connect):
         data = app.snapshot()
     health_calls = [item for item in calls if str(path) in str(item[0])]
-    assert health_calls and all(str(database).endswith("?mode=ro") and options["uri"] is True for database, options in health_calls)
+    assert health_calls and all(
+        str(database).endswith("?mode=ro") and options["uri"] is True
+        for database, options in health_calls
+    )
     assert data["sources"]["healthkit"]["missingness"] == "no_data_or_denied_read"
     assert before == path.read_bytes()
     with sqlite3.connect(path) as connection:
@@ -457,7 +460,8 @@ def test_program_only_from_explicit_owner_file(tmp_path):
     path = tmp_path / "fabricated-program.json"
     path.write_text(json.dumps(program()))
     app.set_plan(path)
-    now = datetime.combine(START, datetime.min.time(), timezone.utc)
+    now = datetime.combine(START, datetime.min.time(), UTC)
+
     class ProgramDatetime(datetime):
         @classmethod
         def now(cls, tz=None):
@@ -576,8 +580,14 @@ def test_malformed_optional_fields_preserve_real_manual_projection(tmp_path):
             "-1",
         ),
         (
-            "quantity", "HKQuantityTypeIdentifierBodyMass", None, None,
-            "2020-01-01T12:00:00Z", "2020-01-01T13:00:00Z", None, "0.0001",
+            "quantity",
+            "HKQuantityTypeIdentifierBodyMass",
+            None,
+            None,
+            "2020-01-01T12:00:00Z",
+            "2020-01-01T13:00:00Z",
+            None,
+            "0.0001",
         ),
     ]
     for kind, identifier, workout_json, source, start, end, local_date, value in cases:

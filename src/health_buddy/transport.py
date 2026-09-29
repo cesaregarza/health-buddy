@@ -108,8 +108,15 @@ ENDPOINTS = (
         frozenset({"date", "revision"}),
     ),
     Endpoint("/v1/training/fast", "POST", "training.fast.write"),
-    Endpoint("/", "GET", "dashboard.read", frozenset({"export", "format", "tab", "theme"})),
-    Endpoint("/index.html", "GET", "dashboard.read", frozenset({"export", "format", "tab", "theme"})),
+    Endpoint(
+        "/", "GET", "dashboard.read", frozenset({"export", "format", "tab", "theme"})
+    ),
+    Endpoint(
+        "/index.html",
+        "GET",
+        "dashboard.read",
+        frozenset({"export", "format", "tab", "theme"}),
+    ),
     Endpoint("/icon.svg", "GET", "asset.read", resource="icon.svg"),
     Endpoint(
         "/manifest.webmanifest", "GET", "asset.read", resource="manifest.webmanifest"
