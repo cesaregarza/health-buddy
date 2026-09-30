@@ -30,10 +30,18 @@ def handle(args: argparse.Namespace) -> int:
     if args.development or args.credential_file is None:
         raise ServiceError(401, "upgrade_requires_explicit_owner_credential")
     runtime = open_runtime(args.workspace)
-    owner = runtime.security.authenticate(BearerProof(read_credential(args.credential_file)))
+    owner = runtime.security.authenticate(
+        BearerProof(read_credential(args.credential_file))
+    )
     result = stage(
-        runtime, owner.principal, args.manifest, args.manifest_sha256,
-        args.architecture, args.archive, args.key_file, args.candidate,
+        runtime,
+        owner.principal,
+        args.manifest,
+        args.manifest_sha256,
+        args.architecture,
+        args.archive,
+        args.key_file,
+        args.candidate,
         confirm_quiesced=args.confirm_quiesced,
     )
     print(json.dumps(result, indent=2))
