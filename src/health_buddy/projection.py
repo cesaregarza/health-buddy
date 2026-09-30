@@ -287,6 +287,9 @@ def project_files(
     records = sum(
         len(parse_csv(text)) for name, text in files.items() if name.endswith(".csv")
     )
+    # The caller retains its admitted component map for grouping and error
+    # state. Own the rendered map before adding the built-in manual status.
+    sources = dict(sources)
     sources["manual"] = source_state(
         "available" if records else "empty",
         "none" if records else "no_records",

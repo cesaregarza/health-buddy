@@ -134,15 +134,17 @@ session rediscovers the currently admitted ready descriptor; it must not reuse
 old extension metadata after a native edit or assume omitted extensions exist.
 Broader host-specific scaffold/agent guidance remains a separate deliverable.
 
-Observed diagnostics at `14048b62` passed 107 of 108 focused cases, including
-actual SDK processes over a synthetic HTTPS proxy, Granian UDS, the security
-authority and canonical service. The oversized-frame case failed in its test
-harness before transport; the source now supplies short IDs. That run also
-reported static issues and missing optional type-environment dependencies.
-Cancellation-slot, non-creating lookup and fresh-session regressions added
-afterward are authored, pending the next exact queue receipt. Full verification
-uses `.[dev,sleepiq,mcp]`, `make test lint typecheck`, and the remaining documented
-gates. Complete bundled dependency notices remain pending; declared wheel
-licenses alone do not establish them. The synthetic proxy does not qualify a
-Tailscale deployment or actual Codex/Claude host setup. Neither focused tests
-nor wheel metadata substitute for those remaining gates.
+Observed diagnostics at `ab9d3853` passed 112 of 113 focused cases, maintained
+lint and full configured type checking. Those cases include actual SDK
+processes over a synthetic HTTPS proxy, Granian UDS, the security authority and
+canonical service, plus cancellation, retry capacity and malformed-frame
+regressions. The remaining fresh-session test exposed a source-status grouping
+bug before its later native customization assertions ran. The source now keeps
+rendered status separate from admitted component metadata and limits the
+HealthKit group to actual HealthKit components. New canonical scope regressions
+and the full fresh-session path need the next exact queue receipt.
+Full verification uses `.[dev,sleepiq,mcp]`, `make test lint typecheck`, and the
+remaining documented gates. Complete bundled dependency notices remain pending;
+declared wheel licenses alone do not establish them. The synthetic proxy does
+not qualify a Tailscale deployment or actual Codex/Claude host setup. Neither
+focused tests nor wheel metadata substitute for those remaining gates.

@@ -80,7 +80,8 @@ runs root tests plus both packaged reference suites without bytecode/cache
 writes; `make extension-test` selects the focused extension suites and those
 same reference cases. `make lint` retains its existing source scope and adds
 extension test/support and browser files, plus the MCP tests/support and
-workspace discovery tests. Full verification installs the optional `mcp` extra
+workspace discovery and canonical source-status regression tests. Full
+verification installs the optional `mcp` extra
 so root pytest and configured mypy see the actual SDK/HTTPX2 types; backend
 runtime installation alone does not need this extra. Strict mypy retains
 all current source modules, including the maintained examples; the matching

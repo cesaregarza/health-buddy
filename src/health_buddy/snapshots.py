@@ -779,7 +779,10 @@ def dashboard(
         now=now,
     )
     health_statuses = [
-        value for key, value in sources.items() if key != "sleepiq-export"
+        value
+        for key, value in sources.items()
+        if key in {"healthkit", "healthkit-import"}
+        or captured["registry"].get(key, {}).get("source_kind") == "healthkit"
     ]
     if health_statuses:
         # Familiar UI group labels summarize only admitted source components.
