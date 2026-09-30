@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, "/opt/health-buddy/source/src")
 
-from health_buddy.domain import digest, encode
+from health_buddy.domain import digest, encode, identity_value
 from health_buddy.durability import atomic_bytes
 from health_buddy.extension_api import PrepareConnector
 from health_buddy.extension_install import install
@@ -20,7 +20,7 @@ from health_buddy.extension_jobs import run_event
 from health_buddy.extension_prepare import prepare
 from health_buddy.extension_registry import Registry
 from health_buddy.packaged_runtime import open_packaged
-from health_buddy.security_api import BearerProof
+from health_buddy.security_api import AgentGrant, BearerProof, SecurityRequest
 from health_buddy.security_runtime import read_credential, setup_security
 from health_buddy.service_api import Request
 
@@ -103,6 +103,35 @@ def seed() -> None:
     atomic_bytes(QUALIFICATION / "personal.json", encode(personal_inventory()))
     atomic_bytes(QUALIFICATION / "seeded", b"synthetic-only\n")
     check()
+
+
+def seed_sdk() -> None:
+    """OS-owner synthetic handoff; the host client never opens this authority."""
+    check()
+    runtime = open_packaged(ROOT)
+    owner = runtime.security.authenticate(BearerProof(read_credential(OWNER)))
+    identity = runtime.operations.journal.state().identity
+    reply = runtime.security.execute(
+        owner.principal,
+        SecurityRequest(
+            "grants.create",
+            identity=identity,
+            payload=AgentGrant(
+                "Synthetic packaged SDK agent",
+                ("records:read", "records:write"),
+                source_ids=("manual",),
+                read_sources=("manual",),
+                read_kinds=None,
+                read_fields=None,
+            ),
+        ),
+    )
+    assert reply.secret is not None, "Synthetic SDK grant unavailable"
+    token = ROOT / "secrets/synthetic-sdk-token"
+    with token.open("xb") as stream:
+        stream.write(reply.secret.value.encode("ascii"))
+    token.chmod(0o600)
+    atomic_bytes(QUALIFICATION / "sdk-identity.json", encode(identity_value(identity)))
 
 
 def check() -> None:
@@ -319,6 +348,8 @@ if __name__ == "__main__":
         raise SystemExit(0)
     if len(sys.argv) == 2 and sys.argv[1] == "seed":
         seed()
+    elif len(sys.argv) == 2 and sys.argv[1] == "seed-sdk":
+        seed_sdk()
     elif len(sys.argv) == 2 and sys.argv[1] == "ordinary-check":
         ordinary_check()
     elif len(sys.argv) == 2 and sys.argv[1] == "check":

@@ -11,17 +11,68 @@ concurrency:
   group: controlled-runtime-candidate
   cancel-in-progress: false
 jobs:
-  native:
-    strategy:
-      fail-fast: true
-      max-parallel: 1
-      matrix:
-        include:
-          - architecture: amd64
-            runner: ubuntu-24.04
-          - architecture: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+  native_amd64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Prepare exact AMD host SDK profile
+        timeout-minutes: 6
+        env:
+          SDK_OUTPUT: ${{ runner.temp }}/hb-sdk-host
+        run: python3.12 -I -B packaging/setup_sdk_host.py --output "$SDK_OUTPUT"
+      - name: Native build and whole-workspace qualification
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_ARCH: amd64
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-amd64
+          SDK_PYTHON: ${{ runner.temp }}/hb-sdk-host/venv/bin/python
+        run: >-
+          python3 packaging/verify_runtime.py --architecture "$CANDIDATE_ARCH"
+          --revision "$CANDIDATE_SHA" --output "$CANDIDATE_OUTPUT"
+          --sdk-python "$SDK_PYTHON"
+      - name: Retain private immutable candidate and safe receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-amd64-${{ github.sha }}
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-runtime-amd64/health-buddy-linux-amd64.docker.tar
+            ${{ runner.temp }}/hb-runtime-amd64/qualification.json
+            ${{ runner.temp }}/hb-runtime-amd64/build-metadata.json
+            ${{ runner.temp }}/hb-runtime-amd64/build.log
+            ${{ runner.temp }}/hb-runtime-amd64/license-inventory.log
+            ${{ runner.temp }}/hb-runtime-amd64/capture-installed-inputs-json.log
+            ${{ runner.temp }}/hb-runtime-amd64/capture-build-resources-json.log
+      - name: Retain AMD SDK qualification receipts
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: packaged-sdk-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-sdk-host/receipt.json
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-initial.log
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-recreated.log
+      - name: Retain safe failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-failure-amd64-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/hb-runtime-amd64/build.log
+            ${{ runner.temp }}/hb-runtime-amd64/docker-version.log
+            ${{ runner.temp }}/hb-runtime-amd64/builder.log
+  native_arm64:
+    needs: native_amd64
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -30,41 +81,39 @@ jobs:
       - name: Native build and whole-workspace qualification
         env:
           CANDIDATE_SHA: ${{ github.sha }}
-          CANDIDATE_ARCH: ${{ matrix.architecture }}
-          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}
+          CANDIDATE_ARCH: arm64
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-arm64
         run: >-
-          python3 packaging/verify_runtime.py
-          --architecture "$CANDIDATE_ARCH"
-          --revision "$CANDIDATE_SHA"
-          --output "$CANDIDATE_OUTPUT"
+          python3 packaging/verify_runtime.py --architecture "$CANDIDATE_ARCH"
+          --revision "$CANDIDATE_SHA" --output "$CANDIDATE_OUTPUT"
       - name: Retain private immutable candidate and safe receipts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: runtime-${{ matrix.architecture }}-${{ github.sha }}
+          name: runtime-arm64-${{ github.sha }}
           retention-days: 14
           compression-level: 0
           if-no-files-found: error
           path: |
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/health-buddy-linux-${{ matrix.architecture }}.docker.tar
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/qualification.json
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/build-metadata.json
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/build.log
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/license-inventory.log
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/capture-installed-inputs-json.log
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/capture-build-resources-json.log
+            ${{ runner.temp }}/hb-runtime-arm64/health-buddy-linux-arm64.docker.tar
+            ${{ runner.temp }}/hb-runtime-arm64/qualification.json
+            ${{ runner.temp }}/hb-runtime-arm64/build-metadata.json
+            ${{ runner.temp }}/hb-runtime-arm64/build.log
+            ${{ runner.temp }}/hb-runtime-arm64/license-inventory.log
+            ${{ runner.temp }}/hb-runtime-arm64/capture-installed-inputs-json.log
+            ${{ runner.temp }}/hb-runtime-arm64/capture-build-resources-json.log
       - name: Retain safe failure diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: runtime-failure-${{ matrix.architecture }}-${{ github.sha }}
+          name: runtime-failure-arm64-${{ github.sha }}
           retention-days: 7
           if-no-files-found: ignore
           path: |
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/build.log
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/docker-version.log
-            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/builder.log
+            ${{ runner.temp }}/hb-runtime-arm64/build.log
+            ${{ runner.temp }}/hb-runtime-arm64/docker-version.log
+            ${{ runner.temp }}/hb-runtime-arm64/builder.log
   manifest:
-    needs: native
+    needs: [native_amd64, native_arm64]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

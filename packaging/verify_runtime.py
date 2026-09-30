@@ -52,6 +52,9 @@ class Qualification:
         }
         (output / "docker-config").mkdir(mode=0o700)
         self.compose: list[str] = []
+        self.origin = "https://health.example.invalid"
+        self.sdk_python: Path | None = None
+        self.sdk_listener: socket.socket | None = None
 
     def run(
         self,
@@ -61,6 +64,7 @@ class Qualification:
         timeout: int = 60,
         expected: int = 0,
         cleanup: bool = False,
+        pass_fds: tuple[int, ...] = (),
     ) -> bytes:
         if not cleanup and shutil.disk_usage(self.output).free < MIN_FREE:
             raise ManifestError("runtime_qualification_disk_reserve")
@@ -72,6 +76,8 @@ class Qualification:
                 env=self.environment,
                 stdout=stream,
                 stderr=subprocess.STDOUT,
+                pass_fds=pass_fds,
+                start_new_session=bool(pass_fds),
             )
             try:
                 while process.poll() is None:
@@ -134,7 +140,7 @@ class Qualification:
             connection.connect(str(path))
             headers = (
                 f"GET {route} HTTP/1.1\r\nHost: localhost\r\n"
-                "X-Forwarded-Host: health.example.invalid\r\n"
+                f"X-Forwarded-Host: {self.origin.removeprefix('https://')}\r\n"
                 "X-Forwarded-Proto: https\r\nConnection: close\r\n"
             )
             if token is not None:
@@ -155,6 +161,38 @@ class Qualification:
         return bytes(result)
 
     def execute(self) -> None:
+        if self.architecture == "amd64" and self.sdk_python is None:
+            raise ManifestError("amd64_packaged_sdk_interpreter_required")
+        if self.architecture != "amd64" and self.sdk_python is not None:
+            raise ManifestError("sdk_host_profile_is_amd64_only")
+        try:
+            self._execute()
+        finally:
+            if self.sdk_listener is not None:
+                self.sdk_listener.close()
+
+    def sdk_phase(self, phase: str, workspace: Path, bundle: Path) -> None:
+        if self.sdk_python is None or self.sdk_listener is None:
+            raise ManifestError("packaged_sdk_not_configured")
+        raw = self.run(
+            "sdk-" + phase,
+            [
+                str(self.sdk_python), "-I", "-B",
+                str(SOURCE / "packaging/verify_packaged_mcp.py"),
+                "--phase", phase, "--workspace", str(workspace),
+                "--bundle", str(bundle), "--state", str(self.output / "sdk-private"),
+                "--listener-fd", str(self.sdk_listener.fileno()),
+            ],
+            timeout=200,
+            pass_fds=(self.sdk_listener.fileno(),),
+        )
+        result = json.loads(raw)
+        if (result.get("result") != "passed" or result.get("phase") != phase
+                or result.get("backend") != "loaded-compose-image"
+                or result.get("source", {}).get("sourceCommit") != self.revision):
+            raise ManifestError("invalid_packaged_sdk_receipt")
+
+    def _execute(self) -> None:
         if os.geteuid() == 0 or os.getegid() == 0:
             raise ManifestError("use_nonroot_native_runner_identity")
         actual = {"x86_64": "amd64", "aarch64": "arm64"}.get(platform.machine())
@@ -250,6 +288,15 @@ class Qualification:
         if len(os.fsencode(workspace / "security/runtime/http.sock")) > 103:
             raise ManifestError("runtime_fixture_socket_path_too_long")
         workspace.mkdir(mode=0o700)
+        if self.sdk_python is not None:
+            native_directory(self.sdk_python.parent)
+            executable = self.sdk_python.lstat()
+            if not stat.S_ISREG(executable.st_mode) or not executable.st_mode & 0o111:
+                raise ManifestError("sdk_interpreter_must_be_native_regular_executable")
+            self.sdk_listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sdk_listener.bind(("127.0.0.1", 0))
+            self.sdk_listener.listen(8)
+            self.origin = f"https://127.0.0.1:{self.sdk_listener.getsockname()[1]}"
         envfile = self.output / "runtime.env"
         envfile.write_text(
             f"HB_IMAGE={loaded_id}\nHB_UID={os.geteuid()}\nHB_GID={os.getegid()}\nHB_WORKSPACE={workspace}\n"
@@ -276,7 +323,7 @@ class Qualification:
                 "api",
                 "init",
                 "--external-origin",
-                "https://health.example.invalid",
+                self.origin,
                 "--owner-subject",
                 "owner@example.invalid",
             )
@@ -293,6 +340,11 @@ class Qualification:
                 script,
                 "seed",
             )
+            if self.sdk_python is not None:
+                self.cp(
+                    "seed-sdk", "run", "--rm", "--no-deps", "--entrypoint",
+                    "python", "api", "-I", "-B", script, "seed-sdk",
+                )
             self.cp("start", "up", "--detach", "--no-build", "--pull", "never", "api")
             container = self.wait_ready("initial")
             metadata = json.loads(
@@ -331,6 +383,8 @@ class Qualification:
             for route in ("/", "/extension-worker.js"):
                 if not self.uds(socket_path, route, owner).startswith(b"HTTP/1.1 200"):
                     raise ManifestError("packaged_dashboard_or_worker_unavailable")
+            if self.sdk_python is not None:
+                self.sdk_phase("initial", workspace, bundle)
             self.cp(
                 "ordinary-job",
                 "run",
@@ -454,6 +508,8 @@ class Qualification:
                 script,
                 "check",
             )
+            if self.sdk_python is not None:
+                self.sdk_phase("recreated", workspace, bundle)
             self.cp(
                 "license-inventory",
                 "run",
@@ -495,6 +551,12 @@ class Qualification:
                     "apiAndJobMemoryBytes": 1024**3,
                     "apiAndJobCpu": 2,
                 },
+                "packagedSdk": (
+                    {"result": "passed", "phases": ["initial", "recreated"],
+                     "profile": "CPython-3.12-linux-x86_64"}
+                    if self.sdk_python is not None
+                    else {"result": "not run", "reason": "ARM core-only qualification"}
+                ),
                 "hostReboot": "not performed",
                 "publication": "private verification candidate only",
                 "steps": self.steps,
@@ -517,13 +579,16 @@ def main() -> None:
     parser.add_argument("--revision", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--docker", type=Path, default=Path("/usr/bin/docker"))
+    parser.add_argument("--sdk-python", type=Path)
     args = parser.parse_args()
     if len(args.revision) != 40 or any(
         char not in "0123456789abcdef" for char in args.revision
     ):
         raise SystemExit("exact source commit required")
     os.umask(0o077)
-    Qualification(args.output, args.docker, args.architecture, args.revision).execute()
+    qualification = Qualification(args.output, args.docker, args.architecture, args.revision)
+    qualification.sdk_python = args.sdk_python
+    qualification.execute()
 
 
 if __name__ == "__main__":
