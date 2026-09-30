@@ -61,7 +61,8 @@ def namespace(event_id):
 def state_path(config, event_id):
     return config.path(
         f"personal/extensions/{EXTENSION}/state/requests/"
-        + digest({"eventId": event_id}) + ".json"
+        + digest({"eventId": event_id})
+        + ".json"
     )
 
 
@@ -304,9 +305,9 @@ def test_replay_marker_is_not_retained_and_success_clears_prior_error(tmp_path):
         if denied:
             raise ServiceError(503, "source_unavailable", retryable=True)
         response = execute(principal, request)
-        return replace(response, headers=(
-            *response.headers, ("iDeMpOtEnCy-RePlAyEd", "true")
-        ))
+        return replace(
+            response, headers=(*response.headers, ("iDeMpOtEnCy-RePlAyEd", "true"))
+        )
 
     operations.execute = with_marker
     assert workflow.retry() == result

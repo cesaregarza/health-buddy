@@ -245,7 +245,8 @@ def test_prepared_write_only_grant_caps_and_job_succeed_without_read_access(tmp_
     assert row["missingness"] is None
     state_path = runtime.operations.config.path(
         f"personal/extensions/{JOB}/state/requests/"
-        + digest({"eventId": event["eventId"]}) + ".json"
+        + digest({"eventId": event["eventId"]})
+        + ".json"
     )
     state_bytes = state_path.read_bytes()
     with pytest.raises(ServiceError, match="source_event_conflict"):

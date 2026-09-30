@@ -110,10 +110,7 @@ def test_describe_inventories_all_personal_files_and_reports_fork_provenance(
     )
 
     explicit = personal_workspace.describe(config, upstream_base=upstream_a)
-    by_path = {
-        item["path"]: item
-        for item in explicit["personalInventory"]["entries"]
-    }
+    by_path = {item["path"]: item for item in explicit["personalInventory"]["entries"]}
     assert explicit["personalInventory"]["complete"] is True
     assert "WORKSPACE.md" in by_path
     assert "unknownownerfile" in by_path
@@ -132,9 +129,7 @@ def test_describe_inventories_all_personal_files_and_reports_fork_provenance(
         "local-change": "recorded_compatible",
         "bool-version": "invalid_fork_metadata",
     }
-    compatible_fork = {fork["id"]: fork for fork in explicit["forks"]}[
-        "local-change"
-    ]
+    compatible_fork = {fork["id"]: fork for fork in explicit["forks"]}["local-change"]
     assert compatible_fork["metadata"] == valid_metadata
     patch_digest = hashlib.sha256(b"owner patch bytes").hexdigest()
     changed = personal_workspace.describe(config, upstream_base=upstream_b)
@@ -198,9 +193,11 @@ def test_initialization_and_install_are_create_only_for_owner_files(tmp_path):
     assert note.read_bytes() == b"edited owner note"
     assert unknown.read_bytes() == b"future data"
 
-    source = Path(str(files("health_buddy").joinpath(
-        "reference_extensions", "local.water-import"
-    )))
+    source = Path(
+        str(
+            files("health_buddy").joinpath("reference_extensions", "local.water-import")
+        )
+    )
     assert install(config, source) == "local.water-import"
     installed_unknown = config.path(
         "personal/extensions/local.water-import/unknownownerfile"
@@ -222,7 +219,9 @@ def test_fresh_process_uses_copied_source_with_same_owner_and_retained_state(
     Registry(config).enable(metric_id, source_ids=("manual",))
     workspace_note = config.path("personal/WORKSPACE.md")
     _write_private(workspace_note, b"edited workspace owner notes\n")
-    _write_private(config.path("personal/unknownownerfile"), b"retained unknown owner data")
+    _write_private(
+        config.path("personal/unknownownerfile"), b"retained unknown owner data"
+    )
     connector = config.path("personal/extensions/local.water-import")
     for relative in (
         "src/owner-rule.py",
@@ -292,9 +291,11 @@ def test_fresh_process_uses_copied_source_with_same_owner_and_retained_state(
     for name in ("src", "scripts", "health-runner/dashboard"):
         source = release / name
         if source.exists():
-            shutil.copytree(source, copied / name, ignore=shutil.ignore_patterns(
-                "__pycache__", "*.pyc", ".pytest_cache"
-            ))
+            shutil.copytree(
+                source,
+                copied / name,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"),
+            )
     child = r"""
 import base64, hashlib, json, sys
 from pathlib import Path

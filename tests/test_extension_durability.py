@@ -70,7 +70,9 @@ def test_namespace_retry_reestablishes_barriers_before_any_send(tmp_path, monkey
     root.mkdir(mode=0o700)
     operations = SyntheticOperations()
     workflow = ClientWorkflow(
-        config, operations, Principal("synthetic"),
+        config,
+        operations,
+        Principal("synthetic"),
         namespace=WorkflowNamespace("synthetic.retry", "one-event"),
     )
     requests = root / "state/requests"
@@ -114,7 +116,9 @@ def test_capacity_rejects_before_allocating_another_event_lock(tmp_path):
     before = {path.name for path in directory.iterdir()}
     operations = SyntheticOperations()
     workflow = ClientWorkflow(
-        config, operations, Principal("synthetic"),
+        config,
+        operations,
+        Principal("synthetic"),
         namespace=WorkflowNamespace("synthetic.capacity", "overflow-event"),
     )
     with pytest.raises(ServiceError, match="extension_event_capacity"):
@@ -123,7 +127,9 @@ def test_capacity_rejects_before_allocating_another_event_lock(tmp_path):
     assert not operations.requests
 
 
-def test_catalog_uses_one_inspection_and_no_per_card_registry_scan(tmp_path, monkeypatch):
+def test_catalog_uses_one_inspection_and_no_per_card_registry_scan(
+    tmp_path, monkeypatch
+):
     runtime, _owner, _token = secured(tmp_path / "owner")
     config = runtime.operations.config
     example(config, METRIC)

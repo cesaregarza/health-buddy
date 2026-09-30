@@ -47,7 +47,8 @@ def _known_source(service: Service, source: str) -> None:
     # Called only after current source/field admission. Native activation has
     # no health authority and can record a future syntactically valid binding.
     if source not in service.journal.sources() and source not in {
-        "healthkit-import", "sleepiq-export"
+        "healthkit-import",
+        "sleepiq-export",
     }:
         raise ServiceError(422, "extension_source_unknown")
 
@@ -121,9 +122,11 @@ def _metric(
         source == "healthkit-import" or source_kind == "healthkit"
     ):
         component = capture["components"].get("healthkit")
-    disabled = component is not None and component["state"]["availability"] == "disabled"
-    source_missingness = "source_unavailable" if stale else (
-        "source_disabled" if disabled else None
+    disabled = (
+        component is not None and component["state"]["availability"] == "disabled"
+    )
+    source_missingness = (
+        "source_unavailable" if stale else ("source_disabled" if disabled else None)
     )
     freshness = (
         "stale"

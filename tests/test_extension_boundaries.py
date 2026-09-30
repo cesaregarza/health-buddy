@@ -15,11 +15,23 @@ from tests.test_transport_auth_wire import request, server
 from tests.test_transport_auth_wire import short_directory as short_directory
 
 
-@pytest.mark.parametrize("source, code", [
-    ("import time\ndef calculate(value):\n    time.sleep(30)\n", "extension_timeout"),
-    ("def calculate(value):\n    return 'x' * 70000\n", "extension_execution_failed"),
-    ("def calculate(value):\n    raise RuntimeError('synthetic hidden detail')\n", "extension_execution_failed"),
-])
+@pytest.mark.parametrize(
+    "source, code",
+    [
+        (
+            "import time\ndef calculate(value):\n    time.sleep(30)\n",
+            "extension_timeout",
+        ),
+        (
+            "def calculate(value):\n    return 'x' * 70000\n",
+            "extension_execution_failed",
+        ),
+        (
+            "def calculate(value):\n    raise RuntimeError('synthetic hidden detail')\n",
+            "extension_execution_failed",
+        ),
+    ],
+)
 def test_real_child_timeout_output_and_exception_leave_no_running_worker(
     tmp_path, monkeypatch, source, code
 ):
@@ -62,30 +74,49 @@ def test_real_http_authority_filters_views_and_has_no_code_activation(short_dire
     metric = "local.weekly-mass"
     example(config, metric)
     selected = Registry(config).enable(metric, source_ids=("manual",))
-    allowed = action(runtime, owner, "grants.create", payload=AgentGrant(
-        "Synthetic allowed view", ("records:read",), read_sources=("manual",),
-        read_kinds=None, read_fields=None,
-    ))
-    restricted = action(runtime, owner, "grants.create", payload=AgentGrant(
-        "Synthetic restricted view", ("records:read",), read_sources=(),
-        read_kinds=None, read_fields=None,
-    ))
+    allowed = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant(
+            "Synthetic allowed view",
+            ("records:read",),
+            read_sources=("manual",),
+            read_kinds=None,
+            read_fields=None,
+        ),
+    )
+    restricted = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant(
+            "Synthetic restricted view",
+            ("records:read",),
+            read_sources=(),
+            read_kinds=None,
+            read_fields=None,
+        ),
+    )
     baseline = config.path("personal/extension-registry.json").read_bytes()
     revision = runtime.operations.journal.state().revision
     base = {"X-Forwarded-Host": "synthetic.example.invalid"}
     read_path = (
-        f"/v1/extensions/{metric}?from=2030-01-01T00:00:00Z"
-        "&to=2030-01-07T23:59:59Z"
+        f"/v1/extensions/{metric}?from=2030-01-01T00:00:00Z&to=2030-01-07T23:59:59Z"
     )
     asset_path = f"/v1/extensions/{metric}/view.js?review={selected.reviewed_digest}"
     with server(short_directory, workspace=root) as (_process, path):
         for route in ("/v1/extensions", read_path, asset_path, "/extension-worker.js"):
             assert request(path, target=route, headers=base)[0] == 401
         for credential, expected in (
-            (token, 200), (allowed.secret.value, 200), (restricted.secret.value, 403)
+            (token, 200),
+            (allowed.secret.value, 200),
+            (restricted.secret.value, 403),
         ):
             headers = {**base, "Authorization": "Bearer " + credential}
-            status, raw, response_headers = request(path, target=read_path, headers=headers)
+            status, raw, response_headers = request(
+                path, target=read_path, headers=headers
+            )
             assert status == expected
             assert response_headers["cache-control"] == "no-store"
             if status == 200:
@@ -94,8 +125,11 @@ def test_real_http_authority_filters_views_and_has_no_code_activation(short_dire
             # Even the owner health credential cannot install or enable code.
             for command in ("install", "enable", "disable", "revert", "run"):
                 denied, _, _ = request(
-                    path, "POST", f"/v1/extensions/{metric}/{command}",
-                    headers=headers, body=b"{}",
+                    path,
+                    "POST",
+                    f"/v1/extensions/{metric}/{command}",
+                    headers=headers,
+                    body=b"{}",
                 )
                 assert denied in (404, 405)
         action(runtime, owner, "grants.revoke", resource=allowed.data["id"])

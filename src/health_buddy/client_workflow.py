@@ -388,7 +388,8 @@ class ClientWorkflow:
             # The journal adds this transport-only marker on replay. It is
             # not part of the immutable canonical receipt retained locally.
             "headers": [
-                list(item) for item in result.headers
+                list(item)
+                for item in result.headers
                 if item[0].lower() != "idempotency-replayed"
             ],
         }

@@ -86,12 +86,16 @@ def test_whole_workspace_snapshot_replays_original_pending_event(tmp_path, phase
         assert pending["envelope"]["payload"]["value"] == 0.3
         assert pending["envelope"]["payload"]["unit"] == "L"
         # Bind the normalized payload to the exact original 300 mL event.
-        assert pending["intentDigest"] == digest({
-            "operation": "records.put",
-            "resourceId": pending["envelope"]["resourceId"],
-            "intent": {"extensionId": NAME, "event": EVENT},
-            "identity": None, "ifMatch": None, "key": None,
-        })
+        assert pending["intentDigest"] == digest(
+            {
+                "operation": "records.put",
+                "resourceId": pending["envelope"]["resourceId"],
+                "intent": {"extensionId": NAME, "event": EVENT},
+                "identity": None,
+                "ifMatch": None,
+                "key": None,
+            }
+        )
         expected_snapshot_revision = initial.revision + (phase == "after-commit")
         with runtime.operations.backup(owner.principal) as inventory:
             assert inventory.workspace == root
@@ -133,9 +137,10 @@ def test_whole_workspace_snapshot_replays_original_pending_event(tmp_path, phase
     assert saved["receipt"] == completed["receipt"]
     assert result["data"]["recordId"] == pending["envelope"]["resourceId"]
     assert reopened.operations.journal.state().revision == initial.revision + 1
-    assert run_event(
-        reopened.operations.config, reopened, credential, NAME, EVENT
-    ) == result
+    assert (
+        run_event(reopened.operations.config, reopened, credential, NAME, EVENT)
+        == result
+    )
     assert _state_path(clone).read_bytes() == saved_bytes
     observer = reopened.security.authenticate(BearerProof(owner_token)).principal
     listed = reopened.operations.execute(

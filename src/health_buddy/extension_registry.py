@@ -14,8 +14,8 @@ from .extension_api import (
     EXTENSION_API,
     MAX_CONFIG_BYTES,
     MAX_EXTENSIONS,
-    ExtensionManifest,
     ExtensionKind,
+    ExtensionManifest,
     ExtensionState,
     ExtensionStatus,
 )
