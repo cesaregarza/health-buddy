@@ -191,7 +191,9 @@ def test_claude_configured_sdk_reads_codex_record_replays_and_diagnoses(
             assert second.tool("sync_status", {})["ok"]
             current_meta = current["result"]["meta"]
             next_workout = workout(day="2026-01-04")
-            next_workout["session_id"] = "claude-00000000-0000-4000-8000-000000000002"
+            next_workout["session_id"] = (
+                "dashboard-00000000-0000-4000-8000-000000000002"
+            )
             next_arguments = {
                 **arguments,
                 "intentId": "synthetic-claude-workout",
@@ -199,7 +201,8 @@ def test_claude_configured_sdk_reads_codex_record_replays_and_diagnoses(
                 "workout": next_workout,
             }
             saved = second.tool("record_workout", next_arguments)
-            assert saved["ok"] and saved["result"]["data"]["saved"]
+            assert saved["ok"], saved.get("error")
+            assert saved["result"]["data"]["saved"]
             assert second.tool("record_workout", next_arguments) == saved
             assert second.tool(
                 "write_status", {"intentId": next_arguments["intentId"]}
