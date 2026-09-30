@@ -13,12 +13,74 @@ from typing import Any, cast
 from .backup_crypto import MAX_ARCHIVE_BYTES
 from .config import Config, relative_path
 from .domain import decode, encode, identity_value
-from .extension_files import read_file
+from .extension_files import bounded_children
 from .operations import BackupInventory
 from .service_api import ServiceError
 
 MAX_ENTRIES = 8192
 MANIFEST = "backup-manifest.json"
+
+
+def _owned_entry(info: os.stat_result) -> None:
+    if (
+        info.st_uid != os.geteuid()
+        or stat.S_IMODE(info.st_mode) & (0o7000 | 0o022)
+        or not (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode))
+    ):
+        raise ServiceError(422, "backup_requires_private_owned_workspace")
+
+
+def read_snapshot_file(root: Path, path: Path, limit: int) -> bytes:
+    """Read behind a private owned root without following any child symlink.
+
+    Git may create readable immutable objects and traversable directories.
+    Their effective privacy comes from the checked mode-0700 workspace root;
+    keys/credentials and extension readers retain their stricter contracts.
+    """
+    relative = path.relative_to(root)
+    root_info = root.lstat()
+    _owned_entry(root_info)
+    if not stat.S_ISDIR(root_info.st_mode) or stat.S_IMODE(root_info.st_mode) & 0o077:
+        raise ServiceError(422, "backup_requires_private_owned_workspace")
+    descriptors: list[int] = []
+    try:
+        descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        descriptors.append(descriptor)
+        if (root_info.st_dev, root_info.st_ino) != (
+            os.fstat(descriptor).st_dev, os.fstat(descriptor).st_ino
+        ):
+            raise ServiceError(409, "backup_workspace_changed")
+        for part in relative.parts[:-1]:
+            descriptor = os.open(
+                part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=descriptor,
+            )
+            descriptors.append(descriptor)
+            _owned_entry(os.fstat(descriptor))
+        before = os.stat(relative.name, dir_fd=descriptor, follow_symlinks=False)
+        _owned_entry(before)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit or before.st_nlink != 1:
+            raise ServiceError(422, "backup_file_invalid")
+        file_descriptor = os.open(
+            relative.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=descriptor
+        )
+        with os.fdopen(file_descriptor, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            raw = stream.read(limit + 1)
+            after = os.fstat(stream.fileno())
+        current = os.stat(relative.name, dir_fd=descriptor, follow_symlinks=False)
+        if (
+            len(raw) > limit
+            or before != opened
+            or (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns)
+            != (after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+            or current != after
+        ):
+            raise ServiceError(409, "backup_workspace_changed")
+        return raw
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
 
 
 def snapshot(config: Config, inventory: BackupInventory) -> bytes:
@@ -31,6 +93,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
     output = io.BytesIO()
     total = 0
     observed_directories: dict[str, int] = {}
+    source_modes: dict[str, int] = {}
 
     def walk(directory: Path) -> None:
         nonlocal total
@@ -39,15 +102,14 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
         observed_directories[str(directory.relative_to(root))] = (
             directory.lstat().st_mtime_ns
         )
-        for path in sorted(directory.iterdir()):
+        for path in bounded_children(directory, MAX_ENTRIES):
             if path == cache:
                 continue
             info = path.lstat()
             relative = str(path.relative_to(root))
             if path == socket_path and stat.S_ISSOCK(info.st_mode):
                 continue
-            if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & ~0o700:
-                raise ServiceError(422, "backup_requires_private_owned_workspace")
+            _owned_entry(info)
             if stat.S_ISDIR(info.st_mode):
                 directories.append(relative)
                 walk(path)
@@ -55,7 +117,8 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
                 total += info.st_size
                 if total > MAX_ARCHIVE_BYTES - 2 * 1024 * 1024:
                     raise ServiceError(413, "backup_size_limit")
-                raw = read_file(path, MAX_ARCHIVE_BYTES)
+                raw = read_snapshot_file(root, path, MAX_ARCHIVE_BYTES)
+                source_modes[relative] = stat.S_IMODE(info.st_mode)
                 archive.writestr("workspace/" + relative, raw)
                 entries.append(
                     {
@@ -63,7 +126,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
                         "bytes": len(raw),
                         "sha256": hashlib.sha256(raw).hexdigest(),
                         "mtimeNs": info.st_mtime_ns,
-                        "mode": stat.S_IMODE(info.st_mode),
+                        "mode": stat.S_IMODE(info.st_mode) & 0o700,
                     }
                 )
             else:
@@ -99,8 +162,10 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
             info = path.lstat()
             if (
                 info.st_mtime_ns != entry["mtimeNs"]
-                or stat.S_IMODE(info.st_mode) != entry["mode"]
-                or hashlib.sha256(read_file(path, MAX_ARCHIVE_BYTES)).hexdigest()
+                or stat.S_IMODE(info.st_mode) != source_modes[entry["path"]]
+                or hashlib.sha256(
+                    read_snapshot_file(root, path, MAX_ARCHIVE_BYTES)
+                ).hexdigest()
                 != entry["sha256"]
             ):
                 raise ServiceError(409, "backup_workspace_changed")

@@ -162,7 +162,10 @@ def restore(
                             "previousIdentity": identity_value(previous.identity),
                             "currentIdentity": identity_value(current),
                             "dataRevision": previous.revision,
-                            "policy": "all_old_credentials_invalid_require_explicit_repair_or_rotation",
+                            "policy": (
+                                "all_old_credentials_invalid_require_"
+                                "explicit_repair_or_rotation"
+                            ),
                         }
                     ),
                 )

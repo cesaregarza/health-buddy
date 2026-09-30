@@ -39,7 +39,8 @@ notes/migrations/state, reviewed snapshots, locks, forks and unknown owner files
 Configured optional stores live within the workspace. Missing enabled source
 files or required authority metadata fail verification. The configured cache is
 regenerable and excluded, as is the live configured Unix socket. Other symlinks,
-special entries, public/foreign-owned files and hard-linked files fail closed;
+special entries, foreign-owned files, group/other-writable files, unsafe special
+permission bits and hard-linked files fail closed;
 no owner file is silently dropped. A private ZIP inventory names each captured
 file's length, SHA256 and private owner permission bits, exact directories, authoritative required paths,
 identity and revision. Neither the inventory nor health values are in plaintext
@@ -73,7 +74,12 @@ health revision remains the archive's revision. The canonical marker changes in
 its authoritative Git adapter. Corrupt/incomplete/wrong-key/low-disk failures
 never modify the original workspace or an existing destination. A destination
 that appears concurrently is not replaced. Owner execute/read-only permission bits round-trip in the
-authenticated inventory; group/other and special permission bits are rejected.
+authenticated inventory. The owned mode-0700 workspace root provides effective
+privacy for ordinary Git directories (0755) and immutable objects (0444), and
+for files such as 0640 notes. Snapshot does not chmod those source files; it
+normalizes restored files to their owner bits (0444 becomes 0400, 0640 becomes
+0600) and directories to 0700. Group/other write and special bits are rejected.
+Credential/key and extension-specific readers retain their stricter rules.
 Restore never downloads or executes
 personal extensions, manifests, tests, hooks or migration commands.
 

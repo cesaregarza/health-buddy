@@ -1,7 +1,6 @@
 """Real synthetic encrypted archive to private clean-host restored workspace."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -131,7 +130,7 @@ def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
     import subprocess
     import sys
 
-    checked = subprocess.run(
+    checked = subprocess.run(  # noqa: S603 - Fixed restored synthetic test only.
         [
             sys.executable,
             "-m",
@@ -144,7 +143,7 @@ def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
         capture_output=True,
         timeout=30,
         check=False,
-    )  # noqa: S603
+    )
     assert checked.returncode == 0, checked.stderr
     assert (
         decoded(copied.operations.execute(admitted.principal, Request("plan.read")))[
@@ -298,7 +297,7 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
     from health_buddy.extension_prepare import prepare
     from tests.extension_fixtures import prepared
 
-    runtime, owner, token, grant, setup = prepared(tmp_path / "source")
+    runtime, owner, _token, grant, setup = prepared(tmp_path / "source")
     config = runtime.operations.config
     event = {
         "eventId": "before-backup",
@@ -360,12 +359,12 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
     test_file = current.path(
         "personal/extensions/local.water-import/tests/test_connector.py"
     )
-    checked = subprocess.run(
+    checked = subprocess.run(  # noqa: S603 - Fixed restored synthetic test only.
         [sys.executable, "-m", "pytest", "-q", str(test_file)],
         capture_output=True,
         timeout=30,
         check=False,
-    )  # noqa: S603
+    )
     assert checked.returncode == 0, checked.stderr
 
 
@@ -377,7 +376,7 @@ def test_phone_newer_checkpoint_replays_history_after_epoch_repair(tmp_path):
     from tests.test_health_ingest_models import batch_payload
     from tests.test_security_pairing import enroll
 
-    runtime, owner, token = secured(tmp_path / "source", receiver=True)
+    runtime, owner, _token = secured(tmp_path / "source", receiver=True)
     pairing, _request, _reserve, _handoff = enroll(runtime, owner)
     phone = runtime.security.authenticate(BearerProof(pairing.secret.value))
     first = batch_payload(pairing.data["deviceId"])
@@ -439,11 +438,13 @@ def test_phone_newer_checkpoint_replays_history_after_epoch_repair(tmp_path):
 
     with connect(copied.operations.health.path) as database:
         rows = database.execute(
-            "SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id"
+            "SELECT observation_id FROM stream_objects "
+            "WHERE deleted_at IS NULL ORDER BY observation_id"
         ).fetchall()
     with connect(runtime.operations.health.path) as database:
         original_rows = database.execute(
-            "SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id"
+            "SELECT observation_id FROM stream_objects "
+            "WHERE deleted_at IS NULL ORDER BY observation_id"
         ).fetchall()
     assert len(rows) == 2
     assert rows == original_rows
@@ -503,7 +504,7 @@ def test_snapshot_holds_supported_writer_until_complete(tmp_path):
     assert root.exists() and runtime.security.authenticate(BearerProof(token))
 
 
-@pytest.mark.parametrize("unsafe_mode", [0o640, 0o1700, 0o2700, 0o4700])
+@pytest.mark.parametrize("unsafe_mode", [0o620, 0o1700, 0o2700, 0o4700])
 def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
     runtime, owner, _token = secured(tmp_path / "source")
     path = runtime.operations.config.root / "personal/unsafe-script"
@@ -520,3 +521,34 @@ def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
             confirm_quiesced=True,
         )
     assert not (tmp_path / "unsafe.hbb").exists()
+
+
+
+def test_snapshot_effective_privacy_normalizes_git_and_readable_modes(tmp_path):
+    from health_buddy.backup_crypto import read_key, unseal
+    from health_buddy.backup_archive import verified
+
+    runtime, owner, _token = secured(tmp_path / "source")
+    root = runtime.operations.config.root
+    readable = root / "personal/readable-note"
+    atomic_bytes(readable, b"synthetic note behind private root")
+    readable.chmod(0o640)
+    objects = runtime.operations.config.storage("manual") / "objects"
+    object_file = next(path for path in objects.rglob("*") if path.is_file())
+    object_file.chmod(0o444)
+    object_file.parent.chmod(0o755)
+    key = tmp_path / "backup.key"
+    keygen(key)
+    archive = tmp_path / "snapshot.hbb"
+    create(runtime, owner.principal, archive, key, confirm_quiesced=True)
+    manifest, _files = verified(unseal(archive.read_bytes(), read_key(key)))
+    modes = {entry["path"]: entry["mode"] for entry in manifest["files"]}
+    assert modes["personal/readable-note"] == 0o600
+    assert modes[str(object_file.relative_to(root))] == 0o400
+    assert readable.stat().st_mode & 0o7777 == 0o640
+    assert object_file.stat().st_mode & 0o7777 == 0o444
+    assert object_file.parent.stat().st_mode & 0o7777 == 0o755
+    target = tmp_path / "clean-host"
+    restore(target, archive, key, confirm_revoke_all=True)
+    assert (target / "personal/readable-note").stat().st_mode & 0o7777 == 0o600
+    assert (target / object_file.relative_to(root)).stat().st_mode & 0o7777 == 0o400
