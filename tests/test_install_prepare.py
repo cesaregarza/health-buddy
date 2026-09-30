@@ -108,9 +108,7 @@ def test_changed_binding_and_unowned_existing_workspace_refuse(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("name", ["codex", "claude"])
-def test_explicit_matching_client_config_preparation_repeats_without_claiming_live_client(
-    tmp_path, monkeypatch, name
-):
+def test_client_config_repeats_without_live_connection(tmp_path, monkeypatch, name):
     selected = inputs(tmp_path, monkeypatch)
     install_prepare.prepare(**selected)
     root = selected["workspace"]

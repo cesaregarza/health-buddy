@@ -244,7 +244,10 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "schemaVersion": 1,
                     "code": "install_preparation_refused",
-                    "recovery": "Retain the journal and original inputs; inspect private ownership and source/client checks.",
+                    "recovery": (
+                        "Retain the journal and original inputs; "
+                        "inspect private ownership and source/client checks."
+                    ),
                 }
             )
         )
