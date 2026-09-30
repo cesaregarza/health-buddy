@@ -24,7 +24,7 @@ def prepared(tmp_path, monkeypatch, *, maintenance=False):
 
         repository = tmp_path / "repository"
         root = Path(__file__).resolve().parents[1]
-        for name in MAINTENANCE_REFERENCES:
+        for name in (*MAINTENANCE_REFERENCES, "packaging/compose.yaml"):
             destination = repository / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes((root / name).read_bytes())

@@ -142,3 +142,77 @@ identity/revision or owner notes. Separate Codex/Claude configuration cases reus
 real helper writes and refuse a changed restore epoch, without client/model/daemon
 execution. Existing verified guide/client/upgrade proofs are retained separately;
 this checkpoint does not rerun whole native/runtime/device qualification.
+
+## Explicit runtime activation checkpoint
+
+`health_buddy.install_activation` is the next owner-controlled action. It contacts
+only the explicitly admitted native CLI and local Unix Docker socket. Preparation
+and preflight commands still perform no activation. No tool or queue receipt here
+establishes an actual deployment: this checkpoint is verified with synthetic
+subprocess responses only.
+
+Preparation alone does not establish runtime readiness. A default prepared
+loopback workspace refuses activation with
+`install_activation_requires_managed_owner_setup`; missing authority refuses
+with `install_activation_requires_ready_owner_authority`, before any daemon
+contact. Recovery is the existing reviewed managed UDS configuration and explicit
+OS-owner security initialization, preserving this same workspace. Guided setup
+is pending the next slice; this tracer assumes that owner setup separately
+exists. It creates no owner/agent grant or Tailscale sign-in.
+
+Run preparation and activation as the private workspace's nonroot OS owner, with
+that existing workspace's nonzero UID/GID. The workspace must already be mode
+0700 with matching ownership. The installer never changes ownership, repairs
+permissions or adopts an existing installation. Independently inspect/admit the
+local Docker CLI, Compose plugin, daemon, quotas and owner-controlled Docker
+socket access first; do not expose an engine remotely. Keep writers, editors and
+other operations on the selected project stopped during this action.
+
+```sh
+"$PYTHON" -m health_buddy.install_activation --journal "$PRIVATE_INSTALL/install.json" --environment "$PRIVATE_INSTALL/runtime.env" --project health-buddy-personal --uid "$OWNER_UID" --gid "$OWNER_GID" --confirm-local-daemon --confirm-quiesced
+```
+
+The environment file must be new and outside both workspace and source bundle.
+The original preparation journal supplies the pinned manifest, native Docker
+path and persistent workspace. Before any daemon observation/action, activation
+retains the workspace receiver identity, immutable target, selected project,
+environment path, UID/GID and matching maintained Compose digest. It refuses a
+project containing any existing container at first admission. It never stops or
+removes an unrelated service. Only the maintained `api` service is started; its
+Compose profile keeps jobs separate and pulls disabled.
+
+`admitting` → `loading` → `starting` → `active` are durable stages. Repeat exactly
+the same command after interruption: loading reuses the verified tag-free archive
+loader, and a lost start acknowledgement is reconciled against the exact running
+image, workspace mount and runtime user before accepting success. An already
+active repeat only observes that binding. An absent recorded active runtime,
+stopped/unrelated container, edited environment, changed identity/release or
+changed project/UID/GID refuses further writes and requires owner inspection.
+Retain the original journal and environment; do not edit them to adopt another
+runtime. No canonical workspace, personal note or configuration is replaced.
+
+CLI failures expose fixed stage codes, such as
+`install_activation_load_interrupted`, `install_activation_start_interrupted`,
+`install_activation_project_not_empty` and
+`install_activation_environment_changed`, with no paths or captured daemon
+output. `runtimeActivated:true` records only the observed local API runtime.
+`connected:false` remains explicit: private HTTPS/Tailscale sign-in, owner grants,
+phone pairing and named-client qualification are still pending. The source
+profile's `runtimeActivated:false` remains its preparation-time description;
+current activation evidence lives in the private journal's `activation` record.
+
+Queue-owned activation checks:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_activation.py tests/test_install_prepare.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_activation.py tests/test_install_activation.py tests/test_install_preflight.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_activation.py tests/test_install_activation.py tests/test_install_preflight.py
+"$PYTHON" -m mypy src/health_buddy/install_activation.py
+```
+
+The synthetic tracer executes real preparation, archive loading logic and
+maintained Compose/inspection command construction through bounded fake CLI
+responses. It simulates nonroot workspace metadata without changing host
+ownership, interrupts load/start acknowledgements, then repeats without another
+start or changed canonical identity/revision/personal data. This is separate from
+real native image qualification and actual owner-host deployment evidence.
