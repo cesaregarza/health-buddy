@@ -184,7 +184,10 @@ Compose profile keeps jobs separate and pulls disabled.
 `admitting` → `loading` → `starting` → `active` are durable stages. Repeat exactly
 the same command after interruption: loading reuses the verified tag-free archive
 loader, and a lost start acknowledgement is reconciled against the exact running
-image, workspace mount and runtime user before accepting success. An already
+image, workspace mount, runtime user and healthy status before accepting success.
+A `starting` or `unhealthy` observation returns retryable
+`install_activation_runtime_not_healthy`; repeat only observes the pending runtime
+and never issues another load/up while that bound container exists. An already
 active repeat only observes that binding. An absent recorded active runtime,
 stopped/unrelated container, edited environment, changed identity/release or
 changed project/UID/GID refuses further writes and requires owner inspection.

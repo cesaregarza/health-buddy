@@ -189,6 +189,7 @@ def activate(
                     workspace,
                     uid,
                     gid,
+                    require_healthy=True,
                 )
                 progress["runningImageId"] = image
                 progress["phase"] = "active"
@@ -238,6 +239,7 @@ def activate(
                 workspace,
                 uid,
                 gid,
+                require_healthy=True,
             )
             progress["phase"] = "active"
             atomic_bytes(journal, encode(prepared))
@@ -262,12 +264,19 @@ def main(argv: list[str] | None = None) -> int:
     try:
         value = activate(**vars(parser.parse_args(argv)))
     except ServiceError as error:
-        recovery = "Retain the journal and original selection; inspect this stage before retry."
+        recovery = (
+            "Retain the journal and original selection; "
+            "inspect this stage before retry."
+        )
         if error.code in (
             "install_activation_requires_managed_owner_setup",
             "install_activation_requires_ready_owner_authority",
         ):
-            recovery = "Use the existing OS-owner managed-ingress configuration and explicit security setup; retain the workspace and retry after local readiness admission."
+            recovery = (
+                "Use the existing OS-owner managed-ingress configuration and explicit "
+                "security setup; retain the workspace and retry after local readiness "
+                "admission."
+            )
         print(
             json.dumps(
                 {

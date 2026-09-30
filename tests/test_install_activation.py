@@ -8,12 +8,52 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import install_activation, install_prepare, packaged_runtime
+from health_buddy import install_activation, install_prepare
 from health_buddy.domain import identity_value
 from health_buddy.runtime_release import selected_artifact
 from health_buddy.security_runtime import open_runtime, setup_security
 from health_buddy.service_api import ServiceError
 from tests.test_install_prepare import inputs
+
+
+class OwnerStat:
+    """Keep real inode/timestamp/mode evidence while simulating one OS owner."""
+
+    def __init__(self, original):
+        self.original = original
+        self.st_uid = 1000 if original.st_uid == 0 else original.st_uid
+        self.st_gid = 1000 if original.st_gid == 0 else original.st_gid
+
+    def __getattr__(self, name):
+        return getattr(self.original, name)
+
+    def __eq__(self, other):
+        return isinstance(other, OwnerStat) and self.original == other.original
+
+    def __iter__(self):
+        fields = list(self.original)
+        fields[4:6] = [self.st_uid, self.st_gid]
+        return iter(fields)
+
+    def __getitem__(self, index):
+        return tuple(self)[index]
+
+    def __len__(self):
+        return len(self.original)
+
+
+def simulate_nonroot_owner(monkeypatch):
+    # Real security readiness continues checking mode, ownership, bindings,
+    # journal and Git refs. Only the OS identity/stat boundary is synthetic.
+    for name in ("stat", "lstat", "fstat"):
+        original = getattr(os, name)
+
+        def owned(*args, _original=original, **kwargs):
+            return OwnerStat(_original(*args, **kwargs))
+
+        monkeypatch.setattr(os, name, owned)
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(os, "getegid", lambda: 1000)
 
 
 def fixture(tmp_path, monkeypatch):
@@ -34,28 +74,9 @@ def fixture(tmp_path, monkeypatch):
     setup_security(workspace, workspace / "secrets/synthetic-owner-proof")
     runtime = open_runtime(workspace)
     before = identity_value(runtime.operations.journal.verify().identity)
-    checked = install_activation.preflight(
-        **{key: value for key, value in selected.items() if key != "journal"}
-    )
-    monkeypatch.setattr(install_activation, "preflight", lambda **_inputs: checked)
-    # Retain real read-only preflight evidence before simulating only the
-    # nonroot owner metadata needed by the actual immutable loader. Never chown.
-    original = Path.lstat
-
-    def metadata(path, *args, **kwargs):
-        value = original(path, *args, **kwargs)
-        if path == workspace:
-            fields = list(value)
-            fields[4:6] = [1000, 1000]
-            return os.stat_result(fields)
-        return value
-
-    monkeypatch.setattr(Path, "lstat", metadata)
-    # Production admission uses the real OS UID/GID; this fixture remains root
-    # and simulates just that existing nonroot metadata prerequisite.
-    monkeypatch.setattr(packaged_runtime, "private_workspace", lambda _root: None)
+    simulate_nonroot_owner(monkeypatch)
     artifact = selected_artifact(selected["manifest"], "amd64")
-    state = {"active": False, "other": False, "lost": None, "calls": []}
+    state = {"active": False, "other": False, "lost": None, "health": "healthy", "calls": []}
     original_run = subprocess.run
 
     def response(command, **kwargs):
@@ -105,6 +126,7 @@ def fixture(tmp_path, monkeypatch):
                 + "\ntrue\n1000:1000\n"
                 + json.dumps(str(mount))
                 + "\nbind\ntrue\n"
+                + (state["health"] + "\n" if ".State.Health" in command[5] else "")
             ).encode(),
         )
 
@@ -219,22 +241,7 @@ def test_default_prepared_workspace_refuses_before_any_daemon_contact(
 ):
     selected = inputs(tmp_path, monkeypatch)
     install_prepare.prepare(**selected)
-    checked = install_activation.preflight(
-        **{key: value for key, value in selected.items() if key != "journal"}
-    )
-    monkeypatch.setattr(install_activation, "preflight", lambda **_inputs: checked)
-    original = Path.lstat
-
-    def metadata(path, *args, **kwargs):
-        value = original(path, *args, **kwargs)
-        if path == selected["workspace"]:
-            fields = list(value)
-            fields[4:6] = [1000, 1000]
-            return os.stat_result(fields)
-        return value
-
-    monkeypatch.setattr(Path, "lstat", metadata)
-    monkeypatch.setattr(packaged_runtime, "private_workspace", lambda _root: None)
+    simulate_nonroot_owner(monkeypatch)
     original_run = subprocess.run
 
     def no_daemon(command, **kwargs):
@@ -276,3 +283,20 @@ def test_default_prepared_workspace_refuses_before_any_daemon_contact(
         == "install_activation_requires_ready_owner_authority"
     )
     assert selected["journal"].read_bytes() == before
+
+
+def test_lost_start_ack_waits_for_healthy_without_restarting(tmp_path, monkeypatch):
+    arguments, state, selected, _identity, _note = fixture(tmp_path, monkeypatch)
+    state["lost"] = "start"
+    with pytest.raises(ServiceError, match="start_interrupted"):
+        install_activation.activate(**arguments)
+    for health in ("starting", "unhealthy"):
+        state["health"] = health
+        with pytest.raises(ServiceError, match="install_activation_runtime_not_healthy") as refused:
+            install_activation.activate(**arguments)
+        assert refused.value.retryable
+        assert json.loads(selected["journal"].read_bytes())["activation"]["phase"] == "starting"
+    state["health"] = "healthy"
+    assert install_activation.activate(**arguments)["runtimeActivated"]
+    assert sum("up" in item for item in state["calls"]) == 1
+    assert sum("load" in item for item in state["calls"]) == 1
