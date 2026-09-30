@@ -87,6 +87,7 @@ class Endpoint:
 _CONTEXT_QUERY = frozenset({"scopes", "days", "ask", "limit"})
 ENDPOINTS = (
     Endpoint("/v1/capabilities", "GET", "capabilities"),
+    Endpoint("/v1/workspace/discovery", "GET", "workspace.discover"),
     Endpoint(
         "/v1/records",
         "GET",
