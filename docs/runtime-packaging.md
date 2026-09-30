@@ -97,10 +97,14 @@ manifests and binary wheels, plus Git and its finite Debian package closure.
 Debian selection is backed by retained signed repository metadata for an explicit
 snapshot. Historical signature validity does not assert current vulnerability
 or release qualification. Downloads require exact HTTPS hosts, sizes and hashes;
-no ambient proxy, resolver, source build or startup download is used. The download
-budget is checked between single socket reads; it can overrun its 240-second
-budget by the current socket timeout, at most 20 seconds. The execution queue
-also applies an independent process deadline. Failed partial output is retained
+no ambient proxy, resolver, source build or startup download is used. Approved
+same-host redirects close the prior response without draining its body; redirect
+count and URL bounds remain enforced. The entire download runs in an owned isolated worker. A 240-second parent
+deadline covers connection, headers, redirects, chunk framing and body reads;
+on expiry the parent kills that process group and reaps it with a separate
+two-second cleanup bound. Socket timeouts/body checks are secondary controls,
+not a claimed absolute urllib deadline. The execution queue also applies an
+independent process deadline. Failed partial output is retained
 and never reused implicitly.
 
 A native maintainer can inspect source and create a bundle without Docker:

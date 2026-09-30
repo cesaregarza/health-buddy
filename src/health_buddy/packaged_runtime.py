@@ -124,8 +124,16 @@ def main(argv: list[str] | None = None) -> int:
     supplied = list(sys.argv[1:] if argv is None else argv)
     # The native wrapper has no options after its cli command; canonical global
     # options belong to that remainder. Normalize the optional explicit delimiter.
-    if "cli" in supplied:
-        position = supplied.index("cli") + 1
+    position = 0
+    while position < len(supplied):
+        if supplied[position] == "--workspace":
+            position += 2
+        elif supplied[position].startswith("--workspace="):
+            position += 1
+        else:
+            break
+    if supplied[position:position + 1] == ["cli"]:
+        position += 1
         if supplied[position:position + 1] != ["--"]:
             supplied.insert(position, "--")
     args = parser.parse_args(supplied)
@@ -153,6 +161,9 @@ def main(argv: list[str] | None = None) -> int:
             for path in (args.event_file, args.credential_file):
                 if not path.is_absolute() or not path.is_relative_to(args.workspace) or ".." in path.parts:
                     raise ManifestError("job_inputs_must_be_inside_owner_workspace")
+                # Reject a linked ancestor before any input reader or canonical
+                # dispatch can probe a descendant outside the owner workspace.
+                native_directory(path.parent)
             return canonical_cli([
                 "--workspace", str(args.workspace), "--credential-file", str(args.credential_file),
                 "extension", "run", "--id", args.id, "--event-file", str(args.event_file),
