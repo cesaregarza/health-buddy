@@ -3,19 +3,35 @@
 import hashlib
 import json
 import socket
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from health_buddy import install_preflight
+from health_buddy.runtime_bundle import create_bundle
 from health_buddy.runtime_manifest import verify_source_identity
 from health_buddy.runtime_release import create_release
 from tests.test_runtime_artifact import make_archive
+from tests.test_runtime_bundle import git
 from tests.test_runtime_context import context_fixture
 
 
-def prepared(tmp_path, monkeypatch):
+def prepared(tmp_path, monkeypatch, *, maintenance=False):
     bundle, _ = context_fixture(tmp_path)
+    if maintenance:
+        from health_buddy.install_prepare import MAINTENANCE_REFERENCES
+
+        repository = tmp_path / "repository"
+        root = Path(__file__).resolve().parents[1]
+        for name in MAINTENANCE_REFERENCES:
+            destination = repository / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((root / name).read_bytes())
+        git(repository, "add", ".")
+        git(repository, "commit", "--quiet", "-m", "Synthetic maintenance references")
+        bundle = tmp_path / "maintenance-bundle"
+        create_bundle(repository, git(repository, "rev-parse", "HEAD"), bundle)
     identity = verify_source_identity(
         bundle / "source", bundle / "release/source-manifest.json"
     )
