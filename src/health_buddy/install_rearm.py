@@ -99,6 +99,7 @@ def rearm(
                 or not matches(dict(removed[0], active=True), original)
             ):
                 raise ServiceError(409, "install_rearm_requires_original_revoked_grant")
+            workspace = Path(record["binding"]["workspace"])
             checked = preflight(
                 bundle=Path(record["binding"]["bundle"]),
                 manifest=Path(record["binding"]["manifest"]),
@@ -113,7 +114,6 @@ def rearm(
                         "priorGrantRevoked": True, "connected": False}
             if any(actor.get("name") == grant.name for actor in inventory):
                 raise ServiceError(409, "install_rearm_requires_new_scoped_grant")
-            workspace = Path(record["binding"]["workspace"])
             source = Path(record["binding"]["bundle"]) / "source"
             old = record["agentSetup"]["binding"]
             reserved = (source, workspace / "operations", workspace / "security", workspace / "stores")
