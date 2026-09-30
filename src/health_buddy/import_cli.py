@@ -48,14 +48,17 @@ def handle(args: argparse.Namespace) -> int:
         )
     elif args.import_action == "export-workouts":
         result = export_workouts(
-            args.sessions_csv, args.sets_csv, args.snapshot,
+            args.sessions_csv,
+            args.sets_csv,
+            args.snapshot,
             source_id=args.source_id,
             expected_sessions_sha256=args.expected_sessions_sha256,
             expected_sets_sha256=args.expected_sets_sha256,
         )
     elif args.import_action == "adopt-workouts":
         result = import_workouts(
-            args.workspace, args.snapshot,
+            args.workspace,
+            args.snapshot,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
     else:

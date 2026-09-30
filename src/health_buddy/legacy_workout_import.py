@@ -23,7 +23,9 @@ SETS = "data/sets.csv"
 FAMILY = "workout-sessions-sets"
 
 
-def _rows(files: dict[str, str], source_id: str) -> dict[str, tuple[str, dict[str, str]]]:
+def _rows(
+    files: dict[str, str], source_id: str
+) -> dict[str, tuple[str, dict[str, str]]]:
     sessions = parse_csv(files[SESSIONS], headers()[SESSIONS])
     sets = parse_csv(files[SETS], headers()[SETS])
     if not sessions or not sets or len(sessions) + len(sets) > MAX_RECORDS:
@@ -45,8 +47,12 @@ def _rows(files: dict[str, str], source_id: str) -> dict[str, tuple[str, dict[st
         if fields.get("status") == "partial":
             fields["status"] = "complete"
         loggers.validate_input("workout-start", fields, settings)
-        loggers.transition("workout-start", {"sourceId": "manual", "fields": fields},
-                           {SESSIONS: csv_text(headers()[SESSIONS], [])}, settings)
+        loggers.transition(
+            "workout-start",
+            {"sourceId": "manual", "fields": fields},
+            {SESSIONS: csv_text(headers()[SESSIONS], [])},
+            settings,
+        )
         records.row_time(row, settings.zone.key)
         parents[session_id] = row
         identities[session_id] = (SESSIONS, row)
@@ -61,14 +67,25 @@ def _rows(files: dict[str, str], source_id: str) -> dict[str, tuple[str, dict[st
         if key in seen:
             raise ServiceError(409, "import_duplicate_natural_key")
         seen.add(key)
-        fields = {loggers.camel("date" if name == "session_date" else name): value
-                  for name, value in row.items() if value}
+        fields = {
+            loggers.camel("date" if name == "session_date" else name): value
+            for name, value in row.items()
+            if value
+        }
         loggers.validate_input("workout-set", fields, settings)
-        loggers.transition("workout-set", {"sourceId": "manual", "fields": fields},
-                           {SESSIONS: files[SESSIONS]}, settings)
+        loggers.transition(
+            "workout-set",
+            {"sourceId": "manual", "fields": fields},
+            {SESSIONS: files[SESSIONS]},
+            settings,
+        )
         records.row_time(row, settings.zone.key)
-        record_id = str(uuid5(NAMESPACE_URL, "health-buddy:legacy:" + source_id +
-                              ":workout-set:" + key))
+        record_id = str(
+            uuid5(
+                NAMESPACE_URL,
+                "health-buddy:legacy:" + source_id + ":workout-set:" + key,
+            )
+        )
         if record_id in identities:
             raise ServiceError(409, "import_record_id_collision")
         identities[record_id] = (SETS, row)
@@ -76,8 +93,13 @@ def _rows(files: dict[str, str], source_id: str) -> dict[str, tuple[str, dict[st
 
 
 def export_workouts(
-    sessions: Path, sets: Path, output: Path, *, source_id: str,
-    expected_sessions_sha256: str, expected_sets_sha256: str,
+    sessions: Path,
+    sets: Path,
+    output: Path,
+    *,
+    source_id: str,
+    expected_sessions_sha256: str,
+    expected_sets_sha256: str,
 ) -> dict[str, Any]:
     identifier(source_id)
     raw_sessions = _read(sessions, expected_sessions_sha256)
@@ -91,7 +113,9 @@ def export_workouts(
     identities = _rows(files, source_id)
     hashes = {SESSIONS: expected_sessions_sha256, SETS: expected_sets_sha256}
     document: dict[str, JSON] = {
-        "schemaVersion": 1, "family": FAMILY, "sourceId": source_id,
+        "schemaVersion": 1,
+        "family": FAMILY,
+        "sourceId": source_id,
         "files": cast(dict[str, JSON], files),
         "sourceHashes": cast(dict[str, JSON], hashes),
         "recordIds": cast(list[JSON], sorted(identities)),
@@ -111,8 +135,11 @@ def export_workouts(
         atomic_bytes(staged, content)
         os.link(staged, output, follow_symlinks=False)
         fsync_path(output.parent)
-    return {"exported": True, "records": len(identities),
-            "snapshotSha256": hashlib.sha256(content).hexdigest()}
+    return {
+        "exported": True,
+        "records": len(identities),
+        "snapshotSha256": hashlib.sha256(content).hexdigest(),
+    }
 
 
 def import_workouts(
@@ -120,21 +147,32 @@ def import_workouts(
 ) -> dict[str, Any]:
     raw = _read(snapshot, expected_snapshot_sha256)
     value = decode(raw, limit=MAX_BYTES)
-    if (not isinstance(value, dict) or set(value) != {
-        "schemaVersion", "family", "sourceId", "files", "sourceHashes", "recordIds"
-    } or type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1
-        or value["family"] != FAMILY):
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {"schemaVersion", "family", "sourceId", "files", "sourceHashes", "recordIds"}
+        or type(value["schemaVersion"]) is not int
+        or value["schemaVersion"] != 1
+        or value["family"] != FAMILY
+    ):
         raise ServiceError(422, "import_invalid_snapshot")
     source_id = identifier(value["sourceId"])
     files, hashes = value["files"], value["sourceHashes"]
-    if (not isinstance(files, dict) or set(files) != {SESSIONS, SETS}
-        or not isinstance(hashes, dict) or set(hashes) != {SESSIONS, SETS}):
+    if (
+        not isinstance(files, dict)
+        or set(files) != {SESSIONS, SETS}
+        or not isinstance(hashes, dict)
+        or set(hashes) != {SESSIONS, SETS}
+    ):
         raise ServiceError(422, "import_invalid_snapshot")
     selected: dict[str, str] = {}
     for path in (SESSIONS, SETS):
         csv, reviewed = files[path], hashes[path]
-        if (not isinstance(csv, str) or not isinstance(reviewed, str)
-            or not SHA256.fullmatch(reviewed)):
+        if (
+            not isinstance(csv, str)
+            or not isinstance(reviewed, str)
+            or not SHA256.fullmatch(reviewed)
+        ):
             raise ServiceError(422, "import_invalid_snapshot")
         if hashlib.sha256(csv.encode()).hexdigest() != reviewed:
             raise ServiceError(409, "import_input_changed")
@@ -143,8 +181,11 @@ def import_workouts(
     if value["recordIds"] != sorted(identities):
         raise ServiceError(422, "import_invalid_record_ids")
     provenance: dict[str, JSON] = {
-        "schemaVersion": 1, "family": FAMILY, "sourceId": source_id,
-        "sourceHashes": hashes, "snapshotSha256": expected_snapshot_sha256,
+        "schemaVersion": 1,
+        "family": FAMILY,
+        "sourceId": source_id,
+        "sourceHashes": hashes,
+        "snapshotSha256": expected_snapshot_sha256,
         "records": len(identities),
     }
     return adopt_snapshot(target, raw, provenance, selected, identities)

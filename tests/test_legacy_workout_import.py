@@ -29,36 +29,60 @@ def fixture(tmp_path, status="complete"):
     source = tmp_path / "synthetic-legacy"
     source.mkdir(mode=0o700)
     session = dict.fromkeys(headers()[SESSIONS], "")
-    session.update(session_id="synthetic-session-01", date="2030-01-03",
-                   workout_type="strength", status=status, duration_min="30",
-                   notes="SYNTHETIC_SESSION_NOTE")
+    session.update(
+        session_id="synthetic-session-01",
+        date="2030-01-03",
+        workout_type="strength",
+        status=status,
+        duration_min="30",
+        notes="SYNTHETIC_SESSION_NOTE",
+    )
     child = dict.fromkeys(headers()[SETS], "")
-    child.update(session_id=session["session_id"], session_date=session["date"],
-                 exercise="Synthetic press", equipment="synthetic-dumbbell",
-                 set_number="1", load_lb="20.0", load_basis="per_hand", reps="8",
-                 rir="2", form_quality="controlled", status="completed",
-                 notes="SYNTHETIC_SET_NOTE")
+    child.update(
+        session_id=session["session_id"],
+        session_date=session["date"],
+        exercise="Synthetic press",
+        equipment="synthetic-dumbbell",
+        set_number="1",
+        load_lb="20.0",
+        load_basis="per_hand",
+        reps="8",
+        rir="2",
+        form_quality="controlled",
+        status="completed",
+        notes="SYNTHETIC_SET_NOTE",
+    )
     sessions, sets = source / "sessions.csv", source / "sets.csv"
     atomic_bytes(sessions, csv_text(headers()[SESSIONS], [session]).encode())
     atomic_bytes(sets, csv_text(headers()[SETS], [child]).encode())
     private_git = source / ".git"
     private_git.mkdir(mode=0o700)
     atomic_bytes(private_git / "config", b"PRIVATE_REMOTE_SENTINEL")
-    before = {path.relative_to(source): (path.read_bytes(), path.stat().st_mtime_ns)
-              for path in source.rglob("*") if path.is_file()}
+    before = {
+        path.relative_to(source): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in source.rglob("*")
+        if path.is_file()
+    }
     snapshot = tmp_path / "workout-pair.json"
     return source, sessions, sets, snapshot, before
 
 
 def export(sessions, sets, snapshot):
-    return export_workouts(sessions, sets, snapshot, source_id="synthetic-legacy",
-                           expected_sessions_sha256=sha(sessions),
-                           expected_sets_sha256=sha(sets))
+    return export_workouts(
+        sessions,
+        sets,
+        snapshot,
+        source_id="synthetic-legacy",
+        expected_sessions_sha256=sha(sessions),
+        expected_sets_sha256=sha(sets),
+    )
 
 
 @pytest.mark.parametrize("status", ["complete", "partial"])
 def test_session_set_pair_canonical_parent_read_and_inert_repeat(
-    tmp_path, capsys, status,
+    tmp_path,
+    capsys,
+    status,
 ):
     source, sessions, sets, snapshot, before = fixture(tmp_path, status)
     exported = export(sessions, sets, snapshot)
@@ -66,8 +90,16 @@ def test_session_set_pair_canonical_parent_read_and_inert_repeat(
     assert document["family"] == FAMILY
     assert set(document["files"]) == {SESSIONS, SETS}
     target = tmp_path / "canary"
-    args = ["--workspace", str(target), "legacy-import", "adopt-workouts",
-            "--snapshot", str(snapshot), "--expected-snapshot-sha256", sha(snapshot)]
+    args = [
+        "--workspace",
+        str(target),
+        "legacy-import",
+        "adopt-workouts",
+        "--snapshot",
+        str(snapshot),
+        "--expected-snapshot-sha256",
+        sha(snapshot),
+    ]
     assert main(args) == 0
     first = json.loads(capsys.readouterr().out)
     service = Service(target, DevelopmentPolicy())
@@ -75,8 +107,13 @@ def test_session_set_pair_canonical_parent_read_and_inert_repeat(
     head, files = service.manual.snapshot()
     assert files[SESSIONS].encode() == sessions.read_bytes()
     assert files[SETS].encode() == sets.read_bytes()
-    response = service.execute(DEVELOPMENT_PRINCIPAL, Request("records.list",
-        query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"}))
+    response = service.execute(
+        DEVELOPMENT_PRINCIPAL,
+        Request(
+            "records.list",
+            query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"},
+        ),
+    )
     assert response.status == 200, response.body
     observations = json.loads(response.body)["data"]["records"]
     assert len(observations) == 2
@@ -102,15 +139,20 @@ def test_session_set_pair_canonical_parent_read_and_inert_repeat(
     assert "SYNTHETIC_SET_NOTE" not in receipts
     assert "Synthetic press" not in receipts
     assert "PRIVATE_REMOTE_SENTINEL" not in snapshot.read_text()
-    assert before == {path.relative_to(source): (path.read_bytes(), path.stat().st_mtime_ns)
-                      for path in source.rglob("*") if path.is_file()}
+    assert before == {
+        path.relative_to(source): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in source.rglob("*")
+        if path.is_file()
+    }
 
 
-@pytest.mark.parametrize("field,value", [
-    ("session_id", "foreign-session"), ("session_date", "2030-01-04")
-])
+@pytest.mark.parametrize(
+    "field,value", [("session_id", "foreign-session"), ("session_date", "2030-01-04")]
+)
 def test_foreign_or_corrupt_parent_refused_before_export_and_import(
-    tmp_path, field, value,
+    tmp_path,
+    field,
+    value,
 ):
     _source, sessions, sets, snapshot, _before = fixture(tmp_path)
     export(sessions, sets, snapshot)
@@ -147,6 +189,7 @@ def test_duplicate_parent_refused_before_destination_exists(tmp_path):
     document["sourceHashes"][SESSIONS] = hashlib.sha256(changed.encode()).hexdigest()
     atomic_bytes(snapshot, encode(document))
     with pytest.raises(ServiceError, match="import_duplicate_natural_key"):
-        import_workouts(tmp_path / "refused", snapshot,
-                        expected_snapshot_sha256=sha(snapshot))
+        import_workouts(
+            tmp_path / "refused", snapshot, expected_snapshot_sha256=sha(snapshot)
+        )
     assert not (tmp_path / "refused").exists()

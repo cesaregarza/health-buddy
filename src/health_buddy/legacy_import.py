@@ -166,14 +166,21 @@ def import_measurements(
         "records": len(rows),
     }
     return adopt_snapshot(
-        target, raw, provenance, {MEASUREMENTS: str(value["csv"])},
-        {record_id: (MEASUREMENTS, row)
-         for record_id, row in zip(ids, rows, strict=True)},
+        target,
+        raw,
+        provenance,
+        {MEASUREMENTS: str(value["csv"])},
+        {
+            record_id: (MEASUREMENTS, row)
+            for record_id, row in zip(ids, rows, strict=True)
+        },
     )
 
 
 def adopt_snapshot(
-    target: Path, raw: bytes, provenance: dict[str, JSON],
+    target: Path,
+    raw: bytes,
+    provenance: dict[str, JSON],
     seeded_files: dict[str, str],
     identities: dict[str, tuple[str, dict[str, str]]],
 ) -> dict[str, Any]:
@@ -236,10 +243,14 @@ def adopt_snapshot(
                     record_id: by_locator[(path, digest(row))]
                     for record_id, (path, row) in identities.items()
                 }
-                return changes | seeded_files | {
-                    RECORD_INDEX: encode(stable).decode() + "\n",
-                    RECEIPT: encode(provenance).decode() + "\n",
-                }
+                return (
+                    changes
+                    | seeded_files
+                    | {
+                        RECORD_INDEX: encode(stable).decode() + "\n",
+                        RECEIPT: encode(provenance).decode() + "\n",
+                    }
+                )
 
             with exclusive(settings.path("operations/manual.lock")):
                 journal.bootstrap(adopt)
