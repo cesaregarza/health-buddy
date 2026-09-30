@@ -259,3 +259,46 @@ def test_phone_newer_checkpoint_replays_history_after_epoch_repair(tmp_path):
         original_rows = database.execute("SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id").fetchall()
     assert len(rows) == 2
     assert rows == original_rows
+
+
+def test_snapshot_holds_supported_writer_until_complete(tmp_path):
+    from threading import Event, Thread
+    from unittest.mock import patch
+
+    from health_buddy.backup_archive import snapshot
+    from tests.canonical_fixtures import intent
+
+    runtime, owner, token = secured(tmp_path / "source")
+    service = runtime.operations
+    root = service.config.root
+    key = tmp_path / "backup.key"
+    keygen(key)
+    attempted, completed = Event(), Event()
+    responses = []
+    request = intent(service, owner.principal)
+
+    def writer():
+        attempted.set()
+        responses.append(service.execute(owner.principal, request))
+        completed.set()
+
+    thread = Thread(target=writer)
+
+    def held_snapshot(config, inventory):
+        thread.start()
+        assert attempted.wait(5)
+        assert not completed.is_set()
+        return snapshot(config, inventory)
+
+    try:
+        with patch("health_buddy.backup.snapshot", held_snapshot):
+            create(runtime, owner.principal, tmp_path / "consistent.hbb", key, confirm_quiesced=True)
+        assert completed.wait(10)
+        thread.join(5)
+        assert responses[0].status == 200
+    finally:
+        thread.join(10)
+    result = restore(tmp_path / "clean-host", tmp_path / "consistent.hbb", key, confirm_revoke_all=True)
+    assert result["dataRevision"] == 0
+    assert service.journal.state().revision == 1
+    assert root.exists() and runtime.security.authenticate(BearerProof(token))
