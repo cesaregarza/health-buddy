@@ -24,7 +24,11 @@ jobs:
           DOCKER_PACKAGE_VERSION: 5:29.8.1-1~ubuntu.24.04~noble
           DEBIAN_FRONTEND: noninteractive
         run: |
-          # Use the hosted runner's existing signed Docker apt repository.
+          # Hosted images do not retain Docker's apt source; configure it explicitly.
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl --fail --silent --show-error --location --max-time 30 https://download.docker.com/linux/ubuntu/gpg --output /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable\n' "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/health-buddy-docker.list
           sudo apt-get update
           sudo --preserve-env=DEBIAN_FRONTEND apt-get install --yes --no-install-recommends "docker-ce=$DOCKER_PACKAGE_VERSION" "docker-ce-cli=$DOCKER_PACKAGE_VERSION"
           sudo systemctl restart docker
@@ -95,7 +99,11 @@ jobs:
           DOCKER_PACKAGE_VERSION: 5:29.8.1-1~ubuntu.24.04~noble
           DEBIAN_FRONTEND: noninteractive
         run: |
-          # Use the hosted runner's existing signed Docker apt repository.
+          # Hosted images do not retain Docker's apt source; configure it explicitly.
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl --fail --silent --show-error --location --max-time 30 https://download.docker.com/linux/ubuntu/gpg --output /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable\n' "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/health-buddy-docker.list
           sudo apt-get update
           sudo --preserve-env=DEBIAN_FRONTEND apt-get install --yes --no-install-recommends "docker-ce=$DOCKER_PACKAGE_VERSION" "docker-ce-cli=$DOCKER_PACKAGE_VERSION"
           sudo systemctl restart docker
