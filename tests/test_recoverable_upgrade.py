@@ -462,22 +462,36 @@ def test_interrupted_activation_can_explicitly_recover_recorded_previous_binary(
 
 
 @pytest.mark.parametrize("mismatch", ["workspace", "user"])
-def test_real_running_guard_refuses_other_installation_before_stop_or_load(tmp_path, monkeypatch, mismatch):
+def test_real_running_guard_refuses_other_installation_before_stop_or_load(
+    tmp_path, monkeypatch, mismatch
+):
     real_running = upgrade_activation.running
     arguments, calls, _token, _grant, _notes = activation_fixture(tmp_path, monkeypatch)
     monkeypatch.setattr(upgrade_activation, "running", real_running)
     artifact = upgrade_activation.selected_artifact(arguments[6], "amd64")
     workspace = arguments[0].operations.config.root
-    source = str(tmp_path / "another-owner") if mismatch == "workspace" else str(workspace)
+    source = (
+        str(tmp_path / "another-owner") if mismatch == "workspace" else str(workspace)
+    )
     user = "1001:1001" if mismatch == "user" else "1000:1000"
-    responses = iter([
-        b"a" * 64 + b"\n",
-        (artifact.loader_ids[0] + "\ntrue\n" + user + "\n"
-         + json.dumps(source) + "\nbind\ntrue\n").encode(),
-    ])
+    responses = iter(
+        [
+            b"a" * 64 + b"\n",
+            (
+                artifact.loader_ids[0]
+                + "\ntrue\n"
+                + user
+                + "\n"
+                + json.dumps(source)
+                + "\nbind\ntrue\n"
+            ).encode(),
+        ]
+    )
     commands = []
     monkeypatch.setattr(upgrade_activation, "compose", _real_compose)
-    monkeypatch.setattr(upgrade_activation, "docker_command", lambda _docker: ["synthetic-docker"])
+    monkeypatch.setattr(
+        upgrade_activation, "docker_command", lambda _docker: ["synthetic-docker"]
+    )
 
     original_run = upgrade_activation.subprocess.run
 
@@ -501,7 +515,9 @@ def test_real_running_guard_refuses_other_installation_before_stop_or_load(tmp_p
 
 
 @pytest.mark.parametrize("field", ["project", "environment", "uid", "gid"])
-def test_terminal_repeat_binds_saved_installation_before_any_host_action(tmp_path, monkeypatch, field):
+def test_terminal_repeat_binds_saved_installation_before_any_host_action(
+    tmp_path, monkeypatch, field
+):
     real_running = upgrade_activation.running
     arguments, calls, _token, _grant, _notes = activation_fixture(tmp_path, monkeypatch)
     activate(*arguments, confirm_quiesced=True)
@@ -511,7 +527,8 @@ def test_terminal_repeat_binds_saved_installation_before_any_host_action(tmp_pat
     index, value = {
         "project": (10, "health-buddy-another"),
         "environment": (8, tmp_path / "other-runtime.env"),
-        "uid": (11, 1001), "gid": (12, 1001),
+        "uid": (11, 1001),
+        "gid": (12, 1001),
     }[field]
     changed[index] = value
 
