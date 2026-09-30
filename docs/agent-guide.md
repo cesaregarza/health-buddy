@@ -12,7 +12,7 @@ needed. Live named-agent and upgrade qualification remains CES-1083.
 
 As the native workspace owner, choose an existing private native WORKSPACE:
 
-```sh
+```bash
 health-buddy --workspace "$WORKSPACE" workspace describe --json
 health-buddy --workspace "$WORKSPACE" extension inspect
 health-buddy --workspace "$WORKSPACE" extension compatibility --extension-api 1
@@ -64,6 +64,7 @@ Abstract examples: `contracts/v1/examples/{weekly-mass,water-import}.json` and
 ## First runnable change: weekly mass display
 
 The queue can start from a fresh synthetic workspace using Python 3.12+ and Git.
+Use Bash for the commands in this guide.
 From the selected source checkout, use the existing pinned development closure
 [packaging/dev-cp312-linux-x86_64.lock](../packaging/dev-cp312-linux-x86_64.lock).
 It reuses the accepted runtime/MCP + dev tools + SleepIQ-test dependency inventory,
@@ -76,7 +77,7 @@ The queue can stage that exact closure into a new native WHEELHOUSE when needed:
 `python3.12 -m pip --isolated --disable-pip-version-check --no-cache-dir download --only-binary=:all: --no-deps --require-hashes -r packaging/dev-cp312-linux-x86_64.lock --dest "$WHEELHOUSE"`.
 Existing admitted wheels may be copied into that directory instead. Setup is:
 
-```sh
+```bash
 python3.12 -m venv .venv
 # WHEELHOUSE is a native directory containing the exact locked binary wheels.
 .venv/bin/python -m pip --isolated --disable-pip-version-check --no-cache-dir install --no-index --find-links "$WHEELHOUSE" --require-hashes --no-deps --no-compile -r packaging/dev-cp312-linux-x86_64.lock
@@ -119,7 +120,7 @@ the extension; the maintained host adaptation test is a reusable example.
 Submit this focused check set to the queue from the matching source checkout
 (set EXTENSION to the installed private extension directory):
 
-```sh
+```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider "$EXTENSION/tests" tests/test_extension_runtime.py tests/test_extension_registry.py tests/test_extension_workflow.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
@@ -136,7 +137,7 @@ real-authority host tests cover admission separately.
 
 After checks and one light source/config review, explicitly select the new code:
 
-```sh
+```bash
 health-buddy --workspace "$WORKSPACE" extension enable --id local.weekly-mass --source-id manual
 health-buddy --workspace "$WORKSPACE" --credential-file "$OWNER_FILE" extension preview --id local.weekly-mass --source-id manual --from 2030-01-01T00:00:00Z --to 2030-01-07T23:59:59Z
 health-buddy --workspace "$WORKSPACE" extension inspect
@@ -163,7 +164,7 @@ Use [current CLI commands](canonical-clients.md) and [owner setup](authorization
 with credential-file paths. Inspect optional source status and missingness before
 interpreting a view. For failed edits, disable or select a retained code review:
 
-```sh
+```bash
 health-buddy --workspace "$WORKSPACE" extension disable --id local.weekly-mass
 health-buddy --workspace "$WORKSPACE" extension revert --id local.weekly-mass --review "$REVIEW_DIGEST"
 ```
