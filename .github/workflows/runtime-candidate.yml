@@ -1,0 +1,98 @@
+name: Controlled runtime candidate
+# This dedicated ref is pushed only after the coordinator reviews local tests,
+# source and PR description. No ordinary feature/PR push triggers image builds.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['validation/ces1068-*']
+permissions:
+  contents: read
+concurrency:
+  group: controlled-runtime-candidate
+  cancel-in-progress: false
+jobs:
+  native:
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Native build and whole-workspace qualification
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_ARCH: ${{ matrix.architecture }}
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}
+        run: >-
+          python3 packaging/verify_runtime.py
+          --architecture "$CANDIDATE_ARCH"
+          --revision "$CANDIDATE_SHA"
+          --output "$CANDIDATE_OUTPUT"
+      - name: Retain private immutable candidate and safe receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-${{ matrix.architecture }}-${{ github.sha }}
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/health-buddy-linux-${{ matrix.architecture }}.docker.tar
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/qualification.json
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/build-metadata.json
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/build.log
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/license-inventory.log
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/capture-installed-inputs-json.log
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/capture-build-resources-json.log
+      - name: Retain safe failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-failure-${{ matrix.architecture }}-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/build.log
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/docker-version.log
+            ${{ runner.temp }}/hb-runtime-${{ matrix.architecture }}/builder.log
+  manifest:
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: runtime-*-${{ github.sha }}
+          path: candidate-downloads
+          merge-multiple: false
+      - name: Assemble both actual archive hashes and compatibility manifest
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-manifest
+        run: |
+          mkdir -m 0700 "$CANDIDATE_OUTPUT"
+          python3 scripts/package_runtime.py bundle --repository "$GITHUB_WORKSPACE" --revision "$CANDIDATE_SHA" --output "$CANDIDATE_OUTPUT/bundle"
+          mkdir -m 0700 "$CANDIDATE_OUTPUT/artifacts"
+          cp "candidate-downloads/runtime-amd64-$CANDIDATE_SHA/health-buddy-linux-amd64.docker.tar" "$CANDIDATE_OUTPUT/artifacts/"
+          cp "candidate-downloads/runtime-arm64-$CANDIDATE_SHA/health-buddy-linux-arm64.docker.tar" "$CANDIDATE_OUTPUT/artifacts/"
+          python3 scripts/package_runtime.py manifest --bundle "$CANDIDATE_OUTPUT/bundle" --artifacts "$CANDIDATE_OUTPUT/artifacts"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-manifest-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/runtime-manifest.json
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/SHA256SUMS
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-source.tar

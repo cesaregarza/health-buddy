@@ -26,7 +26,7 @@ sleepiq-exporter = "sleepiq_exporter.cli:main"
 packages = ["src/health_buddy", "src/health_ingest", "src/sleepiq_exporter"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/scripts/*.py", "/tests", "/contracts", "/docs", "/provenance", "/health-runner/dashboard/*.py", "/health-runner/dashboard/*.js", "/health-runner/dashboard/template.html", "/health-runner/dashboard/assets/*.svg", "/health-runner/dashboard/assets/*.js", "/health-runner/dashboard/assets/*.webmanifest", "/health-runner/dashboard/tests", "/health-runner/dashboard/scripts/*.py", "/README.md", "/CONTRIBUTING.md", "/AGENTS.md", "/LICENSE", "/THIRD_PARTY.md", "/pyproject.toml", "/requirements-contract.txt", "/alembic.ini", "/Makefile"]
+include = ["/packaging", "/src", "/scripts/*.py", "/tests", "/contracts", "/docs", "/provenance", "/health-runner/dashboard/*.py", "/health-runner/dashboard/*.js", "/health-runner/dashboard/template.html", "/health-runner/dashboard/assets/*.svg", "/health-runner/dashboard/assets/*.js", "/health-runner/dashboard/assets/*.webmanifest", "/health-runner/dashboard/tests", "/health-runner/dashboard/scripts/*.py", "/README.md", "/CONTRIBUTING.md", "/AGENTS.md", "/LICENSE", "/THIRD_PARTY.md", "/pyproject.toml", "/requirements-contract.txt", "/alembic.ini", "/Makefile"]
 exclude = ["**/__pycache__/**", "**/*.pyc", "**/.env*", "**/*.db", "**/*.sqlite*", "**/design/**", "**/web/**"]
 
 [tool.pytest.ini_options]

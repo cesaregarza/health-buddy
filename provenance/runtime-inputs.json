@@ -1,0 +1,57 @@
+{
+  "baseIndex": "sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e",
+  "debianRepositories": [
+    {
+      "archive": "debian",
+      "date": "Sat, 11 Jul 2026 10:16:37 UTC",
+      "inrelease_url": "https://snapshot.debian.org/file/736a99b8b096598d48c438eb356bd074fecfbf23/InRelease",
+      "signature_primary_fingerprints": [
+        "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+        "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+        "4D64FEC119C2029067D6E791F8D2585B8783D481"
+      ],
+      "snapshot_request_url": "https://snapshot.debian.org/archive/debian/20260929T000000Z/dists/bookworm/InRelease",
+      "suite": "bookworm",
+      "valid_until": null
+    },
+    {
+      "archive": "debian",
+      "date": "Mon, 28 Sep 2026 20:14:44 UTC",
+      "inrelease_url": "https://snapshot.debian.org/file/c8ed39585dd1d92cc936870d7364c45efdf841ae/InRelease",
+      "signature_primary_fingerprints": [
+        "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+        "04B54C3CDCA79751B16BC6B5225629DF75B188BD"
+      ],
+      "snapshot_request_url": "https://snapshot.debian.org/archive/debian/20260929T000000Z/dists/bookworm-updates/InRelease",
+      "suite": "bookworm-updates",
+      "valid_until": null
+    },
+    {
+      "archive": "debian-security",
+      "date": "Mon, 28 Sep 2026 20:55:43 UTC",
+      "inrelease_url": "https://snapshot.debian.org/file/7c380171c61951443a0a9ae52b97b36ca0a1d4a0/InRelease",
+      "signature_primary_fingerprints": [
+        "05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0"
+      ],
+      "snapshot_request_url": "https://snapshot.debian.org/archive/debian-security/20260929T000000Z/dists/bookworm-security/InRelease",
+      "suite": "bookworm-security",
+      "valid_until": "Mon, 05 Oct 2026 20:55:43 UTC"
+    }
+  ],
+  "metadata": [
+    {
+      "name": "python-and-wheels",
+      "sha256": "bba079dd9d5ac81d672324890fe35602325f12cb5cc00b1d4a66bc8b7f8005d5"
+    },
+    {
+      "name": "base-configs",
+      "sha256": "c1a014fc14b1fd9f8098f3a73c0db8aa526522c458d915499eb61aee0c3b2031"
+    },
+    {
+      "name": "signed-debian-closure",
+      "sha256": "66786034d2db8f5d3bc9eb67432dfe57b1d479498a917a597949243ae063a3da"
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "Public metadata-selected input pins; downloaded input hashes, installed licenses and image execution are verified separately. Historic Debian signatures do not assert current security freshness."
+}

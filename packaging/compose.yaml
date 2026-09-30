@@ -1,0 +1,54 @@
+# Generate runtime.env only after verifying and loading the exact Docker archive.
+# No build, tag resolution, published port, Docker socket or implicit connector.
+name: health-buddy
+x-runtime: &runtime
+  image: ${HB_IMAGE:?verified immutable local image ID is required}
+  pull_policy: never
+  user: "${HB_UID:?nonzero service UID}:${HB_GID:?nonzero service GID}"
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  network_mode: none
+  pids_limit: 128
+  mem_limit: 512m
+  cpus: 1.0
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777
+  volumes:
+    - type: bind
+      source: ${HB_WORKSPACE:?existing native private workspace is required}
+      target: /workspace
+      bind:
+        create_host_path: false
+  stop_grace_period: 40s
+  logging:
+    driver: local
+    options:
+      max-size: 5m
+      max-file: "2"
+services:
+  api:
+    <<: *runtime
+    command: [api]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, python, -I, -B, /opt/health-buddy/source/scripts/runtime_entrypoint.py, health]
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+  jobs:
+    <<: *runtime
+    profiles: [jobs]
+    restart: "no"
+    healthcheck:
+      disable: true
+    command:
+      - job
+      - --id
+      - ${HB_JOB_ID:-explicit-job-id-required}
+      - --event-file
+      - ${HB_JOB_EVENT:-/workspace/personal/state/explicit-event-required.json}
+      - --credential-file
+      - ${HB_JOB_CREDENTIAL:-/workspace/secrets/explicit-job-credential-required}

@@ -75,3 +75,11 @@ texts, including LLVM and Unicode terms. Together with six Python notices and
 the dev-only typing license, 43 files are retained under
 [docs/notices/extensions](docs/notices/extensions/README.md). This is not proof
 of static-link membership or future-image qualification.
+
+The optional CES-1068 runtime image uses the per-architecture binary selections
+in `packaging/runtime-inputs.json`; `provenance/runtime-inputs.json` records their
+metadata provenance. Source pins are not an assertion that an image has been
+built or that final-image notice closure has passed. The controlled native
+qualification retains actual installed Python metadata/SBOM and Debian copyright
+texts/hashes from each produced image. Those per-architecture receipts, alongside
+existing source notices, are required before accepting the final image inventory.

@@ -1,309 +1,259 @@
-# Runtime packaging design checkpoint
+# Immutable runtime and private workspace
 
-CES-1068 D1, based on accepted source `8188ebfc65f5285dd1672493d775554d631b16a9`.
-This is an interface/design checkpoint, not an existing image or verified install.
-No external release, registry publication, deployment or host restart is implied.
-The implementation must replace planned behavior below with actual evidence and
-keep unsupported architecture/operational boundaries explicit.
+CES-1068 supplies source packaging, a pinned binary-input context, one API/job
+image, Docker archive verification, Compose and a repeatable synthetic runtime
+qualification command. The presence of these files is not evidence that an
+image was built. Exact queue/build receipts establish tested commits and actual
+AMD64/ARM64 artifact bytes. Candidate artifacts remain private; this workflow
+neither publishes a registry image nor creates an external release.
 
-## One replaceable runtime, one private workspace
+## Source and runtime map
 
-The runtime includes the complete reviewed source bundle, not just today's
-wheel. `legacy.RELEASE` resolves the bundle that contains `src`, top-level
-`scripts`, `health-runner/dashboard` Python/templates/JavaScript/assets and
-script helpers, maintained reference extensions/tests, contracts, documentation,
-legal notices and provenance. The build context is an explicit audited allowlist;
-Git history, owner workspaces, credentials, generated caches and private data
-never enter it. Exact Git reads disable replacement objects, so local replacement
-refs cannot change the content associated with the selected commit. Newly created
-source/release directories are0755, regular source is0644 and tracked executable
-source is0755 even under maintenance umask077; the outer staging directory remains
-private0700. Existing source inputs and owner files are never chmodded. `.dockerignore` must retain the extension worker JavaScript and
-legacy scripts that the current deny-by-default file omits.
+| Source | Responsibility |
+| --- | --- |
+| `runtime_bundle.py`, `runtime_manifest.py` | Exact Git commit/tree, complete bounded source archive, safe inventory and startup verification |
+| `packaging/runtime-inputs.json`, `runtime_inputs.py` | Fixed per-architecture base/wheel/Debian inputs and explicit hash-checked download |
+| `runtime_context.py`, `packaging/runtime.Dockerfile`, `install_runtime.py` | Complete build context and offline binary assembly |
+| `runtime_artifact.py`, `runtime_release.py` | Bounded Docker-save archive admission, actual artifact manifest and fixed-ID loading |
+| `packaged_runtime.py`, `scripts/runtime_entrypoint.py` | Explicit nonroot API/CLI/job/health entrypoints |
+| `runtime_listener.py`, `runtime_readiness.py` | Shared listener lifetime and read-only core readiness |
+| `packaging/compose.yaml` | Same immutable image for API and explicit finite jobs |
+| `packaging/verify_runtime.py`, `runtime_synthetic.py` | Admitted isolated-runner build/replacement/retry qualification |
 
-Planned image layout:
-
-```text
-/opt/health-buddy/source/       immutable complete source bundle
-/opt/health-buddy/dependencies/ exact selected binary Python dependencies
-/opt/health-buddy/release/      generated source/dependency manifests and notices
-/workspace/                    external complete private owner workspace
-/workspace/security/runtime/   host-visible, non-authoritative listener state
-/tmp/                         bounded ephemeral scratch
-```
-
-A small fixed module launcher selects this source explicitly (including its
-`src` directory), disables Python bytecode writes and calls the existing CLI.
-It never imports code from the workspace as a backend override. The same exact
-image is used for the API and explicit extension jobs. No daemon scheduler,
-queue broker, Redis, Postgres, vendor setup or model call starts implicitly.
-The optional `jobs` Compose profile runs the existing `extension run` command
-with an explicit extension ID, private event path and scoped credential file.
-It has no default scheduled event and no token in arguments or environment.
-
-The service runs as a supplied nonzero UID/GID. The native coding agent and
-maintenance CLI use that same host OS identity, with `umask 077`; health tokens
-do not authorize filesystem maintenance. Fresh initialization is create-only
-and validates the whole workspace root's ownership/type/mode. Existing files
-are never recursively chowned/chmodded, adopted by an init container, copied
-out of the image over owner files, or reset to make startup succeed. Bind mounts
-use `create_host_path: false`; all canonical stores, authority, secrets, source,
-assets, config, tests, notes, reviews, pending requests and fork metadata remain
-inside the complete external workspace.
-
-The initial supported ownership recipe targets an explicitly inspected native
-Linux local Docker daemon without unexpected user-namespace remapping. A
-rootless/remapped daemon is not assumed to preserve numeric host ownership;
-qualification must establish the effective mapping before using a private
-workspace. No daemon configuration is changed by the product or this ticket.
-
-## Shared source and artifact identity
-
-`src/health_buddy/release_identity.py` is the shared immutable value seam with
-CES-1072. `ReleaseIdentity()` means unknown. The discovery service may consume
-an explicitly supplied validated value; it must not accept user configuration,
-health requests or environment strings as verification. CES-1068 owns readers;
-CES-1072 owns the admitted discovery response and constructor injection.
-
-Planned source reader signature:
-
-```python
-read_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIdentity
-```
-
-The reader validates fixed schema/version/types and bounded relative paths,
-rejects links/traversal/duplicates/unknown keys, and verifies the actual selected
-bundle file inventory. Invalid or unavailable evidence produces unknown
-identity for discovery; packaging verification itself fails with a safe explicit
-error. No Git status, hooks, remote access, arbitrary imports or build execution
-occur during discovery. Verification runs once at controlled runtime startup;
-ordinary discovery consumes the injected frozen DTO and never rescans the
-source tree. This is startup-snapshot evidence, not continuous attestation of
-mutable source. Limit: 4,096 regular files, 64 MiB aggregate content,
-16 path components and 2 MiB metadata; increase only through a reviewed contract
-change if the real bundle requires it. Input file/byte counts precede allocation.
-
-The generated source manifest, outside the source archive it describes, has:
-
-- `manifestVersion: 1`, actual `packageVersion` and `source` containing exact
-  commit/tree IDs plus the separately verified source archive SHA-256;
-- `files`: sorted relative path, byte count and SHA-256 entries for the entire
-  selected immutable bundle; `docsSha256` is SHA-256 of the canonical UTF-8 JSON
-  list of the `docs/` entries (sorted keys, compact separators, no extra newline);
-- `interfaces`: implemented API/storage/extensions/pairing/phone payload
-  versions, with optional tool support absent until actually packaged;
-- relative paths to the dependency lock and legal inventory, themselves covered
-  by hashes. No workspace paths, health identity or personal values.
-
-`sourceEvidence='packaged_manifest'` describes verified inventory integrity.
-Commit association is backed by the controlled exact-Git-source build receipt;
-it is not a signature or independent publisher attestation. Package version
-alone proves neither source revision nor artifact identity. Checkouts without
-that evidence keep the corresponding fields unknown.
-
-An external release manifest records real local source archives and OCI layout
-index/manifests/blobs only after they exist and every recorded digest/size has
-been verified. It also records platform, package/release version, compatibility
-interfaces, dependency/base input digests and actual build/execution evidence.
-Local qualification is distinct from external publication. The existing
-contract-only `contracts/v1/compatibility.json` remains the normative target;
-this generated artifact manifest has its own schema and actual status.
-
-Planned external reader signature:
-
-```python
-verify_artifact_identity(oci_root: Path, descriptor_path: Path) -> ArtifactIdentity
-```
-
-This is an offline verification tool, not an active-image attestation. A running
-process must leave `ReleaseIdentity.artifact` absent unless its launcher has an
-independently established binding to the verified artifact. In particular the
-image cannot contain its own eventual digest; labels, user-supplied JSON or an
-environment variable do not establish that binding. A missing ARM artifact
-remains missing, never a placeholder digest or copied amd64 claim.
-
-## Exact build inputs and actual architecture evidence
-
-Select an actual CPython 3.12 Linux base manifest and both linux/amd64 and
-linux/arm64 descriptors. Pin the resolved index/per-platform SHA-256 digests;
-never use `latest` or an unresolved tag for installation. Runtime Python direct
-and transitive dependencies are selected per architecture as binary wheels,
-with exact versions, filenames and SHA-256 hashes. Existing application pins
-remain unless a separately reviewed incompatibility requires a change.
-
-Git is required by the canonical manual store. A slim base therefore needs an
-explicitly pinned per-architecture OS Git/runtime-library closure. Exact base
-and distribution package source/version/checksum/license evidence must precede
-build admission; installing today's unconstrained apt packages is not pinned
-packaging. The final image carries applicable base/OS/Python/native legal text
-and inventories. Existing amd64 Granian/RPDS evidence is input to this process,
-not proof of other-wheel, base-image or ARM notice closure.
-
-Preferred assembly uses verified binary inputs and avoids target Rust/source
-compilation. The queue first determines whether a native local builder can
-export OCI artifacts and whether ARM execution is available. If emulation is
-absent, building a target through architecture-neutral extraction/COPY may be
-possible, but an assembled ARM image is not an executed ARM runtime. Native or
-emulated execution receipts name the distinction; a physical Pi remains a
-separate release qualification gate. No unapproved emulation registration,
-remote builder, image pull or installation is a fallback.
-
-The bounded source/OCI tooling writes create-only native output directories and
-never invents an artifact entry when a build is incomplete. Compose uses either
-an actually verified registry digest (publication separately authorized) or an
-explicit verified local immutable image ID with pull disabled. A local tag is
-not accepted as immutable identity just because it contains a source hash.
-
-## Host-visible private listener and narrow restart recovery
-
-The container-private listener tmpfs proposed in the first D1 is withdrawn:
-it is not reachable as a host pathname by the external Serve proxy, and a lock
-inside it cannot serialize other containers. The corrected topology uses the
-**same native workspace bind** for all API containers and the host operator:
+The image contains the complete selected source: `src`, top-level scripts,
+legacy dashboard Python/templates/JavaScript/assets, maintained personal
+extension examples/tests, contracts, documentation, notices and provenance.
+It excludes Git history, dirty/untracked files, owner workspaces and credentials.
+Git replacement objects are disabled. Newly created immutable source files are
+0644, tracked executables 0755 and directories 0755, even under umask 077; the
+outer native staging directory is private 0700. Existing files are unchanged.
+The root `.dockerignore` refuses a direct repository build; the supported command
+creates a separate verified context with an explicit allowlist.
 
 ```text
-native host: HOST_WORKSPACE/security/runtime/http.sock  <- host Serve/root
-                               same bind-mounted inode
-container:   /workspace/security/runtime/http.sock     <- Granian
-shared lock: HOST_WORKSPACE/operations/http-listener.lock
+/opt/health-buddy/source/        complete immutable source
+/opt/health-buddy/dependencies/  exact binary Python closure
+/opt/health-buddy/release/       source/input/installed-resource evidence
+/workspace/                    complete external private owner workspace
+/tmp/                          bounded ephemeral scratch
 ```
 
-No second mount obscures this directory. Host Serve is explicitly configured
-to the real host path; Granian verifies its container path and inode. The
-inspected local daemon must actually bind this host filesystem. A Desktop/VM
-socket proxy with inaccessible storage is not equivalent. Both path spellings
-must satisfy Unix socket length limits. The host proxy runs as the selected
-service UID or a deliberately trusted root daemon; neither ordinary local
-users nor a health credential gain filesystem access. No proxy container,
-public TCP bypass, nsenter, daemon configuration change or hidden shared mount
-is assumed. Compose does not configure Serve itself.
+The fixed Python launcher uses `-I -B`. A root-owned fixed `.pth` makes only the
+immutable dependencies/source available to isolated Python extension children.
+The reviewed JavaScript view runs in the browser WebWorker; Node is not a
+runtime dependency. No vendor, model key, scheduler, broker or optional database
+starts implicitly. The core image does not require optional MCP dependencies;
+shared discovery is integrated and verified before final combined artifacts.
 
-Fresh packaged initialization explicitly selects `security/runtime/http.sock`
-and creates the empty private0700 child as the maintenance UID; configuration
-accepts only this additional managed location. Existing `security/http.sock`
-keeps its backward-compatible refusal of any existing path. No automatic
-migration/change to an existing config occurs. All authority/epoch/store and
-personal data stay persistent. The managed runtime directory contains only
-this socket and fixed bounded listener metadata, never credential material.
+## Exact source and artifact identity
 
-Every supported packaged API launcher first opens the same owned private0600
-`operations/http-listener.lock` with no link following, checks file identity,
-and holds its nonblocking flock for the supervisor's entire lifetime. The lock
-file is never unlinked or replaced. It is not the canonical writer lock and
-never nests with health/security locks. A competing launcher fails before
-checking or removing a socket. Explicit jobs do not take this listener lock.
-This serializes launchers in different containers because the lock inode is
-on their common persistent workspace bind, not container-private scratch.
+`verify_source_identity(source, manifest)` checks the complete file inventory,
+source archive binding, package/interface versions and canonical docs hash.
+Limits are 4,096 files, 8,192 entries, 64 MiB source content, 16 path components
+and 2 MiB metadata. It rejects links, traversal, duplicate/unknown fields and
+changed inputs. Runtime construction verifies the immutable bundle once and
+injects `ReleaseIdentity`; ordinary discovery consumes that frozen value.
+This proves a startup snapshot, not continuous mutable-checkout attestation.
+The controlled Git build receipt proves commit association. A user configuration
+value, image label or version string alone is not independent publisher proof.
 
-Managed listener ownership is recorded in strict private0600
-`security/runtime/listener.json`: schemaVersion1, generation UUID, fixed relative
-socket path, captured device/inode/ctime_ns/UID/mode. Unknown keys/types, symlinks,
-oversized metadata, unexpected parents/owners/modes or a changed lock inode
-fail closed. The marker grants no application authority. It is atomically
-written/fsynced with its parent in Granian's pinned2.8.3 startup hook, after bind
-and capture but **before** workers are spawned. The current child/per-request
-captured socket checks remain unchanged; raw proxy headers never prove ingress.
+The candidate manifest is generated only after both actual
+`health-buddy-linux-amd64.docker.tar` and
+`health-buddy-linux-arm64.docker.tar` files exist and verify. It records their
+actual hashes/sizes, source commit/tree/archive, input lock and implemented
+interface versions. `SHA256SUMS` covers the actual artifacts and manifest.
+There are no placeholder digests or fabricated download URLs. This is Docker
+`image save` format, not an OCI-layout directory or published registry index.
 
-An existing managed socket is removed automatically only while holding the
-shared launcher lock and only after all of these facts hold:
+Archive admission checks physical tar headers before parsing, bounded regular
+entries and metadata, one Docker `manifest.json` image, config filename/content
+hash, Linux architecture, source labels and ordered rootfs diff IDs. Classic
+uncompressed layers and narrowly supported OCI descriptor/blob exports are
+accepted. For an OCI-shaped save, the index/layout and Docker manifest must
+select the same sole platform/config/layer sequence. Stored compressed layer
+SHA-256 is distinct from the bounded uncompressed diff ID; gzip is supported.
+Unsupported compression, PAX/GNU extended headers, sparse/link/special entries,
+extra images/referrers, unreferenced content, repository tags and OCI name/ref
+annotations are refused. A fixed-ID, single-platform, provenance/SBOM-disabled
+save avoids unrelated daemon tagging. Archive verification performs no extraction.
+Limits: 1 GiB archive, 256 tar entries, 128 layers, 2 MiB total JSON metadata,
+512 MiB expanded per layer and 2 GiB expanded aggregate. These limits are
+explicit compatibility constraints; an unsupported actual producer is reported,
+never silently loaded through a weaker path.
 
-1. The complete bounded marker matches the exact relative path and current
-   socket device/inode/ctime/UID/mode under the still-private owned parent.
-2. A bounded AF_UNIX connection attempt returns exactly ECONNREFUSED. A
-   successful connection, timeout, permission error or any other error refuses
-   recovery; no HTTP request or token is sent during this probe.
-3. A second nonfollowing stat confirms the identical recorded socket and
-   unchanged parent/lock identities immediately before unlink. Only that exact
-   path is unlinked, and the directory link removal is fsynced before rebinding.
+Docker classic storage commonly uses a config digest as image ID. Containerd
+storage may use a validated manifest/index digest instead. The artifact DTO
+therefore retains the config digest, descriptor-derived eligible IDs, stored
+layer digests and diff IDs separately. After loading, the loader inspects the
+actual resolved immutable ID, Linux platform and rootfs, and supplies that exact
+ID to Compose. Build producer ID and loaded ID remain separate receipt fields.
+A process cannot embed its own eventual artifact digest; running discovery leaves
+artifact identity unknown until an independently established binding exists.
 
-No PID-only inference, process-name scan, broad cleanup or unconditional unlink
-is permitted. Same-UID/root maintenance remains the existing trust boundary;
-this protocol is not protection against a malicious process with that identity.
-Normal shutdown preserves the captured-inode-only cleanup and updates/removes
-only its own matching marker. Before any replacement bind, a valid previous
-marker is rechecked, removed and its parent directory fsynced, including the
-valid-marker/no-socket case. An inode and ctime can both be reused; old evidence
-must never authorize an unrecorded next generation. Retirement failure refuses
-startup, while changed or invalid markers are preserved for explicit
-reconciliation. A hard exit after the next bind but before its durable marker
-therefore remains fail closed even if that socket reuses the full old signature.
+## Build and local loading
 
-A normal container recreate or host boot leaves no live listener; the original
-managed socket may persist, and the above evidence permits narrow recovery.
-A parent-only kill with a surviving worker must refuse while the old listener
-still accepts connections. The operator must stop that old service/container,
-not start a second writer. A kill between bind and durable marker creation, a
-replaced socket, ambiguous connection result, or an interrupted metadata write
-remains fail-closed: the OS owner inspects/stops the exact prior container and
-reconciles those exact paths deliberately. The product never claims all startup
-crash windows are automatically recoverable or deletes an unrecorded socket.
+The lock pins CPython 3.12.14, the real multi-architecture base index/platform
+manifests and binary wheels, plus Git and its finite Debian package closure.
+Debian selection is backed by retained signed repository metadata for an explicit
+snapshot. Historical signature validity does not assert current vulnerability
+or release qualification. Downloads require exact HTTPS hosts, sizes and hashes;
+no ambient proxy, resolver, source build or startup download is used. The download
+budget is checked between single socket reads; it can overrun its 240-second
+budget by the current socket timeout, at most 20 seconds. The execution queue
+also applies an independent process deadline. Failed partial output is retained
+and never reused implicitly.
 
-Queue evidence must exercise shared-bind host reachability, two distinct API
-process/container launchers sharing one lock, SIGTERM, full-container SIGKILL
-and recreate after durable marker, parent-only kill with live child, startup
-kill before marker refusal, wrong owner/mode, replaced/unknown path preservation,
-and actual record/personal/pending-state retention. Process/container-crash
-proof does not claim a physical host reboot or power-loss test. Listener socket,
-lock and marker are non-authoritative runtime inventory; CES-1070 must explicitly
-exclude/recreate only these declared runtime artifacts during backup/restore,
-while preserving every authority/epoch/credential and personal file and rotating
-the restored epoch. No backup/restore implementation is added here.
+A native maintainer can inspect source and create a bundle without Docker:
 
-## Liveness, readiness and resource controls
+```sh
+python scripts/package_runtime.py bundle --repository "$REPO" --revision "$EXACT_COMMIT" --output "$STAGING/bundle"
+python scripts/package_runtime.py fetch-inputs --lock "$STAGING/bundle/source/packaging/runtime-inputs.json" --architecture amd64 --directory "$STAGING/inputs"
+python scripts/package_runtime.py context --bundle "$STAGING/bundle" --downloads "$STAGING/inputs" --architecture amd64 --output "$STAGING/context"
+```
 
-Reuse existing `/livez`: validated ingress and finite `{"status":"ok"}` without
-health credentials or data. Add `/readyz` through the same connection/path/
-Host/proxy checks and bounded off-loop admission, returning only `ready` or
-`not_ready` and HTTP200/503. It must never disclose identity, revisions, source
-names, paths, grants, records or failure text. A local container health command
-uses the configured UDS/loopback target and its validated headers, not an owner
-credential, and bounds connection/response bytes/time.
+All destinations are create-only native directories. The Docker RUN installs
+only verified local Debian packages and hashed binary wheels with network none;
+there is no `apt update`, unconstrained pip install, Rust fallback or model setup.
+Actual image legal files and shipped wheel SBOMs remain in the image. The final
+qualification captures those texts/hashes and exact installed versions; a
+wheel-shipped SBOM is not proof every listed crate is linked. Source notice
+closure alone does not establish complete final-image license closure.
 
-The runtime supplies an optional readiness callback to the transport. Default
-absence is not-ready. The callback checks canonical journal/manual identity and
-security authority binding under workspace -> security lock order with a short
-deadline; it does not mint identities, initialize security, invoke a provider,
-scan personal code or read optional histories. Recovery remains the canonical
-service's startup/operations responsibility. An unresolved durable decision is
-not ready; an unavailable optional source with intact core state does not make
-manual logging unready. A required cross-store recovery failure does.
+Only the coordinator's final controlled batch runs `runtime-candidate.yml`.
+It uses native `ubuntu-24.04` and `ubuntu-24.04-arm`, one matrix job at a time,
+25-minute jobs and read-only repository permission. Ordinary branches and PRs
+cannot trigger it. The special `validation/ces1068-*` ref is a deliberate
+publication-batch gate, needed when the unmerged workflow is absent from the
+default branch; it is not permission to merge. No Apple build or external image
+publication occurs. Artifacts expire after 14 days; download and retain the
+accepted manifest/archive/receipt set in the private release inventory before
+expiry. Failing diagnostic artifacts expire after seven days.
 
-API and jobs share one canonical writer/journal. Compose uses read-only release
-filesystem, no capabilities, no-new-privileges, an init/reaper, finite memory/
-CPU/PID/tmpfs budgets and a stop grace longer than the serving child's bounded
-shutdown. Core Compose has no public TCP port, no Docker socket mount and no
-optional egress by default. Tailnet HTTPS/Serve is an explicitly configured
-external boundary, not automatically installed or enabled. Optional egress needs
-a deliberate separate profile/override and never activates a provider itself.
-An unhealthy status reports state; Compose restart policy is not falsely
-claimed to restart an unhealthy but running process.
+Each build requires six GiB free initially and preserves a one-GiB reserve.
+The installer checks actual cgroup-v2 memory (at most 2 GiB) and CPU quota
+(at most one CPU) before installing inputs. These are Docker RUN limits, not
+a claim to constrain the Docker daemon, export buffers or BuildKit cache.
+The isolated runner VM and job timeout bound that wider workload. No local
+Docker build is admitted merely because its CLI runs in a cgroup.
 
-## Ownership and evidence plan
+The manifest loader accepts an explicitly inspected native executable and local
+Unix-socket daemon only. The operator must establish native storage/ownership
+and safe CLI/plugin discovery before invocation; the loader does not reconfigure
+Docker, install emulation or silently use a remote context. After admission:
 
-CES-1068 owns `release_identity.py`, packaging/readiness/lifecycle helpers,
-Dockerfile/build context, runtime Compose/locks/manifests/scripts, related source
-wiring and runtime tests/docs. CES-1072 owns the optional `[mcp]` extra,
-`health-buddy-mcp` entrypoint, shared-tool modules, safe discovery projection and
-MCP client namespace. Coordinate any shared pyproject/Service/Runtime edits;
-no lane edits the other's checkout. Core packaging does not require MCP extras.
+```sh
+python scripts/package_runtime.py load --manifest "$ARTIFACTS/runtime-manifest.json" --architecture amd64 --workspace "$OWNER_WORKSPACE" --uid "$SERVICE_UID" --gid "$SERVICE_GID" --output-env "$PRIVATE/runtime.env"
+docker compose --env-file "$PRIVATE/runtime.env" -f "$SOURCE/packaging/compose.yaml" up -d api
+```
 
-D2 verification through the sole queue must establish: complete bundle/import
-and asset availability; strict manifests and actual immutable digests; both
-architecture builds and separately labeled execution; non-root ownership and
-read-only image; no-key/no-vendor startup; readiness/degraded states; shutdown/
-crash/recreate; native editing + explicit review without image rebuild; same
-canonical records and unchanged personal source/config/tests/notes/state across
-replacement; pending-before-send and committed-before-receipt replay with the
-same key/envelope/cursor; all baseline functional/auth/browser/package/privacy
-checks appropriate to changes. Existing manual-only CI policy stays unchanged;
-local package/runtime commands become documented repeatable targets, with
-hosted container execution held for the authorized publication batch.
+Compose uses that verified immutable ID with `pull_policy: never`. It never
+resolves a mutable tag such as `latest`. Each service has a read-only image,
+nonzero owner UID/GID, no capabilities, no-new-privileges, network none, an init
+process, one CPU, 512 MiB memory, 128 PIDs and 64 MiB temporary scratch. One API
+plus one finite job has an explicit aggregate two-CPU/one-GiB service budget.
+The host image/daemon cache is separate. Optional connectors needing network
+access require a separately reviewed network policy; a health grant cannot
+bypass the container's network isolation.
 
-Primary references consulted for this design:
-[Compose service controls](https://docs.docker.com/reference/compose-file/services/),
-[host bind mounts](https://docs.docker.com/engine/storage/bind-mounts/),
-[tmpfs visibility limits](https://docs.docker.com/engine/storage/tmpfs/),
-[Granian2.8.3 startup ordering](https://github.com/emmett-framework/granian/blob/v2.8.3/granian/server/common.py),
-[immutable base pins](https://docs.docker.com/build/building/best-practices/), and
-[multi-platform building and execution choices](https://docs.docker.com/build/building/multi-platform/).
-These describe mechanisms, not verification of this not-yet-built runtime.
+## Private ownership and explicit maintenance
+
+The complete owner workspace is an existing native 0700 directory owned by the
+selected nonzero host UID/GID. The native coding agent, CLI and container service
+use that OS identity and `umask 077`. Health credentials do not grant filesystem
+maintenance authority. The default recipe assumes an inspected local daemon
+without unexpected UID remapping; rootless/remapped storage needs its own
+ownership qualification. No recursive chown/chmod, automatic adoption or init
+container resets existing data. Bind mounts use `create_host_path: false`.
+
+The fresh packaged initializer accepts only an empty private directory:
+
+```sh
+docker compose --env-file "$PRIVATE/runtime.env" -f "$SOURCE/packaging/compose.yaml" run --rm api init --external-origin https://health.example.invalid --owner-subject owner@example.invalid
+docker compose --env-file "$PRIVATE/runtime.env" -f "$SOURCE/packaging/compose.yaml" run --rm api cli -- security bootstrap --owner-token-file /workspace/secrets/owner-token
+```
+
+The hostname/subject above are synthetic placeholders. The commands do not
+configure TLS, Tailscale or Serve. Native owner setup and browser/proxy setup
+remain explicit; see [authorization](authorization.md). The proxy must already
+use the exact configured HTTPS origin and a currently reviewed patched version.
+Existing configurations are not silently changed to enable managed sockets.
+The canonical CLI's global options precede its command:
+
+```sh
+docker compose --env-file "$PRIVATE/runtime.env" -f "$SOURCE/packaging/compose.yaml" run --rm api cli -- --credential-file /workspace/secrets/owner-token context --scopes training
+```
+
+The wrapper accepts one optional `--` delimiter, forwards legitimate credential
+options, and refuses workspace/development overrides; canonical abbreviation
+is disabled. No token is passed as an argument or environment value.
+
+Personal source/assets/config/tests/notes/state, registry reviews, pending
+requests, credential references and fork patches stay under the external
+workspace. Edit as its OS owner, inspect changes and explicitly review/enable
+an extension; do not overwrite it with image files. The `jobs` profile runs a
+finite existing connector event, with no implicit schedule:
+
+```sh
+docker compose --env-file "$PRIVATE/runtime.env" -f "$SOURCE/packaging/compose.yaml" run --rm jobs job --id local.water-import --event-file /workspace/personal/state/event.json --credential-file /workspace/secrets/water-agent
+```
+
+Prepare that private scoped credential and enable the reviewed extension using
+[the native extension workflow](extensions.md). API and jobs share the same
+canonical journal and whole workspace. Provider setup remains disabled unless
+separately configured and authorized.
+
+## Host-visible listener and read-only readiness
+
+The external host Serve proxy and all API containers see the same bind-mounted
+`OWNER_WORKSPACE/security/runtime/http.sock`; there is no container-private
+socket tmpfs, public TCP bypass or hidden proxy container. Both host and container
+path lengths must fit Unix socket limits. A shared persistent
+`operations/http-listener.lock` serializes launcher lifetimes across containers;
+it is never replaced/unlinked and is separate from the canonical writer lock.
+A competing launcher fails before touching the socket. Jobs do not take it.
+
+The managed socket's private `security/runtime/listener.json` records its exact
+path, generation, device/inode/ctime/UID/mode. Recovery requires unchanged private
+ancestors/lock/marker, a matching socket, a bounded connection returning exactly
+ECONNREFUSED and a second nonfollowing identity check. Only that proven stale
+socket is removed. The old marker is durably retired before every subsequent
+bind, even when the old socket is absent; inode/ctime reuse is not proof of a
+new socket's ownership. Fsync failure refuses startup. An active/ambiguous or
+replaced socket, missing/mismatched marker, bind-before-marker crash, or live
+child after parent-only kill stays fail closed. The OS owner deliberately stops
+and reconciles that exact service; there is no broad cleanup. Existing legacy
+`security/http.sock` retains its fail-closed behavior. Same-UID/root native
+maintenance remains trusted and is not a hostile-code sandbox.
+
+`/livez` reports admitted transport liveness. `/readyz` returns only HTTP200
+`ready` or HTTP503 `not_ready`, through the same UDS/Host/proxy admission.
+Readiness uses a bounded read-only workspace→security lock sequence, validates
+existing canonical journal/main-ref/authority identity and refuses pending or
+corrupt core state. It neither initializes/recovers/writes state nor scans
+personal code, invokes models or reads optional histories. Valid symbolic or
+detached Git HEAD metadata is accepted independently of explicit main-ref/journal
+CAS binding; it does not follow HEAD's referent. Optional source failure does
+not make intact manual workflows unready. An unhealthy status does not itself
+cause Compose to restart a still-running process.
+
+## Replacement, evidence and downstream gates
+
+`make runtime-test runtime-lint` and normal configured typing are repeatable
+source gates, executed by the shared queue in this project. The isolated native
+container driver additionally checks real readonly/nonroot/service limits,
+actual host-visible UDS, protected dashboard/worker assets, same-image concurrent
+API/finite jobs, full container kill/recreate, service stop/recreate and personal
+source/config/assets/tests/notes survival. Its two synthetic interruption cases
+exit before send and after canonical commit before receipt retention; fresh jobs
+must retain the original normalized envelope/key, reconcile the immutable receipt,
+advance one cursor and leave exactly one record across replacement.
+
+A service/container restart is not an actual host reboot or power-loss test.
+Physical ARM/Pi qualification, host reboot, external proxy deployment,
+production migration/cutover, external release and real cross-agent client
+qualification remain separately owned gates. CES-1070 backup/restore must
+preserve the whole authority/health/personal workspace, explicitly exclude and
+recreate only declared listener socket/marker/lock runtime artifacts, and rotate
+the restored epoch. This ticket does not implement restore or authorize a cutover.
+Private artifacts and receipts must be retained before CI expiration; no published
+version is inferred from a successful local or hosted verification candidate.

@@ -217,12 +217,16 @@ def test_readiness_does_not_follow_a_sidecar_symlink(
     original = Path.stat
 
     def guarded(path, *args, **kwargs):
-        if path == sidecar:
-            pytest.fail("readiness followed a sidecar symlink")
+        if path == sidecar and kwargs.get("follow_symlinks", True):
+            raise AssertionError("readiness followed a sidecar symlink")
         return original(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "stat", guarded)
+    with pytest.raises(AssertionError, match="followed a sidecar"):
+        sidecar.stat()
+    sidecar.stat(follow_symlinks=False)
     assert not ready(runtime.operations.config, time.monotonic() + 1)
+    assert sidecar.is_symlink()
     assert target.read_bytes() == b"synthetic untouched target"
 
 
