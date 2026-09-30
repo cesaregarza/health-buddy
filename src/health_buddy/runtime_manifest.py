@@ -26,7 +26,9 @@ class ManifestError(ValueError):
 
 
 def canonical(value: object) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("ascii")
 
 
 def path_value(value: object) -> str:
@@ -72,8 +74,16 @@ def file_digest(path: Path, limit: int) -> tuple[int, str]:
             digest.update(chunk)
         after = os.fstat(descriptor)
         current = path.lstat()
+
         def fields(item: os.stat_result) -> tuple[int, int, int, int, int]:
-            return (item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
+            return (
+                item.st_dev,
+                item.st_ino,
+                item.st_size,
+                item.st_mtime_ns,
+                item.st_ctime_ns,
+            )
+
         if fields(before) != fields(after) or fields(after) != fields(current):
             raise ManifestError("bundle_changed")
         return total, digest.hexdigest()
@@ -109,7 +119,10 @@ def inventory(root: Path) -> list[dict[str, str | int]]:
                     result.append({"path": relative, "bytes": size, "sha256": digest})
         after = directory.stat()
         if (before.st_dev, before.st_ino, before.st_mtime_ns, before.st_ctime_ns) != (
-            after.st_dev, after.st_ino, after.st_mtime_ns, after.st_ctime_ns
+            after.st_dev,
+            after.st_ino,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
         ):
             raise ManifestError("bundle_changed")
 
@@ -159,13 +172,23 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
     """
     value = _json(manifest_path)
     if not isinstance(value, dict) or set(value) != {
-        "manifestVersion", "packageVersion", "source", "archiveBytes", "files", "docsSha256", "interfaces"
+        "manifestVersion",
+        "packageVersion",
+        "source",
+        "archiveBytes",
+        "files",
+        "docsSha256",
+        "interfaces",
     }:
         raise ManifestError("invalid_source_manifest")
     if type(value["manifestVersion"]) is not int or value["manifestVersion"] != 1:
         raise ManifestError("unsupported_source_manifest")
     source = value["source"]
-    if not isinstance(source, dict) or set(source) != {"commit", "tree", "archiveSha256"}:
+    if not isinstance(source, dict) or set(source) != {
+        "commit",
+        "tree",
+        "archiveSha256",
+    }:
         raise ManifestError("invalid_source_manifest")
     commit = _text(source["commit"], GIT_SHA)
     tree = _text(source["tree"], GIT_SHA)
@@ -202,10 +225,14 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
     docs = [item for item in files if item["path"].startswith("docs/")]
     if hashlib.sha256(canonical(docs)).hexdigest() != docs_digest:
         raise ManifestError("docs_inventory_mismatch")
-    archive_size, actual_archive = file_digest(manifest_path.parent / "source.tar", MAX_BYTES)
+    archive_size, actual_archive = file_digest(
+        manifest_path.parent / "source.tar", MAX_BYTES
+    )
     if archive_size != value["archiveBytes"] or actual_archive != archive_digest:
         raise ManifestError("source_archive_mismatch")
-    return ReleaseIdentity(version, commit, tree, archive_digest, docs_digest, "packaged_manifest")
+    return ReleaseIdentity(
+        version, commit, tree, archive_digest, docs_digest, "packaged_manifest"
+    )
 
 
 def read_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIdentity:

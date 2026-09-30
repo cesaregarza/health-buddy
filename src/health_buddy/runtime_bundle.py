@@ -20,8 +20,8 @@ from .runtime_manifest import (
     GIT_SHA,
     INTERFACES,
     MAX_BYTES,
-    MAX_FILES,
     MAX_ENTRIES,
+    MAX_FILES,
     MAX_METADATA,
     VERSION,
     ManifestError,
@@ -43,11 +43,23 @@ def _git(repository: Path, arguments: list[str], limit: int) -> bytes:
         "GIT_TERMINAL_PROMPT": "0",
     }
     command = [
-        "git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull,
-        "-c", "credential.helper=", "-c", "tar.umask=0022", "-C", str(repository), *arguments,
+        "git",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.hooksPath=" + os.devnull,
+        "-c",
+        "credential.helper=",
+        "-c",
+        "tar.umask=0022",
+        "-C",
+        str(repository),
+        *arguments,
     ]
     # Fixed native Git builtins; no shell, external diff/filter or remote operation.
-    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=environment)  # noqa: S603
+    child = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=environment
+    )  # noqa: S603
     assert child.stdout is not None
     deadline = time.monotonic() + 20
     output = bytearray()
@@ -58,7 +70,9 @@ def _git(repository: Path, arguments: list[str], limit: int) -> bytes:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0 or not selector.select(remaining):
                     raise ManifestError("source_command_timeout")
-                chunk = os.read(child.stdout.fileno(), min(65536, limit - len(output) + 1))
+                chunk = os.read(
+                    child.stdout.fileno(), min(65536, limit - len(output) + 1)
+                )
                 if not chunk:
                     break
                 output.extend(chunk)
@@ -85,7 +99,9 @@ def _sync(path: Path) -> None:
 
 
 def _write(path: Path, data: bytes, mode: int = 0o644) -> None:
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    descriptor = os.open(
+        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode
+    )
     with os.fdopen(descriptor, "wb") as target:
         target.write(data)
         target.flush()
@@ -105,11 +121,21 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
         raise ManifestError("explicit_commit_and_new_output_required")
     if output.is_relative_to(repository) or repository.is_relative_to(output):
         raise ManifestError("source_output_overlap")
-    commit = _git(repository, ["rev-parse", "--verify", revision + "^{commit}"], 128).decode("ascii").strip()
-    tree = _git(repository, ["rev-parse", "--verify", revision + "^{tree}"], 128).decode("ascii").strip()
+    commit = (
+        _git(repository, ["rev-parse", "--verify", revision + "^{commit}"], 128)
+        .decode("ascii")
+        .strip()
+    )
+    tree = (
+        _git(repository, ["rev-parse", "--verify", revision + "^{tree}"], 128)
+        .decode("ascii")
+        .strip()
+    )
     if commit != revision or not GIT_SHA.fullmatch(tree):
         raise ManifestError("source_revision_mismatch")
-    raw_entries = _git(repository, ["ls-tree", "-r", "-l", "-z", revision], MAX_METADATA)
+    raw_entries = _git(
+        repository, ["ls-tree", "-r", "-l", "-z", revision], MAX_METADATA
+    )
     selected: dict[str, tuple[int, str, int]] = {}
     all_paths: set[str] = set()
     total = 0
@@ -152,7 +178,9 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
             archive_entries += 1
             if archive_entries > MAX_ENTRIES:
                 raise ManifestError("bundle_entries_exceeded")
-            relative = path_value(member.name.rstrip("/") if member.isdir() else member.name)
+            relative = path_value(
+                member.name.rstrip("/") if member.isdir() else member.name
+            )
             path = source / relative
             if member.isdir():
                 if relative not in all_paths or relative in selected:
@@ -160,7 +188,12 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
                 path.mkdir(mode=0o755, parents=True, exist_ok=True)
                 continue
             expected = selected.get(relative)
-            if not member.isfile() or relative in seen or expected is None or member.size != expected[0]:
+            if (
+                not member.isfile()
+                or relative in seen
+                or expected is None
+                or member.size != expected[0]
+            ):
                 raise ManifestError("archive_inventory_mismatch")
             seen.add(relative)
             path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
@@ -172,15 +205,24 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
             if len(raw) != member.size:
                 raise ManifestError("archive_inventory_mismatch")
             # Git blob SHA-1 is object identity, not a password/security digest.
-            actual_blob = hashlib.sha1(b"blob " + str(len(raw)).encode("ascii") + b"\x00" + raw, usedforsecurity=False).hexdigest()
+            actual_blob = hashlib.sha1(
+                b"blob " + str(len(raw)).encode("ascii") + b"\x00" + raw,
+                usedforsecurity=False,
+            ).hexdigest()
             if actual_blob != expected[1] or member.mode & 0o777 != expected[2]:
                 raise ManifestError("archive_object_mismatch")
             _write(path, raw, expected[2])
     if seen != selected.keys():
         raise ManifestError("archive_inventory_mismatch")
-    project = tomllib.loads((source / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    project = tomllib.loads((source / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]
     version = project["version"]
-    if project["name"] != "health-buddy" or not isinstance(version, str) or not VERSION.fullmatch(version):
+    if (
+        project["name"] != "health-buddy"
+        or not isinstance(version, str)
+        or not VERSION.fullmatch(version)
+    ):
         raise ManifestError("invalid_package_metadata")
     files = inventory(source)
     docs = [item for item in files if str(item["path"]).startswith("docs/")]
@@ -203,7 +245,9 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
     target = release / "source-manifest.json"
     _write(target, raw_manifest + b"\n")
     # Every published source link is durable before the complete output returns.
-    for directory, _subdirs, _files in os.walk(source, topdown=False, followlinks=False):
+    for directory, _subdirs, _files in os.walk(
+        source, topdown=False, followlinks=False
+    ):
         _sync(Path(directory))
     _sync(release)
     _sync(output)

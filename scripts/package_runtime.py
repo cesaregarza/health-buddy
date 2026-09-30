@@ -10,8 +10,11 @@ from pathlib import Path
 # Fixed adjacent release code, never an owner workspace module path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from health_buddy.runtime_bundle import create_bundle  # noqa: E402
-from health_buddy.runtime_manifest import ManifestError, verify_source_identity  # noqa: E402
+from health_buddy.runtime_bundle import create_bundle
+from health_buddy.runtime_manifest import (
+    ManifestError,
+    verify_source_identity,
+)
 
 
 def main() -> int:
@@ -31,7 +34,10 @@ def main() -> int:
         else:
             verify_source_identity(args.source, args.manifest)
     except (ManifestError, OSError, ValueError, KeyError, TypeError):
-        print("runtime_source_verification_failed; preserve inputs and inspect the selected artifact", file=sys.stderr)
+        print(
+            "runtime_source_verification_failed; preserve inputs and inspect the selected artifact",
+            file=sys.stderr,
+        )
         return 1
     print("runtime source verified")
     return 0

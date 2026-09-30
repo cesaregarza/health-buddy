@@ -108,7 +108,9 @@ def ready(config: Config, deadline: float) -> bool:
         with _lock(config.path("operations/manual.lock"), deadline):
             with _lock(security.lock, deadline):
                 security.owner()
-                with _database(config.path("operations/control.sqlite"), deadline) as database:
+                with _database(
+                    config.path("operations/control.sqlite"), deadline
+                ) as database:
                     row = database.execute(
                         "SELECT CASE WHEN typeof(identity_json)='text' "
                         "AND length(CAST(identity_json AS BLOB))<=4096 "
@@ -121,10 +123,19 @@ def ready(config: Config, deadline: float) -> bool:
                 if row is None or row[2] != 0 or pending is not None:
                     return False
                 value = json.loads(row[0])
-                if not isinstance(value, dict) or set(value) != {"installationId", "datasetId", "restoreEpoch"}:
+                if not isinstance(value, dict) or set(value) != {
+                    "installationId",
+                    "datasetId",
+                    "restoreEpoch",
+                }:
                     return False
-                identity = Identity(value["installationId"], value["datasetId"], value["restoreEpoch"])
-                if json.loads(_read(config.root / "identity.json")) != {"schemaVersion": 1, **value}:
+                identity = Identity(
+                    value["installationId"], value["datasetId"], value["restoreEpoch"]
+                )
+                if json.loads(_read(config.root / "identity.json")) != {
+                    "schemaVersion": 1,
+                    **value,
+                }:
                     return False
                 head = row[1]
                 if not isinstance(head, str) or not OID.fullmatch(head):
@@ -145,6 +156,19 @@ def ready(config: Config, deadline: float) -> bool:
                         "AND length(CAST(value AS BLOB))<=4096 THEN value END "
                         "FROM metadata WHERE singleton=1"
                     ).fetchone()
-                return row is not None and json.loads(row[0]) == binding and time.monotonic() < deadline
-    except (OSError, ValueError, TypeError, KeyError, OverflowError, RecursionError, sqlite3.Error, ServiceError):
+                return (
+                    row is not None
+                    and json.loads(row[0]) == binding
+                    and time.monotonic() < deadline
+                )
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        OverflowError,
+        RecursionError,
+        sqlite3.Error,
+        ServiceError,
+    ):
         return False

@@ -13,7 +13,6 @@ import os
 import signal
 import socket
 import time
-from pathlib import Path
 
 import pytest
 
@@ -43,9 +42,13 @@ def listener_folder(tmp_path):
             yield folder
         finally:
             if (folder / "server.log").exists():
-                (tmp_path / "runtime-listener.log").write_bytes((folder / "server.log").read_bytes())
+                (tmp_path / "runtime-listener.log").write_bytes(
+                    (folder / "server.log").read_bytes()
+                )
             if (folder / "readiness.json").exists():
-                (tmp_path / "runtime-listener-readiness.json").write_bytes((folder / "readiness.json").read_bytes())
+                (tmp_path / "runtime-listener-readiness.json").write_bytes(
+                    (folder / "readiness.json").read_bytes()
+                )
 
 
 def directories(folder):
@@ -102,7 +105,10 @@ def test_exact_recorded_refused_socket_can_be_reclaimed_twice(listener_folder):
                 record = json.loads(lease.marker.read_bytes())
                 assert record["inode"] == lease.socket.lstat().st_ino
                 assert record["ctimeNs"] == lease.socket.lstat().st_ctime_ns
-                assert (record["inode"], record["ctimeNs"]) != (before.st_ino, before.st_ctime_ns)
+                assert (record["inode"], record["ctimeNs"]) != (
+                    before.st_ino,
+                    before.st_ctime_ns,
+                )
                 lease.cleanup(VerifiedSocket.capture(lease.socket))
                 assert not lease.socket.exists() and not lease.marker.exists()
                 assert lease.lock.exists()
@@ -131,19 +137,38 @@ def test_active_recorded_listener_and_same_workspace_competitor_refuse(listener_
         lease.close()
 
 
-@pytest.mark.parametrize("changed", ["missing", "malformed", "inode", "ctime", "boolean", "oversized", "marker-link", "socket-link", "regular-file", "mode"])
+@pytest.mark.parametrize(
+    "changed",
+    [
+        "missing",
+        "malformed",
+        "inode",
+        "ctime",
+        "boolean",
+        "oversized",
+        "marker-link",
+        "socket-link",
+        "regular-file",
+        "mode",
+    ],
+)
 def test_unknown_or_replaced_listener_never_unlinked(listener_folder, changed):
     root = directories(listener_folder)
     handle, original_marker, _info = recorded(root)
     handle.close()
-    path, marker = root / runtime_listener.MANAGED_PATH, root / runtime_listener.MARKER_PATH
+    path, marker = (
+        root / runtime_listener.MANAGED_PATH,
+        root / runtime_listener.MARKER_PATH,
+    )
     if changed == "missing":
         marker.unlink()
     elif changed == "malformed":
         marker.write_bytes(b"{")
     elif changed in ("inode", "ctime", "boolean"):
         value = json.loads(original_marker)
-        key = {"inode": "inode", "ctime": "ctimeNs", "boolean": "schemaVersion"}[changed]
+        key = {"inode": "inode", "ctime": "ctimeNs", "boolean": "schemaVersion"}[
+            changed
+        ]
         value[key] = True if changed == "boolean" else value[key] + 1
         marker.write_text(json.dumps(value))
     elif changed == "oversized":
@@ -173,7 +198,9 @@ def test_unknown_or_replaced_listener_never_unlinked(listener_folder, changed):
 
 
 @pytest.mark.parametrize("result", [0, errno.EACCES, errno.ENOENT, errno.ETIMEDOUT])
-def test_only_exact_connection_refused_authorizes_stale_unlink(listener_folder, monkeypatch, result):
+def test_only_exact_connection_refused_authorizes_stale_unlink(
+    listener_folder, monkeypatch, result
+):
     root = directories(listener_folder)
     handle, marker, before = recorded(root)
     handle.close()
@@ -203,7 +230,9 @@ def test_second_stat_preserves_replaced_path_after_probe(listener_folder):
     assert path.read_bytes() == b"synthetic replacement"
 
 
-def test_marker_fsync_failure_keeps_socket_and_does_not_admit_worker(listener_folder, monkeypatch):
+def test_marker_fsync_failure_keeps_socket_and_does_not_admit_worker(
+    listener_folder, monkeypatch
+):
     from health_buddy import durability
 
     root = directories(listener_folder)
@@ -211,6 +240,7 @@ def test_marker_fsync_failure_keeps_socket_and_does_not_admit_worker(listener_fo
         handle = bind(lease.socket)
         before = lease.socket.lstat()
         try:
+
             def fail_sync(_path):
                 raise OSError("synthetic directory fsync failure")
 
@@ -257,9 +287,13 @@ def test_managed_configuration_is_exact_and_legacy_default_unchanged(listener_fo
         load(root)
 
 
-def test_real_managed_listener_restart_retains_records_authority_and_personal_files(listener_folder):
+def test_real_managed_listener_restart_retains_records_authority_and_personal_files(
+    listener_folder,
+):
     root, runtime, owner, token = managed_workspace(listener_folder)
-    response = runtime.operations.execute(owner.principal, intent(runtime.operations, owner.principal))
+    response = runtime.operations.execute(
+        owner.principal, intent(runtime.operations, owner.principal)
+    )
     assert response.status == 200
     before_revision = decoded(response)["meta"]["dataRevision"]
     personal = root / "personal/owner-test.txt"
@@ -267,8 +301,15 @@ def test_real_managed_listener_restart_retains_records_authority_and_personal_fi
     original = personal.read_bytes()
     for _ in range(2):
         with server(listener_folder, workspace=root) as (_process, path):
-            assert request(path, target="/readyz", headers=HEADERS)[:2] == (200, b'{"status":"ready"}')
-            status, body, _headers = request(path, target="/v1/records/synthetic-weight", headers={**HEADERS, "Authorization": "Bearer " + token})
+            assert request(path, target="/readyz", headers=HEADERS)[:2] == (
+                200,
+                b'{"status":"ready"}',
+            )
+            status, body, _headers = request(
+                path,
+                target="/v1/records/synthetic-weight",
+                headers={**HEADERS, "Authorization": "Bearer " + token},
+            )
             assert status == 200
             assert json.loads(body)["data"]["record"]["value"] == 80
             assert json.loads(body)["meta"]["dataRevision"] == before_revision
@@ -277,7 +318,12 @@ def test_real_managed_listener_restart_retains_records_authority_and_personal_fi
         assert not (root / runtime_listener.MARKER_PATH).exists()
     reopened = open_runtime(root)
     admitted = reopened.security.authenticate(BearerProof(token))
-    assert reopened.operations.execute(admitted.principal, Request("records.get", resource_id="synthetic-weight")).status == 200
+    assert (
+        reopened.operations.execute(
+            admitted.principal, Request("records.get", resource_id="synthetic-weight")
+        ).status
+        == 200
+    )
 
 
 def test_real_full_process_kill_reclaims_only_recorded_socket(listener_folder):
@@ -286,7 +332,9 @@ def test_real_full_process_kill_reclaims_only_recorded_socket(listener_folder):
         marker = (root / runtime_listener.MARKER_PATH).read_bytes()
         os.killpg(process.pid, signal.SIGKILL)
         process.wait(timeout=5)
-    assert path.exists() and (root / runtime_listener.MARKER_PATH).read_bytes() == marker
+    assert (
+        path.exists() and (root / runtime_listener.MARKER_PATH).read_bytes() == marker
+    )
     descriptor = os.open(root / runtime_listener.LOCK_PATH, os.O_RDONLY)
     try:
         deadline = time.monotonic() + 3
@@ -303,29 +351,52 @@ def test_real_full_process_kill_reclaims_only_recorded_socket(listener_folder):
     with server(listener_folder, workspace=root) as (_process, current):
         assert request(current, target="/readyz", headers=HEADERS)[0] == 200
         assert (root / runtime_listener.MARKER_PATH).read_bytes() != marker
-        assert request(current, target="/v1/capabilities", headers={**HEADERS, "Authorization": "Bearer " + token})[0] == 200
+        assert (
+            request(
+                current,
+                target="/v1/capabilities",
+                headers={**HEADERS, "Authorization": "Bearer " + token},
+            )[0]
+            == 200
+        )
 
 
-def test_real_competing_launcher_and_parent_only_kill_preserve_live_worker(listener_folder):
+def test_real_competing_launcher_and_parent_only_kill_preserve_live_worker(
+    listener_folder,
+):
     root, _runtime, _owner, _token = managed_workspace(listener_folder)
     with server(listener_folder, workspace=root) as (process, path):
         before = path.lstat().st_ino, (root / runtime_listener.MARKER_PATH).read_bytes()
-        with server(listener_folder, workspace=root, ready=False) as (competitor, _path):
+        with server(listener_folder, workspace=root, ready=False) as (
+            competitor,
+            _path,
+        ):
             assert competitor.wait(timeout=5) != 0
         assert request(path, headers=HEADERS)[0] == 200
         os.kill(process.pid, signal.SIGKILL)
         process.wait(timeout=5)
         # This is a surviving actual worker, not a stale socket inferred by PID.
         assert request(path, headers=HEADERS)[0] == 200
-        with server(listener_folder, workspace=root, ready=False) as (competitor, _path):
+        with server(listener_folder, workspace=root, ready=False) as (
+            competitor,
+            _path,
+        ):
             assert competitor.wait(timeout=5) != 0
-        assert (path.lstat().st_ino, (root / runtime_listener.MARKER_PATH).read_bytes()) == before
+        assert (
+            path.lstat().st_ino,
+            (root / runtime_listener.MARKER_PATH).read_bytes(),
+        ) == before
         assert request(path, headers=HEADERS)[0] == 200
 
 
 def test_real_bind_before_marker_crash_is_fail_closed(listener_folder):
     root, _runtime, _owner, _token = managed_workspace(listener_folder)
-    with server(listener_folder, workspace=root, ready=False, listener_fault="listener_bound_before_marker") as (process, path):
+    with server(
+        listener_folder,
+        workspace=root,
+        ready=False,
+        listener_fault="listener_bound_before_marker",
+    ) as (process, path):
         assert process.wait(timeout=10) == 83
     assert path.exists() and not (root / runtime_listener.MARKER_PATH).exists()
     before = path.lstat()
@@ -334,7 +405,9 @@ def test_real_bind_before_marker_crash_is_fail_closed(listener_folder):
     assert path.lstat() == before
 
 
-def test_existing_managed_directory_links_are_flushed_before_bind(listener_folder, monkeypatch):
+def test_existing_managed_directory_links_are_flushed_before_bind(
+    listener_folder, monkeypatch
+):
     root = directories(listener_folder)
     original = runtime_listener.fsync_path
     synced = []
@@ -347,5 +420,11 @@ def test_existing_managed_directory_links_are_flushed_before_bind(listener_folde
     for _ in range(2):
         synced.clear()
         with listener_lease(root / runtime_listener.MANAGED_PATH):
-            assert synced == [root / "security/runtime", root / "security", root / "operations", root, root.parent]
+            assert synced == [
+                root / "security/runtime",
+                root / "security",
+                root / "operations",
+                root,
+                root.parent,
+            ]
             assert not (root / runtime_listener.MANAGED_PATH).exists()

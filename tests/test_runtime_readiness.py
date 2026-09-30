@@ -22,16 +22,24 @@ from tests.test_transport import exchange
 
 def footprint(root: Path) -> dict[str, tuple[int, str]]:
     return {
-        path.relative_to(root).as_posix(): (path.stat().st_mode, hashlib.sha256(path.read_bytes()).hexdigest())
-        for path in root.rglob("*") if path.is_file()
+        path.relative_to(root).as_posix(): (
+            path.stat().st_mode,
+            hashlib.sha256(path.read_bytes()).hexdigest(),
+        )
+        for path in root.rglob("*")
+        if path.is_file()
     }
 
 
-def test_existing_ready_probe_preserves_all_workspace_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_existing_ready_probe_preserves_all_workspace_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
 
     def forbidden(*_args, **_kwargs):
-        pytest.fail("readiness invoked a write, recovery, setup, source or provider operation")
+        pytest.fail(
+            "readiness invoked a write, recovery, setup, source or provider operation"
+        )
 
     monkeypatch.setattr(runtime.operations.journal, "recover", forbidden)
     monkeypatch.setattr(runtime.operations, "execute", forbidden)
@@ -42,8 +50,19 @@ def test_existing_ready_probe_preserves_all_workspace_bytes(tmp_path: Path, monk
     assert footprint(runtime.operations.config.root) == before
 
 
-@pytest.mark.parametrize("target", ["security/authority.sqlite", "security/epoch.json", "operations/security-binding.json", "operations/manual.lock", "security/authority.lock"])
-def test_missing_required_state_is_not_ready_and_not_recreated(tmp_path: Path, target: str) -> None:
+@pytest.mark.parametrize(
+    "target",
+    [
+        "security/authority.sqlite",
+        "security/epoch.json",
+        "operations/security-binding.json",
+        "operations/manual.lock",
+        "security/authority.lock",
+    ],
+)
+def test_missing_required_state_is_not_ready_and_not_recreated(
+    tmp_path: Path, target: str
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     root = runtime.operations.config.root
     (root / target).unlink()
@@ -53,13 +72,19 @@ def test_missing_required_state_is_not_ready_and_not_recreated(tmp_path: Path, t
     assert not (root / target).exists()
 
 
-@pytest.mark.parametrize("fault", ["decision", "manual-ref", "identity", "security-metadata", "hot-sidecar"])
-def test_inconsistent_state_refuses_without_recovery(tmp_path: Path, fault: str) -> None:
+@pytest.mark.parametrize(
+    "fault", ["decision", "manual-ref", "identity", "security-metadata", "hot-sidecar"]
+)
+def test_inconsistent_state_refuses_without_recovery(
+    tmp_path: Path, fault: str
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     config = runtime.operations.config
     if fault == "decision":
         with sqlite3.connect(config.path("operations/control.sqlite")) as connection:
-            connection.execute("UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=(SELECT transaction_id FROM transactions LIMIT 1)")
+            connection.execute(
+                "UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=(SELECT transaction_id FROM transactions LIMIT 1)"
+            )
     elif fault == "manual-ref":
         (config.storage("manual") / "refs/heads/main").write_text("0" * 40 + "\n")
     elif fault == "identity":
@@ -97,13 +122,19 @@ def test_contended_writer_lock_respects_short_probe_deadline(tmp_path: Path) -> 
     assert runtime.readiness(time.monotonic() + 1)
 
 
-@pytest.mark.parametrize("deadline", [float("nan"), math.inf, -math.inf, True, 10 ** 1000])
-def test_invalid_deadline_cannot_make_probe_unbounded(tmp_path: Path, deadline: float) -> None:
+@pytest.mark.parametrize(
+    "deadline", [float("nan"), math.inf, -math.inf, True, 10**1000]
+)
+def test_invalid_deadline_cannot_make_probe_unbounded(
+    tmp_path: Path, deadline: float
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     assert not ready(runtime.operations.config, deadline)
 
 
-async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(tmp_path: Path) -> None:
+async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(
+    tmp_path: Path,
+) -> None:
     runtime, _owner, token = secured(tmp_path / "workspace")
     app = create_app(runtime=runtime)
     assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
@@ -114,22 +145,32 @@ async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(t
     assert token.encode() not in body
     assert headers[b"cache-control"] == b"no-store"
     assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
-    assert (await exchange(app, target="/readyz", extra=((b"host", b"attacker.invalid"),)))[0] == 400
+    assert (
+        await exchange(app, target="/readyz", extra=((b"host", b"attacker.invalid"),))
+    )[0] == 400
 
 
 async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     app = create_app(runtime=replace(runtime, readiness=None))
-    assert (await exchange(app, target="/readyz"))[:2] == (503, b'{"status":"not_ready"}')
+    assert (await exchange(app, target="/readyz"))[:2] == (
+        503,
+        b'{"status":"not_ready"}',
+    )
 
     def failed(_deadline):
         raise ServiceError(503, "synthetic-private-detail")
 
     app = create_app(runtime=replace(runtime, readiness=failed))
-    assert (await exchange(app, target="/readyz"))[:2] == (503, b'{"status":"not_ready"}')
+    assert (await exchange(app, target="/readyz"))[:2] == (
+        503,
+        b'{"status":"not_ready"}',
+    )
 
 
-def test_symlinked_security_directory_is_refused_before_any_child_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_symlinked_security_directory_is_refused_before_any_child_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     directory = runtime.operations.config.root / "security"
     outside = tmp_path / "retained-authority"
@@ -147,7 +188,9 @@ def test_symlinked_security_directory_is_refused_before_any_child_open(tmp_path:
     assert directory.is_symlink()
 
 
-def test_readiness_does_not_follow_a_sidecar_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_readiness_does_not_follow_a_sidecar_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     target = tmp_path / "unread-sidecar-target"
     target.write_bytes(b"synthetic untouched target")
@@ -167,16 +210,26 @@ def test_readiness_does_not_follow_a_sidecar_symlink(tmp_path: Path, monkeypatch
 
 @pytest.mark.parametrize("table", ["journal", "authority"])
 @pytest.mark.parametrize("value", ['"' + "x" * 16384 + '"', "[" * 1500 + "]" * 1500])
-def test_oversized_or_deep_corrupt_readiness_metadata_is_bounded_and_unchanged(tmp_path: Path, table: str, value: str) -> None:
+def test_oversized_or_deep_corrupt_readiness_metadata_is_bounded_and_unchanged(
+    tmp_path: Path, table: str, value: str
+) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     root = runtime.operations.config.root
-    path = root / ("operations/control.sqlite" if table == "journal" else "security/authority.sqlite")
+    path = root / (
+        "operations/control.sqlite"
+        if table == "journal"
+        else "security/authority.sqlite"
+    )
     connection = sqlite3.connect(path)
     try:
         if table == "journal":
-            connection.execute("UPDATE state SET identity_json=? WHERE singleton=1", (value,))
+            connection.execute(
+                "UPDATE state SET identity_json=? WHERE singleton=1", (value,)
+            )
         else:
-            connection.execute("UPDATE metadata SET value=? WHERE singleton=1", (value,))
+            connection.execute(
+                "UPDATE metadata SET value=? WHERE singleton=1", (value,)
+            )
         connection.commit()
     finally:
         connection.close()

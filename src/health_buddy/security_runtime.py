@@ -9,8 +9,8 @@ from __future__ import annotations
 import os
 import stat
 from collections.abc import Callable
-from pathlib import Path
 from functools import partial
+from pathlib import Path
 
 from .domain import encode, identity_value
 from .durability import exclusive, fsync_path
@@ -29,7 +29,9 @@ def open_runtime(workspace: Path, *, development: bool = False) -> Runtime:
     authority = SecurityAuthority(service, proxy_boundary=boundary)
     if not development:
         service.policy = authority
-    return Runtime(service, authority, ingress, boundary, partial(ready, service.config))
+    return Runtime(
+        service, authority, ingress, boundary, partial(ready, service.config)
+    )
 
 
 def _private_parent(path: Path) -> Path:

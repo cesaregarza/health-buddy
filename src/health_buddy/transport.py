@@ -401,13 +401,23 @@ class Transport:
                 probe = self.runtime.readiness if self.runtime is not None else None
                 ready = False
                 if probe is not None and values.get("content-length", "0") == "0":
-                    deadline = min(began + self.limits.admission_seconds, time.monotonic() + 1.0)
+                    deadline = min(
+                        began + self.limits.admission_seconds, time.monotonic() + 1.0
+                    )
                     try:
-                        ready = await self.jobs.call(partial(probe, deadline), deadline=deadline)
+                        ready = await self.jobs.call(
+                            partial(probe, deadline), deadline=deadline
+                        )
                     except (EnvelopeError, ServiceError, OSError, ValueError):
                         ready = False
-                body = b'{"status":"ready"}' if ready is True else b'{"status":"not_ready"}'
-                await response(Response(200 if ready is True else 503, body), 64)(scope, receive, bounded_send)
+                body = (
+                    b'{"status":"ready"}'
+                    if ready is True
+                    else b'{"status":"not_ready"}'
+                )
+                await response(Response(200 if ready is True else 503, body), 64)(
+                    scope, receive, bounded_send
+                )
                 return
             if self.security is not None:
                 if raw_path in (b"/login", b"/auth.js"):

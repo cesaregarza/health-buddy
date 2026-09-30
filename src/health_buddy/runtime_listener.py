@@ -34,7 +34,13 @@ def managed_root(path: Path) -> Path | None:
 
 def _signature(path: Path) -> tuple[int, int, int, int, int]:
     details = path.lstat()
-    return details.st_dev, details.st_ino, details.st_ctime_ns, details.st_uid, stat.S_IMODE(details.st_mode)
+    return (
+        details.st_dev,
+        details.st_ino,
+        details.st_ctime_ns,
+        details.st_uid,
+        stat.S_IMODE(details.st_mode),
+    )
 
 
 class ListenerLease:
@@ -50,12 +56,21 @@ class ListenerLease:
 
     def _parents(self) -> dict[Path, tuple[int, int]]:
         result = {}
-        for path in (self.root, self.root / "security", self.socket.parent, self.lock.parent):
+        for path in (
+            self.root,
+            self.root / "security",
+            self.socket.parent,
+            self.lock.parent,
+        ):
             for ancestor in (*reversed(path.parents), path):
                 if not stat.S_ISDIR(ancestor.lstat().st_mode):
                     raise ValueError("private_listener_parent_invalid")
             details = path.lstat()
-            if not stat.S_ISDIR(details.st_mode) or details.st_uid != os.geteuid() or stat.S_IMODE(details.st_mode) != 0o700:
+            if (
+                not stat.S_ISDIR(details.st_mode)
+                or details.st_uid != os.geteuid()
+                or stat.S_IMODE(details.st_mode) != 0o700
+            ):
                 raise ValueError("private_listener_parent_invalid")
             result[path] = (details.st_dev, details.st_ino)
         return result
@@ -80,6 +95,7 @@ class ListenerLease:
                 raise ValueError("private_listener_marker_invalid")
         finally:
             os.close(descriptor)
+
         def pairs(items: list[tuple[str, object]]) -> dict[str, object]:
             value: dict[str, object] = {}
             for key, item in items:
@@ -87,10 +103,24 @@ class ListenerLease:
                     raise ValueError("private_listener_marker_invalid")
                 value[key] = item
             return value
+
         value = json.loads(raw, object_pairs_hook=pairs)
-        if not isinstance(value, dict) or set(value) != {"schemaVersion", "generation", "socketPath", "device", "inode", "ctimeNs", "uid", "mode"}:
+        if not isinstance(value, dict) or set(value) != {
+            "schemaVersion",
+            "generation",
+            "socketPath",
+            "device",
+            "inode",
+            "ctimeNs",
+            "uid",
+            "mode",
+        }:
             raise ValueError("private_listener_marker_invalid")
-        if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1 or value["socketPath"] != MANAGED_PATH:
+        if (
+            type(value["schemaVersion"]) is not int
+            or value["schemaVersion"] != 1
+            or value["socketPath"] != MANAGED_PATH
+        ):
             raise ValueError("private_listener_marker_invalid")
         generation = value["generation"]
         if not isinstance(generation, str) or str(UUID(generation)) != generation:
@@ -98,13 +128,20 @@ class ListenerLease:
         for key in ("device", "inode", "ctimeNs", "uid", "mode"):
             if type(value[key]) is not int or value[key] < 0:
                 raise ValueError("private_listener_marker_invalid")
-        if value["inode"] == 0 or value["ctimeNs"] == 0 or value["uid"] != os.geteuid() or value["mode"] != 0o600:
+        if (
+            value["inode"] == 0
+            or value["ctimeNs"] == 0
+            or value["uid"] != os.geteuid()
+            or value["mode"] != 0o600
+        ):
             raise ValueError("private_listener_marker_invalid")
         return value
 
     def _matches(self, record: dict[str, str | int]) -> bool:
         VerifiedSocket.capture(self.socket)
-        return _signature(self.socket) == tuple(record[key] for key in ("device", "inode", "ctimeNs", "uid", "mode"))
+        return _signature(self.socket) == tuple(
+            record[key] for key in ("device", "inode", "ctimeNs", "uid", "mode")
+        )
 
     def acquire(self) -> None:
         self.parents = self._parents()
@@ -121,7 +158,13 @@ class ListenerLease:
             os.fsync(descriptor)
             # Flush all retained/new managed-directory links before any bind.
             # Initialization may have stopped after mkdir on an earlier run.
-            for directory in (self.socket.parent, self.root / "security", self.lock.parent, self.root, self.root.parent):
+            for directory in (
+                self.socket.parent,
+                self.root / "security",
+                self.lock.parent,
+                self.root,
+                self.root.parent,
+            ):
                 fsync_path(directory)
             self._check()
             self.fault("listener_lock_acquired")
@@ -135,7 +178,9 @@ class ListenerLease:
                 try:
                     result = probe.connect_ex(str(self.socket))
                 except (TimeoutError, OSError):
-                    raise ValueError("private_listener_reconciliation_required") from None
+                    raise ValueError(
+                        "private_listener_reconciliation_required"
+                    ) from None
             if result != errno.ECONNREFUSED:
                 raise ValueError("private_listener_active_or_ambiguous")
             self.fault("listener_stale_probed")
@@ -155,11 +200,21 @@ class ListenerLease:
             raise ValueError("private_listener_boundary_changed")
         device, inode, ctime, uid, mode = _signature(self.socket)
         record: dict[str, str | int] = {
-            "schemaVersion": 1, "generation": str(uuid4()), "socketPath": MANAGED_PATH,
-            "device": device, "inode": inode, "ctimeNs": ctime, "uid": uid, "mode": mode,
+            "schemaVersion": 1,
+            "generation": str(uuid4()),
+            "socketPath": MANAGED_PATH,
+            "device": device,
+            "inode": inode,
+            "ctimeNs": ctime,
+            "uid": uid,
+            "mode": mode,
         }
         self.fault("listener_bound_before_marker")
-        atomic_bytes(self.marker, json.dumps(record, sort_keys=True, separators=(",", ":")).encode("ascii") + b"\n")
+        atomic_bytes(
+            self.marker,
+            json.dumps(record, sort_keys=True, separators=(",", ":")).encode("ascii")
+            + b"\n",
+        )
         self._check()
         if not self._matches(record):
             raise ValueError("private_listener_boundary_changed")
@@ -184,7 +239,9 @@ class ListenerLease:
 
 
 @contextmanager
-def listener_lease(path: Path | None, fault: Callable[[str], None] | None = None) -> Iterator[ListenerLease | None]:
+def listener_lease(
+    path: Path | None, fault: Callable[[str], None] | None = None
+) -> Iterator[ListenerLease | None]:
     root = managed_root(path) if path is not None else None
     if root is None:
         yield None

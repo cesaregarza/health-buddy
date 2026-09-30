@@ -33,8 +33,20 @@ def git(repository: Path, *arguments: str) -> str:
         "GIT_COMMITTER_EMAIL": "builder@example.invalid",
     }
     result = subprocess.run(
-        ["git", "-c", "core.hooksPath=" + os.devnull, "-c", "commit.gpgsign=false", "-C", str(repository), *arguments],
-        env=environment, check=True, capture_output=True, text=True,
+        [
+            "git",
+            "-c",
+            "core.hooksPath=" + os.devnull,
+            "-c",
+            "commit.gpgsign=false",
+            "-C",
+            str(repository),
+            *arguments,
+        ],
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     return result.stdout.strip()
 
@@ -45,7 +57,9 @@ def source(tmp_path: Path) -> tuple[Path, str]:
     git(repository, "init", "--quiet")
     (repository / "docs").mkdir()
     (repository / "src").mkdir()
-    (repository / "pyproject.toml").write_text('[project]\nname="health-buddy"\nversion="0.1.0.dev0"\n')
+    (repository / "pyproject.toml").write_text(
+        '[project]\nname="health-buddy"\nversion="0.1.0.dev0"\n'
+    )
     (repository / "docs" / "guide.md").write_text("Synthetic source guide.\n")
     (repository / "src" / "module.py").write_text("VALUE = 1\n")
     git(repository, "add", ".")
@@ -60,7 +74,9 @@ def prepared(tmp_path: Path) -> tuple[Path, Path, str]:
     return output / "source", manifest, revision
 
 
-def test_bundle_selects_exact_commit_not_working_tree_and_excludes_history(tmp_path: Path) -> None:
+def test_bundle_selects_exact_commit_not_working_tree_and_excludes_history(
+    tmp_path: Path,
+) -> None:
     repository, revision = source(tmp_path)
     (repository / "src" / "module.py").write_text("VALUE = 999\n")
     (repository / "private-owner-file.txt").write_text("synthetic unpublished note")
@@ -73,7 +89,10 @@ def test_bundle_selects_exact_commit_not_working_tree_and_excludes_history(tmp_p
     assert identity.package_version == "0.1.0.dev0"
     assert identity.source_evidence == "packaged_manifest"
     assert identity.artifact is None
-    assert identity.source_archive_sha256 == hashlib.sha256((output / "release/source.tar").read_bytes()).hexdigest()
+    assert (
+        identity.source_archive_sha256
+        == hashlib.sha256((output / "release/source.tar").read_bytes()).hexdigest()
+    )
     assert (selected / "src/module.py").read_text() == "VALUE = 1\n"
     assert not (selected / ".git").exists()
     assert not (selected / "private-owner-file.txt").exists()
@@ -103,11 +122,16 @@ def test_bundle_rejects_tracked_symlink_without_reading_target(tmp_path: Path) -
     git(repository, "add", "shortcut")
     git(repository, "commit", "--quiet", "-m", "Synthetic prohibited link")
     with pytest.raises(ManifestError, match="unsupported_source_entry"):
-        create_bundle(repository, git(repository, "rev-parse", "HEAD"), tmp_path / "output")
+        create_bundle(
+            repository, git(repository, "rev-parse", "HEAD"), tmp_path / "output"
+        )
     assert outside.read_text() == "synthetic outside input"
 
 
-@pytest.mark.parametrize("mutation", ["changed", "extra", "missing", "linked-file", "linked-directory", "archive"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["changed", "extra", "missing", "linked-file", "linked-directory", "archive"],
+)
 def test_source_integrity_changes_fail_closed(tmp_path: Path, mutation: str) -> None:
     selected, manifest, _revision = prepared(tmp_path)
     module = selected / "src/module.py"
@@ -134,7 +158,18 @@ def test_source_integrity_changes_fail_closed(tmp_path: Path, mutation: str) -> 
         verify_source_identity(selected, manifest)
 
 
-@pytest.mark.parametrize("mutation", ["boolean-version", "boolean-size", "duplicate-path", "traversal", "bad-docs", "unknown-key", "bad-interface"])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "boolean-version",
+        "boolean-size",
+        "duplicate-path",
+        "traversal",
+        "bad-docs",
+        "unknown-key",
+        "bad-interface",
+    ],
+)
 def test_manifest_shapes_are_strict_and_bounded(tmp_path: Path, mutation: str) -> None:
     selected, manifest, _revision = prepared(tmp_path)
     value = json.loads(manifest.read_bytes())
@@ -156,17 +191,25 @@ def test_manifest_shapes_are_strict_and_bounded(tmp_path: Path, mutation: str) -
     assert read_source_identity(selected, manifest) == ReleaseIdentity()
 
 
-def test_manifest_duplicate_json_key_and_size_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_manifest_duplicate_json_key_and_size_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     selected, manifest, _revision = prepared(tmp_path)
     before = manifest.read_bytes()
-    manifest.write_bytes(before.replace(b'"manifestVersion":1', b'"manifestVersion":1,"manifestVersion":1'))
+    manifest.write_bytes(
+        before.replace(
+            b'"manifestVersion":1', b'"manifestVersion":1,"manifestVersion":1'
+        )
+    )
     assert read_source_identity(selected, manifest) == ReleaseIdentity()
     manifest.write_bytes(before)
     monkeypatch.setattr(runtime_manifest, "MAX_METADATA", 10)
     assert read_source_identity(selected, manifest) == ReleaseIdentity()
 
 
-def test_inventory_bounds_empty_directories_before_unbounded_traversal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inventory_bounds_empty_directories_before_unbounded_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     selected, _manifest, _revision = prepared(tmp_path)
     monkeypatch.setattr(runtime_manifest, "MAX_ENTRIES", 6)
     for index in range(8):
@@ -175,7 +218,9 @@ def test_inventory_bounds_empty_directories_before_unbounded_traversal(tmp_path:
         runtime_manifest.inventory(selected)
 
 
-def test_immutable_identity_is_startup_snapshot_not_continuous_attestation(tmp_path: Path) -> None:
+def test_immutable_identity_is_startup_snapshot_not_continuous_attestation(
+    tmp_path: Path,
+) -> None:
     selected, manifest, revision = prepared(tmp_path)
     startup = verify_source_identity(selected, manifest)
     (selected / "docs/guide.md").write_text("Synthetic later mutation.\n")
@@ -184,7 +229,9 @@ def test_immutable_identity_is_startup_snapshot_not_continuous_attestation(tmp_p
     assert read_source_identity(selected, manifest) == ReleaseIdentity()
 
 
-def test_native_bundle_rejects_symlink_parent_before_target_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_native_bundle_rejects_symlink_parent_before_target_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     target = tmp_path / "unread-target"
     target.mkdir()
     (target / "child").mkdir()
@@ -202,7 +249,9 @@ def test_native_bundle_rejects_symlink_parent_before_target_lookup(tmp_path: Pat
         runtime_manifest.native_directory(link / "child")
 
 
-def test_native_bundle_rejects_forbidden_mount_lexically(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_native_bundle_rejects_forbidden_mount_lexically(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def forbidden(*_args, **_kwargs):
         pytest.fail("a forbidden lexical mount was probed")
 

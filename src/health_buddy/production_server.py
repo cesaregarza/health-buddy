@@ -12,8 +12,8 @@ from granian.constants import HTTPModes, Interfaces, Loops, RuntimeModes, TaskIm
 from granian.http import HTTP1Settings
 from starlette.types import ASGIApp
 
-from .security_api import IngressConfig, Runtime
 from .runtime_listener import ListenerLease, listener_lease
+from .security_api import IngressConfig, Runtime
 from .service_api import Operations
 from .transport import create_app
 from .transport_ingress import VerifiedSocket, prepare_socket
@@ -179,4 +179,10 @@ def serve(
         else None
     )
     with listener_lease(socket_path, _listener_fault) as lease:
-        _serve(operations_factory, ingress=ingress, port=port, development=development, lease=lease)
+        _serve(
+            operations_factory,
+            ingress=ingress,
+            port=port,
+            development=development,
+            lease=lease,
+        )

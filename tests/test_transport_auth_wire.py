@@ -237,9 +237,7 @@ def test_real_private_uds_graceful_restart_and_explicit_proxy_login(short_direct
 
 def test_untrusted_uid_cannot_connect_private_socket(short_directory):
     if os.geteuid() != 0:
-        pytest.skip(
-            "Queue must provide root only to launch a distinct fixture UID"
-        )
+        pytest.skip("Queue must provide root only to launch a distinct fixture UID")
     with server(short_directory) as (_process, path):
         source = (
             "import os,socket,sys\n"
