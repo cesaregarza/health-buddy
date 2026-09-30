@@ -182,3 +182,30 @@ def test_immutable_identity_is_startup_snapshot_not_continuous_attestation(tmp_p
     assert startup.source_commit == revision
     assert startup.source_evidence == "packaged_manifest"
     assert read_source_identity(selected, manifest) == ReleaseIdentity()
+
+
+def test_native_bundle_rejects_symlink_parent_before_target_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = tmp_path / "unread-target"
+    target.mkdir()
+    (target / "child").mkdir()
+    link = tmp_path / "linked"
+    link.symlink_to(target, target_is_directory=True)
+    original = Path.lstat
+
+    def guarded(path, *args, **kwargs):
+        if path != link and path.is_relative_to(link):
+            pytest.fail("bundle traversal accessed a descendant through a symlink")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", guarded)
+    with pytest.raises(ManifestError, match="invalid_bundle_directory"):
+        runtime_manifest.native_directory(link / "child")
+
+
+def test_native_bundle_rejects_forbidden_mount_lexically(monkeypatch: pytest.MonkeyPatch) -> None:
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("a forbidden lexical mount was probed")
+
+    monkeypatch.setattr(Path, "lstat", forbidden)
+    with pytest.raises(ManifestError, match="invalid_bundle_directory"):
+        runtime_manifest.native_directory(Path("/mnt/synthetic/not-accessed"))

@@ -91,20 +91,22 @@ def readiness_metadata(status, body):
 
 
 @contextmanager
-def server(folder, *, ready=True, workspace=None):
+def server(folder, *, ready=True, workspace=None, listener_fault=None):
+    from health_buddy.config import load
+
     path = (
-        workspace / "security/http.sock"
+        load(workspace).path(load(workspace).values["security"]["socketPath"])
         if workspace is not None
         else folder / "http.sock"
     )
     args = [sys.executable, "-m", "tests.auth_transport_runner", "--socket", str(path)]
     if workspace is not None:
         args += ["--workspace", str(workspace)]
+    if listener_fault is not None:
+        args += ["--listener-fault", listener_fault]
     readiness = None
     if workspace is not None:
         from urllib.parse import urlsplit
-
-        from health_buddy.config import load
 
         readiness = {
             "X-Forwarded-Host": urlsplit(

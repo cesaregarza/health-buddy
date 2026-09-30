@@ -97,7 +97,7 @@ def test_contended_writer_lock_respects_short_probe_deadline(tmp_path: Path) -> 
     assert runtime.readiness(time.monotonic() + 1)
 
 
-@pytest.mark.parametrize("deadline", [float("nan"), math.inf, -math.inf, True])
+@pytest.mark.parametrize("deadline", [float("nan"), math.inf, -math.inf, True, 10 ** 1000])
 def test_invalid_deadline_cannot_make_probe_unbounded(tmp_path: Path, deadline: float) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     assert not ready(runtime.operations.config, deadline)
@@ -114,7 +114,7 @@ async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(t
     assert token.encode() not in body
     assert headers[b"cache-control"] == b"no-store"
     assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
-    assert (await exchange(app, target="/readyz", extra=((b"host", b"attacker.invalid"),)))[0] == 403
+    assert (await exchange(app, target="/readyz", extra=((b"host", b"attacker.invalid"),)))[0] == 400
 
 
 async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> None:
@@ -127,3 +127,61 @@ async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> N
 
     app = create_app(runtime=replace(runtime, readiness=failed))
     assert (await exchange(app, target="/readyz"))[:2] == (503, b'{"status":"not_ready"}')
+
+
+def test_symlinked_security_directory_is_refused_before_any_child_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    directory = runtime.operations.config.root / "security"
+    outside = tmp_path / "retained-authority"
+    directory.rename(outside)
+    directory.symlink_to(outside, target_is_directory=True)
+    original = os.open
+
+    def guarded(path, *args, **kwargs):
+        if Path(path).is_relative_to(directory):
+            pytest.fail("readiness followed a replaced security directory")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", guarded)
+    assert not ready(runtime.operations.config, time.monotonic() + 1)
+    assert directory.is_symlink()
+
+
+def test_readiness_does_not_follow_a_sidecar_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    target = tmp_path / "unread-sidecar-target"
+    target.write_bytes(b"synthetic untouched target")
+    sidecar = runtime.operations.config.root / "security/authority.sqlite-journal"
+    sidecar.symlink_to(target)
+    original = Path.stat
+
+    def guarded(path, *args, **kwargs):
+        if path == sidecar:
+            pytest.fail("readiness followed a sidecar symlink")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", guarded)
+    assert not ready(runtime.operations.config, time.monotonic() + 1)
+    assert target.read_bytes() == b"synthetic untouched target"
+
+
+@pytest.mark.parametrize("table", ["journal", "authority"])
+@pytest.mark.parametrize("value", ['"' + "x" * 16384 + '"', "[" * 1500 + "]" * 1500])
+def test_oversized_or_deep_corrupt_readiness_metadata_is_bounded_and_unchanged(tmp_path: Path, table: str, value: str) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    root = runtime.operations.config.root
+    path = root / ("operations/control.sqlite" if table == "journal" else "security/authority.sqlite")
+    connection = sqlite3.connect(path)
+    try:
+        if table == "journal":
+            connection.execute("UPDATE state SET identity_json=? WHERE singleton=1", (value,))
+        else:
+            connection.execute("UPDATE metadata SET value=? WHERE singleton=1", (value,))
+        connection.commit()
+    finally:
+        connection.close()
+    before = footprint(root)
+    began = time.monotonic()
+    assert not ready(runtime.operations.config, began + 0.1)
+    assert time.monotonic() - began < 0.5
+    assert footprint(root) == before
