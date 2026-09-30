@@ -44,7 +44,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
             relative = str(path.relative_to(root))
             if path == socket_path and stat.S_ISSOCK(info.st_mode):
                 continue
-            if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077:
+            if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & ~0o700:
                 raise ServiceError(422, "backup_requires_private_owned_workspace")
             if stat.S_ISDIR(info.st_mode):
                 directories.append(relative)
@@ -55,7 +55,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
                     raise ServiceError(413, "backup_size_limit")
                 raw = read_file(path, MAX_ARCHIVE_BYTES)
                 archive.writestr("workspace/" + relative, raw)
-                entries.append({"path": relative, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "mtimeNs": info.st_mtime_ns})
+                entries.append({"path": relative, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "mtimeNs": info.st_mtime_ns, "mode": stat.S_IMODE(info.st_mode)})
             else:
                 raise ServiceError(422, "backup_unsupported_workspace_entry")
             if len(entries) + len(directories) > MAX_ENTRIES:
@@ -87,7 +87,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
         for entry in entries:
             path = config.path(entry["path"])
             info = path.lstat()
-            if info.st_mtime_ns != entry["mtimeNs"] or hashlib.sha256(read_file(path, MAX_ARCHIVE_BYTES)).hexdigest() != entry["sha256"]:
+            if info.st_mtime_ns != entry["mtimeNs"] or stat.S_IMODE(info.st_mode) != entry["mode"] or hashlib.sha256(read_file(path, MAX_ARCHIVE_BYTES)).hexdigest() != entry["sha256"]:
                 raise ServiceError(409, "backup_workspace_changed")
     return output.getvalue()
 
@@ -117,8 +117,10 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
             if len(directories) != len(set(directories)):
                 raise ValueError("duplicate")
             for entry in manifest["files"]:
-                if not isinstance(entry, dict) or set(entry) != {"path", "bytes", "sha256", "mtimeNs"}:
+                if not isinstance(entry, dict) or set(entry) != {"path", "bytes", "sha256", "mtimeNs", "mode"}:
                     raise ValueError("file")
+                if type(entry["mode"]) is not int or not 0 <= entry["mode"] <= 0o700 or entry["mode"] & ~0o700:
+                    raise ValueError("unsafe_file_mode")
                 relative = relative_path(entry["path"], "file")
                 if relative in files or relative in directories:
                     raise ValueError("duplicate")

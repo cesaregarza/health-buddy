@@ -10,7 +10,8 @@ snapshot of an actively edited tree. Never copy a running workspace with `cp`.
 
 Use an existing owner credential with `operations:admin`. An ordinary read/write
 agent grant cannot create a backup; no HTTP/MCP command performs maintenance.
-Choose owned native Linux directories with mode 0700 and files with mode 0600.
+Choose owned native Linux directories with mode 0700 and private files (normally mode 0600; owner-only
+executable scripts may use mode 0700).
 The key is 32 CSPRNG bytes; it is not a password and never appears on stdout.
 Keep the key separate from the workspace, archives and their storage account.
 
@@ -40,7 +41,7 @@ files or required authority metadata fail verification. The configured cache is
 regenerable and excluded, as is the live configured Unix socket. Other symlinks,
 special entries, public/foreign-owned files and hard-linked files fail closed;
 no owner file is silently dropped. A private ZIP inventory names each captured
-file's length and SHA256, exact directories, authoritative required paths,
+file's length, SHA256 and private owner permission bits, exact directories, authoritative required paths,
 identity and revision. Neither the inventory nor health values are in plaintext
 outside the encrypted archive.
 
@@ -71,7 +72,9 @@ record/stream/object IDs, tombstones, plans and configuration are preserved;
 health revision remains the archive's revision. The canonical marker changes in
 its authoritative Git adapter. Corrupt/incomplete/wrong-key/low-disk failures
 never modify the original workspace or an existing destination. A destination
-that appears concurrently is not replaced. Restore never downloads or executes
+that appears concurrently is not replaced. Owner execute/read-only permission bits round-trip in the
+authenticated inventory; group/other and special permission bits are rejected.
+Restore never downloads or executes
 personal extensions, manifests, tests, hooks or migration commands.
 
 The private result names `ownerCredentialReference`, a newly generated owner

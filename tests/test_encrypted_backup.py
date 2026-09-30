@@ -35,6 +35,12 @@ def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
     Registry(config).enable("local.weekly-mass", source_ids=("manual",))
     atomic_bytes(mass / "notes/OWNER.md", b"Synthetic custom view notes\n")
     atomic_bytes(mass / "state/sentinel.json", b'{"synthetic":true}')
+    executable = mass / "tests/synthetic-check.sh"
+    atomic_bytes(executable, b"#!/bin/sh\n# Synthetic owner script, never run by restore.\nexit 0\n")
+    executable.chmod(0o700)
+    readonly = mass / "notes/READONLY.md"
+    atomic_bytes(readonly, b"Synthetic owner read-only note\n")
+    readonly.chmod(0o400)
     app = App.authenticated(root, proof=BearerProof(token), runtime=runtime)
     app.log_record("measurement", ["--measured-at-local", "2030-01-03T09:00:00Z", "--weight-lb", "150"])
     from tests.synthetic_workspace import program
@@ -58,6 +64,10 @@ def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
     assert after.identity.dataset_id == before.identity.dataset_id
     assert after.identity.restore_epoch != before.identity.restore_epoch
     assert after.revision == before.revision
+    restored_executable = restored / "personal/extensions/local.weekly-mass/tests/synthetic-check.sh"
+    assert restored_executable.read_bytes() == executable.read_bytes()
+    assert restored_executable.stat().st_mode & 0o7777 == 0o700
+    assert (restored / "personal/extensions/local.weekly-mass/notes/READONLY.md").stat().st_mode & 0o7777 == 0o400
     assert (restored / "config.json").read_bytes() == (root / "config.json").read_bytes()
     assert (restored / "personal/extensions/local.weekly-mass/notes/OWNER.md").read_bytes() == (mass / "notes/OWNER.md").read_bytes()
     assert (restored / "personal/extensions/local.weekly-mass/state/sentinel.json").read_bytes() == (mass / "state/sentinel.json").read_bytes()
@@ -302,3 +312,17 @@ def test_snapshot_holds_supported_writer_until_complete(tmp_path):
     assert result["dataRevision"] == 0
     assert service.journal.state().revision == 1
     assert root.exists() and runtime.security.authenticate(BearerProof(token))
+
+
+
+@pytest.mark.parametrize("unsafe_mode", [0o640, 0o1700, 0o2700, 0o4700])
+def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
+    runtime, owner, _token = secured(tmp_path / "source")
+    path = runtime.operations.config.root / "personal/unsafe-script"
+    atomic_bytes(path, b"synthetic only")
+    path.chmod(unsafe_mode)
+    key = tmp_path / "backup.key"
+    keygen(key)
+    with pytest.raises(ServiceError, match="backup_requires_private_owned_workspace"):
+        create(runtime, owner.principal, tmp_path / "unsafe.hbb", key, confirm_quiesced=True)
+    assert not (tmp_path / "unsafe.hbb").exists()
