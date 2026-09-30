@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -32,9 +33,10 @@ def git(repository: Path, *arguments: str) -> str:
         "GIT_COMMITTER_NAME": "Synthetic Builder",
         "GIT_COMMITTER_EMAIL": "builder@example.invalid",
     }
-    result = subprocess.run(
+    # Fixed synthetic Git builtins; no external input or inherited hooks.
+    result = subprocess.run(  # noqa: S603
         [
-            "git",
+            "/usr/bin/git",
             "-c",
             "core.hooksPath=" + os.devnull,
             "-c",
@@ -249,12 +251,107 @@ def test_native_bundle_rejects_symlink_parent_before_target_lookup(
         runtime_manifest.native_directory(link / "child")
 
 
+@pytest.mark.parametrize("mount", ["/mnt", "//mnt", "///mnt"])
 def test_native_bundle_rejects_forbidden_mount_lexically(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, mount: str
 ) -> None:
     def forbidden(*_args, **_kwargs):
         pytest.fail("a forbidden lexical mount was probed")
 
     monkeypatch.setattr(Path, "lstat", forbidden)
     with pytest.raises(ManifestError, match="invalid_bundle_directory"):
-        runtime_manifest.native_directory(Path("/mnt/synthetic/not-accessed"))
+        runtime_manifest.native_directory(Path(mount + "/synthetic/not-accessed"))
+
+
+def test_exact_bundle_ignores_retained_repository_replacement_objects(tmp_path):
+    repository, original = source(tmp_path)
+    original_tree = git(repository, "rev-parse", original + "^{tree}")
+    (repository / "src/module.py").write_text("VALUE = 2\n")
+    git(repository, "add", "src/module.py")
+    git(repository, "commit", "--quiet", "-m", "Synthetic replacement tree")
+    replacement = git(repository, "rev-parse", "HEAD")
+    git(repository, "replace", original, replacement)
+    assert git(repository, "show", original + ":src/module.py") == "VALUE = 2"
+    output = tmp_path / "output"
+    manifest = create_bundle(repository, original, output)
+    identity = verify_source_identity(output / "source", manifest)
+    assert identity.source_commit == original
+    assert identity.source_tree == original_tree
+    assert (output / "source/src/module.py").read_bytes() == b"VALUE = 1\n"
+    assert git(repository, "rev-parse", "refs/replace/" + original) == replacement
+    assert (repository / "src/module.py").read_bytes() == b"VALUE = 2\n"
+
+
+def private_umask_bundle(tmp_path):
+    repository, _revision = source(tmp_path)
+    executable = repository / "src/runner.sh"
+    executable.write_text("#!/bin/sh\nexit 0\n")
+    executable.chmod(0o755)
+    git(repository, "add", "src/runner.sh")
+    git(repository, "commit", "--quiet", "-m", "Synthetic executable source")
+    revision = git(repository, "rev-parse", "HEAD")
+    before = {
+        path: (path.stat().st_mode, path.read_bytes())
+        for path in (executable, repository / "src/module.py")
+    }
+    previous = os.umask(0o077)
+    try:
+        output = tmp_path / "output"
+        manifest = create_bundle(repository, revision, output)
+    finally:
+        os.umask(previous)
+    for path, expected in before.items():
+        assert (path.stat().st_mode, path.read_bytes()) == expected
+    assert stat.S_IMODE(output.stat().st_mode) == 0o700
+    for path in (output / "source", output / "release"):
+        assert stat.S_IMODE(path.stat().st_mode) == 0o755
+        for item in path.rglob("*"):
+            expected = 0o755 if item.is_dir() or item.name == "runner.sh" else 0o644
+            assert stat.S_IMODE(item.stat().st_mode) == expected
+    identity = verify_source_identity(output / "source", manifest)
+    assert identity.source_commit == revision
+    return output
+
+
+def test_new_bundle_modes_are_exact_under_private_maintenance_umask(tmp_path):
+    private_umask_bundle(tmp_path)
+
+
+def test_source_and_release_contents_are_readable_by_distinct_uid(tmp_path):
+    if os.geteuid() != 0:
+        pytest.skip("queue root launches a distinct synthetic unprivileged UID")
+    output = private_umask_bundle(tmp_path)
+    source_fd = os.open(output / "source", os.O_RDONLY | os.O_DIRECTORY)
+    release_fd = os.open(output / "release", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        script = (
+            "import os,sys\n"
+            "assert os.geteuid()==65534 and os.getegid()==65534\n"
+            "os.fchdir(int(sys.argv[1]))\n"
+            "assert open('src/module.py','rb').read()==b'VALUE = 1\\n'\n"
+            "assert os.access('src/runner.sh',os.X_OK)\n"
+            "os.fchdir(int(sys.argv[2]))\n"
+            "assert open('source-manifest.json','rb').read()\n"
+            "assert open('source.tar','rb').read(1)\n"
+        )
+        # Fixed interpreter/fixture code and already-opened immutable directories.
+        result = subprocess.run(  # noqa: S603
+            [
+                "/usr/bin/python3", "-I", "-B", "-c", script,
+                str(source_fd), str(release_fd),
+            ],
+            pass_fds=(source_fd, release_fd),
+            cwd="/",
+            user=65534,
+            group=65534,
+            extra_groups=[],
+            env={"PATH": os.defpath},
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        assert result.returncode == 0, "synthetic non-owner bundle read failed"
+    finally:
+        os.close(source_fd)
+        os.close(release_fd)

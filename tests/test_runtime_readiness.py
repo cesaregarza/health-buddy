@@ -16,6 +16,7 @@ import pytest
 from health_buddy.runtime_readiness import ready
 from health_buddy.service_api import ServiceError
 from health_buddy.transport import create_app
+from tests.canonical_fixtures import intent
 from tests.security_fixtures import secured
 from tests.test_transport import exchange
 
@@ -83,7 +84,9 @@ def test_inconsistent_state_refuses_without_recovery(
     if fault == "decision":
         with sqlite3.connect(config.path("operations/control.sqlite")) as connection:
             connection.execute(
-                "UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=(SELECT transaction_id FROM transactions LIMIT 1)"
+                "UPDATE transactions SET state='COMMIT_INTENT' "
+                "WHERE transaction_id=(SELECT transaction_id "
+                "FROM transactions LIMIT 1)"
             )
     elif fault == "manual-ref":
         (config.storage("manual") / "refs/heads/main").write_text("0" * 40 + "\n")
@@ -137,23 +140,37 @@ async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(
 ) -> None:
     runtime, _owner, token = secured(tmp_path / "workspace")
     app = create_app(runtime=runtime)
-    assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
-    assert (await exchange(app, target="/readyz"))[:2] == (200, b'{"status":"ready"}')
+    assert (await exchange(app, target="/livez", origin=None))[:2] == (
+        200, b'{"status":"ok"}'
+    )
+    assert (await exchange(app, target="/readyz", origin=None))[:2] == (
+        200, b'{"status":"ready"}'
+    )
     runtime.operations.config.path("security/epoch.json").unlink()
-    status, body, headers = await exchange(app, target="/readyz")
+    status, body, headers = await exchange(app, target="/readyz", origin=None)
     assert status == 503 and body == b'{"status":"not_ready"}'
     assert token.encode() not in body
     assert headers[b"cache-control"] == b"no-store"
-    assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
+    assert (await exchange(app, target="/livez", origin=None))[:2] == (
+        200, b'{"status":"ok"}'
+    )
     assert (
-        await exchange(app, target="/readyz", extra=((b"host", b"attacker.invalid"),))
+        await exchange(
+            app,
+            target="/readyz",
+            origin=None,
+            extra=((b"host", b"attacker.invalid"),),
+        )
     )[0] == 400
+    assert (
+        await exchange(app, target="/readyz", origin="https://attacker.invalid")
+    )[0] == 403
 
 
 async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     app = create_app(runtime=replace(runtime, readiness=None))
-    assert (await exchange(app, target="/readyz"))[:2] == (
+    assert (await exchange(app, target="/readyz", origin=None))[:2] == (
         503,
         b'{"status":"not_ready"}',
     )
@@ -162,7 +179,7 @@ async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> N
         raise ServiceError(503, "synthetic-private-detail")
 
     app = create_app(runtime=replace(runtime, readiness=failed))
-    assert (await exchange(app, target="/readyz"))[:2] == (
+    assert (await exchange(app, target="/readyz", origin=None))[:2] == (
         503,
         b'{"status":"not_ready"}',
     )
@@ -238,3 +255,23 @@ def test_oversized_or_deep_corrupt_readiness_metadata_is_bounded_and_unchanged(
     assert not ready(runtime.operations.config, began + 0.1)
     assert time.monotonic() - began < 0.5
     assert footprint(root) == before
+
+
+def test_ready_preserves_normal_git_metadata_after_bootstrap_and_write(tmp_path):
+    previous = os.umask(0o022)
+    try:
+        runtime, owner, _token = secured(tmp_path / "workspace")
+        service = runtime.operations
+        reference = service.config.storage("manual") / "refs/heads/main"
+        assert reference.stat().st_mode & 0o777 == 0o644
+        before = footprint(service.config.root)
+        assert ready(service.config, time.monotonic() + 1)
+        assert footprint(service.config.root) == before
+        response = service.execute(owner.principal, intent(service, owner.principal))
+        assert response.status == 200
+        assert reference.stat().st_mode & 0o777 == 0o644
+        after = footprint(service.config.root)
+        assert ready(service.config, time.monotonic() + 1)
+        assert footprint(service.config.root) == after
+    finally:
+        os.umask(previous)

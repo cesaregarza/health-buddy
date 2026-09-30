@@ -40,6 +40,7 @@ def _git(repository: Path, arguments: list[str], limit: int) -> bytes:
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_OPTIONAL_LOCKS": "0",
         "GIT_NO_LAZY_FETCH": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
         "GIT_TERMINAL_PROMPT": "0",
     }
     command = [
@@ -57,9 +58,9 @@ def _git(repository: Path, arguments: list[str], limit: int) -> bytes:
         *arguments,
     ]
     # Fixed native Git builtins; no shell, external diff/filter or remote operation.
-    child = subprocess.Popen(
+    child = subprocess.Popen(  # noqa: S603
         command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=environment
-    )  # noqa: S603
+    )
     assert child.stdout is not None
     deadline = time.monotonic() + 20
     output = bytearray()
@@ -103,9 +104,34 @@ def _write(path: Path, data: bytes, mode: int = 0o644) -> None:
         path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode
     )
     with os.fdopen(descriptor, "wb") as target:
+        # Newly created output only; never repair input/owner-file modes.
+        os.fchmod(target.fileno(), mode)
         target.write(data)
         target.flush()
         os.fsync(target.fileno())
+
+
+def _directory(path: Path, mode: int) -> None:
+    path.mkdir(mode=mode)
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fchmod(descriptor, mode)
+    finally:
+        os.close(descriptor)
+
+
+def _source_directory(source: Path, path: Path) -> None:
+    current = source
+    for part in path.relative_to(source).parts:
+        current /= part
+        try:
+            current.lstat()
+        except FileNotFoundError:
+            _directory(current, 0o755)
+        else:
+            # Earlier archive entries may have created this output directory.
+            # Any unexpected replacement fails rather than receiving chmod.
+            native_directory(current)
 
 
 def create_bundle(repository: Path, revision: str, output: Path) -> Path:
@@ -117,7 +143,13 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
     """
     native_directory(repository)
     native_directory(output.parent)
-    if not GIT_SHA.fullmatch(revision) or output.exists() or output.is_symlink():
+    try:
+        output.lstat()
+    except FileNotFoundError:
+        exists = False
+    else:
+        exists = True
+    if not GIT_SHA.fullmatch(revision) or exists:
         raise ManifestError("explicit_commit_and_new_output_required")
     if output.is_relative_to(repository) or repository.is_relative_to(output):
         raise ManifestError("source_output_overlap")
@@ -164,11 +196,11 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
     if not selected:
         raise ManifestError("empty_source_inventory")
     archive = _git(repository, ["archive", "--format=tar", revision], MAX_BYTES)
-    output.mkdir(mode=0o700)
+    _directory(output, 0o700)
     source = output / "source"
     release = output / "release"
-    source.mkdir(mode=0o755)
-    release.mkdir(mode=0o755)
+    _directory(source, 0o755)
+    _directory(release, 0o755)
     _sync(output.parent)
     _write(release / "source.tar", archive)
     seen: set[str] = set()
@@ -185,7 +217,7 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
             if member.isdir():
                 if relative not in all_paths or relative in selected:
                     raise ManifestError("archive_inventory_mismatch")
-                path.mkdir(mode=0o755, parents=True, exist_ok=True)
+                _source_directory(source, path)
                 continue
             expected = selected.get(relative)
             if (
@@ -196,7 +228,7 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
             ):
                 raise ManifestError("archive_inventory_mismatch")
             seen.add(relative)
-            path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+            _source_directory(source, path.parent)
             stream = content.extractfile(member)
             if stream is None:
                 raise ManifestError("archive_inventory_mismatch")

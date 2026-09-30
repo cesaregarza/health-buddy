@@ -9,6 +9,7 @@ from __future__ import annotations
 import errno
 import fcntl
 import json
+import multiprocessing
 import os
 import signal
 import socket
@@ -93,22 +94,18 @@ def managed_workspace(folder):
 def test_exact_recorded_refused_socket_can_be_reclaimed_twice(listener_folder):
     root = directories(listener_folder)
     for _ in range(2):
-        handle, _marker, before = recorded(root)
+        handle, _marker, _before = recorded(root)
         handle.close()
         with listener_lease(root / runtime_listener.MANAGED_PATH) as lease:
             assert lease is not None
             assert not lease.socket.exists()
-            assert lease.marker.exists()
+            assert not lease.marker.exists()
             replacement = bind(lease.socket)
             try:
                 lease.capture(VerifiedSocket.capture(lease.socket))
                 record = json.loads(lease.marker.read_bytes())
                 assert record["inode"] == lease.socket.lstat().st_ino
                 assert record["ctimeNs"] == lease.socket.lstat().st_ctime_ns
-                assert (record["inode"], record["ctimeNs"]) != (
-                    before.st_ino,
-                    before.st_ctime_ns,
-                )
                 lease.cleanup(VerifiedSocket.capture(lease.socket))
                 assert not lease.socket.exists() and not lease.marker.exists()
                 assert lease.lock.exists()
@@ -428,3 +425,142 @@ def test_existing_managed_directory_links_are_flushed_before_bind(
                 root.parent,
             ]
             assert not (root / runtime_listener.MANAGED_PATH).exists()
+
+
+def _crash_after_reused_bind(root, expected_signature):
+    original = runtime_listener._signature
+    selected = root / runtime_listener.MANAGED_PATH
+
+    def fixed_signature(path):
+        return expected_signature if path == selected else original(path)
+
+    runtime_listener._signature = fixed_signature
+
+    def crash(point):
+        if point == "listener_bound_before_marker":
+            os._exit(83)
+
+    with listener_lease(selected, crash) as lease:
+        handle = bind(selected)
+        try:
+            lease.capture(VerifiedSocket.capture(selected))
+        finally:
+            handle.close()
+
+
+@pytest.mark.parametrize("old_socket_absent", [False, True])
+def test_reused_signature_after_pre_marker_crash_is_not_old_ownership(
+    listener_folder, monkeypatch, old_socket_absent
+):
+    root = directories(listener_folder)
+    handle, _marker, _before = recorded(root)
+    handle.close()
+    path = root / runtime_listener.MANAGED_PATH
+    expected = runtime_listener._signature(path)
+    if old_socket_absent:
+        path.unlink()
+    child = multiprocessing.get_context("fork").Process(
+        target=_crash_after_reused_bind, args=(root, expected)
+    )
+    child.start()
+    try:
+        child.join(timeout=5)
+        assert child.exitcode == 83
+    finally:
+        if child.is_alive():
+            child.kill()
+            child.join(timeout=3)
+        child.close()
+    assert path.exists()
+    assert not (root / runtime_listener.MARKER_PATH).exists()
+    before = path.lstat()
+    original = runtime_listener._signature
+
+    def fixed_signature(current):
+        return expected if current == path else original(current)
+
+    monkeypatch.setattr(runtime_listener, "_signature", fixed_signature)
+    with pytest.raises(ValueError, match="reconciliation_required"):
+        with listener_lease(path):
+            pytest.fail("previous generation authorized an unrecorded socket")
+    assert path.lstat() == before
+
+
+@pytest.mark.parametrize("old_socket_absent", [False, True])
+def test_failed_marker_retirement_prevents_next_bind(
+    listener_folder, monkeypatch, old_socket_absent
+):
+    root = directories(listener_folder)
+    handle, _marker, _before = recorded(root)
+    handle.close()
+    path = root / runtime_listener.MANAGED_PATH
+    marker = root / runtime_listener.MARKER_PATH
+    if old_socket_absent:
+        path.unlink()
+    original = runtime_listener.fsync_path
+    retired = []
+
+    def fail_retirement(directory):
+        if directory == marker.parent and not marker.exists():
+            retired.append(True)
+            raise OSError("synthetic marker retirement fsync")
+        original(directory)
+
+    monkeypatch.setattr(runtime_listener, "fsync_path", fail_retirement)
+    with pytest.raises(OSError, match="marker retirement fsync"):
+        with listener_lease(path):
+            pytest.fail("listener bind admitted before retirement was durable")
+    assert retired == [True]
+    assert not marker.exists() and not path.exists()
+
+
+def test_changed_marker_is_preserved_instead_of_retired(listener_folder):
+    root = directories(listener_folder)
+    handle, _marker, _before = recorded(root)
+    handle.close()
+    path = root / runtime_listener.MANAGED_PATH
+    marker = root / runtime_listener.MARKER_PATH
+    changed = []
+
+    def replace_marker(point):
+        if point == "listener_marker_retiring":
+            value = json.loads(marker.read_bytes())
+            value["ctimeNs"] += 1
+            content = json.dumps(value).encode()
+            atomic_bytes(marker, content)
+            changed.append(content)
+
+    with pytest.raises(ValueError, match="boundary_changed"):
+        with listener_lease(path, replace_marker):
+            pytest.fail("changed marker was retired and allowed a new bind")
+    assert changed and marker.read_bytes() == changed[0]
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("target", ["lock", "marker", "socket"])
+def test_existing_listener_symlink_never_probes_target(
+    listener_folder, monkeypatch, target
+):
+    root = directories(listener_folder)
+    selected = root / {
+        "lock": runtime_listener.LOCK_PATH,
+        "marker": runtime_listener.MARKER_PATH,
+        "socket": runtime_listener.MANAGED_PATH,
+    }[target]
+    outside = root / "unread-target"
+    outside.write_bytes(b"synthetic untouched target")
+    outside.chmod(0o600)
+    selected.symlink_to(outside)
+    original = Path.stat
+
+    def no_target_probe(path, *args, **kwargs):
+        if path == selected:
+            pytest.fail("listener used a following stat on a linked input")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", no_target_probe)
+    with pytest.raises((ValueError, OSError, ServiceError)):
+        with listener_lease(root / runtime_listener.MANAGED_PATH):
+            pytest.fail("linked listener metadata was admitted")
+    assert selected.is_symlink()
+    assert outside.read_bytes() == b"synthetic untouched target"

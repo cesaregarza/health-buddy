@@ -35,13 +35,19 @@ class FakeOperations:
 
 
 async def exchange(
-    app, method="GET", target="/v1/capabilities", body=b"", extra=(), *, receive=None
+    app,
+    method="GET",
+    target="/v1/capabilities",
+    body=b"",
+    extra=(),
+    *,
+    receive=None,
+    origin="http://127.0.0.1:8791",
 ):
     path, _, query = target.partition("?")
-    values = [
-        (b"host", b"127.0.0.1:8791"),
-        (b"origin", b"http://127.0.0.1:8791"),
-    ]
+    values = [(b"host", b"127.0.0.1:8791")]
+    if origin is not None:
+        values.append((b"origin", origin.encode("ascii")))
     if method in ("POST", "PUT"):
         values += [
             (b"content-type", b"application/json"),

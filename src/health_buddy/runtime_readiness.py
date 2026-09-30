@@ -30,17 +30,49 @@ def _directories(path: Path) -> None:
             raise ValueError("readiness_path")
 
 
-def _read(path: Path, limit: int = 4096) -> bytes:
+def _read(path: Path, limit: int = 4096, *, private: bool = True) -> bytes:
     _directories(path.parent)
-    private_owned(path)
+    if private:
+        private_owned(path)
+    before = path.lstat()
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_uid != os.geteuid()
+        or stat.S_IMODE(before.st_mode) & 0o022
+        or before.st_size > limit
+    ):
+        raise ValueError("readiness_metadata")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     try:
+        opened = os.fstat(descriptor)
+        if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
+            raise ValueError("readiness_metadata_changed")
         value = os.read(descriptor, limit + 1)
         if len(value) > limit:
             raise ValueError("readiness_metadata_limit")
         return value
     finally:
         os.close(descriptor)
+
+
+def _git_read(root: Path, relative: str) -> bytes:
+    # Canonical Git refs may be0644 after update-ref. The private owned store
+    # boundary, not a chmod side effect, makes these fixed metadata paths safe.
+    _directories(root)
+    path = root / relative
+    parts = path.parent.relative_to(root).parts
+    for count in range(len(parts) + 1):
+        selected = root.joinpath(*parts[:count])
+        details = selected.lstat()
+        if (
+            not stat.S_ISDIR(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or stat.S_IMODE(details.st_mode) & 0o022
+        ):
+            raise ValueError("readiness_git_parent")
+    if stat.S_IMODE(root.lstat().st_mode) & 0o077:
+        raise ValueError("readiness_git_parent")
+    return _read(path, private=False)
 
 
 @contextmanager
@@ -144,9 +176,10 @@ def ready(config: Config, deadline: float) -> bool:
                 # Canonical backend deliberately uses a loose main ref and never
                 # packs/gc's refs. No Git process/hooks or health tree scan here.
                 if (
-                    _read(manual / "config").decode("utf-8") != STORE_CONFIG
-                    or _read(manual / "HEAD") != b"ref: refs/heads/main\n"
-                    or _read(manual / "refs/heads/main").decode("ascii").strip() != head
+                    _git_read(manual, "config").decode("utf-8") != STORE_CONFIG
+                    or _git_read(manual, "HEAD") != b"ref: refs/heads/main\n"
+                    or _git_read(manual, "refs/heads/main").decode("ascii").strip()
+                    != head
                 ):
                     return False
                 binding = security._binding(identity)

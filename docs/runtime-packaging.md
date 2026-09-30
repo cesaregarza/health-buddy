@@ -14,7 +14,11 @@ wheel. `legacy.RELEASE` resolves the bundle that contains `src`, top-level
 script helpers, maintained reference extensions/tests, contracts, documentation,
 legal notices and provenance. The build context is an explicit audited allowlist;
 Git history, owner workspaces, credentials, generated caches and private data
-never enter it. `.dockerignore` must retain the extension worker JavaScript and
+never enter it. Exact Git reads disable replacement objects, so local replacement
+refs cannot change the content associated with the selected commit. Newly created
+source/release directories are0755, regular source is0644 and tracked executable
+source is0755 even under maintenance umask077; the outer staging directory remains
+private0700. Existing source inputs and owner files are never chmodded. `.dockerignore` must retain the extension worker JavaScript and
 legacy scripts that the current deny-by-default file omits.
 
 Planned image layout:
@@ -216,8 +220,13 @@ No PID-only inference, process-name scan, broad cleanup or unconditional unlink
 is permitted. Same-UID/root maintenance remains the existing trust boundary;
 this protocol is not protection against a malicious process with that identity.
 Normal shutdown preserves the captured-inode-only cleanup and updates/removes
-only its own matching marker. A stale marker with no socket is validated before
-replacement; an invalid marker is an explicit reconciliation error.
+only its own matching marker. Before any replacement bind, a valid previous
+marker is rechecked, removed and its parent directory fsynced, including the
+valid-marker/no-socket case. An inode and ctime can both be reused; old evidence
+must never authorize an unrecorded next generation. Retirement failure refuses
+startup, while changed or invalid markers are preserved for explicit
+reconciliation. A hard exit after the next bind but before its durable marker
+therefore remains fail closed even if that socket reuses the full old signature.
 
 A normal container recreate or host boot leaves no live listener; the original
 managed socket may persist, and the above evidence permits narrow recovery.

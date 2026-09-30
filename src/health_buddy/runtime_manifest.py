@@ -46,7 +46,11 @@ def path_value(value: object) -> str:
 
 
 def native_directory(path: Path) -> None:
-    if not path.is_absolute() or ".." in path.parts or path.parts[:2] == ("/", "mnt"):
+    if (
+        not path.is_absolute()
+        or ".." in path.parts
+        or (len(path.parts) > 1 and path.parts[1] == "mnt")
+    ):
         raise ManifestError("invalid_bundle_directory")
     # Reject each ancestor before any descendant lookup can follow that link.
     for parent in (*reversed(path.parents), path):

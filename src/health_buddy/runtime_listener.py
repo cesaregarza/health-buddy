@@ -32,6 +32,14 @@ def managed_root(path: Path) -> Path | None:
     return None
 
 
+def _present(path: Path) -> bool:
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def _signature(path: Path) -> tuple[int, int, int, int, int]:
     details = path.lstat()
     return (
@@ -85,7 +93,7 @@ class ListenerLease:
             raise ValueError("private_listener_lock_changed")
 
     def _read(self) -> dict[str, str | int] | None:
-        if not self.marker.exists() and not self.marker.is_symlink():
+        if not _present(self.marker):
             return None
         private_owned(self.marker)
         descriptor = os.open(self.marker, os.O_RDONLY | os.O_NOFOLLOW)
@@ -145,7 +153,7 @@ class ListenerLease:
 
     def acquire(self) -> None:
         self.parents = self._parents()
-        if self.lock.exists() or self.lock.is_symlink():
+        if _present(self.lock):
             private_owned(self.lock)
         descriptor = os.open(self.lock, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         self.descriptor = descriptor
@@ -169,7 +177,9 @@ class ListenerLease:
             self._check()
             self.fault("listener_lock_acquired")
             record = self._read()
-            if not self.socket.exists() and not self.socket.is_symlink():
+            if not _present(self.socket):
+                if record is not None:
+                    self._retire(record)
                 return
             if record is None or not self._matches(record):
                 raise ValueError("private_listener_reconciliation_required")
@@ -190,9 +200,25 @@ class ListenerLease:
             self.socket.unlink()
             fsync_path(self.socket.parent)
             self.fault("listener_stale_unlinked")
+            self._retire(record)
         except BaseException:
             self.close()
             raise
+
+    def _retire(self, record: dict[str, str | int]) -> None:
+        # A previous generation cannot authorize the next bind: filesystems can
+        # reuse inode AND ctime. Retire durable old evidence before yielding.
+        self._check()
+        before = _signature(self.marker)
+        if self._read() != record:
+            raise ValueError("private_listener_boundary_changed")
+        self.fault("listener_marker_retiring")
+        self._check()
+        if _signature(self.marker) != before or self._read() != record:
+            raise ValueError("private_listener_boundary_changed")
+        self.marker.unlink()
+        fsync_path(self.marker.parent)
+        self.fault("listener_marker_retired")
 
     def capture(self, owned: VerifiedSocket) -> None:
         self._check()

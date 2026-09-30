@@ -35,7 +35,8 @@ def main() -> int:
             verify_source_identity(args.source, args.manifest)
     except (ManifestError, OSError, ValueError, KeyError, TypeError):
         print(
-            "runtime_source_verification_failed; preserve inputs and inspect the selected artifact",
+            "runtime_source_verification_failed; preserve inputs "
+            "and inspect the selected artifact",
             file=sys.stderr,
         )
         return 1

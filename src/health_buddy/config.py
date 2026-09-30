@@ -370,7 +370,8 @@ def _security(config: Config) -> None:
     managed_socket = path == config.root / "security/runtime/http.sock"
     if not legacy_socket and not managed_socket:
         raise ConfigError(
-            "security.socketPath must name a .sock file in security/ or security/runtime/http.sock"
+            "security.socketPath must name a .sock file in security/ "
+            "or security/runtime/http.sock"
         )
     if settings["ingress"] == "tailscale-uds" and (origin is None or subject is None):
         raise ConfigError(
