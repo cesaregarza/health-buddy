@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import io
-import zipfile
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any, cast
 
@@ -54,9 +54,10 @@ def _current(service: Service, principal: Principal) -> str:
     # canary has no security authority yet; full backup verification correctly
     # requires that separate owner's authority/epoch and remains unchanged.
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-        manifest = cast(dict[str, Any], decode(
-            archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True
-        ))
+        manifest = cast(
+            dict[str, Any],
+            decode(archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True),
+        )
     return _fingerprint(manifest)
 
 
