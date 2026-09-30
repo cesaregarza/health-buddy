@@ -72,7 +72,10 @@ rejects links/traversal/duplicates/unknown keys, and verifies the actual selecte
 bundle file inventory. Invalid or unavailable evidence produces unknown
 identity for discovery; packaging verification itself fails with a safe explicit
 error. No Git status, hooks, remote access, arbitrary imports or build execution
-occur during discovery. Limit: 4,096 regular files, 64 MiB aggregate content,
+occur during discovery. Verification runs once at controlled runtime startup;
+ordinary discovery consumes the injected frozen DTO and never rescans the
+source tree. This is startup-snapshot evidence, not continuous attestation of
+mutable source. Limit: 4,096 regular files, 64 MiB aggregate content,
 16 path components and 2 MiB metadata; increase only through a reviewed contract
 change if the real bundle requires it. Input file/byte counts precede allocation.
 

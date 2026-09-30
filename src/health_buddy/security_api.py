@@ -198,6 +198,7 @@ class Runtime:
     security: Security
     ingress: IngressConfig
     proxy_boundary: object | None = field(default=None, repr=False)
+    readiness: Callable[[float], bool] | None = field(default=None, repr=False)
 
 
 type RuntimeFactory = Callable[[], Runtime]

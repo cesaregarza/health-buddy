@@ -1,0 +1,129 @@
+"""Existing-state readiness through real authority plus the finite HTTP adapter."""
+
+from __future__ import annotations
+
+import fcntl
+import hashlib
+import math
+import os
+import sqlite3
+import time
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from health_buddy.runtime_readiness import ready
+from health_buddy.service_api import ServiceError
+from health_buddy.transport import create_app
+from tests.security_fixtures import secured
+from tests.test_transport import exchange
+
+
+def footprint(root: Path) -> dict[str, tuple[int, str]]:
+    return {
+        path.relative_to(root).as_posix(): (path.stat().st_mode, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in root.rglob("*") if path.is_file()
+    }
+
+
+def test_existing_ready_probe_preserves_all_workspace_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("readiness invoked a write, recovery, setup, source or provider operation")
+
+    monkeypatch.setattr(runtime.operations.journal, "recover", forbidden)
+    monkeypatch.setattr(runtime.operations, "execute", forbidden)
+    before = footprint(runtime.operations.config.root)
+    assert runtime.readiness is not None
+    assert runtime.readiness(time.monotonic() + 1)
+    assert runtime.readiness(time.monotonic() + 1)
+    assert footprint(runtime.operations.config.root) == before
+
+
+@pytest.mark.parametrize("target", ["security/authority.sqlite", "security/epoch.json", "operations/security-binding.json", "operations/manual.lock", "security/authority.lock"])
+def test_missing_required_state_is_not_ready_and_not_recreated(tmp_path: Path, target: str) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    root = runtime.operations.config.root
+    (root / target).unlink()
+    before = footprint(root)
+    assert not runtime.readiness(time.monotonic() + 1)
+    assert footprint(root) == before
+    assert not (root / target).exists()
+
+
+@pytest.mark.parametrize("fault", ["decision", "manual-ref", "identity", "security-metadata", "hot-sidecar"])
+def test_inconsistent_state_refuses_without_recovery(tmp_path: Path, fault: str) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    config = runtime.operations.config
+    if fault == "decision":
+        with sqlite3.connect(config.path("operations/control.sqlite")) as connection:
+            connection.execute("UPDATE transactions SET state='COMMIT_INTENT' WHERE transaction_id=(SELECT transaction_id FROM transactions LIMIT 1)")
+    elif fault == "manual-ref":
+        (config.storage("manual") / "refs/heads/main").write_text("0" * 40 + "\n")
+    elif fault == "identity":
+        config.path("identity.json").write_text("{}")
+    elif fault == "security-metadata":
+        with sqlite3.connect(config.path("security/authority.sqlite")) as connection:
+            connection.execute("UPDATE metadata SET value='{}' WHERE singleton=1")
+    else:
+        path = config.path("security/authority.sqlite-journal")
+        path.write_bytes(b"synthetic pending sidecar")
+        path.chmod(0o600)
+    before = footprint(config.root)
+    assert not runtime.readiness(time.monotonic() + 1)
+    assert footprint(config.root) == before
+
+
+def test_lost_optional_receiver_does_not_disable_core_readiness(tmp_path: Path) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace", receiver=True)
+    runtime.operations.health.path.unlink()
+    before = footprint(runtime.operations.config.root)
+    assert runtime.readiness(time.monotonic() + 1)
+    assert footprint(runtime.operations.config.root) == before
+
+
+def test_contended_writer_lock_respects_short_probe_deadline(tmp_path: Path) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    descriptor = os.open(runtime.operations.lock, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        began = time.monotonic()
+        assert not runtime.readiness(began + 0.05)
+        assert time.monotonic() - began < 0.5
+    finally:
+        os.close(descriptor)
+    assert runtime.readiness(time.monotonic() + 1)
+
+
+@pytest.mark.parametrize("deadline", [float("nan"), math.inf, -math.inf, True])
+def test_invalid_deadline_cannot_make_probe_unbounded(tmp_path: Path, deadline: float) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    assert not ready(runtime.operations.config, deadline)
+
+
+async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(tmp_path: Path) -> None:
+    runtime, _owner, token = secured(tmp_path / "workspace")
+    app = create_app(runtime=runtime)
+    assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
+    assert (await exchange(app, target="/readyz"))[:2] == (200, b'{"status":"ready"}')
+    runtime.operations.config.path("security/epoch.json").unlink()
+    status, body, headers = await exchange(app, target="/readyz")
+    assert status == 503 and body == b'{"status":"not_ready"}'
+    assert token.encode() not in body
+    assert headers[b"cache-control"] == b"no-store"
+    assert (await exchange(app, target="/livez"))[:2] == (200, b'{"status":"ok"}')
+    assert (await exchange(app, target="/readyz", extra=((b"host", b"attacker.invalid"),)))[0] == 403
+
+
+async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    app = create_app(runtime=replace(runtime, readiness=None))
+    assert (await exchange(app, target="/readyz"))[:2] == (503, b'{"status":"not_ready"}')
+
+    def failed(_deadline):
+        raise ServiceError(503, "synthetic-private-detail")
+
+    app = create_app(runtime=replace(runtime, readiness=failed))
+    assert (await exchange(app, target="/readyz"))[:2] == (503, b'{"status":"not_ready"}')
