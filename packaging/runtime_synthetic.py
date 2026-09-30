@@ -126,12 +126,17 @@ def backup_crypto_check() -> None:
         )
     else:
         raise AssertionError("backup crypto accepted tampered ciphertext")
-    print(json.dumps({
-        "schemaVersion": 1,
-        "scope": "shipped_native_backup_crypto_fabricated_bytes_only",
-        "authenticatedRoundtrip": True,
-        "tamperRejected": True,
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "scope": "shipped_native_backup_crypto_fabricated_bytes_only",
+                "authenticatedRoundtrip": True,
+                "tamperRejected": True,
+            },
+            sort_keys=True,
+        )
+    )
 
 
 def seed_sdk() -> None:
