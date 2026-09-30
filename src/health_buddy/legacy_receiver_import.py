@@ -226,9 +226,8 @@ def _checked(value: JSON) -> dict[str, JSON]:
     }
     for row in cast(list[dict[str, JSON]], value["records"]):
         tombstone = tombstones.get((str(row["device_id"]), str(row["record_id"])))
-        if (
-            (row["deleted_at"] is not None) != (tombstone is not None)
-            or tombstone is not None
+        if (row["deleted_at"] is not None) != (tombstone is not None) or (
+            tombstone is not None
             and (
                 row["type_identifier"] != tombstone["type_identifier"]
                 or row["deleted_at"] != tombstone["observed_at"]
