@@ -15,6 +15,7 @@ from typing import Literal, Protocol
 type JSON = bool | int | float | str | list[JSON] | dict[str, JSON] | None
 type Operation = Literal[
     "capabilities",
+    "workspace.discover",
     "records.list",
     "records.get",
     "records.put",

@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install '.[dev,sleepiq]'
+      - run: python -m pip install '.[dev,sleepiq,mcp]'
       - name: Create private socket-test directory
         id: socket_root
         env:

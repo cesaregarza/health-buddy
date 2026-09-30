@@ -83,6 +83,8 @@ def validate(request: Request, state: State) -> None:
         check_identity(request.identity, state.identity)
     if request.api_version != API_VERSION:
         raise ServiceError(422, "unsupported_version")
+    if request.operation == "workspace.discover" and request.resource_id is not None:
+        raise invalid()
     if set(request.query) - QUERY_KEYS.get(request.operation, set()):
         raise invalid()
     for key, value in request.query.items():
@@ -510,10 +512,33 @@ def _render(
     return envelope(data, state.identity, capture["revision"])
 
 
+def _available_operations(service: Service, authority: Authority) -> list[JSON]:
+    available: list[JSON] = []
+    for operation in sorted(READ_OPERATIONS | WRITE_OPERATIONS | {"capabilities"}):
+        try:
+            require_grant(authority, cast(Operation, operation))
+        except ServiceError:
+            continue
+        if operation in {
+            "context.intent",
+            "training.fast.read",
+            "training.fast.write",
+        } and not service.config.enabled("jev"):
+            continue
+        available.append(operation)
+    return available
+
+
 def read(
     service: Service, authority: Authority, request: Request, state: State
 ) -> Response:
     validate(request, state)
+    if request.operation == "workspace.discover":
+        from .discovery import read as discover
+
+        return discover(
+            service, authority, state, _available_operations(service, authority)
+        )
     writable = "records:write" in authority.grants
     if request.operation == "capabilities":
         data: dict[str, JSON] = {
@@ -540,20 +565,7 @@ def read(
             ],
             "loggerKinds": list(LOGGER_KINDS),
         }
-        available: list[JSON] = []
-        for operation in sorted(READ_OPERATIONS | WRITE_OPERATIONS | {"capabilities"}):
-            try:
-                require_grant(authority, cast(Operation, operation))
-            except ServiceError:
-                continue
-            if operation in {
-                "context.intent",
-                "training.fast.read",
-                "training.fast.write",
-            } and not service.config.enabled("jev"):
-                continue
-            available.append(operation)
-        data["availableOperations"] = available
+        data["availableOperations"] = _available_operations(service, authority)
         data["sourceStatusOperation"] = (
             "projection.status" if "records:read" in authority.grants else None
         )

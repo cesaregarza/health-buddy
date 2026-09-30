@@ -40,6 +40,7 @@ from .health_store import HealthStore
 from .journal import Effect, Journal, State
 from .legacy_store import Store, StoreError
 from .policy import DenyPolicy, DevelopmentPolicy, require_grant
+from .release_identity import ReleaseIdentity
 from .security_api import DeviceBinding
 from .service_api import (
     JSON,
@@ -75,8 +76,10 @@ class Service:
         policy: AuthorizationPolicy | None = None,
         *,
         fault: Callable[[str], None] | None = None,
+        release_identity: ReleaseIdentity | None = None,
     ) -> None:
         self.config = initialize(workspace)
+        self.release_identity = release_identity or ReleaseIdentity()
         self.policy: AuthorizationPolicy = policy or DenyPolicy()
         self.fault = fault or (lambda _point: None)
         self._legacy_store = Store(
@@ -669,5 +672,14 @@ class Service:
         )
 
 
-def open_service(workspace: Path, *, development: bool = False) -> Service:
-    return Service(workspace, DevelopmentPolicy() if development else None)
+def open_service(
+    workspace: Path,
+    *,
+    development: bool = False,
+    release_identity: ReleaseIdentity | None = None,
+) -> Service:
+    return Service(
+        workspace,
+        DevelopmentPolicy() if development else None,
+        release_identity=release_identity,
+    )

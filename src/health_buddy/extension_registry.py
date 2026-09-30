@@ -207,19 +207,24 @@ class Registry:
             raise ServiceError(413, "extension_limit")
         return tuple(path.name for path in children)
 
-    def inspect_locked(self) -> tuple[ExtensionStatus, ...]:
+    def _inspect_locked(
+        self,
+    ) -> tuple[tuple[ExtensionStatus, ...], dict[str, ReviewedExtension]]:
         """Caller already holds workspace; never take a job lock or execute code."""
         try:
             entries = self._load()
             names = sorted(set(self._names()) | set(entries))
         except (ServiceError, OSError, ValueError):
             return (
-                ExtensionStatus(
-                    "registry",
-                    "inventory_incomplete",
-                    False,
-                    diagnostics=("extension_registry_unavailable",),
+                (
+                    ExtensionStatus(
+                        "registry",
+                        "inventory_incomplete",
+                        False,
+                        diagnostics=("extension_registry_unavailable",),
+                    ),
                 ),
+                {},
             )
         statuses: dict[str, ExtensionStatus] = {}
         ready: dict[str, ReviewedExtension] = {}
@@ -306,7 +311,19 @@ class Registry:
                     ("extension_" + failure,),
                     old.kind,
                 )
-        return tuple(statuses[name] for name in names)
+        return tuple(statuses[name] for name in names), ready
+
+    def inspect_locked(self) -> tuple[ExtensionStatus, ...]:
+        return self._inspect_locked()[0]
+
+    def ready_catalog_locked(self) -> tuple[ReviewedExtension, ...]:
+        """One bounded metadata inspection; caller must apply current read policy.
+
+        Returned values are private native metadata, not wire DTOs. No extension
+        is imported or executed. Dependencies must also be currently ready.
+        """
+        statuses, ready = self._inspect_locked()
+        return tuple(ready[item.id] for item in statuses if item.state == "ready")
 
     def inspect(self) -> tuple[ExtensionStatus, ...]:
         with exclusive(self.lock):

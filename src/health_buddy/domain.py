@@ -243,6 +243,7 @@ def digest(value: object) -> str:
 
 READ_OPERATIONS: frozenset[Operation] = frozenset(
     {
+        "workspace.discover",
         "records.list",
         "records.get",
         "context.read",
