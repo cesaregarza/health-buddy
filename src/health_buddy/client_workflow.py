@@ -499,19 +499,22 @@ class ClientWorkflow:
             raise safe from None
         if state["state"] != "complete":
             state["cursor"] += 1
+            # Retain the first accepted receipt. A completed replay has already
+            # matched its status/body above; transport headers such as Date may
+            # change across connections or service recreation.
+            state["receipt"] = {
+                "status": result.status,
+                "bodyBase64": base64.b64encode(result.body).decode("ascii"),
+                # The journal adds this transport-only marker on replay. It is
+                # not part of the immutable canonical receipt retained locally.
+                "headers": [
+                    list(item)
+                    for item in result.headers
+                    if item[0].lower() != "idempotency-replayed"
+                ],
+            }
         state["state"] = "complete"
         state["lastError"] = None
-        state["receipt"] = {
-            "status": result.status,
-            "bodyBase64": base64.b64encode(result.body).decode("ascii"),
-            # The journal adds this transport-only marker on replay. It is
-            # not part of the immutable canonical receipt retained locally.
-            "headers": [
-                list(item)
-                for item in result.headers
-                if item[0].lower() != "idempotency-replayed"
-            ],
-        }
         self._save(path, state)
         return value
 
