@@ -46,7 +46,12 @@ def main(argv: list[str] | None = None) -> int:
     add_commands(commands)
     commands.add_parser("init")
     commands.add_parser("render")
-    commands.add_parser("status")
+    status = commands.add_parser("status")
+    status.add_argument("--json", action="store_true")
+    doctor = commands.add_parser("doctor")
+    doctor.add_argument("--json", action="store_true")
+    doctor.add_argument("--port", type=int, choices=range(1, 65536), metavar="PORT")
+    commands.add_parser("support-bundle")
     security = commands.add_parser("security")
     security_commands = security.add_subparsers(dest="security_command", required=True)
     bootstrap = security_commands.add_parser("bootstrap")
@@ -83,6 +88,39 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.development and args.credential_file is not None:
             raise ServiceError(422, "development_cannot_use_credentials")
+        if args.command in {"status", "doctor", "support-bundle"}:
+            from .operator_diagnostics import finding, human, report, support_summary
+
+            if args.command == "status" and not (
+                args.development or args.credential_file is not None
+            ):
+                raise ServiceError(401, "explicit_credential_file_required")
+            # Inspect local facts before opening canonical runtime. A broken
+            # config must still produce an actionable JSON diagnostic.
+            result = report(args.workspace.expanduser().resolve(), port=getattr(args, "port", None))
+            if result["diagnostics"] and result["diagnostics"][0]["code"] == "config_invalid":
+                pass
+            elif args.development or args.credential_file is not None:
+                try:
+                    app = (
+                        App.development(args.workspace)
+                        if args.development
+                        else App.authenticated(
+                            args.workspace,
+                            proof=BearerProof(read_credential(args.credential_file)),
+                        )
+                    )
+                    result = report(args.workspace.expanduser().resolve(), app=app, port=getattr(args, "port", None))
+                except (ConfigError, StoreError, OSError, ValueError, RuntimeError, ServiceError) as exc:
+                    code = "authorization_partial" if isinstance(exc, ServiceError) and exc.status in {401, 403} else "runtime_unavailable"
+                    result["diagnostics"].append(finding(code, "error"))
+            if args.command == "support-bundle":
+                print(json.dumps(support_summary(result), indent=2))
+            elif args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                print(human(result))
+            return 2 if any(item["severity"] == "error" for item in result["diagnostics"]) else 0
         if args.command in {"workspace", "extension"}:
             from .extension_cli import handle
 
@@ -135,8 +173,6 @@ def main(argv: list[str] | None = None) -> int:
             output = app.config.storage("cache") / "index.html"
             app.write_html(output)
             print(output)
-        elif args.command == "status":
-            print(json.dumps(app.snapshot()["sources"], indent=2))
         elif args.command == "context":
             print(app.context(args.scopes, args.days, args.ask), end="")
         elif args.command == "plan":
