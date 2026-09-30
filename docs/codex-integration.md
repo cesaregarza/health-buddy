@@ -2,9 +2,9 @@
 
 CES-1073 packages a standalone `health-buddy` skill plus a local stdio MCP config.
 It uses the shared canonical tools and [agent guide](agent-guide.md), with no
-second health API or model key. This is source integration evidence; a real
-named Codex session, Claude interoperability and final upgrade acceptance remain
-CES-1074/1083. Do not label an SDK test as a Codex client or released product.
+second health API or model key. This is source integration evidence. Fresh named
+Codex discovery/workflow acceptance remains open in CES-1073; cross-client and
+final update acceptance belongs jointly to CES-1074/1083. Do not label an SDK test as a Codex client or released product.
 
 | Component | Exact version/evidence |
 | --- | --- |
@@ -12,7 +12,7 @@ CES-1074/1083. Do not label an SDK test as a Codex client or released product.
 | Health Buddy source/server | 0.1.0.dev0, API/data/extension interfaces 1; select exact commit/bundle, not a version string alone |
 | MCP SDK | 2.2.0 with mcp-types 2.2.0, from the committed hashed development lock |
 | Locally inspected Codex package | @openai/codex 0.98.0 package metadata; inspection alone is not execution or skill-discovery acceptance |
-| Current documented Codex target | 0.156.0 from official release guidance; not installed or qualified by this source change |
+| Current documented Codex target | 0.159.2 from the [official changelog](https://learn.chatgpt.com/docs/changelog); not installed or qualified by this source change |
 | Named client/runtime artifact acceptance | Pending exact queue/client receipts; no model session, paid headless run or production credential was invoked |
 
 Official surfaces: [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp)
@@ -118,7 +118,7 @@ Restart Codex afterward. Removal retains credentials, client retry state, health
 records, unrelated configuration/plugins and unknown skill files. Revoke the
 agent separately when intended; don't delete pending retry state to hide a
 write outcome. Upgrading Codex itself uses a separately approved, exact package
-version (for example `npm install -g @openai/codex@0.156.0`), followed by restart
+version (for example `npm install -g @openai/codex@0.159.2`), followed by restart
 and fresh discovery; it is not performed by this helper.
 
 ## First synthetic workflow and checks
@@ -136,8 +136,9 @@ It is an SDK client test, not a Codex model simulation or named-client receipt.
 
 Data questions use narrow context or explicit list_records windows/filters;
 record management uses supported log_health/record_workout and reviewed plan
-proposals. For unsupported record corrections/deletions use the canonical owner
-workflow rather than inventing an MCP operation. Diagnose connection failures
+proposals. Explicit intake/blood-pressure corrections may use supported log_health
+replaceExisting with reviewed fields and current CAS. For other corrections or
+deletions use the canonical owner workflow rather than inventing an operation. Diagnose connection failures
 from paths/permissions, HTTPS origin/CA and exact receiver identity; use current
 sync_status to distinguish empty/missing/disabled/restricted sources. Ambiguous
 writes keep intentId/body and use write_status/retry_write. Never bypass a stale
@@ -152,14 +153,15 @@ remote discovery contains logical references, not native filesystem authority.
 Queue-owned focused commands from the exact source checkpoint:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_codex_integration.py tests/test_mcp_settings.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/connect_agent.py tests/test_codex_integration.py tests/mcp_wire_fixtures.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/connect_agent.py tests/test_codex_integration.py tests/mcp_wire_fixtures.py
-"$PYTHON" -m mypy src/health_buddy/connect_agent.py
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_codex_integration.py tests/test_mcp_settings.py tests/test_mcp_tools.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py tests/test_codex_integration.py tests/test_mcp_tools.py tests/mcp_wire_fixtures.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py tests/test_codex_integration.py tests/test_mcp_tools.py tests/mcp_wire_fixtures.py
+"$PYTHON" -m mypy src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py
 ```
 
 The actual SDK scenario requires the existing admitted private socket root and
 serialized queue cgroup described in verification.md. No install/build/browser
 or model session is added to this focused job. Exact receipts establish observed
-source results. Actual client skill detection, named-session workflow, runtime
-artifact identity and combined update/cross-client qualification remain pending.
+source results. Actual Codex skill detection and named-session workflow remain open in CES-1073.
+Runtime artifact binding and combined update/cross-client qualification remain
+separate pending checks; source results do not close those acceptance items.

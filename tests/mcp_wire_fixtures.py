@@ -404,8 +404,14 @@ class Wire:
 
 @contextmanager
 def client(
-    settings, folder, *, modern=False, instrumented=False, shutdown_timeout=55,
-    protect_cleanup=False, launch=None,
+    settings,
+    folder,
+    *,
+    modern=False,
+    instrumented=False,
+    shutdown_timeout=55,
+    protect_cleanup=False,
+    launch=None,
 ):
     environment = {
         **os.environ,
