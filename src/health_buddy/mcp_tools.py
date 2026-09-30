@@ -130,6 +130,9 @@ class ToolService:
             for key, value in arguments.items()
         }
         if name == "get_context":
+            # Scope arrays are literal IDs. A trailing comma selects the existing
+            # list grammar, avoiding legacy singleton presets (training/labs).
+            query["scopes"] += ","
             query.setdefault("days", "7")
             query.setdefault("limit", "100")
         elif name == "list_records":
