@@ -21,6 +21,10 @@ if TYPE_CHECKING:
     from .operations import Service
 
 DOCUMENTS = (
+    DocumentRef("agent-guide", "docs/agent-guide.md"),
+    DocumentRef("extension-interface", "src/health_buddy/extension_api.py"),
+    DocumentRef("extension-descriptor", "src/health_buddy/extension_manifest.schema.json"),
+    DocumentRef("extension-tests", "tests/test_extension_runtime.py"),
     DocumentRef("architecture", "docs/architecture.md"),
     DocumentRef("data-contract", "docs/v1-contract.md"),
     DocumentRef("canonical-api", "docs/api-implementation.md"),

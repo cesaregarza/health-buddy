@@ -100,6 +100,47 @@ def test_personal_metric_current_canonical_data_and_repeat_does_not_mutate_revie
     assert newer["meta"]["dataRevision"] == first["meta"]["dataRevision"] + 1
 
 
+def test_agent_guide_display_edit_requires_review_and_preserves_canonical_metric(
+    tmp_path,
+):
+    """The guide's kg -> lb adaptation changes config, never canonical values."""
+    runtime, owner, _ = secured(tmp_path / "owner")
+    config = runtime.operations.config
+    root = example(config, METRIC)
+    registry = Registry(config)
+    original = registry.enable(METRIC, source_ids=("manual",))
+    put(runtime, owner, "guide-a", 70)
+    put(runtime, owner, "guide-b", 74)
+    baseline = decoded(metric(runtime, owner))["data"]
+    revision = runtime.operations.journal.state().revision
+    assert baseline["view"]["config"]["displayUnit"] == "kg"
+
+    write_json(
+        root / "config/settings.json",
+        {"title": "My weekly mass", "displayUnit": "lb"},
+    )
+    assert registry.inspect()[0].state == "needs_review"
+    assert metric(runtime, owner).status == 409
+    selected = registry.enable(METRIC, source_ids=("manual",))
+    assert selected.reviewed_digest != original.reviewed_digest
+    adapted = decoded(metric(runtime, owner))["data"]
+    assert adapted["view"]["config"] == {
+        "title": "My weekly mass",
+        "displayUnit": "lb",
+    }
+    assert adapted["metric"] == baseline["metric"]
+    assert adapted["metric"]["value"] == 72
+    assert runtime.operations.journal.state().revision == revision
+
+    registry.revert(METRIC, original.reviewed_digest)
+    assert decoded(metric(runtime, owner))["data"]["view"]["config"] == (
+        baseline["view"]["config"]
+    )
+    settings = json.loads((root / "config/settings.json").read_text())
+    assert settings["displayUnit"] == "lb"
+    assert runtime.operations.journal.state().revision == revision
+
+
 def test_empty_window_and_overlapping_source_selection(tmp_path):
     runtime, owner, _ = secured(tmp_path / "owner")
     config = runtime.operations.config

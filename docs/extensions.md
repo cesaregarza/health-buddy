@@ -157,8 +157,9 @@ exact commit/tree, deliberate local changes and unresolved conflicts. Submit
 its documented relevant tests/build to the queue, then update owner metadata
 with that evidence. Discovery never runs those commands or repairs/rebases code.
 
-Scaffold/check/upgrade-planning conveniences and Codex/Claude guides remain
-CES-1086/1071 work. Source replacement evidence here is separate from container
+The [canonical agent guide](agent-guide.md) reuses these installed examples as
+scaffolds and maps edits to their checks. Installer/upgrade execution remains
+CES-1071 work. Source replacement evidence here is separate from container
 replacement (1068), encrypted copied restore (1070), shared tools (1072), and
 fresh cross-agent/device/release qualification (1083). None is implied by an
 extension test or merged PR.
