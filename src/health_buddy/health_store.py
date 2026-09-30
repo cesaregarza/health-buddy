@@ -365,17 +365,26 @@ class HealthStore:
     ) -> dict[str, JSON] | None:
         """Only explicitly imported legacy receipts; never mint journal history."""
         private_file(self.path)
-        with closing(sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)) as connection:
+        with closing(
+            sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)
+        ) as connection:
             connection.row_factory = sqlite3.Row
-            if connection.execute(
-                "SELECT 1 FROM source_streams WHERE source_id=? AND stream_id=? "
-                "AND active_device_id=?", (source_id, stream_id, batch.device_id)
-            ).fetchone() is None:
+            if (
+                connection.execute(
+                    "SELECT 1 FROM source_streams WHERE source_id=? AND stream_id=? "
+                    "AND active_device_id=?",
+                    (source_id, stream_id, batch.device_id),
+                ).fetchone()
+                is None
+            ):
                 raise ServiceError(403, "device_mismatch")
-            if connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' "
-                "AND name='legacy_adoption_ack'"
-            ).fetchone() is None:
+            if (
+                connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' "
+                    "AND name='legacy_adoption_ack'"
+                ).fetchone()
+                is None
+            ):
                 return None
             row = connection.execute(
                 "SELECT a.*,b.payload_sha256 AS stored_digest,"
@@ -387,18 +396,27 @@ class HealthStore:
             ).fetchone()
             if row is None:
                 return None
-            snapshots = connection.execute("SELECT snapshot_sha256 FROM legacy_adoption_snapshot").fetchall()
-            if (len(snapshots) != 1 or snapshots[0][0] != row["snapshot_sha256"]
+            snapshots = connection.execute(
+                "SELECT snapshot_sha256 FROM legacy_adoption_snapshot"
+            ).fetchall()
+            if (
+                len(snapshots) != 1
+                or snapshots[0][0] != row["snapshot_sha256"]
                 or row["payload_sha256"] != row["stored_digest"]
                 or row["record_count"] != row["stored_records"]
                 or row["deletion_count"] != row["stored_deletions"]
-                or len(row["snapshot_sha256"]) != 64):
+                or len(row["snapshot_sha256"]) != 64
+            ):
                 raise unavailable()
             if row["payload_sha256"] != _canonical_hash(batch):
                 raise BatchConflictError("Adopted batch payload conflict")
-            return {"status": "accepted", "batchId": batch.batch_id,
-                    "duplicateBatch": True, "recordsAccepted": row["record_count"],
-                    "deletionsAccepted": row["deletion_count"]}
+            return {
+                "status": "accepted",
+                "batchId": batch.batch_id,
+                "duplicateBatch": True,
+                "recordsAccepted": row["record_count"],
+                "deletionsAccepted": row["deletion_count"],
+            }
 
     def validate(self, effect: dict[str, JSON]) -> None:
         """Domain conflict validation with rollback before the global decision."""

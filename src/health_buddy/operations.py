@@ -357,12 +357,16 @@ class Service:
                 health_batch, self._health_source(authority), authority.source_stream_id
             )
             if adopted is not None:
-                return Response(200, encode(adopted), (
-                    ("Content-Type", "application/json; charset=utf-8"),
-                    ("X-Installation-ID", state.identity.installation_id),
-                    ("X-Dataset-ID", state.identity.dataset_id),
-                    ("X-Restore-Epoch", state.identity.restore_epoch),
-                ))
+                return Response(
+                    200,
+                    encode(adopted),
+                    (
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("X-Installation-ID", state.identity.installation_id),
+                        ("X-Dataset-ID", state.identity.dataset_id),
+                        ("X-Restore-Epoch", state.identity.restore_epoch),
+                    ),
+                )
         if health_batch is None and expected_revision != state.revision:
             raise ServiceError(409, "revision_conflict")
         old_head, files = self.manual.snapshot()
