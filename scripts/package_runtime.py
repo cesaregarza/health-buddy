@@ -98,12 +98,14 @@ def main() -> int:
         subprocess.SubprocessError,
     ):
         print(
-            "runtime_packaging_failed; preserve inputs and inspect selected artifact evidence",
+            "runtime_packaging_failed; preserve inputs and inspect "
+            "selected artifact evidence",
             file=sys.stderr,
         )
         return 1
     print(
-        "runtime packaging operation completed; publication and qualification remain separate"
+        "runtime packaging operation completed; "
+        "publication and qualification remain separate"
     )
     return 0
 

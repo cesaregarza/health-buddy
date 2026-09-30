@@ -10,8 +10,7 @@ import sys
 from importlib.resources import files
 from pathlib import Path
 
-SOURCE = Path("/opt/health-buddy/source")
-sys.path.insert(0, str(SOURCE / "src"))
+sys.path.insert(0, "/opt/health-buddy/source/src")
 
 from health_buddy.domain import digest, encode
 from health_buddy.durability import atomic_bytes
@@ -25,6 +24,7 @@ from health_buddy.security_api import BearerProof
 from health_buddy.security_runtime import read_credential, setup_security
 from health_buddy.service_api import Request
 
+SOURCE = Path("/opt/health-buddy/source")
 ROOT = Path("/workspace")
 NAME = "local.water-import"
 QUALIFICATION = ROOT / "personal/state/container-qualification"
@@ -301,7 +301,10 @@ def licenses() -> None:
         json.dumps(
             {
                 "schemaVersion": 1,
-                "scope": "actual installed image legal files and shipped SBOMs; SBOM membership is not static-link proof",
+                "scope": (
+                    "actual installed image legal files and shipped SBOMs; "
+                    "SBOM membership is not static-link proof"
+                ),
                 "files": result,
             },
             sort_keys=True,

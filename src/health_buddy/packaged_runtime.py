@@ -165,7 +165,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.workspace, args.external_origin, args.owner_subject
             )
             print(
-                "Private workspace initialized; security bootstrap and host HTTPS proxy setup remain explicit."
+                "Private workspace initialized; security bootstrap and "
+                "host HTTPS proxy setup remain explicit."
             )
         elif args.command == "cli":
             arguments = (
@@ -215,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
         RuntimeError,
     ):
         print(
-            "packaged_runtime_unavailable; inspect private configuration and exact artifact evidence",
+            "packaged_runtime_unavailable; inspect private configuration "
+            "and exact artifact evidence",
             file=sys.stderr,
         )
         return 1

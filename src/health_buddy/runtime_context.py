@@ -65,12 +65,12 @@ def create_context(
         size, digest = file_digest(release / name, 64 * 1024 * 1024)
         _copy(release / name, output / "release" / name, size, digest)
     _copy(lock, output / "inputs/runtime-inputs.json", lock_size, lock_digest)
-    for item in selected.files:
+    for input_file in selected.files:
         _copy(
-            downloads / item.filename,
-            output / "inputs" / item.kind / item.filename,
-            item.size,
-            item.sha256,
+            downloads / input_file.filename,
+            output / "inputs" / input_file.kind / input_file.filename,
+            input_file.size,
+            input_file.sha256,
         )
     requirements = "".join(
         f"{item.name}=={item.version} --hash=sha256:{item.sha256}\n"

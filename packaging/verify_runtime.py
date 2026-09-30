@@ -19,8 +19,7 @@ import sys
 import time
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SOURCE / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from health_buddy.runtime_bundle import create_bundle
 from health_buddy.runtime_context import create_context
@@ -32,6 +31,7 @@ from health_buddy.runtime_release import (
     load_verified_archive,
 )
 
+SOURCE = Path(__file__).resolve().parents[1]
 MIN_FREE = 1024**3
 MAX_LOG = 8 * 1024**2
 
@@ -132,7 +132,11 @@ class Qualification:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
             connection.settimeout(2)
             connection.connect(str(path))
-            headers = f"GET {route} HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-Host: health.example.invalid\r\nX-Forwarded-Proto: https\r\nConnection: close\r\n"
+            headers = (
+                f"GET {route} HTTP/1.1\r\nHost: localhost\r\n"
+                "X-Forwarded-Host: health.example.invalid\r\n"
+                "X-Forwarded-Proto: https\r\nConnection: close\r\n"
+            )
             if token is not None:
                 headers += "Authorization: Bearer " + token + "\r\n"
             connection.sendall((headers + "\r\n").encode("ascii"))

@@ -250,7 +250,8 @@ def test_fixed_fetch_worker_success_verifies_original_pins(
         "from health_buddy.runtime_input_worker import main\n"
         "class Opener:\n"
         "    def open(self, request, **kwargs):\n"
-        "        return io.BytesIO(b'abc' if request.full_url.endswith('.whl') else b'def')\n"
+        "        return io.BytesIO(b'abc' if request.full_url.endswith('.whl') "
+        "else b'def')\n"
         "runtime_inputs.urllib.request.build_opener = lambda *args: Opener()\n"
         "raise SystemExit(main())\n"
     )

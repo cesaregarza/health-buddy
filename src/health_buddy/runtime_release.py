@@ -81,7 +81,11 @@ def create_release(bundle: Path, directory: Path) -> Path:
         "inputLockSha256": lock_hash,
         "interfaces": INTERFACES,
         "artifacts": artifacts,
-        "qualification": "Archive verification only; per-platform build/runtime receipts remain separate. No actual host reboot, physical device or external publication claim.",
+        "qualification": (
+            "Archive verification only; per-platform build/runtime receipts "
+            "remain separate. No actual host reboot, physical device or "
+            "external publication claim."
+        ),
     }
     target = directory / "runtime-manifest.json"
     _write(target, canonical(value) + b"\n")

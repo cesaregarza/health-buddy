@@ -12,13 +12,14 @@ import sys
 import sysconfig
 from pathlib import Path
 
-SOURCE = Path("/opt/health-buddy/source")
-RELEASE = Path("/opt/health-buddy/release")
-INPUTS = Path("/build-inputs")
-sys.path.insert(0, str(SOURCE / "src"))
+sys.path.insert(0, "/opt/health-buddy/source/src")
 
 from health_buddy.runtime_inputs import load_inputs
 from health_buddy.runtime_manifest import file_digest
+
+SOURCE = Path("/opt/health-buddy/source")
+RELEASE = Path("/opt/health-buddy/release")
+INPUTS = Path("/build-inputs")
 
 
 def build_resources() -> dict[str, object]:
@@ -154,7 +155,11 @@ def main(architecture: str) -> None:
                 "inputLockSha256": hashlib.sha256(lock).hexdigest(),
                 "python": installed,
                 "debian": rows,
-                "licenses": "Python dist-info licenses/SBOMs and /usr/share/doc/*/copyright remain in image; source notices in source/docs/notices",
+                "licenses": (
+                    "Python dist-info licenses/SBOMs and "
+                    "/usr/share/doc/*/copyright remain in image; "
+                    "source notices in source/docs/notices"
+                ),
             },
             sort_keys=True,
             indent=2,

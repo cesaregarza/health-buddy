@@ -266,7 +266,7 @@ def _download_inputs(inputs: PlatformInputs, directory: Path) -> None:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ManifestError("runtime_input_download_timeout")
-        request = urllib.request.Request(
+        request = urllib.request.Request(  # noqa: S310 - _url enforces HTTPS/hosts.
             item.url, headers={"Accept-Encoding": "identity"}
         )
         digest = hashlib.sha256()
