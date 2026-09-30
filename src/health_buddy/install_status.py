@@ -32,7 +32,8 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
                 BearerProof(read_credential(Path(agent["binding"]["token"])))
             )
             retained = (
-                len(selected) == 1 and selected[0].get("active") is True
+                len(selected) == 1
+                and selected[0].get("active") is True
                 and actual.client.actor_binding == agent["actorId"]
                 and actual.client.identity == admitted.client.identity
                 and actual.client.security_epoch == admitted.client.security_epoch
@@ -51,21 +52,40 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
                 SecurityRequest("pairing.status", resource_id=pairing_id),
             )
             observed = reply.data.get("status")
-            if not isinstance(observed, str) or observed not in ("awaiting_owner", "ready", "consumed", "expired", "revoked"):
+            if not isinstance(observed, str) or observed not in (
+                "awaiting_owner",
+                "ready",
+                "consumed",
+                "expired",
+                "revoked",
+            ):
                 raise ServiceError(503, "install_status_pairing_unavailable")
             pairing = observed
         return {
-            "schemaVersion": 1, "prepared": True, "ownerAuthenticated": True,
+            "schemaVersion": 1,
+            "prepared": True,
+            "ownerAuthenticated": True,
             "runtimeLastActive": record.get("activation", {}).get("phase") == "active",
-            "privateHttpsLastConfigured": record.get("privateHttps", {}).get("phase") == "enabled",
+            "privateHttpsLastConfigured": record.get("privateHttps", {}).get("phase")
+            == "enabled",
             "agentGrantRetained": retained,
             "clientConfigurationLastPrepared": agent.get("phase") == "configured",
-            "activeDeviceCount": sum(item.get("active") is True for item in devices if isinstance(item, dict)),
-            "pairingStatus": pairing, "connected": False,
-            "phoneInstruction": ("Log in as owner and open /security (Connect a phone); "
-                                 "deliberately approve pairing and deliver its short-lived "
-                                 "proof privately to your phone."),
-            "pending": ["actual_private_https_acceptance", "fresh_named_client_acceptance", "phone_acceptance", "retained_data_removal"],
+            "activeDeviceCount": sum(
+                item.get("active") is True for item in devices if isinstance(item, dict)
+            ),
+            "pairingStatus": pairing,
+            "connected": False,
+            "phoneInstruction": (
+                "Log in as owner and open /security (Connect a phone); "
+                "deliberately approve pairing and deliver its short-lived "
+                "proof privately to your phone."
+            ),
+            "pending": [
+                "actual_private_https_acceptance",
+                "fresh_named_client_acceptance",
+                "phone_acceptance",
+                "retained_data_removal",
+            ],
         }
 
 
@@ -79,7 +99,15 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"schemaVersion": 1, "code": error.code, "connected": False}))
         return 2
     except (OSError, ValueError, TypeError, KeyError):
-        print(json.dumps({"schemaVersion": 1, "code": "install_status_owner_inspection_required", "connected": False}))
+        print(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "code": "install_status_owner_inspection_required",
+                    "connected": False,
+                }
+            )
+        )
         return 2
     print(json.dumps(value, sort_keys=True))
     return 0
