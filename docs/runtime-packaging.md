@@ -24,7 +24,7 @@ Planned image layout:
 /opt/health-buddy/dependencies/ exact selected binary Python dependencies
 /opt/health-buddy/release/      generated source/dependency manifests and notices
 /workspace/                    external complete private owner workspace
-/workspace/security/runtime/   transient listener-only private mount
+/workspace/security/runtime/   host-visible, non-authoritative listener state
 /tmp/                         bounded ephemeral scratch
 ```
 
@@ -147,34 +147,95 @@ an actually verified registry digest (publication separately authorized) or an
 explicit verified local immutable image ID with pull disabled. A local tag is
 not accepted as immutable identity just because it contains a source hash.
 
-## Private listener restart proposal for review
+## Host-visible private listener and narrow restart recovery
 
-The existing `security/http.sock` path and deliberate refusal of unknown stale
-sockets remain backward compatible. Packaged fresh setup explicitly selects
-`security/runtime/http.sock`; configuration validation allows only this one
-additional private child directory. Compose mounts **only**
-`/workspace/security/runtime` as an owned mode-0700 tmpfs with a fixed budget;
-the authority database, epochs, locks and every other security file remain
-persistent. Fresh workspace initialization creates that empty mountpoint under
-the maintenance identity before Compose. The native config/workspace reader
-rejects links and unexpected ownership; no broad permission repair is added.
+The container-private listener tmpfs proposed in the first D1 is withdrawn:
+it is not reachable as a host pathname by the external Serve proxy, and a lock
+inside it cannot serialize other containers. The corrected topology uses the
+**same native workspace bind** for all API containers and the host operator:
 
-Granian retains its captured type/UID/mode/device/inode verification and
-replacement-preserving cleanup. The service keeps a nonblocking lifetime lock
-in the transient listener directory while serving. A second launcher fails;
-it does not remove the first listener. A container stop/start or host reboot
-recreates only this transient socket directory, eliminating an abandoned inode
-without deleting persistent security state or probing/removing an unverified
-listener. A same-container manual supervisor restart with an existing socket
-still fails closed and directs the operator to recreate that service container.
-No claim of arbitrary same-namespace stale-path recovery is made.
+```text
+native host: HOST_WORKSPACE/security/runtime/http.sock  <- host Serve/root
+                               same bind-mounted inode
+container:   /workspace/security/runtime/http.sock     <- Granian
+shared lock: HOST_WORKSPACE/operations/http-listener.lock
+```
 
-Queue evidence must cover SIGTERM, full container SIGKILL/recreate, competing
-startup, wrong/private-parent ownership, replaced path preservation and actual
-record/personal/pending-state retention. Process-crash tests do not prove power
-loss or real host reboot. Ephemeral listener state is excluded from backup
-requirements; a copied workspace must never restore a live/stale socket as
-security authority. CES-1070 owns operational restore and epoch invalidation.
+No second mount obscures this directory. Host Serve is explicitly configured
+to the real host path; Granian verifies its container path and inode. The
+inspected local daemon must actually bind this host filesystem. A Desktop/VM
+socket proxy with inaccessible storage is not equivalent. Both path spellings
+must satisfy Unix socket length limits. The host proxy runs as the selected
+service UID or a deliberately trusted root daemon; neither ordinary local
+users nor a health credential gain filesystem access. No proxy container,
+public TCP bypass, nsenter, daemon configuration change or hidden shared mount
+is assumed. Compose does not configure Serve itself.
+
+Fresh packaged initialization explicitly selects `security/runtime/http.sock`
+and creates the empty private0700 child as the maintenance UID; configuration
+accepts only this additional managed location. Existing `security/http.sock`
+keeps its backward-compatible refusal of any existing path. No automatic
+migration/change to an existing config occurs. All authority/epoch/store and
+personal data stay persistent. The managed runtime directory contains only
+this socket and fixed bounded listener metadata, never credential material.
+
+Every supported packaged API launcher first opens the same owned private0600
+`operations/http-listener.lock` with no link following, checks file identity,
+and holds its nonblocking flock for the supervisor's entire lifetime. The lock
+file is never unlinked or replaced. It is not the canonical writer lock and
+never nests with health/security locks. A competing launcher fails before
+checking or removing a socket. Explicit jobs do not take this listener lock.
+This serializes launchers in different containers because the lock inode is
+on their common persistent workspace bind, not container-private scratch.
+
+Managed listener ownership is recorded in strict private0600
+`security/runtime/listener.json`: schemaVersion1, generation UUID, fixed relative
+socket path, captured device/inode/ctime_ns/UID/mode. Unknown keys/types, symlinks,
+oversized metadata, unexpected parents/owners/modes or a changed lock inode
+fail closed. The marker grants no application authority. It is atomically
+written/fsynced with its parent in Granian's pinned2.8.3 startup hook, after bind
+and capture but **before** workers are spawned. The current child/per-request
+captured socket checks remain unchanged; raw proxy headers never prove ingress.
+
+An existing managed socket is removed automatically only while holding the
+shared launcher lock and only after all of these facts hold:
+
+1. The complete bounded marker matches the exact relative path and current
+   socket device/inode/ctime/UID/mode under the still-private owned parent.
+2. A bounded AF_UNIX connection attempt returns exactly ECONNREFUSED. A
+   successful connection, timeout, permission error or any other error refuses
+   recovery; no HTTP request or token is sent during this probe.
+3. A second nonfollowing stat confirms the identical recorded socket and
+   unchanged parent/lock identities immediately before unlink. Only that exact
+   path is unlinked, and the directory link removal is fsynced before rebinding.
+
+No PID-only inference, process-name scan, broad cleanup or unconditional unlink
+is permitted. Same-UID/root maintenance remains the existing trust boundary;
+this protocol is not protection against a malicious process with that identity.
+Normal shutdown preserves the captured-inode-only cleanup and updates/removes
+only its own matching marker. A stale marker with no socket is validated before
+replacement; an invalid marker is an explicit reconciliation error.
+
+A normal container recreate or host boot leaves no live listener; the original
+managed socket may persist, and the above evidence permits narrow recovery.
+A parent-only kill with a surviving worker must refuse while the old listener
+still accepts connections. The operator must stop that old service/container,
+not start a second writer. A kill between bind and durable marker creation, a
+replaced socket, ambiguous connection result, or an interrupted metadata write
+remains fail-closed: the OS owner inspects/stops the exact prior container and
+reconciles those exact paths deliberately. The product never claims all startup
+crash windows are automatically recoverable or deletes an unrecorded socket.
+
+Queue evidence must exercise shared-bind host reachability, two distinct API
+process/container launchers sharing one lock, SIGTERM, full-container SIGKILL
+and recreate after durable marker, parent-only kill with live child, startup
+kill before marker refusal, wrong owner/mode, replaced/unknown path preservation,
+and actual record/personal/pending-state retention. Process/container-crash
+proof does not claim a physical host reboot or power-loss test. Listener socket,
+lock and marker are non-authoritative runtime inventory; CES-1070 must explicitly
+exclude/recreate only these declared runtime artifacts during backup/restore,
+while preserving every authority/epoch/credential and personal file and rotating
+the restored epoch. No backup/restore implementation is added here.
 
 ## Liveness, readiness and resource controls
 
@@ -228,6 +289,9 @@ hosted container execution held for the authorized publication batch.
 
 Primary references consulted for this design:
 [Compose service controls](https://docs.docker.com/reference/compose-file/services/),
+[host bind mounts](https://docs.docker.com/engine/storage/bind-mounts/),
+[tmpfs visibility limits](https://docs.docker.com/engine/storage/tmpfs/),
+[Granian2.8.3 startup ordering](https://github.com/emmett-framework/granian/blob/v2.8.3/granian/server/common.py),
 [immutable base pins](https://docs.docker.com/build/building/best-practices/), and
 [multi-platform building and execution choices](https://docs.docker.com/build/building/multi-platform/).
 These describe mechanisms, not verification of this not-yet-built runtime.
