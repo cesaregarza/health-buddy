@@ -59,7 +59,11 @@ class WorkspaceDiscoveryV1:
             "contextScopesOperation": "context.scopes",
             "documents": [item.wire() for item in self.documents],
             # These references describe documentation, never a shell facility.
-            "developmentReferences": ["docs/verification.md", "CONTRIBUTING.md"],
+            "developmentReferences": [
+                "docs/agent-guide.md",
+                "docs/verification.md",
+                "CONTRIBUTING.md",
+            ],
             "extensions": [item.wire() for item in self.extensions],
             "extensionInventory": "authorized_ready_entries_only",
             "ownerInventoryComplete": False,

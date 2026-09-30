@@ -74,6 +74,11 @@ def test_current_policy_filters_metadata_without_history_or_native_inventory(
         for key, value in data["source"].items()
         if key != "sourceEvidence"
     )
+    documents = {item["id"]: item["reference"] for item in data["documents"]}
+    assert documents["agent-guide"] == "docs/agent-guide.md"
+    assert documents["extension-interface"] == "src/health_buddy/extension_api.py"
+    assert documents["extension-tests"] == "tests/test_extension_runtime.py"
+    assert "docs/agent-guide.md" in data["developmentReferences"]
     assert "workspace.discover" in data["availableOperations"]
     assert "context.intent" not in data["availableOperations"]
     for forbidden_text in (

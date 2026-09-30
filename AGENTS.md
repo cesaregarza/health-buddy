@@ -1,7 +1,9 @@
 # Health Buddy development contract
 
-Start with README.md, docs/v1-contract.md, docs/extensions.md and docs/delivery.md.
-The contract is normative for later implementation tickets. If implementation
+Start with [the canonical agent guide](docs/agent-guide.md). Codex and Claude
+Code share this source map, runnable synthetic maintenance path and check selection.
+Read README.md and docs/delivery.md for project status. The v1 contract is normative
+for later implementation tickets. If implementation
 requires a contract change, update the version, examples and checks together;
 do not quietly invent a second API or data owner.
 
