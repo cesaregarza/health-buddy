@@ -226,10 +226,12 @@ def activation_fixture(tmp_path, monkeypatch):
         calls.append(arguments)
         return b""
 
-    def running(docker, env, project, manifest, architecture, workspace, uid, gid):
+    def running(docker, env, project, manifest, architecture, workspace, uid, gid, **kwargs):
         assert workspace == runtime.operations.config.root
         assert uid == gid == 1000
         calls.append(("observed-running", manifest))
+        if kwargs.get("allow_inactive"):
+            return ""
         if manifest == target:
             assert env.read_bytes() == target_hash.encode()
         return "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
@@ -543,3 +545,79 @@ def test_terminal_repeat_binds_saved_installation_before_any_host_action(
     with pytest.raises(ServiceError, match="upgrade_installation_binding_mismatch"):
         activate(*changed, confirm_quiesced=True)
     assert calls == []
+
+
+
+def test_real_running_accepts_expected_installation_with_terminal_newline(tmp_path, monkeypatch):
+    real_running = upgrade_activation.running
+    arguments, _calls, _token, _grant, _notes = activation_fixture(tmp_path, monkeypatch)
+    artifact = upgrade_activation.selected_artifact(arguments[6], "amd64")
+    workspace = arguments[0].operations.config.root
+    responses = iter([
+        b"a" * 64 + b"\n",
+        (artifact.loader_ids[0] + "\ntrue\n1000:1000\n"
+         + json.dumps(str(workspace)) + "\nbind\ntrue\n\n").encode(),
+    ])
+    monkeypatch.setattr(upgrade_activation, "compose", _real_compose)
+    monkeypatch.setattr(upgrade_activation, "docker_command", lambda _docker: ["synthetic-docker"])
+    original_run = upgrade_activation.subprocess.run
+
+    def response(command, **kwargs):
+        if command[0] != "synthetic-docker":
+            return original_run(command, **kwargs)
+        return SimpleNamespace(stdout=next(responses))
+
+    monkeypatch.setattr(upgrade_activation.subprocess, "run", response)
+    assert real_running(arguments[9], arguments[8], arguments[10], arguments[6],
+                        "amd64", workspace, 1000, 1000) == artifact.loader_ids[0]
+
+
+def test_resumed_stopping_refuses_other_active_workspace_and_allows_absent_api(tmp_path, monkeypatch):
+    real_running = upgrade_activation.running
+    arguments, calls, _token, _grant, _notes = activation_fixture(tmp_path, monkeypatch)
+    workspace = arguments[0].operations.config.root
+
+    def interrupted(docker, environment, project, *args):
+        assert args == ("stop", "api")
+        raise OSError("synthetic interruption before stop")
+
+    monkeypatch.setattr(upgrade_activation, "compose", interrupted)
+    with pytest.raises(ServiceError, match="upgrade_interrupted_resume_same_command"):
+        activate(*arguments, confirm_quiesced=True)
+    receipt_path = workspace / "operations/upgrade-activation.json"
+    assert json.loads(receipt_path.read_bytes())["phase"] == "stopping"
+    calls.clear()
+    previous = upgrade_activation.selected_artifact(arguments[6], "amd64")
+    target = upgrade_activation.selected_artifact(arguments[3], "amd64")
+    monkeypatch.setattr(upgrade_activation, "running", real_running)
+    monkeypatch.setattr(upgrade_activation, "compose", _real_compose)
+    monkeypatch.setattr(upgrade_activation, "docker_command", lambda _docker: ["synthetic-docker"])
+    responses = iter([
+        b"a" * 64 + b"\n",
+        (previous.loader_ids[0] + "\ntrue\n1000:1000\n"
+         + json.dumps(str(tmp_path / "another-owner")) + "\nbind\ntrue\n\n").encode(),
+    ])
+    commands = []
+    original_run = upgrade_activation.subprocess.run
+
+    def response(command, **kwargs):
+        if command[0] != "synthetic-docker":
+            return original_run(command, **kwargs)
+        commands.append(command)
+        return SimpleNamespace(stdout=next(responses))
+
+    monkeypatch.setattr(upgrade_activation.subprocess, "run", response)
+    with pytest.raises(ServiceError, match="upgrade_running_installation_mismatch"):
+        activate(*arguments, confirm_quiesced=True)
+    assert calls == []
+    assert len(commands) == 2
+    assert all("stop" not in command and "load" not in command for command in commands)
+    assert json.loads(receipt_path.read_bytes())["phase"] == "stopping"
+    # The same durable phase can continue when the original API is absent.
+    responses = iter([
+        b"", b"", b"", b"a" * 64 + b"\n",
+        (target.loader_ids[0] + "\ntrue\n1000:1000\n"
+         + json.dumps(str(workspace)) + "\nbind\ntrue\n\n").encode(),
+    ])
+    assert activate(*arguments, confirm_quiesced=True)["phase"] == "active"
+    assert sum(item[0] == "load" for item in calls) == 1

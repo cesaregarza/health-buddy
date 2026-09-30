@@ -60,12 +60,15 @@ def running(
     workspace: Path,
     uid: int,
     gid: int,
+    *, allow_inactive: bool = False,
 ) -> str:
     ids = (
         compose(docker, environment, project, "ps", "--quiet", "api")
         .decode("ascii")
         .splitlines()
     )
+    if not ids and allow_inactive:
+        return ""
     if len(ids) != 1 or not re.fullmatch(r"[0-9a-f]{12,64}", ids[0]):
         raise ServiceError(409, "upgrade_requires_one_running_api")
     with tempfile.TemporaryDirectory(prefix="hb-upgrade-inspect-") as folder:
@@ -88,7 +91,9 @@ def running(
         )
     if len(result.stdout) > 4096:
         raise ServiceError(502, "upgrade_runtime_response_limit")
-    rows = result.stdout.decode("utf-8").splitlines()
+    rows = result.stdout.decode("utf-8").rstrip("\r\n").splitlines()
+    if len(rows) == 6 and rows[1] == "false" and allow_inactive:
+        return ""
     artifact = selected_artifact(manifest, architecture)
     if len(rows) != 6 or rows[1] != "true" or rows[0] not in artifact.loader_ids:
         raise ServiceError(409, "upgrade_running_image_mismatch")
@@ -274,6 +279,11 @@ def activate(
                 "workspacePolicy": "current_workspace_never_replaced",
             }
             atomic_bytes(path, encode(progress))
+        if progress["phase"] in ("prepared", "stopping"):
+            # Resume can observe an absent/stopped API, but an active one must
+            # still be this installation before any stop command is sent.
+            running(docker, environment, project, previous_manifest, architecture,
+                    service.config.root, uid, gid, allow_inactive=True)
         try:
             if progress["phase"] in ("prepared", "stopping"):
                 progress["phase"] = "stopping"
