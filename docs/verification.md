@@ -32,7 +32,7 @@ The UID/GID `65534` permission-negative case intentionally skips on a non-root
 hosted runner. The root-run local queue exercised that case; hosted validation
 does not provide equivalent evidence for it.
 
-1. Install `.[dev,sleepiq]` in a queue-owned native venv; record package versions
+1. Install `.[dev,sleepiq,mcp]` in a queue-owned native venv; record package versions
    and installed license metadata. No credentials or live sources are required.
 2. Run contract validation, root pytest, dashboard unittest, existing typed-source
    Ruff/mypy checks, and whitespace inspection.
@@ -79,7 +79,11 @@ Personal extension checks are part of the repeatable entrypoints: `make test`
 runs root tests plus both packaged reference suites without bytecode/cache
 writes; `make extension-test` selects the focused extension suites and those
 same reference cases. `make lint` retains its existing source scope and adds
-only the new extension test/support and browser file scope. Strict mypy retains
+extension test/support and browser files, plus the MCP tests/support and
+workspace discovery and canonical source-status regression tests. Full
+verification installs the optional `mcp` extra
+so root pytest and configured mypy see the actual SDK/HTTPX2 types; backend
+runtime installation alone does not need this extra. Strict mypy retains
 all current source modules, including the maintained examples; the matching
 pinned `types-jsonschema` is a development-only type dependency.
 

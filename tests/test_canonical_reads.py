@@ -274,3 +274,104 @@ def test_backup_is_owner_locked_complete_inventory_and_capabilities_split(tmp_pa
     assert owner_caps["sourceStatusOperation"] == "projection.status"
     assert phone_caps["sourceStatusOperation"] is None
     assert phone_caps["availableOperations"] == ["capabilities", "healthkit.ingest"]
+
+
+def test_status_groups_only_currently_admitted_source_components(tmp_path):
+    root = tmp_path / "owner"
+    service, policy, owner = setup(root, receiver=True)
+    config_path = root / "config.json"
+    values = json.loads(config_path.read_text())
+    values["integrations"]["sleepiq"]["enabled"] = True
+    config_path.write_text(json.dumps(values))
+    export = service.config.path(values["integrations"]["sleepiq"]["exportFile"])
+    export.parent.mkdir(parents=True, exist_ok=True)
+    export.write_text(
+        "date,sleep_hours\n" + datetime.now(UTC).date().isoformat() + ",7.25\n"
+    )
+    service = Service(root, policy)
+    phone, upload = receiver_principal(service, policy, owner)
+    now = datetime.now(UTC)
+    start = (now - timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    row = {
+        **upload.payload["records"][0],
+        "recordId": f"daily:steps:{start.date().isoformat()}:UTC",
+        "startDate": start.isoformat(),
+        "endDate": (start + timedelta(days=1)).isoformat(),
+        "creationDate": now.isoformat(),
+        "localDate": start.date().isoformat(),
+        "timezone": "UTC",
+    }
+    body = {**upload.payload, "generatedAt": now.isoformat(), "records": [row]}
+    assert service.execute(phone, replace(upload, payload=body)).status == 200
+    scopes = (
+        (("manual",), {"manual"}),
+        ((), set()),
+        (("synthetic-phone",), {"synthetic-phone", "healthkit"}),
+        (("sleepiq-export",), {"sleepiq-export", "sleepiq"}),
+        (
+            ("manual", "synthetic-phone", "sleepiq-export"),
+            {"manual", "synthetic-phone", "healthkit", "sleepiq-export", "sleepiq"},
+        ),
+    )
+    for selected, expected in scopes:
+        principal = policy.issue(read_sources=frozenset(selected))
+        status = service.execute(principal, Request("projection.status"))
+        assert status.status == 200
+        sources = decoded(status)["data"]["sources"]
+        assert set(sources) == expected
+        dashboard = service.execute(
+            principal, Request("dashboard.read", query={"format": "json"})
+        )
+        assert dashboard.status == 200
+        assert decoded(dashboard)["data"]["sources"] == sources
+        if "manual" in sources:
+            assert sources["manual"]["availability"] == "empty"
+            assert sources["manual"]["missingness"] == "no_records"
+        if "healthkit" in sources:
+            assert sources["healthkit"] == sources["synthetic-phone"]
+            assert sources["healthkit"]["availability"] == "available"
+            assert sources["healthkit"]["missingness"] == "none"
+        if "sleepiq" in sources:
+            assert sources["sleepiq"] == sources["sleepiq-export"]
+            assert sources["sleepiq"]["availability"] == "available"
+        context = service.execute(
+            principal, Request("context.read", query={"scopes": "weight"})
+        )
+        assert context.status == 200
+        prose = decoded(context)["data"]["text"]
+        hidden_sources = {
+            "manual", "synthetic-phone", "healthkit", "sleepiq"
+        } - expected
+        for hidden in hidden_sources:
+            assert "- " + hidden + ":" not in prose
+
+
+@pytest.mark.parametrize(
+    ("source", "enabled", "availability"),
+    [
+        ("healthkit", False, "disabled"),
+        ("healthkit-import", True, "unavailable"),
+    ],
+)
+def test_health_source_placeholder_and_missing_import_keep_honest_status(
+    tmp_path, source, enabled, availability
+):
+    root = tmp_path / "owner"
+    service, policy, _owner = setup(root)
+    config_path = root / "config.json"
+    values = json.loads(config_path.read_text())
+    values["integrations"]["healthkit"]["enabled"] = enabled
+    config_path.write_text(json.dumps(values))
+    service = Service(root, policy)
+    principal = policy.issue(read_sources=frozenset({source}))
+    response = service.execute(principal, Request("projection.status"))
+    assert response.status == 200
+    sources = decoded(response)["data"]["sources"]
+    assert set(sources) == {source, "healthkit"}
+    assert sources["healthkit"] == sources[source]
+    assert sources[source]["availability"] == availability
+    assert sources[source]["missingness"] == "not_configured"
+    assert sources[source]["freshness"] == "unknown"
+    assert sources[source]["lastSuccessAt"] is None

@@ -7,6 +7,7 @@ advance the cursor. A timeout never authorizes a new identity/key/revision.
 from __future__ import annotations
 
 import base64
+import os
 import re
 import stat
 import time
@@ -17,7 +18,6 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
-from .config import Config
 from .domain import (
     MAX_RESPONSE,
     check_identity,
@@ -30,6 +30,7 @@ from .domain import (
 )
 from .durability import atomic_bytes, exclusive, fsync_path, private_file
 from .extension_files import bounded_children
+from .retry_paths import RetryRoot, WorkflowPaths
 from .security_api import ClientIdentity
 from .service_api import (
     JSON,
@@ -101,22 +102,40 @@ class WorkflowNamespace:
     event_id: str
 
 
+@dataclass(frozen=True)
+class McpWorkflowNamespace:
+    """One retained tool intent, independent of protocol request IDs."""
+
+    client_id: str
+    intent_id: str
+
+
 class ClientWorkflow:
     def __init__(
         self,
-        config: Config,
+        config: WorkflowPaths,
         operations: Operations,
         principal: Principal | None,
         *,
         client_identity: Callable[[], ClientIdentity] | None = None,
-        namespace: WorkflowNamespace | None = None,
+        namespace: WorkflowNamespace | McpWorkflowNamespace | None = None,
     ) -> None:
         self.config = config
         self.operations = operations
         self.principal = principal
         self.client_identity = client_identity
         self.namespace = namespace
-        if namespace is not None and (
+        if isinstance(namespace, McpWorkflowNamespace):
+            if (
+                not isinstance(config, RetryRoot)
+                or client_identity is None
+                or not isinstance(namespace.client_id, str)
+                or not re.fullmatch(r"[a-z][a-z0-9-]{0,39}", namespace.client_id)
+                or not isinstance(namespace.intent_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", namespace.intent_id)
+            ):
+                raise ServiceError(422, "invalid_mcp_namespace")
+        elif namespace is not None and (
             not isinstance(namespace, WorkflowNamespace)
             or not isinstance(namespace.extension_id, str)
             or len(namespace.extension_id) > 80
@@ -131,12 +150,71 @@ class ClientWorkflow:
     def _storage_guard(self) -> AbstractContextManager[None]:
         # Job/event lock -> brief workspace lock. No workspace lock is retained
         # across Operations, and backup never waits for a client/job lock.
-        if self.namespace is not None:
+        if isinstance(self.namespace, McpWorkflowNamespace):
+            return exclusive(self.config.path("state.lock"))
+        if isinstance(self.namespace, WorkflowNamespace):
             return exclusive(self.config.path("operations/manual.lock"))
         return nullcontext()
 
+    def _mcp_namespace(self) -> dict[str, JSON] | None:
+        if not isinstance(self.namespace, McpWorkflowNamespace):
+            return None
+        return {
+            "schemaVersion": 1,
+            "kind": "mcp",
+            "clientId": self.namespace.client_id,
+            "intentId": self.namespace.intent_id,
+        }
+
+    def _conflict(self) -> ServiceError:
+        return ServiceError(
+            409,
+            "mcp_intent_conflict"
+            if isinstance(self.namespace, McpWorkflowNamespace)
+            else "source_event_conflict",
+        )
+
+    def _mcp_paths(self) -> tuple[Path, Path]:
+        assert isinstance(self.namespace, McpWorkflowNamespace)
+        profiles = self.config.path("profiles")
+        if not profiles.exists():
+            profiles.mkdir(mode=0o700)
+        fsync_path(profiles)
+        fsync_path(self.config.root)
+        profile_id = digest({"clientId": self.namespace.client_id})
+        profile = self.config.path(f"profiles/{profile_id}")
+        if not profile.exists():
+            if len(bounded_children(profiles, 8)) >= 8:
+                raise ServiceError(413, "mcp_profile_capacity")
+            profile.mkdir(mode=0o700)
+        fsync_path(profile)
+        fsync_path(profiles)
+        directory = self.config.path(f"profiles/{profile_id}/requests")
+        if not directory.exists():
+            directory.mkdir(mode=0o700)
+        fsync_path(directory)
+        fsync_path(profile)
+        basename = digest({"intentId": self.namespace.intent_id})
+        occupied = {path.stem for path in bounded_children(directory, 2048)}
+        if basename not in occupied and len(occupied) >= 1024:
+            raise ServiceError(413, "mcp_intent_capacity")
+        path = self.config.path(f"profiles/{profile_id}/requests/{basename}.json")
+        lock = self.config.path(f"profiles/{profile_id}/requests/{basename}.lock")
+        # Reserve the slot while holding state.lock; parallel distinct intents
+        # cannot both consume the last available slot before their intent locks.
+        if not lock.exists():
+            descriptor = os.open(
+                lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+            )
+            os.close(descriptor)
+        fsync_path(lock)
+        fsync_path(directory)
+        return path, lock
+
     def _paths(self) -> tuple[Path, Path]:
         with self._storage_guard():
+            if isinstance(self.namespace, McpWorkflowNamespace):
+                return self._mcp_paths()
             if self.namespace is None:
                 relative = "personal/state"
                 basename = "native-client"
@@ -177,6 +255,24 @@ class ClientWorkflow:
                 self.config.path(f"{relative}/{basename}.lock"),
             )
 
+    def _lookup_paths(self) -> tuple[Path, Path] | None:
+        if not isinstance(self.namespace, McpWorkflowNamespace):
+            return self._paths()
+        # Lookup is linearized against reservations by state.lock, but must not
+        # create a profile, directory or intent lock merely to report absence.
+        # A reserved writer is inspected under its existing per-intent lock.
+        with self._storage_guard():
+            profile = digest({"clientId": self.namespace.client_id})
+            basename = digest({"intentId": self.namespace.intent_id})
+            relative = f"profiles/{profile}/requests/{basename}"
+            path = self.config.path(relative + ".json")
+            lock = self.config.path(relative + ".lock")
+            if not lock.exists():
+                if path.exists():
+                    raise ServiceError(503, "client_state_unavailable")
+                return None
+            return path, lock
+
     def _load(self, path: Path) -> dict[str, Any] | None:
         with self._storage_guard():
             return self._load_locked(path)
@@ -185,11 +281,12 @@ class ClientWorkflow:
         private_file(path, missing=True)
         if not path.exists():
             return None
+        limit = (
+            1_048_576 if isinstance(self.namespace, McpWorkflowNamespace) else MAX_STATE
+        )
         try:
             with path.open("rb") as handle:
-                value = decode(
-                    handle.read(MAX_STATE + 1), limit=MAX_STATE, trusted=True
-                )
+                value = decode(handle.read(limit + 1), limit=limit, trusted=True)
         except ServiceError as exc:
             raise ServiceError(503, "client_state_unavailable") from exc
         if (
@@ -212,12 +309,34 @@ class ClientWorkflow:
         ):
             raise ServiceError(503, "client_state_unavailable")
         state = cast(dict[str, Any], value)
+        if isinstance(self.namespace, McpWorkflowNamespace):
+            namespace = state.get("intentNamespace")
+            if (
+                not isinstance(namespace, dict)
+                or set(namespace) != {"schemaVersion", "kind", "clientId", "intentId"}
+                or type(namespace["schemaVersion"]) is not int
+                or namespace["schemaVersion"] != 1
+                or any(
+                    not isinstance(namespace[key], str)
+                    for key in ("kind", "clientId", "intentId")
+                )
+                or namespace != self._mcp_namespace()
+                or state["state"] == "discarded"
+            ):
+                raise ServiceError(503, "client_state_unavailable")
         self._request(state["envelope"])
         return state
 
     def _save(self, path: Path, state: dict[str, Any]) -> None:
         raw = encode(state)
-        if len(raw) > (262_144 if self.namespace is not None else MAX_STATE):
+        limit = (
+            1_048_576
+            if isinstance(self.namespace, McpWorkflowNamespace)
+            else 262_144
+            if self.namespace is not None
+            else MAX_STATE
+        )
+        if len(raw) > limit:
             raise ServiceError(503, "client_state_unavailable")
         with self._storage_guard():
             atomic_bytes(path, raw)
@@ -411,7 +530,7 @@ class ClientWorkflow:
         if operation not in ROUTES:
             raise ServiceError(422, "invalid_request")
         if self.namespace is not None and new_write:
-            raise ServiceError(409, "source_event_conflict")
+            raise self._conflict()
         supplied = any(
             item is not None for item in (identity, if_match, idempotency_key)
         )
@@ -433,9 +552,11 @@ class ClientWorkflow:
         with exclusive(lock, time.monotonic() + 40):
             state = self._load(path)
             if state is not None:
+                if isinstance(self.namespace, McpWorkflowNamespace):
+                    self._check_binding(state)
                 same = state["intentDigest"] == intent_digest
                 if self.namespace is not None and (not same or new_write):
-                    raise ServiceError(409, "source_event_conflict")
+                    raise self._conflict()
                 if state["state"] == "pending":
                     if not same or new_write:
                         raise ServiceError(409, "pending_write_requires_resolution")
@@ -482,6 +603,8 @@ class ClientWorkflow:
             if binding is not None:
                 state.pop("principalBinding", None)
                 state["clientIdentity"] = binding
+            if isinstance(self.namespace, McpWorkflowNamespace):
+                state["intentNamespace"] = self._mcp_namespace()
             self._save(path, state)
             return self._execute(path, state)
 
@@ -490,11 +613,16 @@ class ClientWorkflow:
             self._binding()
         else:
             decoded(self.operations.execute(self.principal, Request("capabilities")))
-        path, lock = self._paths()
+        paths = self._lookup_paths()
+        if paths is None:
+            return {"state": "empty", "cursor": 0}
+        path, lock = paths
         with exclusive(lock):
             state = self._load(path)
             if state is None:
                 return {"state": "empty", "cursor": 0}
+            if isinstance(self.namespace, McpWorkflowNamespace):
+                self._check_binding(state)
             return {
                 "state": "legacy_requires_resolution"
                 if self.client_identity is not None and state["schemaVersion"] == 1
@@ -505,7 +633,10 @@ class ClientWorkflow:
             }
 
     def retry(self) -> dict[str, JSON]:
-        path, lock = self._paths()
+        paths = self._lookup_paths()
+        if paths is None:
+            raise ServiceError(409, "no_pending_write")
+        path, lock = paths
         with exclusive(lock, time.monotonic() + 40):
             state = self._load(path)
             if state is None or state["state"] == "discarded":
@@ -528,7 +659,12 @@ class ClientWorkflow:
         if self.namespace is not None:
             # A source event may already exist in the canonical ledger. Recovery
             # must replay it; do not erase its permanent conflict discriminator.
-            raise ServiceError(409, "source_event_requires_reconciliation")
+            raise ServiceError(
+                409,
+                "mcp_intent_requires_reconciliation"
+                if isinstance(self.namespace, McpWorkflowNamespace)
+                else "source_event_requires_reconciliation",
+            )
         if not acknowledge_possible_save:
             raise ServiceError(409, "acknowledgement_required")
         if self.client_identity is not None:

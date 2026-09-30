@@ -18,7 +18,7 @@ queue with a frozen SHA; do not execute them in an implementation worker:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install '.[dev,sleepiq]'
+.venv/bin/python -m pip install '.[dev,sleepiq,mcp]'
 make PYTHON=.venv/bin/python contracts test lint typecheck package
 make PYTHON="$PWD/.venv/bin/python" dashboard-test
 .venv/bin/python scripts/audit_distribution.py --root . --archives dist
