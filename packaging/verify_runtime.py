@@ -228,11 +228,13 @@ class Qualification:
         self.dc("docker-info", "info", "--format", "{{json .DriverStatus}}")
         self.dc("compose-version", "compose", "version", "--short")
         self.dc("buildx-version", "buildx", "version")
-        selected = self.dc(
-            "builder", "buildx", "inspect", "default", "--format", "{{json .}}"
-        ).decode()
-        builder = json.loads(selected)
-        if builder.get("Driver") != "docker":
+        selected = self.dc("builder", "buildx", "inspect", "default").decode()
+        drivers = [
+            line.partition(":")[2].strip()
+            for line in selected.splitlines()
+            if line.startswith("Driver:")
+        ]
+        if drivers != ["docker"]:
             raise ManifestError("native_default_docker_builder_required")
         endpoint = self.dc(
             "default-context",
