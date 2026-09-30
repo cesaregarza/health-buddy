@@ -70,6 +70,10 @@ def connect(
             raise ServiceError(409, "codex_managed_config_conflict")
         if "health_buddy" in servers and not previous:
             raise ServiceError(409, "codex_unmanaged_server_exists")
+        if previous:
+            managed = tomllib.loads(previous)["mcp_servers"]["health_buddy"]
+            if servers.get("health_buddy") != managed:
+                raise ServiceError(409, "codex_integration_locally_changed")
         manifest = skill / ".health-buddy-install.json"
         old = optional(manifest) if skill.exists() else b""
         if skill.exists():
@@ -103,7 +107,9 @@ def connect(
             native_path(path)
         private_directory(workspace)
         if not python.is_absolute() or python.name not in {
-            "python", "python3", "python3.12"
+            "python",
+            "python3",
+            "python3.12",
         }:
             raise ServiceError(422, "invalid_codex_python")
         # Venv Python commonly uses a short symlink chain. Check every native
@@ -130,26 +136,30 @@ def connect(
         if not (source / "docs/agent-guide.md").is_file():
             raise ServiceError(409, "codex_source_guide_missing")
         arguments = ["-m", "health_buddy.mcp_server", "--settings", str(settings)]
-        table = "\n".join([
-            "[mcp_servers.health_buddy]",
-            "command = " + json.dumps(str(python)),
-            "args = " + json.dumps(arguments),
-            "cwd = " + json.dumps(str(source)),
-            "startup_timeout_sec = 15",
-            "tool_timeout_sec = 60",
-            "[mcp_servers.health_buddy.env]",
-            "PYTHONPATH = " + json.dumps(str(source / "src")),
-            "",
-        ])
+        table = "\n".join(
+            [
+                "[mcp_servers.health_buddy]",
+                "command = " + json.dumps(str(python)),
+                "args = " + json.dumps(arguments),
+                "cwd = " + json.dumps(str(source)),
+                "startup_timeout_sec = 15",
+                "tool_timeout_sec = 60",
+                "[mcp_servers.health_buddy.env]",
+                "PYTHONPATH = " + json.dumps(str(source / "src")),
+                "",
+            ]
+        )
         block = BEGIN + table + END
         separator = "\n" if before and not before.endswith("\n") else ""
         prefix = before if previous else before + separator
         updated = prefix + block + after
         # Refuse conflicting dotted/inline tables before writing.
         tomllib.loads(updated)
-        skill_bytes = files("health_buddy").joinpath(
-            "integrations/codex/health-buddy/SKILL.md"
-        ).read_bytes()
+        skill_bytes = (
+            files("health_buddy")
+            .joinpath("integrations/codex/health-buddy/SKILL.md")
+            .read_bytes()
+        )
         content = {
             "SKILL.md": skill_bytes,
             "WORKSPACE.json": json.dumps(
@@ -160,7 +170,8 @@ def connect(
                     "workspace": str(workspace),
                 },
                 indent=2,
-            ).encode() + b"\n",
+            ).encode()
+            + b"\n",
         }
         private_directory(skill, create=True)
         for name, payload in content.items():
@@ -187,9 +198,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         connect(
-            args.config_file, args.skill_directory,
-            settings=args.settings, python=args.python,
-            source=args.source, workspace=args.workspace,
+            args.config_file,
+            args.skill_directory,
+            settings=args.settings,
+            python=args.python,
+            source=args.source,
+            workspace=args.workspace,
             remove=args.remove,
         )
     except (ServiceError, OSError, ValueError, TypeError, KeyError):

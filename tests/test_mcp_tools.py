@@ -194,7 +194,7 @@ def test_catalog_current_capabilities_and_no_implicit_context(tmp_path):
     assert api.requests == []
     result = tools.call("get_context", {"scopes": ["weight"]})
     assert result["result"]["data"] == {"missing": None, "zero": 0, "truncated": True}
-    assert api.requests[-1].query == {"scopes": "weight", "days": "7", "limit": "100"}
+    assert api.requests[-1].query == {"scopes": "weight,", "days": "7", "limit": "100"}
     assert (
         tools.call("log_health", intent())["error"]["code"] == "capability_unavailable"
     )
@@ -234,3 +234,10 @@ def test_corrupt_proposal_retained_and_unreadable(tmp_path):
             args["intentId"], "0" * 64, api.client
         )
     assert path.read_bytes() == contents and api.requests == []
+
+
+@pytest.mark.parametrize("scopes", [["training"], ["labs"], ["training", "labs"]])
+def test_context_scope_arrays_never_select_legacy_presets(tmp_path, scopes):
+    tools, _, api = setup(tmp_path)
+    assert tools.call("get_context", {"scopes": scopes})["ok"]
+    assert api.requests[-1].query["scopes"] == ",".join(scopes) + ","

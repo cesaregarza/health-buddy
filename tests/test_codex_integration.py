@@ -38,8 +38,12 @@ def targets(tmp_path):
 
 def setup(config, skill, workspace, settings):
     connect(
-        config, skill, settings=settings, python=Path(sys.executable),
-        source=ROOT, workspace=workspace,
+        config,
+        skill,
+        settings=settings,
+        python=Path(sys.executable),
+        source=ROOT,
+        workspace=workspace,
     )
     return tomllib.loads(config.read_text())["mcp_servers"]["health_buddy"]
 
@@ -97,18 +101,25 @@ def test_unmanaged_server_and_insecure_config_are_preserved(tmp_path):
 
 
 def test_configured_stdio_discovers_context_and_records_workout_once(
-    short_directory, tmp_path,
+    short_directory,
+    tmp_path,
 ):
     config, skill, _ = targets(tmp_path)
     with actual_backend(short_directory, tmp_path) as (
-        _, settings, runtime, _, _,
+        _,
+        settings,
+        runtime,
+        _,
+        _,
     ):
         launch = setup(config, skill, runtime.operations.config.root, settings)
         metadata = json.loads((skill / "WORKSPACE.json").read_bytes())
         assert metadata["workspace"] == str(runtime.operations.config.root)
         assert (Path(metadata["sourceRoot"]) / "docs/agent-guide.md").is_file()
         with client(settings, tmp_path, launch=launch) as wire:
-            names = {item["name"] for item in wire.call("tools/list")["result"]["tools"]}
+            names = {
+                item["name"] for item in wire.call("tools/list")["result"]["tools"]
+            }
             assert {"discover_workspace", "get_context", "record_workout"} <= names
             discovered = wire.tool("discover_workspace", {})
             refs = discovered["result"]["data"]["documents"]
@@ -117,13 +128,19 @@ def test_configured_stdio_discovers_context_and_records_workout_once(
                 "get_context", {"scopes": ["training"], "days": 7, "limit": 20}
             )
             assert context["ok"] and context["result"]["data"]["scopes"] == ["training"]
+            for scopes in (["labs"], ["training", "labs"]):
+                literal = wire.tool(
+                    "get_context", {"scopes": scopes, "days": 7, "limit": 20}
+                )
+                assert literal["ok"] and literal["result"]["data"]["scopes"] == scopes
             assert wire.tool("get_plan", {})["result"]["data"]["program"] is None
             meta = discovered["result"]["meta"]
             arguments = {
                 "intentId": "synthetic-codex-workout",
-                "identity": {key: meta[key] for key in (
-                    "installationId", "datasetId", "restoreEpoch"
-                )},
+                "identity": {
+                    key: meta[key]
+                    for key in ("installationId", "datasetId", "restoreEpoch")
+                },
                 "expectedRevision": meta["dataRevision"],
                 "workout": workout(day="2026-01-03"),
             }
@@ -134,11 +151,43 @@ def test_configured_stdio_discovers_context_and_records_workout_once(
         with client(settings, tmp_path, launch=launch) as fresh:
             assert fresh.tool("record_workout", arguments) == receipt
             assert runtime.operations.journal.state().revision == revision
-            assert fresh.tool("write_status", {
-                "intentId": arguments["intentId"]
-            })["ok"]
-            conflict = fresh.tool("record_workout", {
-                **arguments, "workout": {**arguments["workout"], "notes": "changed"}
-            })
+            assert fresh.tool("write_status", {"intentId": arguments["intentId"]})["ok"]
+            conflict = fresh.tool(
+                "record_workout",
+                {**arguments, "workout": {**arguments["workout"], "notes": "changed"}},
+            )
             assert not conflict["ok"]
             assert runtime.operations.journal.state().revision == revision
+
+
+@pytest.mark.parametrize(
+    "addition",
+    [
+        'EXTRA = "keep"\n',
+        '[mcp_servers.health_buddy.owner_table]\nvalue = "keep"\n',
+    ],
+)
+def test_unmarked_server_subtree_edits_refuse_update_and_removal(tmp_path, addition):
+    config, skill, workspace = targets(tmp_path)
+    settings, _ = settings_file(tmp_path)
+    setup(config, skill, workspace, settings)
+    config.write_text(config.read_text() + addition)
+    before = config.read_bytes()
+    with pytest.raises(ServiceError, match="codex_integration_locally_changed"):
+        setup(config, skill, workspace, settings)
+    with pytest.raises(ServiceError, match="codex_integration_locally_changed"):
+        connect(config, skill, remove=True)
+    assert config.read_bytes() == before
+
+
+def test_unrelated_later_tables_survive_update_and_removal(tmp_path):
+    config, skill, workspace = targets(tmp_path)
+    settings, _ = settings_file(tmp_path)
+    setup(config, skill, workspace, settings)
+    later = '\n[plugins."later@directory"]\nenabled = true\n'
+    config.write_text(config.read_text() + later)
+    before = config.read_bytes()
+    setup(config, skill, workspace, settings)
+    assert config.read_bytes() == before
+    connect(config, skill, remove=True)
+    assert config.read_text() == UNRELATED + later

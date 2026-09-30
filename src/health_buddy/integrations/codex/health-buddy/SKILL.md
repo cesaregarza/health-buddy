@@ -31,9 +31,9 @@ plan's earned prescription. Record actual completed sets only when authorized.
 Use `record_workout` with explicit civil date, session ID, receiver identity,
 expectedRevision and one stable intentId. Use `log_health` for supported typed
 observations. Review a plan proposal's exact body/digest before `apply_plan`.
-Do not silently modify existing health records; this finite adapter has no
-delete/correction tool. Explain that limitation and use the canonical owner
-workflow when an authorized correction needs it.
+Explicit intake/blood-pressure corrections can use log_health replaceExisting
+with reviewed fields/current CAS. There is no general delete/arbitrary correction
+tool; explain the limitation and use the canonical owner workflow when needed.
 
 An ambiguous write keeps its original intentId and body. Inspect `write_status`
 and use `retry_write`; never generate a replacement key to bypass uncertainty,
