@@ -6,7 +6,7 @@ import json
 import re
 import sqlite3
 from contextlib import closing
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from .domain import check_identity, decode, identifier, object_value
@@ -46,7 +46,7 @@ def admit(
             if str(UUID(device_id)) != device_id:
                 raise ValueError
             name = _name(name)
-            receipt = object_value(decode(
+            receipt: Any = object_value(decode(
                 read_file(service.config.root / "operations/receiver-import.json", 16384),
                 limit=16384,
             ))
