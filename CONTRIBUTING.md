@@ -9,6 +9,9 @@ Use native Linux and Python 3.12+. Core extracted ingest/render code uses the
 standard library. SleepIQ, PostgreSQL and browser tooling are optional extras.
 No health account, agent provider key or private repository is needed for the
 synthetic checks. Never import personal data to repair a failing test.
+`make test` includes both maintained extension examples; `make extension-test`
+is the focused personal-extension suite. The private socket-root prerequisite
+and exact commands are in [verification](docs/verification.md).
 
 During project orchestration, submit these commands to the single testing
 queue with a frozen SHA; do not execute them in an implementation worker:
@@ -27,7 +30,7 @@ ignored `health-runner/dashboard/design/preview/` directory. Open that local
 HTML only; it is not an installation, live health endpoint or release demo.
 No secret store, account sync or provider is consulted by the synthetic render.
 Browser suites require the optional `browser` extra and a queue-owned Chromium
-installation; run the seven `check_*` scripts listed in `docs/verification.md`.
+installation; run the eight `check_*` scripts listed in `docs/verification.md`.
 
 CI is present as an explicitly dispatched Linux verification workflow. Pushes
 and pull requests do not run it during the user's GitHub-minutes hold. The

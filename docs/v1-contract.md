@@ -104,7 +104,7 @@ values, bearer tokens, pairing codes or full request bodies.
 
 | Operation | Example and required grant |
 | --- | --- |
-| Capability discovery | `GET /v1/capabilities`, `records:read` or `sync:status`; device projection excludes health/owner data |
+| Capability discovery | `GET /v1/capabilities`, `records:read`, `records:write` or `sync:status`; write-only/device projection excludes health/owner data |
 | Canonical bounded read | `GET /v1/records/{id}`, `records:read` |
 | Create/update | `PUT /v1/records/{id}`, `records:write`, identity tuple, idempotency key, If-Match |
 | Owner pairing intent | `POST /v1/pairing-intents`, `devices:manage` |

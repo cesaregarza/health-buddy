@@ -45,7 +45,7 @@ does not provide equivalent evidence for it.
 4. Render the default synthetic preview. Run `check_browser.py`,
    `check_followups.py`, `check_training_views.py`, `check_fast_mode.py`,
    `check_portable_browser.py`, `check_client_workflow.py` and
-   `check_auth_browser.py` serially from the dashboard directory, using the
+   `check_auth_browser.py` and `check_extensions.py` serially from the dashboard directory, using the
    queue-owned existing Chromium/runtime cache. They use
    fabricated sources/mocked optional provider responses. Never run a live Jev
    probe or connect a personal data source. The auth browser uses a routed
@@ -74,3 +74,28 @@ phone/Pi, private migration/cutover, cross-agent/upgrade qualification and relea
 Process hard exits plus fsync source review do not prove physical power-loss
 survival on arbitrary filesystems. The receipt records exact tested commit and
 raw outcomes; this document does not imply those gates have passed.
+
+Personal extension checks are part of the repeatable entrypoints: `make test`
+runs root tests plus both packaged reference suites without bytecode/cache
+writes; `make extension-test` selects the focused extension suites and those
+same reference cases. `make lint` retains its existing source scope and adds
+only the new extension test/support and browser file scope. Strict mypy retains
+all current source modules, including the maintained examples; the matching
+pinned `types-jsonschema` is a development-only type dependency.
+
+The eighth browser script, `check_extensions.py`, uses real same-origin workers
+with a routed synthetic metric API. It verifies escaped text, unit/config
+changes, source/missingness/stale/limited notices, connector exclusion and failed
+or hung view isolation at two viewport widths. It is not real-authority wire
+evidence: `test_extension_boundaries.py` separately runs the pinned Granian
+server with the actual security authority and canonical service, including
+owner/agent denial of nonexistent code-activation routes. Browser installation
+and all eight serial browser jobs remain manual queue work; this change does
+not trigger hosted CI or add browser downloads to the manual workflow.
+
+Preservation evidence distinguishes fresh-process source selection with the
+same external owner workspace from copied restore/container replacement.
+Directory-fsync failure/retry ordering, bounded child cleanup, registry graph
+limits, capacity-before-lock allocation and actual backup/job exclusion have
+separate cases. Exact raw queue receipts must establish which assertions ran;
+source authorship alone is not verification.

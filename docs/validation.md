@@ -1,5 +1,10 @@
 # CES-1063 acceptance and evidence boundaries
 
+Historical scope: this document records the contract-only CES-1063 checkpoint.
+Its implementation-status statements describe that checkpoint, not the current
+source bundle. See [current runtime verification](verification.md),
+[architecture](architecture.md) and [extension implementation](extension-implementation.md).
+
 The checked-in files are a contract target. **No server, agent package, phone,
 installer, source extraction, deployment or release is implemented here.** The
 finite relational validator checks that examples satisfy independent invariants;

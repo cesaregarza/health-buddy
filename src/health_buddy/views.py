@@ -71,6 +71,8 @@ QUERY_KEYS = {
     "context.read": {"scopes", "days", "ask", "limit"},
     "dashboard.read": {"format", "export", "tab", "theme"},
     "training.fast.read": {"date", "revision"},
+    "extensions.read": {"sourceId", "from", "to"},
+    "extensions.asset": {"review", "sourceId"},
 }
 
 
@@ -416,6 +418,9 @@ def _render(
         data: JSON = _records(service, authority, request, capture, stale)
     elif operation == "dashboard.read":
         dashboard = snapshots.dashboard(service, capture, authority, stale=stale)
+        from .extension_views import catalog
+
+        dashboard["extensions"] = catalog(service)
         if request.query.get("format", "html") == "html":
             raw = projection.render(dashboard).encode()
             if len(raw) > MAX_RESPONSE:
@@ -566,11 +571,16 @@ def read(
         )
     if request.operation == "context.scopes":
         return envelope(_catalog(), state.identity, state.revision)
+    if request.operation in {"extensions.list", "extensions.read", "extensions.asset"}:
+        from .extension_views import read as extension_read
+
+        return extension_read(service, authority, request, state)
     if request.operation == "asset.read":
         name = request.resource_id
         media_types = {
             "icon.svg": "image/svg+xml",
             "manifest.webmanifest": "application/manifest+json",
+            "extension-worker.js": "text/javascript; charset=utf-8",
         }
         if name not in media_types:
             raise ServiceError(404, "not_found")

@@ -10,14 +10,16 @@ the dashboard, HealthKit ingest, manual operations and optional SleepIQ source.
 The source bundle now supports a private local first run, manual logging,
 dashboard and context packs with every optional integration disabled. Canonical v1 operations now join UI, CLI and scoped extension clients behind
 one durable coordinator. Owner sessions, scoped agent grants and upload-only
-device pairing share a durable authorization authority. Installer and agent
+device pairing share a durable authorization authority. Reviewed personal
+metrics/views and connector jobs live outside the replaceable source, with
+maintained synthetic examples and durable event retries. Installer and agent
 packages remain later tickets. Passing source checks does not establish release qualification.
 
 - [Product, API, identity, and security contract](docs/v1-contract.md)
 - [Personal workspace and extension contract](docs/extensions.md)
 - [Repository responsibilities and delivery gates](docs/delivery.md)
 - [Versioned compatibility manifest](contracts/v1/compatibility.json)
-- [Acceptance mapping and validation](docs/validation.md)
+- [Historical contract acceptance mapping](docs/validation.md)
 - [Source map and data ownership](docs/architecture.md)
 - [Extraction provenance and exclusions](docs/extraction.md)
 - [Contributor setup and synthetic preview](CONTRIBUTING.md)

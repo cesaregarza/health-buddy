@@ -117,3 +117,9 @@ portable browser uses the maintained server. `check_client_workflow.py` separate
 checks lost acknowledgements, cross-tab ownership, malformed state and identity
 changes against a synthetic server model. All execution is assigned to the
 serial testing queue and bound to a frozen source commit.
+
+Retained native receipts exclude the transport-only `Idempotency-Replayed`
+header. The canonical status, body and other headers remain unchanged on
+identical replay; the wire response may still expose the replay marker.
+Successful replay retains the original envelope/key/cursor and clears any
+previous safe error without changing otherwise identical retained bytes.

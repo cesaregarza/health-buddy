@@ -418,6 +418,7 @@
     <h2 class="section-title" id="daily-heading">Today at a glance</h2>
     <section class="tiles" id="tiles" aria-label="Daily summary"></section>
     <section id="today" aria-label="Needs attention"></section>
+    <section id="personal-views" aria-label="Personal views" hidden></section>
     <div id="changes-since-open"></div>
     <details class="supporting-metrics" id="metric-details"><summary>More readings and maintenance estimate</summary><div class="tiles" id="supporting-tiles"></div></details>
     <details class="data-status" id="data-status"><summary>Data status · measurement dates</summary><div id="data-status-body"></div></details>
@@ -1605,6 +1606,68 @@ function buildInPlace(i, dom, host, grid) {
   CUR_PARENT = ph; FIGS[i](dom); CUR_PARENT = null;
   const el = ph.firstElementChild; ph.replaceWith(el); return el;
 }
+// Personal views are optional, read-only and independently bounded. Each view
+// is owner-reviewed trusted code; workers are failure isolation, not a sandbox.
+function personalViewSpec(value) {
+  const keys = (object, expected) => object && typeof object === 'object' && !Array.isArray(object) && Object.keys(object).sort().join(',') === expected.sort().join(',');
+  const short = (value, length) => typeof value === 'string' && value.length <= length;
+  if (!keys(value, ['schemaVersion','title','rows','status']) || value.schemaVersion !== 1 || !short(value.title,120) || !short(value.status,240) || !Array.isArray(value.rows) || value.rows.length > 8) throw new Error('invalid_view');
+  for (const row of value.rows) {
+    if (!keys(row,['label','value','unit']) || !short(row.label,80) || !(row.value === null || short(row.value,240) || (typeof row.value === 'number' && Number.isFinite(row.value))) || !(row.unit === null || short(row.unit,32))) throw new Error('invalid_view');
+  }
+  return value;
+}
+function runPersonalView(module, entrypoint, metric, config) {
+  return new Promise((resolve,reject) => {
+    const worker = new Worker('/extension-worker.js', {type:'module'});
+    const finish = (ok, value) => {clearTimeout(timer);worker.terminate();ok ? resolve(value) : reject(new Error('view_unavailable'));};
+    const timer = setTimeout(() => finish(false), 2000);
+    worker.onerror = () => finish(false);
+    worker.onmessage = event => {
+      try {if (!event.data?.ok) throw new Error('view_unavailable');finish(true,personalViewSpec(event.data.view));}
+      catch (_) {finish(false);}
+    };
+    worker.postMessage({module,entrypoint,metric,config});
+  });
+}
+async function renderPersonalViews() {
+  const root = document.getElementById('personal-views');
+  const items = Array.isArray(DATA.extensions) ? DATA.extensions.filter(item => item.enabled && item.kind !== 'connector-workflow').slice(0,32) : [];
+  if (!items.length) return;
+  root.hidden = false;
+  $('h2',{class:'section-title',text:'Personal views'},root);
+  for (const item of items) {
+    const card = $('article',{class:'data-status'},root);
+    $('h3',{text:String(item.id || 'Personal addition')},card);
+    const status = $('p',{text:'Loading personal view…',role:'status'},card);
+    if (item.state !== 'ready') {status.textContent = 'Personal addition needs review: ' + String(item.state) + '. Disable or inspect it with the native extension command.';continue;}
+    try {
+      if (!/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/.test(item.id)) throw new Error('invalid_id');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(),5000);
+      let response, body;
+      try {
+        response = await fetch('/v1/extensions/' + item.id, {credentials:'same-origin',signal:controller.signal});
+        body = await response.text();
+      } finally {clearTimeout(timer);}
+      if (!response.ok || body.length > 65536) throw new Error('metric_unavailable');
+      const envelope = JSON.parse(body), data = envelope.data;
+      if (!data || data.id !== item.id || !/^[0-9a-f]{64}$/.test(data.review) || !data.metric || envelope.meta?.dataRevision !== data.metric.dataRevision) throw new Error('invalid_metric');
+      const query = new URLSearchParams({review:data.review,sourceId:data.metric.sourceId});
+      const view = await runPersonalView('/v1/extensions/' + item.id + '/view.js?' + query, data.view.entrypoint, data.metric, data.view.config);
+      card.textContent = '';
+      $('h3',{text:view.title},card);
+      for (const row of view.rows) $('p',{text:row.label + ': ' + (row.value === null ? 'Not available' : String(row.value)) + (row.unit ? ' ' + row.unit : '')},card);
+      $('p',{text:view.status,role:'status'},card);
+      if (data.metric.truncated) $('p',{text:'This personal view is limited; totals may be incomplete.'},card);
+      if (data.metric.projectionState === 'stale') $('p',{text:'This personal view includes stale or unavailable source data.'},card);
+      $('p',{class:'meta',text:'Canonical revision ' + data.metric.dataRevision},card);
+    } catch (_) {
+      status.textContent = 'Personal view unavailable. Inspect or disable this addition with the native extension command. Built-in logging remains available.';
+    }
+  }
+}
+
 function renderAll() {
   const host = document.getElementById('figs'); const sy = window.scrollY;
   for (const t of TIPS) if (!t.isConnected) TIPS.delete(t);
@@ -1698,7 +1761,9 @@ HealthFeatures.init(DATA,{navigate:navigateTo,today:()=>today});
 const initial = params.get('theme') || (() => { try { return localStorage.getItem('health-theme'); } catch (e) { return null; } })() || 'auto';
 setTheme(['light', 'dark'].includes(initial) ? initial : 'auto', false);
 renderAll();
-try { strengthKey = localStorage.getItem('health-strength-exercise'); } catch (e) {}
+renderPersonalViews();
+try { strengthKey
+ = localStorage.getItem('health-strength-exercise'); } catch (e) {}
 const tab0 = params.get('tab') || (() => { try { return localStorage.getItem('health-tab'); } catch (e) { return null; } })() || 'overview';
 setTab(PANES[tab0] ? tab0 : 'overview', false);
 // ---------- context pack (export to another assistant) ----------

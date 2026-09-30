@@ -249,3 +249,25 @@ The path and dates above are fabricated. Ordinary `open_service(path)` installs
 the deny policy. A connector must first receive an owner-registered source,
 scoped authenticated handle and the complete persisted write envelope; the
 example does not mint production credentials or submit a private observation.
+
+## Personal extension operation additions
+
+API-1 personal packages use `extensions.list` (GET `/v1/extensions`),
+`extensions.read` (GET `/v1/extensions/{id}` with `sourceId`, `from`, `to`) and
+`extensions.asset` (GET `/v1/extensions/{id}/view.js` with exact `review` and
+selected `sourceId`). All require current records:read admission; metric and
+view assets enforce selected source/kind/field restrictions. The protected
+`/extension-worker.js` asset runs only a reviewed JavaScript ViewSpec. Native
+maintenance paths are not HTTP or health-operation actions, even for owners.
+
+Capabilities also admits records:write-only actors to its finite identity,
+revision, bounds and available-operation response, so the shared durable client
+can prepare CAS without gaining health reads. Such actors retain
+`sourceStatusOperation:null` and cannot access records, dashboard, context or
+personal metric reads. A source binding is checked only after current read
+admission: unknown canonical sources fail explicitly; known disabled or
+unavailable sources are reported as such, never as a current empty series.
+
+See [installed schema, lifecycle and retry details](extension-implementation.md)
+and [native maintenance commands](extensions.md). The static `ScopedClient`
+examples remain supported independently of runtime package activation.

@@ -8,6 +8,7 @@ import stat
 from pathlib import Path
 
 from . import config, legacy
+from .durability import fsync_path
 from .legacy_store import Store
 
 OWNER_NOTE = """# Personal Health Buddy workspace
@@ -40,6 +41,9 @@ def create_file(path: Path, text: str) -> bool:
         return False
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(text)
+        handle.flush()
+        os.fsync(handle.fileno())
+    fsync_path(path.parent)
     return True
 
 
@@ -59,6 +63,10 @@ def initialize(root: Path) -> config.Config:
         _private_directory(settings.path(part))
     _private_directory(settings.storage("cache"))
     create_file(settings.path("personal/README.md"), OWNER_NOTE)
+    create_file(settings.path("personal/WORKSPACE.md"), OWNER_NOTE)
+    for part in ("personal/extensions", "personal/forks"):
+        _private_directory(settings.path(part))
+
     # The temporary umask covers Git-created object/ref files as well as Python.
     # Startup happens before the development server accepts requests.
     previous = os.umask(0o077)
