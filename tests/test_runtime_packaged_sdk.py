@@ -7,11 +7,13 @@ import socket
 import ssl
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from tests import mcp_wire_fixtures as fixtures
+from tests.test_transport_auth_wire import short_directory as short_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -331,3 +333,44 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
                 process.stdin.close()
             if process.stdout is not None:
                 process.stdout.close()
+
+
+def test_sdk_measurement_reaches_dashboard_data_route(short_directory, tmp_path):
+    helper = module("verify_packaged_mcp")
+    with fixtures.actual_backend(short_directory, tmp_path) as (
+        bridge, settings_path, _, _, grant
+    ):
+        settings = json.loads(settings_path.read_bytes())
+        with fixtures.client(settings_path, tmp_path) as wire:
+            initial = wire.tool("discover_workspace", {})
+            saved = wire.tool(
+                "log_health",
+                {
+                    "intentId": "dashboard-tracer",
+                    "identity": settings["identity"],
+                    "expectedRevision": initial["result"]["meta"]["dataRevision"],
+                    "kind": "measurement",
+                    "sourceId": "manual",
+                    "fields": {
+                        "measuredAtLocal": (
+                            datetime.now(UTC) - timedelta(minutes=1)
+                        ).isoformat(),
+                        "timezone": "UTC",
+                        "weightLb": 180,
+                    },
+                },
+            )
+            assert saved["ok"] is True
+            row_id, revision = helper.record(wire)
+        checked = helper.dashboard_record(
+            bridge, grant.secret.value, settings["identity"], row_id, revision
+        )
+        assert checked == {
+            "route": "/?format=json",
+            "result": "passed",
+            "browserRendering": "not checked",
+        }
+        with pytest.raises(AssertionError, match="Dashboard data revision mismatch"):
+            helper.dashboard_record(
+                bridge, grant.secret.value, settings["identity"], row_id, revision + 1
+            )

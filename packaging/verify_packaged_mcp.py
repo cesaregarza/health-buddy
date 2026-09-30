@@ -16,6 +16,7 @@ import os
 import platform
 import signal
 import sys
+from datetime import UTC, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 
@@ -27,12 +28,13 @@ from health_buddy.runtime_manifest import (
     native_directory,
     verify_source_identity,
 )
-from tests.mcp_wire_fixtures import certificate, client, existing_backend
+from tests.mcp_wire_fixtures import certificate, client, existing_backend, request
 
 ROOT = Path(__file__).resolve().parents[1]
 
 INTENT = "packaged-sdk-measurement"
 PHASE_SECONDS = 180
+DASHBOARD_ROUTE = "/?format=json"
 
 
 def require(condition: bool, message: str) -> None:
@@ -118,11 +120,12 @@ def discovery(wire, expected, private_values):
 
 
 def record(wire):
+    now = datetime.now(UTC)
     listed = wire.tool(
         "list_records",
         {
-            "from": "2030-01-01T00:00:00Z",
-            "to": "2030-01-07T23:59:59Z",
+            "from": (now - timedelta(days=1)).isoformat(),
+            "to": now.isoformat(),
             "sourceIds": ["manual"],
             "kinds": ["body_mass"],
             "limit": 20,
@@ -138,6 +141,51 @@ def record(wire):
         "Canonical measurement mismatch",
     )
     return rows[0]["id"], listed["result"]["meta"]["dataRevision"]
+
+
+def dashboard_record(bridge, token, identity, row_id, revision):
+    status, raw, _ = request(
+        bridge.uds,
+        target=DASHBOARD_ROUTE,
+        headers={
+            "Authorization": "Bearer " + token,
+            "X-Forwarded-Host": bridge.origin.removeprefix("https://"),
+            "X-Installation-ID": identity["installationId"],
+            "X-Dataset-ID": identity["datasetId"],
+            "X-Restore-Epoch": identity["restoreEpoch"],
+        },
+    )
+    require(status == 200, "Dashboard data route failed")
+    reply = json.loads(raw)
+    data = reply["data"]
+    rows = [row for row in data["observations"] if row["id"] == row_id]
+    require(
+        len(rows) == 1
+        and rows[0]["kind"] == "body-mass"
+        and rows[0]["value"] == 180
+        and rows[0]["unit"] == "lb"
+        and rows[0]["sourceId"] == "manual",
+        "Dashboard canonical measurement mismatch",
+    )
+    require(
+        any(
+            point["d"] == rows[0]["observedAt"][:10]
+            and point["lb"] == 180
+            and point["src"] == "log"
+            for point in data["weight"]
+        ),
+        "Dashboard weight series lacks SDK measurement",
+    )
+    require(
+        reply["meta"]["dataRevision"] == revision
+        and data["meta"]["dataRevision"] == revision,
+        "Dashboard data revision mismatch",
+    )
+    return {
+        "route": DASHBOARD_ROUTE,
+        "result": "passed",
+        "browserRendering": "not checked",
+    }
 
 
 def run_phase(
@@ -222,7 +270,9 @@ def run_phase(
                         "kind": "measurement",
                         "sourceId": "manual",
                         "fields": {
-                            "measuredAtLocal": "2030-01-03T12:00:00+00:00",
+                            "measuredAtLocal": (
+                                datetime.now(UTC) - timedelta(minutes=1)
+                            ).isoformat(),
                             "timezone": "UTC",
                             "weightLb": 180,
                         },
@@ -308,6 +358,9 @@ def run_phase(
                 == before["receiptSha256"],
                 "Recreated replay wire receipt changed",
             )
+        dashboard = dashboard_record(
+            bridge, private_token, settings["identity"], row_id, revision
+        )
         require(
             private_token not in retained_path.read_text(),
             "Credential leaked into retry state",
@@ -319,6 +372,7 @@ def run_phase(
             "source": expected,
             "sdk": versions,
             "canonicalEffects": 1,
+            "dashboardData": dashboard,
             "requestCount": len(bridge.seen),
             "backend": "loaded-compose-image",
         }

@@ -18,6 +18,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Prepare pinned hosted Docker Engine
+        timeout-minutes: 5
+        env:
+          DOCKER_PACKAGE_VERSION: 5:29.8.1-1~ubuntu.24.04~noble
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # Use the hosted runner's existing signed Docker apt repository.
+          sudo apt-get update
+          sudo --preserve-env=DEBIAN_FRONTEND apt-get install --yes --no-install-recommends "docker-ce=$DOCKER_PACKAGE_VERSION" "docker-ce-cli=$DOCKER_PACKAGE_VERSION"
+          sudo systemctl restart docker
+          test "$(docker --host unix:///run/docker.sock version --format '{{.Client.Version}} {{.Server.Version}}')" = '29.8.1 29.8.1'
       - name: Prepare exact AMD host SDK profile
         timeout-minutes: 6
         env:
@@ -78,6 +89,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Prepare pinned hosted Docker Engine
+        timeout-minutes: 5
+        env:
+          DOCKER_PACKAGE_VERSION: 5:29.8.1-1~ubuntu.24.04~noble
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # Use the hosted runner's existing signed Docker apt repository.
+          sudo apt-get update
+          sudo --preserve-env=DEBIAN_FRONTEND apt-get install --yes --no-install-recommends "docker-ce=$DOCKER_PACKAGE_VERSION" "docker-ce-cli=$DOCKER_PACKAGE_VERSION"
+          sudo systemctl restart docker
+          test "$(docker --host unix:///run/docker.sock version --format '{{.Client.Version}} {{.Server.Version}}')" = '29.8.1 29.8.1'
       - name: Native build and whole-workspace qualification
         env:
           CANDIDATE_SHA: ${{ github.sha }}
@@ -136,6 +158,8 @@ jobs:
           cp "candidate-downloads/runtime-amd64-$CANDIDATE_SHA/health-buddy-linux-amd64.docker.tar" "$CANDIDATE_OUTPUT/artifacts/"
           cp "candidate-downloads/runtime-arm64-$CANDIDATE_SHA/health-buddy-linux-arm64.docker.tar" "$CANDIDATE_OUTPUT/artifacts/"
           python3 scripts/package_runtime.py manifest --bundle "$CANDIDATE_OUTPUT/bundle" --artifacts "$CANDIDATE_OUTPUT/artifacts"
+          cp "candidate-downloads/runtime-amd64-$CANDIDATE_SHA/qualification.json" "$CANDIDATE_OUTPUT/qualification-amd64.json"
+          cp "candidate-downloads/runtime-arm64-$CANDIDATE_SHA/qualification.json" "$CANDIDATE_OUTPUT/qualification-arm64.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: runtime-manifest-${{ github.sha }}
@@ -145,3 +169,5 @@ jobs:
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/runtime-manifest.json
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/SHA256SUMS
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-source.tar
+            ${{ runner.temp }}/hb-runtime-manifest/qualification-amd64.json
+            ${{ runner.temp }}/hb-runtime-manifest/qualification-arm64.json

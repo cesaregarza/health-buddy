@@ -201,6 +201,12 @@ class Qualification:
             or result.get("phase") != phase
             or result.get("backend") != "loaded-compose-image"
             or result.get("source", {}).get("sourceCommit") != self.revision
+            or result.get("dashboardData")
+            != {
+                "route": "/?format=json",
+                "result": "passed",
+                "browserRendering": "not checked",
+            }
         ):
             raise ManifestError("invalid_packaged_sdk_receipt")
 
@@ -577,6 +583,8 @@ class Qualification:
                         "result": "passed",
                         "phases": ["initial", "recreated"],
                         "profile": "CPython-3.12-linux-x86_64",
+                        "dashboardDataRoute": "/?format=json",
+                        "browserRendering": "not checked",
                     }
                     if self.sdk_python is not None
                     else {"result": "not run", "reason": "ARM core-only qualification"}
