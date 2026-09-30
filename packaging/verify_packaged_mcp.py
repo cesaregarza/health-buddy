@@ -127,7 +127,7 @@ def record(wire):
             "from": (now - timedelta(days=1)).isoformat(),
             "to": now.isoformat(),
             "sourceIds": ["manual"],
-            "kinds": ["body_mass"],
+            "kinds": ["body-mass"],
             "limit": 20,
         },
     )
@@ -135,6 +135,7 @@ def record(wire):
     rows = listed["result"]["data"]["records"]
     require(
         len(rows) == 1
+        and rows[0]["kind"] == "body-mass"
         and rows[0]["value"] == 180
         and rows[0]["unit"] == "lb"
         and rows[0]["sourceId"] == "manual",
