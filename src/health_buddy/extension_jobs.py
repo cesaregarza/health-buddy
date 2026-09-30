@@ -98,10 +98,9 @@ def run_event(
             check_deadline(deadline)
             return normalized
 
-        # Original event is the stable intent. Replaying a saved pending event
-        # never re-runs changed normalization code, timestamps or CAS selection.
         # The original source event is the retained intent. A later code review
-        # cannot reinterpret it: identical retries reuse the saved payload.
+        # cannot reinterpret it: identical retries reuse the saved payload,
+        # timestamps and CAS selection without re-running normalization.
         return workflow.write(
             "records.put",
             build,

@@ -20,7 +20,7 @@ from .extension_registry import Registry, status_json
 from .personal_workspace import describe
 from .security_api import BearerProof
 from .security_runtime import open_runtime, read_credential
-from .service_api import Request, ServiceError
+from .service_api import JSON, Request, ServiceError
 
 
 def add_commands(commands: Any) -> None:
@@ -74,6 +74,7 @@ def handle(args: argparse.Namespace) -> int:
         return 0
     action = args.extension_action
     registry = Registry(config)
+    result: dict[str, JSON]
     if action not in {"prepare", "run", "preview"} and args.credential_file is not None:
         raise ServiceError(422, "native_maintenance_does_not_use_health_credential")
     if action == "install":

@@ -122,7 +122,8 @@ def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
                 }:
                     raise ServiceError(422, "invalid_fork")
                 if (
-                    value["schemaVersion"] != 1
+                    type(value["schemaVersion"]) is not int
+                    or value["schemaVersion"] != 1
                     or not isinstance(value["upstreamBase"], str)
                     or not SHA.fullmatch(value["upstreamBase"])
                     or type(value["dirty"]) is not bool
@@ -140,8 +141,9 @@ def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
                 ):
                     raise ServiceError(422, "invalid_fork")
                 for key in ("sourceCommit", "sourceTree"):
-                    if value[key] is not None and (
-                        not isinstance(value[key], str) or not SHA.fullmatch(value[key])
+                    item = value[key]
+                    if item is not None and (
+                        not isinstance(item, str) or not SHA.fullmatch(item)
                     ):
                         raise ServiceError(422, "invalid_fork")
                 patches: list[JSON] = []
@@ -203,8 +205,8 @@ def source_identity() -> dict[str, JSON]:
         "GIT_TERMINAL_PROMPT": "0",
     }
     try:
-        head = subprocess.run(  # noqa: S603 - Fixed read-only Git metadata command.
-            [
+        head = subprocess.run(  # noqa: S603 - Fixed Git builtin; sanitized PATH.
+            [  # noqa: S607 - Fixed Git builtin resolved only through os.defpath.
                 "git",
                 "-c",
                 "core.fsmonitor=false",
@@ -259,7 +261,7 @@ def describe(config: Config, *, upstream_base: str | None = None) -> dict[str, J
             "documentation": ["docs/extensions.md", "docs/extension-implementation.md"],
             "extensions": [status_json(item) for item in statuses],
             "personalInventory": inventory_locked(config),
-            "requiredSecretReferences": sorted(required),
+            "requiredSecretReferences": [cast(JSON, item) for item in sorted(required)],
             "forks": forks_locked(
                 config, upstream_base or cast(str | None, source["commit"])
             ),

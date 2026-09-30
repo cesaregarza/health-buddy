@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "observation": "Initial CES-1085 dependency setup at 13b9007ced853171eeada165d2f590a0ec75992d; not an artifact lock",
+  "installedDistributions": [
+    {
+      "name": "jsonschema",
+      "version": "4.23.0",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "relative_path": "jsonschema-4.23.0.dist-info/licenses/COPYING",
+          "sha256": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
+        }
+      ]
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "relative_path": "attrs-26.1.0.dist-info/licenses/LICENSE",
+          "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+        }
+      ]
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "relative_path": "jsonschema_specifications-2025.9.1.dist-info/licenses/COPYING",
+          "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        }
+      ]
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "relative_path": "referencing-0.37.0.dist-info/licenses/COPYING",
+          "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        }
+      ]
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.6.3",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "relative_path": "rpds_py-2026.6.3.dist-info/licenses/LICENSE",
+          "sha256": "314e4e91be3baa93c0fb4bccc9e4e97cd643eb839b065af921782c2175fe9909"
+        }
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "licenseFiles": [
+        {
+          "relative_path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+        }
+      ]
+    }
+  ],
+  "rpdsInstalledSbom": {
+    "path": "rpds_py-2026.6.3.dist-info/sboms/rpds-py.cyclonedx.json",
+    "bytes": 20594,
+    "sha256": "80a3bfbae1607e51b2569566a469b8a6d9a984d4923c0824086418a6c8a3e763",
+    "components": 17,
+    "allTargets": true,
+    "wheelMembershipVerified": false
+  },
+  "developmentStub": {
+    "name": "types-jsonschema",
+    "version": "4.23.0.20241208",
+    "wheel": "types_jsonschema-4.23.0.20241208-py3-none-any.whl",
+    "bytes": 15021,
+    "sha256": "87934bd9231c99d8eff94cacfc06ba668f7973577a9bd9e1f9de957c5737313e",
+    "declaredLicense": "Apache-2.0",
+    "installedVerification": "pending queue"
+  },
+  "artifactNoticeCollection": "pending exact-wheel and Cargo-checksum queue job; no future runtime image claim"
+}

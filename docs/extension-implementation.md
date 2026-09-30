@@ -1,97 +1,169 @@
-# Extension API 1 implementation seam
+# Extension API 1 implementation
 
-This first CES-1085 checkpoint freezes interfaces; lifecycle, renderer, examples
-and conformance tests are still being implemented. It does not claim validation.
+The installed descriptor is validated against
+[`extension_manifest.schema.json`](../src/health_buddy/extension_manifest.schema.json).
+[`extension_api.py`](../src/health_buddy/extension_api.py) declares finite DTOs and
+limits. The `{manifest,cases}` documents under `contracts/v1/examples` and their
+wrapper schema remain abstract protocol conformance examples. They specify the
+metric, provenance, missingness and retry semantics; they are not installable
+package descriptors or a second runtime. Executable packages and their tests
+are under `src/health_buddy/reference_extensions`.
 
-`extension_api.py` contains finite DTOs, registry statuses and execution bounds.
-`extension_manifest.schema.json` describes an installed `extension.json`;
-`contracts/v1/extension.schema.json` remains the historical fixture wrapper until
-its examples are updated to the installed format in this implementation.
 Descriptor schema version, extension API major, semantic extension version and
-owned state schema are separate. Dependencies are exact declared versions,
-checked without imports or downloads. Compatibility never silently disables or
-migrates personal source/state. Schema/config JSON is byte/depth bounded, has no
-external references, and is inspected without executing owner code.
+owned state schema are separate. API 1 accepts exactly `metric-view` (Python
+`metric`, JavaScript `view`) or `connector-workflow` (Python `connector` and
+`workflow`). Dependencies name an installed extension and exact version; no
+package manager or remote resolution runs. Activation rejects missing, cyclic
+or incompatible dependencies and changed state schemas. It never migrates state.
 
-## Read and view boundary
+## Modules and private ownership
 
-The host admits the current caller through canonical Operations and captures
-only permitted selected source/kind/fields. A metric receives finite JSON with
-an explicit window/timezone, provenance, revision and missingness/truncation.
-The host checks output shape, finite units/values, provenance subset and matching
-revision/window; no owner-wide metric cache serves a narrower caller.
+| Module | Responsibility |
+| --- | --- |
+| `extension_manifest`, `extension_files` | Strict descriptor and bounded nonfollowing file inventory |
+| `extension_registry` | Native reviewed activation, digest snapshots, compatibility, disable and revert |
+| `extension_runner`, `extension_worker` | Bounded schema/pure Python hook execution |
+| `extension_views` | Canonical caller-filtered metric inputs and exact reviewed view asset |
+| `extension_prepare`, `extension_jobs` | Explicit scoped preparation and retained source-event jobs |
+| `client_workflow` | Original request/receipt persistence shared with native clients |
+| `personal_workspace`, `extension_cli` | Native inventory, recorded fork metadata and maintenance commands |
+| dashboard `extension-worker.js` / template | JavaScript ViewSpec worker and escaped built-in rendering |
 
-Native Python entrypoints execute in a bounded owned subprocess using one
-finite JSON exchange. The JavaScript `render` entrypoint runs in a same-origin
-external worker, returns a bounded ViewSpec and is terminated on deadline.
-The built-in renderer uses escaped text, never extension HTML. The runtime
-will expose only enabled digest-bound view source through the same canonical
-read/asset admission; there is no HTTP install/enable/maintenance endpoint.
-No code loads merely because a manifest was discovered. These are failure
-boundaries, not a security sandbox: reviewed local code retains OS/browser
-rights. Declarations describe intent, not enforced egress restrictions.
+All owner code, assets, configuration, tests, notes, migrations and state live
+under `personal/extensions/ID/`, outside release source. The registry is
+`personal/extension-registry.json`; immutable reviewed runtime/config copies
+are under `personal/extension-reviews/ID/DIGEST/`. Unknown personal files are
+retained and inventoried. Neither registry nor status discovery imports owner
+Python/JavaScript or evaluates owner schema patterns.
+
+An installed extension has 128 runtime files, 256 runtime directory entries,
+1 MiB runtime bytes and depth 8 at most; the registry admits 32 installed entries
+and 32 retained reviews per entry. Installation separately bounds the complete
+package at 512 entries, 8 MiB and depth 10. Source, assets, manifest and config
+are review-bound. Edits there become `needs_review`; edits to tests, notes,
+migrations or authoritative state remain durable without silently enabling
+new runtime code. Descriptors/configuration reject unknown shape and oversized
+input. Broken optional entries have safe diagnostic codes and leave built-in
+logging available.
+
+## Current read and view boundary
+
+The finite canonical operations are `extensions.list`, `extensions.read` and
+`extensions.asset`, exposed as GET `/v1/extensions`, `/v1/extensions/{id}` and
+`/v1/extensions/{id}/view.js`. They require current `records:read` authority.
+Metric and view-asset admission enforce the caller's source, kind and field
+restrictions against the selected extension input. No owner-wide derived cache
+can widen those restrictions. The external worker bootstrap asset is also
+protected, at `/extension-worker.js`. There is no HTTP install, enable, disable,
+revert, native inventory, prepare or job execution route.
+
+Metric reads accept `sourceId` and optional `from`/`to`. Both endpoints of an
+explicit window are required; at most seven selected local calendar dates are
+included. The default is today and the preceding six local dates. Multiple
+source bindings require an explicit selection; overlapping sources are never
+silently summed. Inputs contain at most 500 canonical rows plus selected
+source, timezone, window, revision, freshness, missingness and truncation.
+The host checks output values/units, count, unique IDs and provenance subset.
+It supplies the authoritative revision/window/source metadata. Missing values
+stay null. Bounded or unavailable reads remain explicit instead of claiming
+complete totals. The existing canonical read limit may require a narrower
+metric window for a dense optional-source history.
+
+A metric returns `value`, `unit`, `count`, `recordIds` and `missingness`.
+The view hook receives that typed metric and non-secret config and returns
+`{schemaVersion:1,title,rows:[{label,value,unit}],status}`. The host permits at
+most eight rows, validates string/value bounds and renders text with DOM text
+nodes. No extension HTML enters the document. The JavaScript module is loaded
+only from its exact reviewed asset in a same-origin external worker, limited
+to two seconds. A failed/invalid/hung view shows an actionable card while the
+built-in workspace remains usable. Reload reads the current canonical revision;
+this implementation does not push live extension updates into an open page.
+
+Python hooks and owner-schema validation run in an owned `-I -B` child with a
+single bounded JSON exchange, no inherited credentials/environment search path,
+three-second wall limit, two-second CPU limit, 256 MiB address limit and 64 KiB
+output limit. The host reaps the child and terminates its process group.
+Schema validation rejects external references and uses an empty local reference
+registry. Invalid config and timeout have separate safe codes. Reviewed native
+code is owner-trusted: these controls isolate failures, not hostile code.
+Declarations and approved egress/secret-reference bindings document intent;
+they do not enforce a network sandbox or automatically inject vendor secrets.
 
 ## Native lifecycle and connector preparation
 
-Native commands will be `extension install --from PATH`, `enable --id ID`,
-`disable --id ID`, `revert --id ID --review DIGEST`, `inspect`, and `compatibility`.
-Install is create-only. Enable records reviewed manifest/config/runtime digests
-and explicit binding selection; edits yield needs_review before execution.
-Disable preserves every personal file and does not import code. Revert selects
-one retained reviewed code/config snapshot and never overwrites state; it first
-preserves the current files in a reviewable snapshot. Migration remains an
-explicit isolated maintenance action owned by CES-1071, not startup behavior.
+Install is create-only. Enable validates config outside the writer lock, then
+rechecks every reviewed byte under that lock before publishing the selection.
+File data and directory ancestry are flushed before registry publication;
+retry repeats barriers for existing directories/snapshots. A partial snapshot
+cannot be selected. Preserve and inspect incomplete owner files; do not delete
+them automatically to force activation.
 
-The preparation command is:
+Disable preserves every owner file and does not import code, including when a
+manifest is broken. Revert first snapshots the present runtime/config, then
+selects a retained review without overwriting working files or state. Thus the
+editable files can differ from the selected review deliberately; a subsequent
+edit requires fresh review. No automatic rebase, state migration or destructive
+rollback is hidden in these commands.
 
-```sh
-health-buddy --workspace "$WORKSPACE" --credential-file "$OWNER_FILE" \
-  extension prepare --id local.water-import --source-id synthetic-water \
-  --credential-reference secrets/local.water-import-token
-```
+`extension prepare` runs in an explicit native OS-owner process with a private
+owner credential. It registers one exact canonical connector source and creates
+one records:write-only agent for that source, with empty read restrictions and
+no provider permission. Preparation never enables code, starts a schedule or
+passes owner credentials/Service handles into a hook. `extensions:manage` on a
+health credential is not code-activation authority.
 
-It runs only in an explicit native OS-owner process. Preparation acquires its
-extension job lock, authenticates the explicit owner proof, reuses canonical
-source registration and existing security grant actions, and retains a bounded
-non-secret preparation record under personal/. A source is registered first;
-that side effect can remain if later credential preparation fails. The grant
-has only records:write for exactly that source, empty read restrictions and no
-provider permission. Neither owner proof nor Service/Security handles reach the
-extension process. Health extensions:manage never becomes code authority.
+A durable non-secret preparation record identifies the source, stable grant
+name, starting actor inventory, retained actor and private output reference.
+Source registration may remain if a later phase fails. A crash after grant
+creation reconciles the named new actor before requiring an exact match of
+role, sources, read restrictions and current active state. Revoked, changed or
+ambiguous actors produce an explicit reconciliation error; no second actor is
+minted. An existing matching token handoff is reused. Lost or incomplete output
+requires `--rotate-existing` on the same actor and a NEW create-only private
+path. Never overwrite an existing handoff or guess plaintext from a digest.
+For a revoked/ambiguous preparation, inspect the owner grant inventory and
+preserved preparation record before deliberate native reconciliation. There is
+no automatic repair/reset command that discards that evidence.
 
-A durable create intent names the stable source, grant name, intended output
-reference and starting actor inventory before grant creation. If a process dies
-between grant creation and recording its actor ID, retry reconciles the exact
-new matching grant from the current owner inventory; it refuses ambiguity.
-A retained actor is reused and an already valid matching private handoff is
-preserved. Lost/unfinished one-time token output requires explicit
-`--rotate-existing` on the same retained actor and a new create-only private
-handoff path. Never mint a second grant merely because output is missing; never
-replace an existing secret file. Each phase and partial outcome is reported
-without secrets. Preparation does not enable code or start a schedule.
+## Original event retries and backup ordering
 
-## One retry engine and lock order
+`extension run` consumes one explicit source event. It calls the connector to
+normalize value/unit and the workflow hook to retain the same event and
+provenance, then sends a canonical `records.put`. There is no implicit scheduler
+or vendor lookup. Current grant revocation/source restrictions apply before
+replay and writes. Write-only grants may obtain the health-free capabilities
+identity/revision needed for CAS; they cannot list records, open the dashboard,
+read context or request personal views. `sourceStatusOperation` remains null.
 
-`ClientWorkflow(..., namespace=WorkflowNamespace(extension_id, event_id))`
-retains one complete original request/receipt under
-`personal/extensions/ID/state/requests/<event-digest>.json`. The native-client
-default path/format remains unchanged. Changed content for a retained event
-returns source_event_conflict, including after success. Explicit new-write or
-discard cannot replace an extension event. A bounded event-count policy refuses
-new events at capacity; it never evicts conflict/replay evidence implicitly.
+`WorkflowNamespace(extension_id,event_id)` stores the COMPLETE original request
+and receipt under `personal/extensions/ID/state/requests/<event-digest>.json`.
+The event/resource identity is deterministic. The original idempotency key is
+generated once and persisted before send, then reused byte-for-byte with the
+original CAS, payload and identity on retry. The abstract conformance example's
+illustrative key spelling is not a native key-format requirement. A replay
+never reruns changed normalization code or invents a new key. Changed content
+for a retained event yields `source_event_conflict`, including after success.
+A distinct event requires a distinct event ID. Cursors advance only after a
+validated receipt. Capacity is 1,024 event identities per extension; refuse
+before allocating a new event lock, with no implicit evidence eviction.
 
-The host holds a per-extension job lock; ClientWorkflow holds its event lock.
-Path creation, state read and atomic/fsynced state write briefly acquire the
-existing workspace writer lock. Release it before current authentication or
-canonical Operations. Operations then acquires workspace -> security itself.
-Backup holds workspace only and never takes a job/event lock. A snapshot may
-contain pending client state plus a committed canonical receipt: replay must
-reconcile before cursor advancement. External editors do not cooperate with
-this lock, so changing-file inventory is incomplete rather than falsely atomic.
+Lock order is job lock -> event lock -> brief workspace lock for client state.
+Release workspace before calling Operations (workspace -> security). Native
+backup holds workspace/security and never acquires a job/event lock. An atomic
+workspace snapshot may contain pending client state plus a committed canonical
+receipt: unchanged replay reconciles it before cursor advancement. A failed
+mkdir/fsync cannot bypass ancestor barriers on retry. External editors do not
+cooperate with these locks; inventory reports changing/unsupported files as
+incomplete instead of claiming a coherent snapshot.
 
-D1 owns extension_api/schema and this ClientWorkflow seam. D2 will add registry,
-host/native lifecycle, finite operation/transport view reads, maintained
-examples, personal/fork inventory, conformance tests and the escaped renderer.
-No other worker writes these files concurrently. CES-1068 owns real container
-replacement/architectures; CES-1070 owns encrypted copy/restore; CES-1071 owns
-upgrades/migrations; CES-1072/1086 consume discoverable source and command seams.
+Compatible source replacement and fresh-process behavior are local acceptance
+cases. Actual container replacement/architectures are CES-1068, copied/encrypted
+restore and credential rotation CES-1070, upgrade/migration CES-1071, shared
+agent tools CES-1072, scaffolding/guides CES-1086 and cross-agent/device release
+qualification CES-1083. This implementation does not claim those later gates.
+
+Retained native receipts exclude the transport-only `Idempotency-Replayed`
+header. The canonical status, body and other headers remain unchanged on
+identical replay; the wire response may still expose the replay marker.
+Successful replay retains the original envelope/key/cursor and clears any
+previous safe error without changing otherwise identical retained bytes.

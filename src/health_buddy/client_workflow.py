@@ -151,16 +151,20 @@ class ClientWorkflow:
                 directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             else:
                 parent = self.config.path(root)
+                fsync_path(parent)
+                fsync_path(parent.parent)
                 for component in ("state", "requests"):
                     child = self.config.path(
                         str((parent / component).relative_to(self.config.root))
                     )
                     if not child.exists():
                         child.mkdir(mode=0o700)
-                        fsync_path(child)
-                        fsync_path(parent)
                     if not child.is_dir() or stat.S_IMODE(child.stat().st_mode) & 0o077:
                         raise ServiceError(503, "client_state_unavailable")
+                    # A previous mkdir may have survived a failed durability
+                    # barrier; existence alone never proves it persisted.
+                    fsync_path(child)
+                    fsync_path(parent)
                     parent = child
                 children = bounded_children(directory, 2048)
                 occupied = {path.stem for path in children}
@@ -381,7 +385,12 @@ class ClientWorkflow:
         state["receipt"] = {
             "status": result.status,
             "bodyBase64": base64.b64encode(result.body).decode("ascii"),
-            "headers": [list(item) for item in result.headers],
+            # The journal adds this transport-only marker on replay. It is
+            # not part of the immutable canonical receipt retained locally.
+            "headers": [
+                list(item) for item in result.headers
+                if item[0].lower() != "idempotency-replayed"
+            ],
         }
         self._save(path, state)
         return value

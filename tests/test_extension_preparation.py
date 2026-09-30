@@ -62,7 +62,7 @@ def _finish(process, expected=87):
 )
 def test_process_exit_setup_reuses_exact_source_and_actor(tmp_path, point):
     root = tmp_path / "owner"
-    runtime, owner, token = secured(root)
+    runtime, _owner, token = secured(root)
     example(runtime.operations.config, NAME)
     process = multiprocessing.get_context("spawn").Process(
         target=_crash, args=(root, token, point)
@@ -98,7 +98,7 @@ def test_process_exit_setup_reuses_exact_source_and_actor(tmp_path, point):
         (root / f"personal/extensions/{NAME}/state/preparation.json").read_text()
     )
     assert state["phase"] == "ready"
-    assert proof.value not in json.dumps(state)
+    assert proof.token not in json.dumps(state)
 
 
 @pytest.mark.parametrize("change", ["revoked", "read_scope"])

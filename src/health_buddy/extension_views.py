@@ -22,16 +22,7 @@ METRIC_FIELDS = frozenset({"id", "kind", "value", "unit", "observedAt", "sourceI
 
 def catalog(service: Service) -> list[JSON]:
     registry = Registry(service.config)
-    result: list[JSON] = []
-    for item in registry.inspect_locked():
-        value = status_json(item)
-        value["kind"] = (
-            registry.ready_locked(item.id).manifest.kind
-            if item.state == "ready"
-            else None
-        )
-        result.append(value)
-    return result
+    return [status_json(item) for item in registry.inspect_locked()]
 
 
 def _scope(authority: Authority, reviewed: ReviewedExtension, source: str) -> None:
@@ -50,6 +41,15 @@ def _scope(authority: Authority, reviewed: ReviewedExtension, source: str) -> No
         authority.read_fields is not None and not fields <= authority.read_fields
     ):
         raise ServiceError(403, "insufficient_read_fields")
+
+
+def _known_source(service: Service, source: str) -> None:
+    # Called only after current source/field admission. Native activation has
+    # no health authority and can record a future syntactically valid binding.
+    if source not in service.journal.sources() and source not in {
+        "healthkit-import", "sleepiq-export"
+    }:
+        raise ServiceError(422, "extension_source_unknown")
 
 
 def _metric(
@@ -88,6 +88,7 @@ def _metric(
         raise ServiceError(422, "extension_source_selection_required")
     source = identifier(source)
     _scope(authority, reviewed, source)
+    _known_source(service, source)
     from .views import _records
 
     query = {
@@ -114,6 +115,16 @@ def _metric(
     records = cast(list[dict[str, JSON]], rows)
     truncated = data["nextCursor"] is not None
     stale = data["stale"] is True
+    component = capture["components"].get(source)
+    source_kind = service.journal.sources().get(source, {}).get("source_kind")
+    if component is None and (
+        source == "healthkit-import" or source_kind == "healthkit"
+    ):
+        component = capture["components"].get("healthkit")
+    disabled = component is not None and component["state"]["availability"] == "disabled"
+    source_missingness = "source_unavailable" if stale else (
+        "source_disabled" if disabled else None
+    )
     freshness = (
         "stale"
         if stale or any(row.get("freshness") == "stale" for row in records)
@@ -121,7 +132,7 @@ def _metric(
         if records and all(row.get("freshness") == "fresh" for row in records)
         else "unknown"
     )
-    projection = "stale" if stale else "partial" if truncated else "current"
+    projection = "stale" if stale else "partial" if truncated or disabled else "current"
     payload: dict[str, JSON] = {
         "schemaVersion": 1,
         "records": rows,
@@ -133,7 +144,7 @@ def _metric(
         "projectionState": projection,
         "freshness": freshness,
         "truncated": truncated,
-        "missingness": "source_unavailable" if stale else None,
+        "missingness": source_missingness,
         "config": reviewed.config,
     }
     check_deadline(request.deadline)
@@ -172,7 +183,7 @@ def _metric(
         "projectionState": projection,
         "freshness": freshness,
         "truncated": truncated,
-        "missingness": "source_unavailable" if stale else missingness,
+        "missingness": source_missingness or missingness,
     }
 
 
@@ -196,6 +207,7 @@ def read(
         if source is None:
             raise ServiceError(422, "extension_source_selection_required")
         _scope(authority, reviewed, source)
+        _known_source(service, source)
         path = reviewed.manifest.entrypoints["view"].split(":", 1)[0]
         from .extension_files import read_file
 

@@ -10,9 +10,9 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "tests")]
-from api_fixture import META
-from dashboard_fixture import AS_OF, snapshot
-from preview import render
+from api_fixture import META  # noqa: E402 - Explicit source fixture path above.
+from dashboard_fixture import AS_OF, snapshot  # noqa: E402
+from preview import render  # noqa: E402
 
 REVIEW = "a" * 64
 METRIC = "local.weekly-mass"
@@ -72,7 +72,10 @@ def run_width(browser, width):
             if scenario["mode"] == "hang":
                 source = "export function render() { while (true) {} }"
             elif scenario["mode"] == "invalid":
-                source = "export function render() { return {html:'<script>throw 1</script>'}; }"
+                source = (
+                    "export function render() { "
+                    "return {html:'<script>throw 1</script>'}; }"
+                )
             request.fulfill(status=200, content_type="text/javascript", body=source)
         elif address.path == f"/v1/extensions/{METRIC}":
             if scenario["mode"] == "denied":
@@ -155,7 +158,9 @@ def main():
         finally:
             browser.close()
     print(
-        "PASS personal views: real worker, config/unit/escaped text, missingness, stale/limited notices, connector exclusion and denied/invalid/hung view isolation at 390/1440; synthetic API model, no real saves/providers"
+        "PASS personal views: real worker, config/unit/escaped text, missingness, "
+        "stale/limited notices, connector exclusion and denied/invalid/hung "
+        "view isolation at 390/1440; synthetic API model, no real saves/providers"
     )
 
 

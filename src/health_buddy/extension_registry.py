@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import cast
 
 from .config import Config
-from .domain import decode, encode
+from .domain import decode, encode, identifier
 from .durability import atomic_bytes, exclusive, fsync_path
 from .extension_api import (
     EXTENSION_API,
     MAX_CONFIG_BYTES,
     MAX_EXTENSIONS,
     ExtensionManifest,
+    ExtensionKind,
     ExtensionState,
     ExtensionStatus,
 )
@@ -134,6 +135,7 @@ class Registry:
         if target.exists():
             if runtime_files(target).digest != files.digest:
                 raise ServiceError(503, "extension_review_corrupt")
+            self._sync_review(target, files)
             return target
         # A partially written review is never selected. Its presence blocks a
         # retry until explicit inspection; personal source remains untouched.
@@ -149,12 +151,21 @@ class Registry:
                     (target / ancestor).mkdir(mode=0o700, exist_ok=True)
             path.parent.mkdir(mode=0o700, exist_ok=True)
             atomic_bytes(path, raw)
-        for directory in sorted(target.rglob("*"), reverse=True):
-            if directory.is_dir():
-                fsync_path(directory)
-        fsync_path(target)
-        fsync_path(base)
+        self._sync_review(target, files)
         return target
+
+    @staticmethod
+    def _sync_review(target: Path, files: FileInventory) -> None:
+        # Existing complete snapshots may be a retry after an fsync failure.
+        # Prove file and every directory-entry barrier again before selection.
+        for relative in files.files:
+            fsync_path(target / relative)
+        for relative in sorted(
+            files.directories, key=lambda item: item.count("/"), reverse=True
+        ):
+            fsync_path(target / relative)
+        fsync_path(target)
+        fsync_path(target.parent)
 
     def _reviewed(
         self, name: str, entry: dict[str, JSON], current: FileInventory
@@ -216,6 +227,7 @@ class Registry:
             entry = entries.get(name, _empty_entry())
             enabled = entry["enabled"] is True
             version = None
+            kind: ExtensionKind | None = None
             state: ExtensionState = "disabled"
             diagnostic: tuple[str, ...] = ()
             safe_name = name
@@ -224,12 +236,14 @@ class Registry:
                 current = runtime_files(self.root(name))
                 manifest = parse_manifest(current.files["extension.json"])
                 version = manifest.version
+                kind = manifest.kind
                 if manifest.id != name:
                     raise ServiceError(422, "extension_id_mismatch")
                 if enabled:
                     reviewed = self._reviewed(name, entry, current)
                     ready[name] = reviewed
                     version = reviewed.manifest.version
+                    kind = reviewed.manifest.kind
                     state = "ready"
                 elif manifest.extension_api != EXTENSION_API:
                     state = "incompatible_api"
@@ -240,11 +254,12 @@ class Registry:
                     if isinstance(exc, ServiceError)
                     else "extension_layout_invalid"
                 )
-                state = {
+                error_states: dict[str, ExtensionState] = {
                     "extension_needs_review": "needs_review",
                     "extension_incompatible_api": "incompatible_api",
                     "extension_state_migration_required": "state_migration_required",
-                }.get(code, "invalid_manifest")
+                }
+                state = error_states.get(code, "invalid_manifest")
                 diagnostic = (code,)
                 if not isinstance(name, str) or len(name) > 80:
                     safe_name = f"invalid-entry-{index}"
@@ -255,6 +270,7 @@ class Registry:
                 version,
                 cast(str | None, entry["selected"]),
                 diagnostic,
+                kind,
             )
         memo: dict[str, ExtensionState | None] = {}
 
@@ -288,6 +304,7 @@ class Registry:
                     old.version,
                     old.reviewed_digest,
                     ("extension_" + failure,),
+                    old.kind,
                 )
         return tuple(statuses[name] for name in names)
 
@@ -324,8 +341,8 @@ class Registry:
             or len(source_ids) > 8
         ):
             raise ServiceError(422, "extension_source_binding_required")
-        if any(not isinstance(item, str) or len(item) > 128 for item in source_ids):
-            raise ServiceError(422, "extension_source_binding_required")
+        for source in source_ids:
+            identifier(source)
         if set(approved_egress) != set(manifest.egress):
             raise ServiceError(422, "extension_egress_approval_required")
         refs = dict(secret_references or {})
@@ -434,6 +451,7 @@ class Registry:
                 item.version,
                 item.reviewed_digest,
                 ("extension_target_api_incompatible",),
+                item.kind,
             )
             for item in statuses
         )

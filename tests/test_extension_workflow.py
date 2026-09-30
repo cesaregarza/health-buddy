@@ -60,7 +60,8 @@ def namespace(event_id):
 
 def state_path(config, event_id):
     return config.path(
-        f"personal/extensions/{EXTENSION}/state/requests/{digest({'eventId': event_id})}.json"
+        f"personal/extensions/{EXTENSION}/state/requests/"
+        + digest({"eventId": event_id}) + ".json"
     )
 
 
@@ -209,8 +210,8 @@ def test_real_authority_rotation_recovers_lost_ack_for_same_actor(
     base_revision = runtime.operations.journal.state().revision
     execute = runtime.operations.execute
 
-    def lose_ack(principal, request):
-        reply = execute(principal, request)
+    def lose_ack(principal, request, _execute=execute):
+        reply = _execute(principal, request)
         if request.operation == "logs.write":
             saved_replies.append(reply)
             sent_requests.append(replace(request, deadline=None))
@@ -286,3 +287,37 @@ def test_real_authority_rotation_recovers_lost_ack_for_same_actor(
         )
     )
     assert len(records["data"]["records"]) == 1
+
+
+def test_replay_marker_is_not_retained_and_success_clears_prior_error(tmp_path):
+    config = initialize(tmp_path / "owner")
+    config.path(f"personal/extensions/{EXTENSION}").mkdir(mode=0o700, parents=True)
+    operations = SyntheticOperations()
+    workflow = make_workflow(config, operations, "receipt-marker")
+    result = emit(workflow)
+    path = state_path(config, "receipt-marker")
+    original = path.read_bytes()
+    execute = operations.execute
+    denied = False
+
+    def with_marker(principal, request):
+        if denied:
+            raise ServiceError(503, "source_unavailable", retryable=True)
+        response = execute(principal, request)
+        return replace(response, headers=(
+            *response.headers, ("iDeMpOtEnCy-RePlAyEd", "true")
+        ))
+
+    operations.execute = with_marker
+    assert workflow.retry() == result
+    assert path.read_bytes() == original
+    denied = True
+    with pytest.raises(ServiceError, match="source_unavailable"):
+        workflow.retry()
+    failed = json.loads(path.read_bytes())
+    assert failed["state"] == "complete" and failed["cursor"] == 1
+    assert failed["lastError"]["code"] == "source_unavailable"
+    denied = False
+    assert workflow.retry() == result
+    assert path.read_bytes() == original
+    assert operations.revision == 1

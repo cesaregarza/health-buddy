@@ -68,6 +68,7 @@ class ExtensionStatus:
     version: str | None = None
     reviewed_digest: str | None = None
     diagnostics: tuple[str, ...] = ()
+    kind: ExtensionKind | None = None
 
 
 @dataclass(frozen=True)

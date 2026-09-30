@@ -156,7 +156,7 @@ def prepare(
             raise ServiceError(503, "extension_source_preparation_failed")
         fault("source_registered")
         actors = _actors(runtime, owner_proof)
-        actor_id = record["actorId"]
+        actor_id = cast(str | None, record["actorId"])
         if actor_id is None and record["phase"] in {"grant_pending", "handoff_pending"}:
             candidates = [
                 actor
@@ -171,7 +171,10 @@ def prepare(
             if candidates:
                 if not _matches(candidates[0], grant_name, source):
                     raise ServiceError(409, "extension_grant_requires_reconciliation")
-                actor_id = candidates[0]["id"]
+                candidate_id = candidates[0]["id"]
+                if not isinstance(candidate_id, str):
+                    raise ServiceError(503, "extension_preparation_unavailable")
+                actor_id = candidate_id
                 record["actorId"] = actor_id
         if actor_id is None and any(
             actor.get("name") == grant_name for actor in actors
@@ -235,7 +238,7 @@ def prepare(
                     payload=AgentGrant(grant_name, ("records:write",), (source,))
                     if actor_id is None
                     else None,
-                    resource_id=cast(str | None, actor_id),
+                    resource_id=actor_id,
                     identity=client.identity,
                 ),
             )

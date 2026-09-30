@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .domain import decode, digest
+from .durability import fsync_path
 from .extension_api import MAX_RUNTIME_BYTES, MAX_RUNTIME_FILES
 from .service_api import JSON, ServiceError
 
@@ -44,6 +45,10 @@ def private_directory(path: Path, *, create: bool = False) -> None:
         or stat.S_IMODE(info.st_mode) & 0o077
     ):
         raise ServiceError(503, "extension_path_unavailable")
+    if create:
+        # Retry barriers even when a prior mkdir succeeded before fsync failed.
+        fsync_path(path)
+        fsync_path(path.parent)
 
 
 def read_file(path: Path, limit: int) -> bytes:

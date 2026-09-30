@@ -47,7 +47,7 @@ def put(
             },
         ),
     )
-    assert response.status == 201
+    assert response.status == 200
     return decoded(response)
 
 
@@ -244,7 +244,8 @@ def test_prepared_write_only_grant_caps_and_job_succeed_without_read_access(tmp_
     assert row["sourceId"] == "fabricated-water" and row["sourceKind"] == "connector"
     assert row["missingness"] is None
     state_path = runtime.operations.config.path(
-        f"personal/extensions/{JOB}/state/requests/{digest({'eventId': event['eventId']})}.json"
+        f"personal/extensions/{JOB}/state/requests/"
+        + digest({"eventId": event["eventId"]}) + ".json"
     )
     state_bytes = state_path.read_bytes()
     with pytest.raises(ServiceError, match="source_event_conflict"):
@@ -304,3 +305,29 @@ def test_metric_and_connector_catalog_and_failures_leave_daily_use_available(tmp
         .read_text()
         .endswith("RuntimeError('fabricated failure')\n")
     )
+
+
+def test_unknown_disabled_and_unavailable_binding_are_not_fresh_empty(tmp_path):
+    runtime, owner, token = secured(tmp_path / "owner")
+    config = runtime.operations.config
+    example(config, METRIC)
+    registry = Registry(config)
+    for invalid in ("has a space", "nested/source"):
+        with pytest.raises(ServiceError):
+            registry.enable(METRIC, source_ids=(invalid,))
+    registry.enable(METRIC, source_ids=("unregistered-source",))
+    unknown = metric(runtime, owner)
+    assert unknown.status == 422
+    assert json.loads(unknown.body)["error"]["code"] == "extension_source_unknown"
+    registry.enable(METRIC, source_ids=("healthkit-import",))
+    disabled = decoded(metric(runtime, owner))["data"]["metric"]
+    assert disabled["value"] is None and disabled["projectionState"] == "partial"
+    assert disabled["missingness"] == "source_disabled"
+    values = json.loads((config.root / "config.json").read_text())
+    values["integrations"]["healthkit"]["enabled"] = True
+    write_json(config.root / "config.json", values)
+    fresh = open_runtime(config.root)
+    current = fresh.security.authenticate(BearerProof(token))
+    unavailable = decoded(metric(fresh, current))["data"]["metric"]
+    assert unavailable["value"] is None and unavailable["projectionState"] == "stale"
+    assert unavailable["missingness"] == "source_unavailable"
