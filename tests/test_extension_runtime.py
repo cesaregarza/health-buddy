@@ -133,8 +133,9 @@ def test_agent_guide_display_edit_requires_review_and_preserves_canonical_metric
     assert runtime.operations.journal.state().revision == revision
 
     registry.revert(METRIC, original.reviewed_digest)
-    assert decoded(metric(runtime, owner))["data"]["view"]["config"] == (
-        baseline["view"]["config"]
+    assert (
+        decoded(metric(runtime, owner))["data"]["view"]["config"]
+        == (baseline["view"]["config"])
     )
     settings = json.loads((root / "config/settings.json").read_text())
     assert settings["displayUnit"] == "lb"

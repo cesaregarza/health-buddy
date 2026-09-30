@@ -23,7 +23,9 @@ if TYPE_CHECKING:
 DOCUMENTS = (
     DocumentRef("agent-guide", "docs/agent-guide.md"),
     DocumentRef("extension-interface", "src/health_buddy/extension_api.py"),
-    DocumentRef("extension-descriptor", "src/health_buddy/extension_manifest.schema.json"),
+    DocumentRef(
+        "extension-descriptor", "src/health_buddy/extension_manifest.schema.json"
+    ),
     DocumentRef("extension-tests", "tests/test_extension_runtime.py"),
     DocumentRef("architecture", "docs/architecture.md"),
     DocumentRef("data-contract", "docs/v1-contract.md"),
