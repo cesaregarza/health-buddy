@@ -50,7 +50,7 @@ const HealthFeatures = (() => {
   function checks(){const value=read(CHECK_KEY);return value?.version===1&&value.values&&typeof value.values==='object'?value.values:{};}
   function checked(key){return !!checks()[key];}
   function setChecked(key,value){const values=checks();values[key]=value;const cutoff=today().slice(0,7);for(const old of Object.keys(values))if(old.startsWith('rx-')&&old.slice(3,10)<cutoff)delete values[old];return write(CHECK_KEY,{version:1,values});}
-  function newDraft(){return {version:1,revision:0,session_id:'dashboard-'+crypto.randomUUID(),date:today(),workout_type:'upper_body',status:'complete',duration_min:'',notes:'',sets:[],receipt:null,updated:null};}
+  function newDraft(){return {version:1,revision:0,session_id:'dashboard-'+crypto.randomUUID(),date:today(),workout_type:data.config?'strength':'upper_body',status:'complete',duration_min:'',notes:'',sets:[],receipt:null,updated:null};}
   function restore(){
     const saved=read(DRAFT_KEY);
     if(saved?.version===1&&Array.isArray(saved.sets)&&saved.sets.length<=80&&saved.sets.every(s=>s&&typeof s==='object'&&!Array.isArray(s))&&typeof saved.session_id==='string'&&typeof saved.date==='string'&&Number.isInteger(saved.revision)){draft=saved;revision=saved.revision;}
@@ -95,7 +95,13 @@ const HealthFeatures = (() => {
         const card=el('section',{class:'entered-set'},setHost);el('h3',{text:`Completed set ${index+1}`},card);
         const row=el('div',{class:'workout-fields'},card);
         const definitions=[['Exercise','exercise',{}],['Actual machine / equipment','equipment',{}],['Set number','set_number',{type:'number',attrs:{min:1,max:1000,step:1,required:''}}],['Load (lb, optional)','load_lb',{type:'number',attrs:{min:0,max:2000,step:'any'}}],['Load basis','load_basis',{choices:[['not_reported','Not recorded'],['per_hand','Per hand'],['total_stack','Total stack'],['machine_stack','Machine stack'],['total','Total load'],['bodyweight','Bodyweight']]}],['Completed reps','reps',{type:'number',attrs:{min:1,max:1000,step:1,required:''}}],['RIR (optional)','rir',{type:'number',attrs:{min:0,max:10,step:1}}],['Reported form','form_quality',{choices:[['not_reported','Not reported'],['controlled','Controlled'],['clean','Clean'],['breakdown','Form breakdown']]}],['Set notes','notes',{multiline:true,attrs:{maxlength:2000}}]];
-        for(const [label,key,options]of definitions){const input=field(row,label,key,options);input.value=set[key]??'';if(['exercise','equipment'].includes(key)){input.required=true;input.maxLength=100;}input.oninput=()=>{set[key]=input.value;changed();};}
+        for(const [label,key,options]of definitions){const input=field(row,label,key,options);input.value=set[key]??'';if(['exercise','equipment'].includes(key)){input.required=true;input.maxLength=100;}input.oninput=()=>{set[key]=input.value;changed();};
+          if(key==='equipment' && data.config?.equipment?.length){
+            const list=el('datalist',{id:`equipment-options-${index}`},row); input.setAttribute('list',list.id);
+            for(const item of data.config.equipment)el('option',{value:item.id,text:item.label},list);
+            input.onchange=()=>{const item=data.config.equipment.find(item=>item.id===input.value);if(item){set.exercise=item.exercise;set.load_basis=item.loadBasis;changed();drawSets();}};
+          }
+        }
         const remove=el('button',{type:'button',class:'action',text:'Remove set'},card);remove.onclick=()=>{draft.sets.splice(index,1);changed();drawSets();};
       });
     }

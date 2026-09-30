@@ -9,6 +9,11 @@ read with `git show COMMIT:PATH`. Each entry also records the extracted digest,
 whether the bytes are unchanged, and the adaptation category. No clone, source Git objects, live working-tree
 files, remote access, data export or source-repository mutation was used.
 
+The `extractedSha256` values are historical extraction evidence for accepted
+commit `57947151afbd1d7eb05c00820d7dc42e55113bc0`. They are not rolling digests
+of later implementation. Validate that manifest against the extraction commit;
+review and validate later source changes against their own exact commits.
+
 The private source repository has newer uncommitted work. This extraction
 deliberately excludes it. It neither replaces nor changes that checkout, the
 separate dashboard worktree, or the personal deployment.

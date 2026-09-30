@@ -7,7 +7,8 @@ extension interfaces to help the owner adapt it.
 
 This repository contains the **v1 contract** and a clean source extraction of
 the dashboard, HealthKit ingest, manual operations and optional SleepIQ source.
-The supported demonstration uses fabricated data. Portable first run, canonical
+The source bundle now supports a private local first run, manual logging,
+dashboard and context packs with every optional integration disabled. Canonical
 v1 operations, production authorization, installer and agent packages are later
 tickets. Passing these checks does not establish release qualification.
 
@@ -19,6 +20,7 @@ tickets. Passing these checks does not establish release qualification.
 - [Source map and data ownership](docs/architecture.md)
 - [Extraction provenance and exclusions](docs/extraction.md)
 - [Contributor setup and synthetic preview](CONTRIBUTING.md)
+- [Portable local first run and owner configuration](docs/configuration.md)
 - [Queue verification commands](docs/verification.md)
 - [Dependency and asset notices](THIRD_PARTY.md)
 

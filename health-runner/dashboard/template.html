@@ -387,7 +387,7 @@
     <div class="meta">Auto follows your device. Preferences stay in this browser.</div>
     <h2 class="settings-sub">Context pack</h2>
     <button type="button" class="act" id="export-open" aria-expanded="false" aria-controls="export">Export for another assistant…</button>
-    <div class="meta">A plain-text summary of chosen sections, to paste into any assistant. Only the request you type is sent to Jev to choose sections; the data itself is assembled on the Pi.</div>
+    <div class="meta">Choose sections manually to build a local summary for any assistant. If enabled, Jev can suggest sections from the request you type.</div>
   </section>
   <section class="settings export" id="export" hidden aria-label="Context pack">
     <div class="export-head"><h2>Context pack for another assistant</h2><button type="button" class="act" id="export-close">Close</button></div>
@@ -411,6 +411,7 @@
     <textarea id="export-out" rows="14" readonly spellcheck="false" hidden aria-label="Context pack text"></textarea>
   </section>
   <div id="pane-overview" class="tabpane">
+    <section id="workspace-status" class="data-status" aria-label="Workspace and sources" hidden></section>
     <h2 class="section-title" id="daily-heading">Today at a glance</h2>
     <section class="tiles" id="tiles" aria-label="Daily summary"></section>
     <section id="today" aria-label="Needs attention"></section>
@@ -731,7 +732,8 @@ function figWeight(dom) {
   const daily = DATA.weight.filter(p => p.src !== 'healthkit').map(p => ({ d: p.d, y: p.lb })), prov = DATA.weight.filter(p => p.src === 'healthkit').map(p => ({ d: p.d, y: p.lb, note: 'scale sync, not in log yet' })), avg = DATA.weight7.map(p => ({ d: p.d, y: p.lb }));
   if (f.showTable()) { table(f.body, ['Date', 'Weight (lb)', '7-day avg', 'Source'], DATA.weight.filter(p => inRange(p.d, dom)).map(p => [p.d, p.lb.toFixed(1), (DATA.weight7.find(q => q.d === p.d) || {}).lb?.toFixed(1), p.src === 'healthkit' ? 'scale sync (not in log yet)' : 'log'])); }
   else { legend(f.fig, [{ name: '7-day average', color: 'var(--s1)' }, { name: 'Daily reading', color: 'var(--de)', kind: 'dot' }].concat(prov.length ? [{ name: 'Scale sync, not in log yet', color: 'var(--s1)', kind: 'hollow' }] : []));
-    lineChart(f.body, dom, [{ name: 'Daily', slot: 'de', points: daily, markers: true, endLabel: false }, { name: '7-day avg', slot: 's1', points: avg }].concat(prov.length ? [{ name: 'Scale sync', slot: 's1', points: prov, markers: true, hollow: true, endLabel: false, noLine: true }] : []), { yfmt: v => fmtN(v, 1) + ' lb', afmt: v => fmtN(v, 0), rules: Number.isFinite(DATA.weight_goals?.milestone) ? [{ y: DATA.weight_goals.milestone, label: `${DATA.weight_goals.milestone} lb goal` }] : [], bands: Array.isArray(DATA.weight_goals?.band) ? [{ y0: DATA.weight_goals.band[0], y1: DATA.weight_goals.band[1], label: 'Configured goal band' }] : [], marks: DATA.injections, height: 240 }); }
+    const goalRules = Array.isArray(DATA.weight_goals?.configured) ? DATA.weight_goals.configured.map(goal=>({y:goal.value,label:goal.label})) : Number.isFinite(DATA.weight_goals?.milestone) ? [{y:DATA.weight_goals.milestone,label:`${DATA.weight_goals.milestone} lb goal`}] : [];
+    lineChart(f.body, dom, [{ name: 'Daily', slot: 'de', points: daily, markers: true, endLabel: false }, { name: '7-day avg', slot: 's1', points: avg }].concat(prov.length ? [{ name: 'Scale sync', slot: 's1', points: prov, markers: true, hollow: true, endLabel: false, noLine: true }] : []), { yfmt: v => fmtN(v, 1) + ' lb', afmt: v => fmtN(v, 0), rules: goalRules, bands: Array.isArray(DATA.weight_goals?.band) ? [{ y0: DATA.weight_goals.band[0], y1: DATA.weight_goals.band[1], label: 'Configured goal band' }] : [], marks: DATA.injections, height: 240 }); }
   return f.fig;
 }
 function figBP(dom) {
@@ -895,9 +897,15 @@ function renderProgressTiles() {
   const est = W.estimated_treatment_start, cur = W.weight.current_7_day;
   const lost = Number.isFinite(est?.estimated_weight_lb) && Number.isFinite(cur?.average_weight_lb) ? est.estimated_weight_lb - cur.average_weight_lb : null;
   const hero = $('div', {class:'journey-hero'}, host);
-  $('div', {class:'meta',text:'Since inferred treatment start'}, hero);
-  $('div', {class:'value',text:lost == null ? 'Change unavailable' : `${fmtN(Math.abs(lost),1)} lb ${lost >= 0 ? 'down' : 'up'}`}, hero);
-  $('div', {class:'meta',text:`${fmtN(est?.estimated_weight_lb,1)} lb inferred start (${fmtD(est?.date)}) → ${fmtN(cur?.average_weight_lb,1)} lb current 7-day average${lost == null ? '' : ` · ${fmtN(Math.abs(lost / est.estimated_weight_lb * 100),1)}% change`}`}, hero);
+  if (Number.isFinite(est?.estimated_weight_lb)) {
+    $('div', {class:'meta',text:'Since inferred treatment start'}, hero);
+    $('div', {class:'value',text:lost == null ? 'Change unavailable' : `${fmtN(Math.abs(lost),1)} lb ${lost >= 0 ? 'down' : 'up'}`}, hero);
+    $('div', {class:'meta',text:`${fmtN(est.estimated_weight_lb,1)} lb inferred start (${fmtD(est.date)}) → ${fmtN(cur?.average_weight_lb,1)} lb current 7-day average${lost == null ? '' : ` · ${fmtN(Math.abs(lost / est.estimated_weight_lb * 100),1)}% change`}`}, hero);
+  } else {
+    $('div', {class:'meta',text:'Recorded weight trend'}, hero);
+    $('div', {class:'value',text:`${fmtN(cur?.average_weight_lb,1)} lb`}, hero);
+    $('div', {class:'meta',text:`Current 7-day average · ${cur?.days_observed || 0} observed days. No treatment baseline selected.`}, hero);
+  }
   const fw = W.weight.forward_30_day || {};
   $('div', {class:'meta',text:`${fmtN(fw.robust_loss_rate_lb_per_week,1)} lb/wk · latest 30-day robust pace · scenarios, not a quota`}, hero);
   const goals = $('div', {class:'goal-grid'}, hero);
@@ -1321,7 +1329,7 @@ function renderTraining() {
   const nextHost = document.getElementById('training-next'); nextHost.textContent = '';
   const nextRx = (TRAINING.prescriptions || []).find(p => p.date > today || (p.date === today && p.recommendation?.status !== 'completed')) || (TRAINING.prescriptions || []).at(-1);
   if (nextRx) renderRecommendation(nextRx, nextHost, true); else $('div', { class: 'empty', text: 'No daily prescription is available yet.' }, nextHost);
-  TrainingFast.mount(document.getElementById('training-fast'),{snapshot:nextRx,revision:DATA.meta.origin_full_sha,rows:nextHost.querySelector('.rx-list')});
+  TrainingFast.mount(document.getElementById('training-fast'),{snapshot:nextRx,revision:DATA.meta.origin_full_sha,rows:nextHost.querySelector('.rx-list'),enabled:DATA.config ? DATA.config.integrations.jev.enabled : true});
   HealthFeatures.renderWorkout(document.getElementById('health-buddy'),nextRx);
   renderLastSession(nextHost);
   renderTrainingDay(); renderTrainingHistory(); setGymView(gymView,false); trainingRendered = true;
@@ -1530,7 +1538,8 @@ function setTab(name, persist = true) {
   for (const [k, pid] of Object.entries(PANES)) document.getElementById(pid).hidden = name !== k;
   document.getElementById('range').style.display = name === 'overview' ? '' : 'none';
   document.getElementById('print-notes').hidden = name !== 'notes';
-  document.getElementById('page-title').textContent = {overview:'Health',progress:'Progress',training:'Training',labs:'Labs',notes:"Doctor’s notes"}[name]; document.title = TAB_TITLES[name];
+  const pageLabel = {overview:DATA.config?.displayName || 'Health',progress:'Progress',training:'Training',labs:'Labs',notes:"Doctor’s notes"}[name];
+  document.getElementById('page-title').textContent = pageLabel; document.title = pageLabel;
   if (name === 'overview') renderAll();
   if (name === 'progress') renderProgress();
   if (name === 'training' && !trainingRendered) renderTraining();
@@ -1600,7 +1609,17 @@ function renderAll() {
   for (const section of CHART_SECTIONS) {const node = document.getElementById('section-'+section.id); if(node.open) drawSection(section,node);}
   renderTiles(); renderToday();
   const m = DATA.meta; document.getElementById('meta').textContent = `Built ${fmtStamp(m.built_at)} · watch ${fmtStamp(m.healthkit_last_batch)}`;
-  document.getElementById('foot').textContent = `Canonical data: health-buddy main @ ${m.origin_sha} (committed ${m.origin_committed.replace('T', ' ').slice(0, 16)}). HealthKit last sync: ${m.healthkit_last_batch ? m.healthkit_last_batch.replace('T', ' ').slice(0, 16) + ' UTC' : 'unavailable'}. Blood-pressure averages use protocol-valid readings only. Intake days without rows are unknown, not zero. Health readings remain on the tailnet. The optional export picker sends your typed request to Jev; Fast mode sends the planned exercises, equipment, work prescription and minimum-session guidance.`;
+  document.getElementById('foot').textContent = `Local data revision ${m.origin_sha || 'unavailable'} (${m.origin_committed ? fmtStamp(m.origin_committed) : 'no recorded commit time'}). Timezone: ${m.tz || 'UTC'}. Blood-pressure averages use protocol-valid readings only. Intake days without rows are unknown, not zero. Optional Jev requests send the typed request or planned workout context only after you select that action.`;
+  const workspace = document.getElementById('workspace-status');
+  if (DATA.config) {
+    workspace.hidden = false; workspace.textContent = '';
+    $('h2', {class:'section-title', text:DATA.config.displayName + ' · ' + DATA.config.timezone}, workspace);
+    if (DATA.sources?.manual?.availability === 'empty') $('p', {text:'Your workspace is ready. Record a completed workout from Training, or add measurements and intake using the local logging command. Empty charts mean no records yet.'}, workspace);
+    for (const [name, state] of Object.entries(DATA.sources || {})) $('p', {text:`${name}: ${state.availability} · ${state.freshness} · ${state.missingness.replaceAll('_',' ')}${state.lastSuccessAt ? ' · last success ' + fmtStamp(state.lastSuccessAt) : ''}`}, workspace);
+    for (const goal of DATA.config.goals) $('p', {text:`Owner goal: ${goal.label} · weight ${goal.direction} ${goal.target} ${goal.unit}. Owner input, not a clinical recommendation.`}, workspace);
+    for (const item of DATA.config.equipment) $('p', {text:`Equipment: ${item.label} (${item.id}) · ${item.exercise} · ${item.loadBasis}`}, workspace);
+    $('p', {text:DATA.config.integrations.jev.enabled ? 'Jev is optional and enabled for explicit requests.' : 'Jev is disabled. Choose context sections manually; logging and dashboards work without a key.'}, workspace);
+  }
   window.scrollTo(0, sy);
 }
 function renderOne(id) {
@@ -1679,10 +1698,8 @@ try { strengthKey = localStorage.getItem('health-strength-exercise'); } catch (e
 const tab0 = params.get('tab') || (() => { try { return localStorage.getItem('health-tab'); } catch (e) { return null; } })() || 'overview';
 setTab(PANES[tab0] ? tab0 : 'overview', false);
 // ---------- context pack (export to another assistant) ----------
-// The page never assembles the pack itself: a loopback service on the Pi (context_service.py) renders it from the
-// same DATA this page was built from, and asks Jev which sections a typed request needs. Only that request text
-// leaves the tailnet. API_BASE can be overridden with ?api= for local previews served by the service.
-const API_BASE = (params.get('api') || '/api').replace(/\/$/, '');
+// Context packs are assembled locally. Jev is used only for an explicit enabled action.
+const API_BASE = (DATA.config ? '/api' : (params.get('api') || '/api')).replace(/\/$/, '');
 const exportEl = document.getElementById('export'), exportOpenBtn = document.getElementById('export-open');
 const EXPORT = { catalog: null, days: 30, lastJev: null };
 const exq = (id) => document.getElementById(id);
@@ -1712,12 +1729,13 @@ async function openExport(focus = true) {
   exportEl.hidden = false; exportOpenBtn.setAttribute('aria-expanded', 'true');
   if (!EXPORT.catalog) {
     try { EXPORT.catalog = await apiCall('/context/scopes'); renderExportScopes(); exportStatus(''); }
-    catch (e) { exportStatus('The context service is not reachable on the Pi: ' + e.message, 'serious'); }
+    catch (e) { exportStatus('The local context service is not reachable: ' + e.message, 'serious'); }
   }
   if (focus) { exportEl.scrollIntoView({ block: 'start' }); exq('export-ask').focus({ preventScroll: true }); }
 }
 function closeExport() { exportEl.hidden = true; exportOpenBtn.setAttribute('aria-expanded', 'false'); }
 async function askJevForScopes() {
+  if (DATA.config && !DATA.config.integrations.jev.enabled) { exportStatus('Jev is disabled. Pick sections manually.'); return; }
   const text = exq('export-ask').value.trim();
   if (!text) { exportStatus('Type or dictate what you want to ask first.'); exq('export-ask').focus(); return; }
   if (!EXPORT.catalog) { await openExport(false); if (!EXPORT.catalog) return; }
@@ -1752,6 +1770,7 @@ async function copyExportPack() {
 exportOpenBtn.addEventListener('click', () => (exportEl.hidden ? openExport() : closeExport()));
 exq('export-close').addEventListener('click', () => { closeExport(); settingsButton.focus(); });
 exq('export-jev').addEventListener('click', askJevForScopes);
+if (DATA.config && !DATA.config.integrations.jev.enabled) { exq('export-jev').disabled = true; exq('export-jev').textContent = 'Jev disabled · choose sections manually'; }
 exq('export-build').addEventListener('click', buildExportPack);
 exq('export-copy').addEventListener('click', copyExportPack);
 document.querySelectorAll('#export-window button').forEach(b => b.addEventListener('click', () => setExportWindow(+b.dataset.days)));

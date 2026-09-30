@@ -20,10 +20,11 @@ import sys
 import snapshot_store
 from collections import defaultdict
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 HERE = Path(__file__).resolve().parent
 sys.path.append(str(HERE.parents[1] / "scripts"))
@@ -35,7 +36,12 @@ from strength_identity import (
 
 ORIGIN_GIT_DIR = os.environ.get("HEALTH_ORIGIN_GIT_DIR", "/nonexistent/health-buddy-unconfigured")
 HEALTHKIT_DB = os.environ.get("HEALTHKIT_DB", "/nonexistent/health-buddy-unconfigured")
-CT = ZoneInfo(os.environ.get("HEALTH_TIMEZONE", "UTC"))
+try:
+    CT = ZoneInfo(os.environ.get("HEALTH_TIMEZONE", "UTC"))
+except (ZoneInfoNotFoundError, ValueError):
+    # Portable reads supply a validated request-local zone. An obsolete legacy
+    # environment setting must not prevent importing these pure calculations.
+    CT = ZoneInfo("UTC")
 OUT_DIR = Path(os.environ.get("HEALTH_DASH_OUT", str(HERE / "design/preview")))
 OUT = OUT_DIR / "index.html"
 ASSETS = HERE / "assets"
@@ -53,7 +59,28 @@ HK_WORKOUT_TYPE = {37: "cardio", 52: "cardio", 50: "strength", 79: "racquet", 78
 
 # ---------- helpers ----------
 
+_READ_CONTEXT = ContextVar("dashboard_read_context", default=None)
+
+
+@contextmanager
+def read_context(reader, zone):
+    """Request-local adapter and timezone; legacy calls keep their old defaults."""
+    token = _READ_CONTEXT.set((reader, zone))
+    try:
+        yield
+    finally:
+        _READ_CONTEXT.reset(token)
+
+
+def current_zone():
+    context = _READ_CONTEXT.get()
+    return context[1] if context is not None else CT
+
+
 def git_show(path: str) -> str:
+    context = _READ_CONTEXT.get()
+    if context is not None:
+        return context[0].text(path)
     r = subprocess.run(["git", f"--git-dir={ORIGIN_GIT_DIR}", "show", f"main:{path}"],
                        capture_output=True, text=True, check=True)
     return r.stdout
@@ -84,6 +111,9 @@ def builder_revision() -> str:
 
 
 def git_paths(prefix: str) -> list[str]:
+    context = _READ_CONTEXT.get()
+    if context is not None:
+        return context[0].paths(prefix)
     r = subprocess.run(
         [
             "git",
@@ -103,6 +133,9 @@ def git_paths(prefix: str) -> list[str]:
 
 
 def rows(path: str) -> list[dict]:
+    context = _READ_CONTEXT.get()
+    if context is not None:
+        return context[0].rows(path)
     return list(csv.DictReader(io.StringIO(git_show(path))))
 
 
@@ -477,7 +510,7 @@ def training_prescriptions(repo_root: Path | None = None, as_of=None) -> dict:
         ) as exc:
             errors.append(f"{path}: {exc}")
     if repo_root is not None:
-        today = (as_of or datetime.now(CT).date()).isoformat()
+        today = (as_of or datetime.now(current_zone()).date()).isoformat()
         dates = [today]
         for target in dates:
             try:
@@ -680,8 +713,8 @@ def profile_data() -> dict:
 
 
 def chicago_date(value: datetime) -> date:
-    """Return the date of an instant in the dashboard's Chicago timezone."""
-    return value.astimezone(CT).date() if value.tzinfo else value.replace(tzinfo=CT).date()
+    """Return the date of an instant in the selected dashboard timezone."""
+    return value.astimezone(current_zone()).date() if value.tzinfo else value.replace(tzinfo=current_zone()).date()
 
 
 def _measurement_date(value: str) -> str | None:
@@ -707,8 +740,8 @@ def _valid_tape_rows(source: list[dict], *, value_key: str, as_of: date) -> list
 
 
 def tape_data(as_of: date | None = None) -> dict:
-    """Tape measurements in Chicago dates, excluding invalid and future values."""
-    as_of = as_of or datetime.now(CT).date()
+    """Tape measurements in configured local dates, excluding invalid and future values."""
+    as_of = as_of or datetime.now(current_zone()).date()
     waist = [{"d": d, "in": value, "site": row.get("measurement_site") or ""}
              for d, value, row in _valid_tape_rows(rows("data/waist.csv"), value_key="waist_in", as_of=as_of)]
     circ = [{"d": d, "site": row.get("body_site") or "", "side": row.get("side") or "", "in": value}
@@ -718,7 +751,7 @@ def tape_data(as_of: date | None = None) -> dict:
 
 def body_composition_data(as_of: date | None = None) -> dict:
     """Group finite, dated scan measurements without changing their reported units."""
-    as_of = as_of or datetime.now(CT).date()
+    as_of = as_of or datetime.now(current_zone()).date()
     scans = {}
     for row in rows("data/body_composition.csv"):
         try:
@@ -782,7 +815,7 @@ def maintenance_tile(energy: list, as_of) -> dict:
 
 
 def tiles(weight, weight7, bp, sleep, rhr, steps, inj, as_of=None, hrv=None, energy=None) -> list:
-    as_of = as_of or datetime.now(CT).date()
+    as_of = as_of or datetime.now(current_zone()).date()
     out = []
 
     def daily_values(series, field, *, before=None):
@@ -1136,7 +1169,7 @@ def progress_data(repo_root: Path, daily_weights: list[dict]) -> dict:
 def visit_data(repo_root: Path, as_of: date | None = None) -> dict:
     """Structured recorded questions, appointments, and the
     repo's own generated note (scripts/doctor_note.py) run against a fresh export of main."""
-    as_of = as_of or datetime.now(CT).date()
+    as_of = as_of or datetime.now(current_zone()).date()
     qs = {}
     for r in rows("data/clinician_questions.csv"):
         qs[r["question_id"]] = {**{k: (r.get(k) or "") for k in ("question_id", "recorded_on", "question", "status", "topic", "source", "notes")}, "prov": False, "origin": "canonical"}
@@ -1166,7 +1199,7 @@ def visit_data(repo_root: Path, as_of: date | None = None) -> dict:
             "prepared_questions": prepared_questions,
             "last_visit": (last[-1] if last else None), "next_visit": (nxt[0] if nxt else None),
             "note_markdown": note_md, "note_error": note_err,
-            "note_generated_on": datetime.now(CT).strftime("%Y-%m-%d %H:%M %Z"), "note_through": as_of.isoformat()}
+            "note_generated_on": datetime.now(current_zone()).strftime("%Y-%m-%d %H:%M %Z"), "note_through": as_of.isoformat()}
 
 
 def lab_reference(analyte: dict) -> tuple:
@@ -1225,7 +1258,7 @@ def lab_summary(labs: dict) -> dict:
 
 def tracking_schedule(waist_rows: list, photo_paths: list, as_of=None) -> list:
     """Rolling reminders from recorded events, never checkboxes or file mtimes."""
-    as_of = as_of or datetime.now(CT).date()
+    as_of = as_of or datetime.now(current_zone()).date()
     waist_dates, photo_dates = [], []
     for row in waist_rows:
         try:
@@ -1234,8 +1267,8 @@ def tracking_schedule(waist_rows: list, photo_paths: list, as_of=None) -> list:
                 continue
             stamp = datetime.fromisoformat(row["measured_at_local"])
             if stamp.tzinfo is None:
-                stamp = stamp.replace(tzinfo=ZoneInfo(row.get("timezone") or CT.key))
-            day = stamp.astimezone(CT).date()
+                stamp = stamp.replace(tzinfo=ZoneInfo(row.get("timezone") or current_zone().key))
+            day = stamp.astimezone(current_zone()).date()
         except (KeyError, ValueError, TypeError):
             continue
         if day <= as_of:
@@ -1282,7 +1315,7 @@ def visit_outcomes() -> dict:
 
 def today_items(bp: list, inj: list, visit: dict, labs: dict, as_of=None) -> list:
     """Bounded source-backed triage candidates. No inferred diagnoses or dose changes."""
-    as_of = as_of or datetime.now(CT).date()
+    as_of = as_of or datetime.now(current_zone()).date()
     date = as_of.isoformat()
     out = []
     mornings = [p for p in bp if p.get("status") == "valid" and p.get("session") == "morning" and p["d"] <= date]
@@ -1348,7 +1381,7 @@ def presentation_data(data: dict, as_of=None) -> None:
 def main() -> int:
     if os.environ.get("HEALTH_ALLOW_LEGACY_RUNTIME") != "1":
         raise RuntimeError("Legacy adapters are not a v1 installation. Use the synthetic preview; see docs/architecture.md.")
-    as_of = datetime.now(CT).date()
+    as_of = datetime.now(current_zone()).date()
     meta = git_meta()
     meta["builder_sha"] = builder_revision()
     if meta["origin_full_sha"] != meta["builder_sha"]:
@@ -1367,7 +1400,7 @@ def main() -> int:
         program = json.loads(program_path.read_text()) if program_path.exists() else {}
     data = {
         "meta": {**meta, "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                 "built_at_ct": datetime.now(CT).strftime("%Y-%m-%d %H:%M %Z"), "healthkit_last_batch": hk["last_batch"], "healthkit_available": hk.get("available", True), "healthkit_types": hk.get("type_freshness", []), "program_id": program.get("program_id") or program.get("id"), "program_schema": program.get("schema_version"), "tz": str(CT)},
+                 "built_at_ct": datetime.now(current_zone()).strftime("%Y-%m-%d %H:%M %Z"), "healthkit_last_batch": hk["last_batch"], "healthkit_available": hk.get("available", True), "healthkit_types": hk.get("type_freshness", []), "program_id": program.get("program_id") or program.get("id"), "program_schema": program.get("schema_version"), "tz": str(current_zone())},
         "tiles": tiles(weight, weight7, bp, sleep, hk["rhr"], hk["steps"], inj,
                        as_of=as_of, hrv=hk["hrv"], energy=hk.get("energy", [])),
         "weight": weight, "weight7": weight7, "weight_goals": {},

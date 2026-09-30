@@ -18,11 +18,12 @@ dev = ["jsonschema==4.23.0", "pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "ruff
 browser = ["playwright>=1.51,<2"]
 
 [project.scripts]
+health-buddy = "health_buddy.cli:main"
 health-ingest = "health_ingest.cli:main"
 sleepiq-exporter = "sleepiq_exporter.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/health_ingest", "src/sleepiq_exporter"]
+packages = ["src/health_buddy", "src/health_ingest", "src/sleepiq_exporter"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/scripts/*.py", "/tests", "/contracts", "/docs", "/provenance", "/health-runner/dashboard/*.py", "/health-runner/dashboard/*.js", "/health-runner/dashboard/template.html", "/health-runner/dashboard/assets/*.svg", "/health-runner/dashboard/assets/*.webmanifest", "/health-runner/dashboard/tests", "/health-runner/dashboard/scripts/*.py", "/README.md", "/CONTRIBUTING.md", "/AGENTS.md", "/LICENSE", "/THIRD_PARTY.md", "/pyproject.toml", "/requirements-contract.txt", "/alembic.ini", "/Makefile"]
@@ -49,6 +50,6 @@ ignore = ["S101"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src/health_ingest", "src/sleepiq_exporter", "scripts/next_workout.py", "scripts/publish_training_day.py", "scripts/prescription_progression.py"]
+files = ["src/health_buddy", "src/health_ingest", "src/sleepiq_exporter", "scripts/next_workout.py", "scripts/publish_training_day.py", "scripts/prescription_progression.py"]
 warn_unreachable = true
 show_error_codes = true
