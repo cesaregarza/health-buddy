@@ -63,7 +63,13 @@ def fixture(tmp_path, monkeypatch, *, guided_owner=False):
     owner_note.write_text("synthetic personal work retained")
     if guided_owner:
         simulate_nonroot_owner(monkeypatch)
-        install_owner.setup(journal=selected["journal"], owner_token=workspace / "secrets/synthetic-owner-token", origin="https://synthetic.example.test", owner_subject="synthetic-owner", confirm_owner_setup=True)
+        install_owner.setup(
+            journal=selected["journal"],
+            owner_token=workspace / "secrets/synthetic-owner-token",
+            origin="https://synthetic.example.test",
+            owner_subject="synthetic-owner",
+            confirm_owner_setup=True,
+        )
     else:
         configuration = workspace / "config.json"
         values = json.loads(configuration.read_bytes())
