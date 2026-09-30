@@ -16,6 +16,7 @@ import socket
 import stat
 import subprocess
 import sys
+import tarfile
 import time
 from pathlib import Path
 
@@ -302,6 +303,23 @@ class Qualification:
             image_id,
             timeout=120,
         )
+        # Retain only small metadata from this freshly built source-only image.
+        # Failed archive qualification must be diagnosable without image downloads.
+        metadata = {}
+        with tarfile.open(archive, "r:") as saved:
+            for name in ("manifest.json", "index.json", "oci-layout"):
+                try:
+                    member = saved.getmember(name)
+                except KeyError:
+                    continue
+                if not member.isfile() or member.size > 128 * 1024:
+                    raise ManifestError("invalid_built_archive_metadata")
+                stream = saved.extractfile(member)
+                if stream is None:
+                    raise ManifestError("invalid_built_archive_metadata")
+                with stream:
+                    metadata[name] = json.loads(stream.read(128 * 1024 + 1))
+        (self.output / "archive-metadata.json").write_bytes(canonical(metadata) + b"\n")
         artifact = inspect_image(bundle, archive, self.architecture)
         loaded_id = load_verified_archive(archive, artifact, self.docker)
         workspace = self.output / "workspace"

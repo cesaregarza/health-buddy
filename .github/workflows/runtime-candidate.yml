@@ -85,6 +85,7 @@ jobs:
             ${{ runner.temp }}/hb-runtime-amd64/build.log
             ${{ runner.temp }}/hb-runtime-amd64/docker-version.log
             ${{ runner.temp }}/hb-runtime-amd64/builder.log
+            ${{ runner.temp }}/hb-runtime-amd64/archive-metadata.json
   native_arm64:
     needs: native_amd64
     runs-on: ubuntu-24.04-arm
@@ -142,6 +143,7 @@ jobs:
             ${{ runner.temp }}/hb-runtime-arm64/build.log
             ${{ runner.temp }}/hb-runtime-arm64/docker-version.log
             ${{ runner.temp }}/hb-runtime-arm64/builder.log
+            ${{ runner.temp }}/hb-runtime-arm64/archive-metadata.json
   manifest:
     needs: [native_amd64, native_arm64]
     runs-on: ubuntu-24.04

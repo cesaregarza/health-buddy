@@ -544,7 +544,7 @@ def verify_docker_archive(
         record = manifest[0]
         if (
             not isinstance(record, dict)
-            or set(record) - {"Config", "Layers", "RepoTags"}
+            or set(record) - {"Config", "Layers", "RepoTags", "LayerSources"}
             or "Config" not in record
             or "Layers" not in record
         ):
@@ -644,6 +644,28 @@ def verify_docker_archive(
         )
         if actual_diff_ids != validated_diff_ids:
             raise ManifestError("artifact_layer_digest_mismatch")
+        # Moby's image-save format repeats layer descriptors keyed by diff ID.
+        # Accept only local descriptors matching the already verified bytes;
+        # URLs, arbitrary annotations and unrelated sources remain refused.
+        sources = record.get("LayerSources")
+        if sources is not None:
+            expected_sources = {
+                "sha256:" + diff_id: (layer_path, encoding)
+                for diff_id, layer_path, encoding in zip(
+                    validated_diff_ids, layer_paths, compressed, strict=True
+                )
+            }
+            if not isinstance(sources, dict) or set(sources) - set(expected_sources):
+                raise ManifestError("invalid_artifact_layer_sources")
+            for diff_id, source in sources.items():
+                name, media = _descriptor(source, entries, entry_digests)
+                expected_path, expected_encoding = expected_sources[diff_id]
+                if (
+                    name != expected_path
+                    or media not in _LAYER_TYPES
+                    or _LAYER_TYPES[media] != expected_encoding
+                ):
+                    raise ManifestError("artifact_layer_source_mismatch")
         # A modern engine may resolve the validated index or manifest, while
         # classic storage resolves the config. The loader must inspect its
         # actual result; none of these is an unconditional running image ID.

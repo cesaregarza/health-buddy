@@ -50,6 +50,7 @@ def make_archive(
     config_id_override: str | None = None,
     modern_blobs: bool = False,
     compressed: bool = False,
+    layer_sources_override: object = None,
     oci_override: dict[str, object] | None = None,
     index_annotation: bool = False,
     reverse_manifest_layers: bool = False,
@@ -94,6 +95,21 @@ def make_archive(
             ),
         }
     ]
+    if modern_blobs:
+        # Docker's classic image store also exports an OCI graph and this map.
+        manifest[0]["LayerSources"] = {
+            "sha256:" + diff_id: {
+                "mediaType": "application/vnd.oci.image.layer.v1.tar"
+                + ("+gzip" if compressed else ""),
+                "digest": "sha256:" + stored_id,
+                "size": len(layer),
+            }
+            for diff_id, stored_id, layer in zip(
+                layer_ids, stored_ids, stored_layers, strict=True
+            )
+        }
+    if layer_sources_override is not None:
+        manifest[0]["LayerSources"] = layer_sources_override
     manifest_bytes = (
         manifest_raw_override or json.dumps(manifest, separators=(",", ":")).encode()
     )
@@ -352,4 +368,38 @@ def test_rejects_extended_headers_and_nonzero_trailing_archive(tmp_path: Path) -
     with path.open("ab") as output:
         output.write(b"hidden archive")
     with pytest.raises(ManifestError, match="invalid_artifact_archive"):
+        inspect(path)
+
+
+@pytest.mark.parametrize(
+    "source_change",
+    [
+        {"digest": "sha256:" + "0" * 64},
+        {"size": 999},
+        {"mediaType": "application/vnd.oci.image.layer.v1.tar+gzip"},
+        {"urls": ["https://example.invalid/foreign-layer"]},
+    ],
+)
+def test_layer_sources_cannot_redirect_or_disagree_with_verified_local_layer(
+    tmp_path: Path, source_change: dict[str, object]
+) -> None:
+    layer = b"synthetic layer one"
+    digest = "sha256:" + hashlib.sha256(layer).hexdigest()
+    source = {
+        "mediaType": "application/vnd.oci.image.layer.v1.tar",
+        "digest": digest,
+        "size": len(layer),
+        **source_change,
+    }
+    path = tmp_path / "sources.tar"
+    make_archive(path, modern_blobs=True, layer_sources_override={digest: source})
+    with pytest.raises(ManifestError):
+        inspect(path)
+
+
+@pytest.mark.parametrize("sources", [[], {"sha256:" + "0" * 64: {}}])
+def test_layer_sources_must_reference_declared_diff_ids(tmp_path: Path, sources) -> None:
+    path = tmp_path / "sources.tar"
+    make_archive(path, modern_blobs=True, layer_sources_override=sources)
+    with pytest.raises(ManifestError, match="invalid_artifact_layer_sources"):
         inspect(path)
