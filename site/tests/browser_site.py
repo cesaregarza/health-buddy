@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from check_site import READINESS_PROMPT  # noqa: E402
 
 PREFIX = "/preview/health-buddy/"
-PAGES = ["", "guides/contract-v1/start/", "guides/contract-v1/everyday/", "guides/contract-v1/customize/", "guides/contract-v1/architecture/", "guides/contract-v1/recovery/", "privacy/", "releases/"]
+PAGES = ["", "guides/contract-v1/start/", "guides/contract-v1/everyday/", "guides/contract-v1/customize/", "guides/contract-v1/architecture/", "guides/contract-v1/recovery/", "privacy/", "releases/", "guides/runtime-dec3fac/", "guides/agent-a0605d8/"]
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -35,7 +35,7 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
 
-def verify(engine, base: str, screenshots: Path, name: str) -> dict:
+def verify(engine, base: str, screenshots: Path, name: str, *, changed_guides: bool = False) -> dict:
     browser = engine.launch()
     failures = []
     requests = []
@@ -46,9 +46,11 @@ def verify(engine, base: str, screenshots: Path, name: str) -> dict:
     page.on("requestfailed", lambda request: failures.append("request failed: " + request.url))
     page.on("response", lambda response: failures.append("HTTP " + str(response.status) + ": " + response.url) if response.status >= 400 else None)
     try:
-        for width in (320, 375, 390, 768, 1440):
+        widths = (390, 1440) if changed_guides else (320, 375, 390, 768, 1440)
+        routes = PAGES[-2:] if changed_guides else PAGES
+        for width in widths:
             page.set_viewport_size({"width": width, "height": 900})
-            for route in PAGES:
+            for route in routes:
                 response = page.goto(base + route)
                 assert response and response.status == 200, (name, width, route)
                 assert page.locator("h1").count() == 1
@@ -58,9 +60,15 @@ def verify(engine, base: str, screenshots: Path, name: str) -> dict:
                 assert "Pre-release" in page.locator("body").inner_text()
                 if not route and width in (320, 390, 1440):
                     page.screenshot(path=str(screenshots / f"{name}-home-{width}.png"), full_page=True)
-                if name == "chromium" and width == 390 and route:
+                if name == "chromium" and route and (width == 390 or changed_guides):
                     slug = route.strip("/").replace("/", "-")
-                    page.screenshot(path=str(screenshots / f"{name}-{slug}-390.png"), full_page=True)
+                    page.screenshot(path=str(screenshots / f"{name}-{slug}-{width}.png"), full_page=True)
+        if changed_guides:
+            assert not failures, failures
+            assert all(url.startswith(base) for url in requests), "external request"
+            return {"engine": name, "pages": len(routes), "widths": list(widths),
+                    "requests": len(requests), "externalRequests": 0,
+                    "scope": "changed source guides; prior interaction baseline reused"}
         page.set_viewport_size({"width": 390, "height": 844})
         page.goto(base)
         page.keyboard.press("Tab")
@@ -101,7 +109,7 @@ def verify(engine, base: str, screenshots: Path, name: str) -> dict:
         plain.get_by_role("link", name="Explore daily use").click()
         assert "Read your day with context" in plain.locator("h1").inner_text()
         offline.close()
-        return {"engine": name, "pages": len(PAGES), "widths": [320, 375, 390, 768, 1440], "requests": len(requests), "javascriptDisabled": "pass", "clipboard": "stubbed success and denial", "externalRequests": 0}
+        return {"engine": name, "pages": len(routes), "widths": list(widths), "requests": len(requests), "javascriptDisabled": "pass", "clipboard": "stubbed success and denial", "externalRequests": 0}
     finally:
         browser.close()
 
@@ -111,6 +119,7 @@ def main() -> None:
     parser.add_argument("directory", type=Path)
     parser.add_argument("--screenshots", type=Path, required=True)
     parser.add_argument("--engines", nargs="+", choices=["chromium", "firefox", "webkit"], default=["chromium"])
+    parser.add_argument("--changed-guides", action="store_true", help="Only source-versioned guide pages at narrow/wide widths")
     args = parser.parse_args()
     args.screenshots.mkdir(parents=True, exist_ok=False)
     server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(args.directory.resolve())))
@@ -119,7 +128,7 @@ def main() -> None:
     thread.start()
     try:
         with sync_playwright() as playwright:
-            results = [verify(getattr(playwright, name), f"http://127.0.0.1:{server.server_port}{PREFIX}", args.screenshots, name) for name in args.engines]
+            results = [verify(getattr(playwright, name), f"http://127.0.0.1:{server.server_port}{PREFIX}", args.screenshots, name, changed_guides=args.changed_guides) for name in args.engines]
         print(json.dumps(results, indent=2))
     finally:
         server.shutdown()

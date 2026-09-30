@@ -4,7 +4,7 @@ CES-1078 source preparation. This is an informational static site, not a release
 product, installer, deployment or completed ticket. Contract version 1.0.0
 describes intended interfaces; it is not a code release version.
 
-The eight pages cover daily usefulness, host preparation, ongoing customization,
+The ten pages cover daily usefulness, host preparation, ongoing customization,
 canonical ownership, recovery, privacy boundaries and release readiness. All
 examples are synthetic. Assets are local, links relative, and JavaScript only
 enhances copying a safe readiness prompt. Navigation and the selectable prompt
@@ -17,9 +17,14 @@ Hosting-specific logs, retention, cookies, operator and contact are not decided.
 `scripts/build.py` packages only its explicit `SITE_FILES` and `REFERENCE_FILES`
 allowlists. It reads each input from the given committed SHA using Git, checks
 that SHA is the checkout's HEAD, and never walks runtime data or untracked files.
-Eight reference files, including the exact MIT license, are copied without
-rewriting from that commit;
-`reference/index.json` binds their paths and SHA-256 digests to the source SHA.
+The original eight contract/reference files, including the exact MIT license, are
+copied without rewriting from that site commit. Sixteen additional selected
+references are copied from the exact accepted runtime `dec3fac6cf04772ac22aac3429cd7de3767fe1a3`
+and agent-guide `a0605d8b36f4b980e4a6706f3e8c1f7f87fe4a6c` Git objects.
+`source_guides.py` is the explicit finite allowlist. These objects must already
+exist in the sanitized native source repository; the build never fetches.
+`reference/index.json` binds each selected path/hash to its source SHA and original
+source path. Source provenance is separate from installed runtime artifact identity.
 No extraction history, personal source or private configuration is packaged.
 
 The new output directory contains:
@@ -51,8 +56,12 @@ python3 site/scripts/check_site.py /tmp/site-build-a/public
 python3 site/tests/browser_site.py /tmp/site-build-a/public --screenshots /tmp/site-browser-screenshots
 ```
 
-Run serially with one browser process at a time. The browser harness serves only
-loopback under `/preview/health-buddy/`, checks eight pages at 320/375/390/768/1440
+Run serially with one browser process at a time. For the new source-versioned
+guide delta, reuse the accepted prior layout/interaction baseline and add
+`--changed-guides` to the browser command. This selects only runtime/agent pages
+at 390 and 1440 pixels, producing narrow/wide screenshot pairs. It intentionally
+does not repeat unchanged keyboard/clipboard/privacy checks. The browser harness serves only
+loopback under `/preview/health-buddy/`, checks ten pages at 320/375/390/768/1440
 pixels in Chromium by default, records requested URLs, asserts no page
 errors or horizontal overflow, and captures screenshots. It checks skip-link
 keyboard access, keyboard-activated copy, denied-copy selection feedback and
@@ -74,26 +83,45 @@ installation, even if unavailable or malformed. Build checks fail closed unless
 status remains exactly contract-only. Activating a real release requires a
 separate reviewed implementation; replacing JSON alone is insufficient.
 
-## Required completion inputs
+## Accepted source inputs and remaining release gates
 
-- **CES-1068:** actual pinned compatible release, runtime/package/installer
-  references and digests, supported-host matrix, exact matching install guides.
-- **CES-1086:** delivered discovery/scaffold/check/preview and cross-agent
-  maintenance instructions, verified against that release. Current examples
-  are contract fixtures, not executable extension tutorials.
-- Repeat link/snippet, artifact, privacy and browser checks with those exact
-  inputs. Make guide paths identify the actual release without repurposing
-  `contract-v1` as a released product version.
+- Runtime naming, hash admission and private Compose instructions are bound to
+  `dec3fac6cf04772ac22aac3429cd7de3767fe1a3` in `guides/runtime-dec3fac/`.
+- Discovery, actual scaffolds, synthetic testing, preview, retained-review recovery
+  and cross-agent notes are bound to `a0605d8b36f4b980e4a6706f3e8c1f7f87fe4a6c`
+  in `guides/agent-a0605d8/`.
+- Existing `contract-v1` routes remain contract references, not a product release.
+  Site status now records accepted source-guide inputs with no pending source
+  inputs; `codeRelease` remains null, installAvailable false, runtimeArtifacts
+  empty and installer null. The compatibility contract remains contract-only.
 
-CES-1078 stays incomplete until these inputs are integrated and verified.
-Hostname, public hosting/deployment and hosting privacy details are separate
-CES-1079/operator inputs. Actual phone behavior, final companion privacy wording,
-physical-device acceptance, signing/distribution and release qualification remain
-separate gates. The site does not imply Apple approval or companion availability.
+The guides are source-versioned documentation, not claims that these sibling
+source inputs form a public downloadable combined product. Runtime candidate
+manifest/archive names are documented; private artifacts, receipt hashes and
+endpoints are not published. Actual release distribution, supported-host and
+physical Pi acceptance, combined fresh-agent/runtime qualification, companion
+privacy/device/distribution acceptance and public hosting remain separate gates.
+Public deployment, hostname and hosting privacy details belong to CES-1079 and
+explicit operator authorization. The privacy-policy source stays honestly
+pre-release; no Apple approval or signed companion availability is implied.
 
-Installed runtime operation must not fetch this site for authorization, records,
-dashboard use or logging. Matching docs must ship with a future release bundle;
-this site source does not implement that runtime packaging requirement.
+Installed runtime operation does not fetch this site for authorization, records,
+dashboard use or logging. The selected runtime packages its source, contracts and
+docs; canonical maintenance discovery uses the matching local bundle. This site
+only packages informational public source references, never a health workspace.
+
+## Focused checkpoint verification (queue only)
+
+The existing 18-case source/artifact/browser baseline covers unchanged portions.
+Run the changed current-source, pinned-source provenance, changed-guide snippet/link,
+exact-commit builder and no-install activation checks in `SiteContractTests`.
+Then build/check the frozen candidate using the commands above, with both pinned
+source objects available, and run browser verification with `--changed-guides`.
+Supported command declarations are checked against the independently bundled
+pinned helper source; meaningful behavior checks reuse the accepted agent guide
+and extension/runtime qualification rather than re-running private examples.
+Root reviews the four new narrow/wide page screenshots. No site build publishes
+or installs anything. Keep runtime digest and site artifact digest distinct.
 
 ## Scope and review
 

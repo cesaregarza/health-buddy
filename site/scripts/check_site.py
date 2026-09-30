@@ -11,6 +11,8 @@ import posixpath
 import re
 from urllib.parse import unquote, urlsplit
 
+from source_guides import PINNED_REFERENCES, SNIPPETS, SOURCE_GUIDES
+
 READINESS_PROMPT = "I want to prepare for Health Buddy on a host I control. These pages are pre-release and do not provide a verified installable release. Explain the planned host, private-network and account prerequisites. Do not install software, run scripts, fetch mutable main branches, change my host, or request health records or secrets. Tell me which release and compatibility evidence is still missing. When a verified release exists, use its pinned manifest and matching versioned guide, show me the exact plan and required sign-in/permission steps, and wait for my approval before installation or account changes."
 EXPECTED_STATUS = {
     "schemaVersion": 1,
@@ -20,9 +22,10 @@ EXPECTED_STATUS = {
     "installAvailable": False,
     "runtimeArtifacts": [],
     "installer": None,
-    "guideKind": "implementation-target",
+    "guideKind": "pinned-source-and-contract",
     "guideRoot": "../guides/contract-v1/",
-    "pendingInputs": ["CES-1068", "CES-1086"],
+    "pendingInputs": [],
+    "sourceGuides": SOURCE_GUIDES,
     "publicHostname": None,
 }
 
@@ -45,6 +48,8 @@ class Page(HTMLParser):
         self.viewport = False
         self.main = False
         self.in_script = False
+        self.snippets: dict[str, str] = {}
+        self.snippet: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
@@ -57,6 +62,10 @@ class Page(HTMLParser):
             if attributes.get(attribute):
                 self.refs.append(attributes[attribute])
         require(not any(key in attributes for key in ("srcset", "style", "action", "ping")), "unreviewed resource attribute")
+        if tag == "code" and "data-snippet" in attributes:
+            self.snippet = attributes["data-snippet"]
+            require(self.snippet in SNIPPETS and self.snippet not in self.snippets, "unknown or duplicate snippet")
+            self.snippets[self.snippet] = ""
         if tag == "script":
             require(attributes.get("src", "").endswith("assets/site.js"), "unreviewed script")
             self.in_script = True
@@ -78,6 +87,8 @@ class Page(HTMLParser):
         require("download" not in attributes, "download action forbidden before release inputs")
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "code":
+            self.snippet = None
         if tag == "textarea":
             self.in_prompt = False
         if tag == "script":
@@ -86,6 +97,8 @@ class Page(HTMLParser):
     def handle_data(self, data: str) -> None:
         require(not self.in_script or not data.strip(), "inline script forbidden")
         self.text.append(data)
+        if self.snippet is not None:
+            self.snippets[self.snippet] += data
         if self.in_prompt:
             self.readiness.append(data)
 
@@ -114,14 +127,21 @@ def check(files: dict[str, bytes]) -> dict:
     require(compatibility["release"] == {"status": "contract-only", "version": None, "sourceRevision": None, "artifacts": []}, "runtime release requires matching site integration")
     require(compatibility["publicHostname"] is None, "hostname requires explicit site integration")
     inventory = json.loads(files["reference/index.json"])
-    require(inventory["kind"] == "contract-reference" and inventory["contractVersion"] == status["contractVersion"], "reference inventory kind/version")
+    require(inventory["kind"] == "versioned-source-reference" and inventory["contractVersion"] == status["contractVersion"], "reference inventory kind/version")
     require(re.fullmatch(r"[0-9a-f]{40}", inventory["sourceRevision"]) is not None, "reference source identity")
+    require(inventory["sourceGuides"] == SOURCE_GUIDES, "source guide provenance mismatch")
     reference_paths = set()
+    pinned_paths = set()
     for entry in inventory["files"]:
         path = "reference/" + entry["path"]
+        if entry["path"] in PINNED_REFERENCES:
+            source, original = PINNED_REFERENCES[entry["path"]]
+            require(entry.get("sourceRevision") == source and entry.get("sourcePath") == original, "pinned reference provenance mismatch")
+            pinned_paths.add(entry["path"])
         require(path not in reference_paths, "duplicate reference entry")
         reference_paths.add(path)
         require(hashlib.sha256(files[path]).hexdigest() == entry["sha256"], "reference digest mismatch")
+    require(pinned_paths == set(PINNED_REFERENCES), "missing pinned reference")
     require(reference_paths == {name for name in files if name.startswith("reference/") and name != "reference/index.json"}, "unindexed reference")
     pages = {}
     for name, data in files.items():
@@ -134,7 +154,7 @@ def check(files: dict[str, bytes]) -> dict:
         require("Pre-release" in content and "No verified installable release." in content, f"missing release banner: {name}")
         require(not re.search(r"curl\s|wget\s|raw\.githubusercontent|/releases/latest|/blob/main|/archive/refs/heads/main", content, re.I), f"mutable or executable installation snippet: {name}")
         pages[name] = parser
-    require(len(pages) == 8, "unexpected page inventory")
+    require(len(pages) == 10, "unexpected page inventory")
     for name, parser in pages.items():
         for raw in parser.refs:
             path, fragment = resolve_reference(name, raw)
@@ -144,6 +164,8 @@ def check(files: dict[str, bytes]) -> dict:
     require("".join(pages["index.html"].readiness) == READINESS_PROMPT, "readiness prompt changed or missing")
     for name in ("index.html", "guides/contract-v1/everyday/index.html", "guides/contract-v1/customize/index.html"):
         require("Synthetic demonstration — planned behavior" in " ".join(pages[name].text), f"unlabelled demo: {name}")
+    snippets = {key: value for page in pages.values() for key, value in page.snippets.items()}
+    require(snippets == SNIPPETS, "pinned guide snippet mismatch")
     css = files["assets/site.css"].decode()
     require(not re.search(r"@import|url\s*\(", css, re.I), "unreviewed CSS resource")
     js = files["assets/site.js"].decode()

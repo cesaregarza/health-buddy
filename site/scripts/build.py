@@ -13,6 +13,7 @@ import subprocess
 import tarfile
 
 from check_site import check
+from source_guides import PINNED_REFERENCES, SOURCE_GUIDES
 
 SITE_FILES = [
     "index.html",
@@ -21,6 +22,8 @@ SITE_FILES = [
     "guides/contract-v1/customize/index.html",
     "guides/contract-v1/architecture/index.html",
     "guides/contract-v1/recovery/index.html",
+    "guides/runtime-dec3fac/index.html",
+    "guides/agent-a0605d8/index.html",
     "privacy/index.html",
     "releases/index.html",
     "assets/site.css",
@@ -58,14 +61,21 @@ def committed_inputs(repo: Path, revision: str) -> dict[str, bytes]:
     }
     for path in REFERENCE_FILES:
         files["reference/" + path] = git(repo, "show", f"{revision}:{path}")
+    for name, (source, path) in PINNED_REFERENCES.items():
+        files["reference/" + name] = git(repo, "show", f"{source}:{path}")
     inventory = {
-        "kind": "contract-reference",
+        "kind": "versioned-source-reference",
         "sourceRevision": revision,
         "contractVersion": "1.0.0",
         "files": [
             {"path": path, "sha256": hashlib.sha256(files["reference/" + path]).hexdigest()}
             for path in REFERENCE_FILES
+        ] + [
+            {"path": name, "sourceRevision": source, "sourcePath": path,
+             "sha256": hashlib.sha256(files["reference/" + name]).hexdigest()}
+            for name, (source, path) in PINNED_REFERENCES.items()
         ],
+        "sourceGuides": SOURCE_GUIDES,
     }
     files["reference/index.json"] = json_bytes(inventory)
     return files
@@ -105,7 +115,8 @@ def build(repo: Path, revision: str, output: Path) -> dict:
             {"path": path, "sha256": hashlib.sha256(contents).hexdigest()}
             for path, contents in sorted(files.items())
         ],
-        "pendingInputs": ["CES-1068", "CES-1086"],
+        "pendingInputs": [],
+        "sourceGuides": SOURCE_GUIDES,
     }
     output.mkdir(parents=True)
     for path, contents in files.items():

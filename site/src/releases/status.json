@@ -6,8 +6,12 @@
   "installAvailable": false,
   "runtimeArtifacts": [],
   "installer": null,
-  "guideKind": "implementation-target",
+  "guideKind": "pinned-source-and-contract",
   "guideRoot": "../guides/contract-v1/",
-  "pendingInputs": ["CES-1068", "CES-1086"],
+  "pendingInputs": [],
+  "sourceGuides": [
+    {"kind":"runtime-source","sourceRevision":"dec3fac6cf04772ac22aac3429cd7de3767fe1a3","packageVersion":"0.1.0.dev0","guide":"../guides/runtime-dec3fac/"},
+    {"kind":"agent-source","sourceRevision":"a0605d8b36f4b980e4a6706f3e8c1f7f87fe4a6c","packageVersion":"0.1.0.dev0","guide":"../guides/agent-a0605d8/"}
+  ],
   "publicHostname": null
 }

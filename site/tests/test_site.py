@@ -16,6 +16,9 @@ REPO = SITE.parent
 sys.path.insert(0, str(SITE / "scripts"))
 import build  # noqa: E402
 import check_site  # noqa: E402
+from source_guides import PINNED_REFERENCES, SNIPPETS, SOURCE_GUIDES  # noqa: E402
+
+PINNED_BYTES: dict[str, bytes] = {}
 
 
 def fixture() -> dict[str, bytes]:
@@ -26,9 +29,16 @@ def fixture() -> dict[str, bytes]:
         contents = (REPO / name).read_bytes()
         files["reference/" + name] = contents
         entries.append({"path": name, "sha256": hashlib.sha256(contents).hexdigest()})
+    for name, (revision, source) in PINNED_REFERENCES.items():
+        if name not in PINNED_BYTES:
+            PINNED_BYTES[name] = build.git(REPO, "show", f"{revision}:{source}")
+        contents = PINNED_BYTES[name]
+        files["reference/" + name] = contents
+        entries.append({"path": name, "sourceRevision": revision, "sourcePath": source,
+                        "sha256": hashlib.sha256(contents).hexdigest()})
     files["reference/index.json"] = build.json_bytes({
-        "kind": "contract-reference", "sourceRevision": "a" * 40,
-        "contractVersion": "1.0.0", "files": entries,
+        "kind": "versioned-source-reference", "sourceRevision": "a" * 40,
+        "contractVersion": "1.0.0", "files": entries, "sourceGuides": SOURCE_GUIDES,
     })
     return files
 
@@ -47,7 +57,7 @@ class SiteContractTests(unittest.TestCase):
         self.files["index.html"] = contents.replace(before, after, 1).encode()
 
     def test_current_source_passes(self) -> None:
-        self.assertEqual(check_site.check(self.files), {"pages": 8, "referenceFiles": 8, "status": "contract-only"})
+        self.assertEqual(check_site.check(self.files), {"pages": 10, "referenceFiles": len(build.REFERENCE_FILES) + len(PINNED_REFERENCES), "status": "contract-only"})
 
     def test_relative_home_navigation_uses_inventory_paths(self) -> None:
         self.assertEqual(check_site.resolve_reference("index.html", "./"), ("index.html", ""))
@@ -141,14 +151,49 @@ class SiteContractTests(unittest.TestCase):
                 return (revision + "\n").encode()
             command, spec = args
             self.assertEqual(command, "show")
-            self.assertTrue(spec.startswith(revision + ":"))
-            path = spec.split(":", 1)[1]
-            self.assertIn(path, ["site/src/" + item for item in build.SITE_FILES] + build.REFERENCE_FILES)
-            return (REPO / path).read_bytes()
+            selected, path = spec.split(":", 1)
+            if selected == revision:
+                self.assertIn(path, ["site/src/" + item for item in build.SITE_FILES] + build.REFERENCE_FILES)
+                return (REPO / path).read_bytes()
+            name = next(name for name, pair in PINNED_REFERENCES.items() if pair == (selected, path))
+            return PINNED_BYTES[name]
         with patch.object(build, "git", fake_git):
             files = build.committed_inputs(REPO, revision)
-        self.assertEqual(check_site.check(files)["pages"], 8)
-        self.assertEqual(len(commands), 1 + len(build.SITE_FILES) + len(build.REFERENCE_FILES))
+        self.assertEqual(check_site.check(files)["pages"], 10)
+        self.assertEqual(len(commands), 1 + len(build.SITE_FILES) + len(build.REFERENCE_FILES) + len(PINNED_REFERENCES))
+
+    def test_pinned_source_provenance_cannot_become_a_release(self) -> None:
+        inventory = json.loads(self.files["reference/index.json"])
+        self.assertEqual(inventory["sourceGuides"], SOURCE_GUIDES)
+        status = json.loads(self.files["releases/status.json"])
+        self.assertIsNone(status["codeRelease"])
+        self.assertFalse(status["installAvailable"])
+        self.assertEqual(status["runtimeArtifacts"], [])
+        entry = next(item for item in inventory["files"] if "sourcePath" in item)
+        entry["sourceRevision"] = "a" * 40
+        self.files["reference/index.json"] = build.json_bytes(inventory)
+        self.reject("provenance mismatch")
+
+    def test_changed_guide_links_and_snippets_bind_supported_inputs(self) -> None:
+        for route in ("guides/runtime-dec3fac/index.html", "guides/agent-a0605d8/index.html"):
+            page = check_site.Page()
+            page.feed(self.files[route].decode())
+            for name, snippet in page.snippets.items():
+                self.assertEqual(snippet, SNIPPETS[name])
+            self.assertTrue(all(check_site.resolve_reference(route, link)[0] in self.files for link in page.refs))
+        # These are independently shipped helper declarations, not just page
+        # strings agreeing with another copy of the same strings.
+        helper = self.files["reference/agent-a0605d8/src/health_buddy/extension_cli.py"].decode()
+        for action in ("install", "inspect", "compatibility", "enable", "preview", "disable", "revert"):
+            self.assertIn('sub.add_parser("' + action + '")', helper)
+        for option in ("--source-id", "--credential-reference", "--example", "--review", "--extension-api"):
+            self.assertRegex(helper, r'add_argument\(\s*"' + option + '"')
+        runtime = self.files["reference/runtime-dec3fac/scripts/package_runtime.py"].decode()
+        for option in ("--manifest", "--architecture", "--workspace", "--uid", "--gid", "--docker", "--output-env"):
+            self.assertRegex(runtime, r'load\.add_argument\(\s*"' + option + '"')
+        value = self.files["guides/agent-a0605d8/index.html"].decode()
+        self.files["guides/agent-a0605d8/index.html"] = value.replace("extension inspect", "extension erase", 1).encode()
+        self.reject("snippet mismatch")
 
     def test_wrong_source_identity_fails_before_reading_files(self) -> None:
         with self.assertRaisesRegex(ValueError, "full commit SHA"):
