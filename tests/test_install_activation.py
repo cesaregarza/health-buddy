@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import install_activation, install_prepare
+from health_buddy import install_activation, install_owner, install_prepare
 from health_buddy.domain import identity_value
 from health_buddy.runtime_release import selected_artifact
 from health_buddy.security_runtime import open_runtime, setup_security
@@ -55,25 +55,29 @@ def simulate_nonroot_owner(monkeypatch):
     monkeypatch.setattr(os, "getegid", lambda: 1000)
 
 
-def fixture(tmp_path, monkeypatch):
+def fixture(tmp_path, monkeypatch, *, guided_owner=False):
     selected = inputs(tmp_path, monkeypatch)
     install_prepare.prepare(**selected)
     workspace = selected["workspace"]
     owner_note = workspace / "personal/OWNER.md"
     owner_note.write_text("synthetic personal work retained")
-    configuration = workspace / "config.json"
-    values = json.loads(configuration.read_bytes())
-    values["security"].update(
-        ingress="tailscale-uds",
-        externalOrigin="https://synthetic.example.test",
-        ownerSubject="synthetic-owner",
-        socketPath="security/runtime/http.sock",
-    )
-    configuration.write_text(json.dumps(values))
-    setup_security(workspace, workspace / "secrets/synthetic-owner-proof")
+    if guided_owner:
+        simulate_nonroot_owner(monkeypatch)
+        install_owner.setup(journal=selected["journal"], owner_token=workspace / "secrets/synthetic-owner-token", origin="https://synthetic.example.test", owner_subject="synthetic-owner", confirm_owner_setup=True)
+    else:
+        configuration = workspace / "config.json"
+        values = json.loads(configuration.read_bytes())
+        values["security"].update(
+            ingress="tailscale-uds",
+            externalOrigin="https://synthetic.example.test",
+            ownerSubject="synthetic-owner",
+            socketPath="security/runtime/http.sock",
+        )
+        configuration.write_text(json.dumps(values))
+        setup_security(workspace, workspace / "secrets/synthetic-owner-proof")
+        simulate_nonroot_owner(monkeypatch)
     runtime = open_runtime(workspace)
     before = identity_value(runtime.operations.journal.verify().identity)
-    simulate_nonroot_owner(monkeypatch)
     artifact = selected_artifact(selected["manifest"], "amd64")
     state = {
         "active": False,

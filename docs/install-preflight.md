@@ -156,9 +156,9 @@ loopback workspace refuses activation with
 `install_activation_requires_managed_owner_setup`; missing authority refuses
 with `install_activation_requires_ready_owner_authority`, before any daemon
 contact. Recovery is the existing reviewed managed UDS configuration and explicit
-OS-owner security initialization, preserving this same workspace. Guided setup
-is pending the next slice; this tracer assumes that owner setup separately
-exists. It creates no owner/agent grant or Tailscale sign-in.
+OS-owner security initialization, preserving this same workspace. The guided
+owner command below supplies that local setup before activation. It creates no
+agent grant or Tailscale sign-in.
 
 Run preparation and activation as the private workspace's nonroot OS owner, with
 that existing workspace's nonzero UID/GID. The workspace must already be mode
@@ -219,3 +219,71 @@ responses. It simulates nonroot workspace metadata without changing host
 ownership, interrupts load/start acknowledgements, then repeats without another
 start or changed canonical identity/revision/personal data. This is separate from
 real native image qualification and actual owner-host deployment evidence.
+
+
+## Guided native owner setup
+
+After default preparation, admit an exact HTTPS origin and exact owner subject
+for managed UDS ingress. Supplying them configures local trust expectations; it
+does not sign in to Tailscale, provision HTTPS or verify a remote identity. Run as
+the existing nonroot workspace owner, with its nonzero group and private native
+credential-output directory. Stop other writers/editors during this checkpoint.
+
+```sh
+"$PYTHON" -m health_buddy.install_owner --journal "$PRIVATE_INSTALL/install.json" --owner-token "$OWNER_WORKSPACE/secrets/native-owner-token" --origin "$PRIVATE_HTTPS_ORIGIN" --owner-subject "$EXACT_OWNER_SUBJECT" --confirm-owner-setup
+```
+
+This action accepts only the prepared workspace's default security fields. It
+preserves timezone, goals, equipment, storage, integrations and other personal
+config, changing only ingress mode, HTTPS origin, owner subject and managed socket
+path. Before writes, the private checkpoint binds original/target config digests,
+workspace identity, OS owner and private token-output path. Config and token paths
+must not contain links. The output must be new; unrelated existing authority or
+credentials are refused. No permissions, ownership or personal data are repaired.
+
+`configuring` → `authority_preparing` → `ready` resumes the exact selection. A lost
+config acknowledgement is reconciled against exact original/target bytes. A lost
+security acknowledgement authenticates the retained durable owner credential and
+rechecks current owner authority and finite local readiness. It never regenerates
+a token or initializes an already present authority. Repeated setup retains the
+credential, security epoch, canonical identity/revision and owned config. Token
+bytes stay in the private output file; they never appear in summaries, logs or the
+installation journal. This is a native owner token, not an expiring browser
+bootstrap proof; keep it private and use credential-file arguments rather than
+pasting it into commands or chat.
+
+An empty output or incomplete/mismatched authority refuses with
+`install_owner_partial_requires_explicit_recovery`. Keep the checkpoint and
+partial files for inspection. Deliberate existing OS-owner recovery uses a **new**
+private credential output and revokes every previous credential:
+
+```sh
+health-buddy --workspace "$OWNER_WORKSPACE" security recover --owner-token-file "$NEW_PRIVATE_RECOVERY_TOKEN" --confirm-revoke-all
+```
+
+Recovery is a separate explicit operation, never an automatic installer retry.
+The installer does not adopt a recovered/foreign authority by rewriting its
+checkpoint; post-recovery lifecycle reconciliation still requires owner review.
+An edited config, changed origin/subject/output or changed authority also refuses
+without overwriting it. `ownerSetupReady:true` means local managed config and
+native owner authentication/readiness are verified. It does not mean HTTPS,
+client or phone is connected. Continue with the separate admitted activation
+command above. Tailscale sign-in/private HTTPS, agent grants, named-client and
+phone acceptance remain pending.
+
+Queue-owned owner setup checks:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_owner.py tests/test_install_activation.py::test_prepare_activation_and_lost_ack_resume_preserve_workspace
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_owner.py tests/test_install_owner.py tests/test_install_activation.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_owner.py tests/test_install_owner.py tests/test_install_activation.py
+"$PYTHON" -m mypy src/health_buddy/install_owner.py
+```
+
+The synthetic flow runs default preparation → guided owner setup → activation
+with the existing bounded CLI fixture. It uses real config validation, security
+initialization, retained credential authentication and readiness under simulated
+nonroot metadata. Separate interruption cases retain owned config/token after
+lost acknowledgements, preserve unrelated personal choices, and refuse foreign
+edits, unowned output and partial authority. No actual host identity change,
+Docker daemon, Tailscale sign-in, paid model session or phone action is exercised.
