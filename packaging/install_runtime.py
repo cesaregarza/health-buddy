@@ -62,7 +62,8 @@ def main(architecture: str) -> None:
         ):
             raise ValueError("runtime_build_input_changed")
     environment = {
-        "PATH": os.defpath,
+        # dpkg invokes trusted base-image administrative tools such as ldconfig.
+        "PATH": "/usr/sbin:/sbin:" + os.defpath,
         "LANG": "C.UTF-8",
         "DEBIAN_FRONTEND": "noninteractive",
     }
