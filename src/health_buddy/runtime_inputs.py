@@ -298,10 +298,13 @@ def fetch_inputs(inputs: PlatformInputs, directory: Path, *, timeout: float = FE
                 except subprocess.TimeoutExpired:
                     expired = True
         finally:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            # communicate may already have reaped this private child. Its old
+            # PID/PGID is no longer ours once returncode records completion.
+            if process.returncode is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
             try:
                 process.wait(timeout=2)
             except subprocess.TimeoutExpired as exc:

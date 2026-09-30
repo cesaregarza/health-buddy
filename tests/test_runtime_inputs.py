@@ -190,3 +190,54 @@ def test_fixed_fetch_worker_success_verifies_original_pins(
     assert (tmp_path / "download/synthetic.whl").read_bytes() == b"abc"
     assert (tmp_path / "download/synthetic.deb").read_bytes() == b"def"
     verify_inputs(selected, tmp_path / "download")
+
+
+@pytest.mark.parametrize("completed_code", [0, 1])
+def test_completed_fetch_child_is_never_signalled_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, completed_code: int
+) -> None:
+    selected = load_inputs(lock(tmp_path), "amd64")
+    waits = []
+    verified = []
+    created = []
+
+    class CompletedChild:
+        pid = 123456789
+
+        def __init__(self, _arguments, **options):
+            assert options["start_new_session"] is True
+            self.returncode = None
+            self.stdin = io.BytesIO()
+            self.output = options["stdout"]
+            created.append(self)
+
+        def communicate(self, raw, *, timeout):
+            assert 0 < timeout <= 5
+            assert json.loads(raw)["inputs"]["architecture"] == "amd64"
+            self.returncode = completed_code
+            if completed_code == 0:
+                self.output.write(b"ok\n")
+
+        def wait(self, *, timeout):
+            assert self.returncode == completed_code
+            waits.append(timeout)
+            return self.returncode
+
+    def forbidden_signal(_pid, _signal):
+        raise AssertionError("completed child process group is no longer owned")
+
+    monkeypatch.setattr(runtime_inputs.subprocess, "Popen", CompletedChild)
+    monkeypatch.setattr(runtime_inputs.os, "killpg", forbidden_signal)
+    monkeypatch.setattr(
+        runtime_inputs, "verify_inputs",
+        lambda inputs, directory: verified.append((inputs, directory)),
+    )
+    if completed_code == 0:
+        fetch_inputs(selected, tmp_path / "download", timeout=5)
+        assert verified == [(selected, tmp_path / "download")]
+    else:
+        with pytest.raises(ManifestError, match="runtime_input_download_failed"):
+            fetch_inputs(selected, tmp_path / "download", timeout=5)
+        assert verified == []
+    assert waits == [2]
+    assert len(created) == 1 and created[0].stdin.closed
