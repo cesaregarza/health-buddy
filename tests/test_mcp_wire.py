@@ -17,6 +17,7 @@ from health_buddy.plans import to_wire
 from health_buddy.security_api import BearerProof
 from health_buddy.service_api import Request
 from tests import test_transport_auth_wire as uds_fixtures
+from tests.canonical_fixtures import intent
 from tests.extension_fixtures import example
 from tests.mcp_wire_fixtures import actual_backend, client
 from tests.security_fixtures import action
@@ -246,6 +247,80 @@ def test_actual_lost_ack_restart_rotated_agent_exact_receipt_and_revocation(
         assert runtime.operations.journal.state().revision == revision + 1
         for secret in (grant.secret.value, rotated.secret.value):
             assert secret not in state_path.read_text()
+
+
+def test_actual_sdk_plan_review_preserves_stale_cas_without_mutation(
+    short_directory, tmp_path
+):
+    with actual_backend(short_directory, tmp_path) as (
+        _, settings, runtime, owner, _
+    ):
+        values = json.loads(settings.read_bytes())
+        initial_revision = runtime.operations.journal.state().revision
+        arguments = {
+            "intentId": "stale-wire-plan",
+            "identity": values["identity"],
+            "expectedRevision": initial_revision,
+            "plan": to_wire(program()),
+        }
+        with client(settings, tmp_path, modern=True) as wire:
+            proposed = wire.tool("propose_plan", arguments)
+            assert proposed["ok"] is True
+            review = proposed["result"]
+            assert review["applied"] is False
+            assert review["expectedRevision"] == initial_revision
+            assert runtime.operations.journal.state().revision == initial_revision
+            assert wire.tool("get_plan", {})["result"]["data"]["program"] is None
+            proposal_path = next((tmp_path / "retry").glob("proposals/*/*.json"))
+            original_proposal = proposal_path.read_bytes()
+
+            # A separate, authorized canonical write invalidates the reviewed
+            # CAS. The MCP caller may not silently refresh it while applying.
+            concurrent = runtime.operations.execute(
+                owner.principal,
+                intent(
+                    runtime.operations,
+                    owner.principal,
+                    record_id="synthetic-concurrent-weight",
+                    value=79,
+                ),
+            )
+            assert concurrent.status == 200
+            assert runtime.operations.journal.state().revision == initial_revision + 1
+            apply = {
+                "proposalId": review["proposalId"],
+                "reviewDigest": review["reviewDigest"],
+                "confirm": True,
+            }
+            wrong_review = wire.tool(
+                "apply_plan", {**apply, "reviewDigest": "0" * 64}
+            )
+            assert wrong_review["error"]["code"] == "proposal_review_required"
+            rejected = wire.tool("apply_plan", apply)
+            assert rejected["ok"] is False
+            assert rejected["error"]["status"] == 409
+            assert rejected["error"]["code"] == "revision_conflict"
+            assert proposal_path.read_bytes() == original_proposal
+            state_path = next(
+                (tmp_path / "retry").glob("profiles/*/requests/*.json")
+            )
+            retained = json.loads(state_path.read_bytes())
+            assert retained["state"] == "pending" and retained["cursor"] == 0
+            envelope = retained["envelope"]
+            assert envelope["ifMatch"] == f'"rev-{initial_revision}"'
+            assert envelope["payload"] == arguments["plan"]
+            retried = wire.tool("retry_write", {"intentId": arguments["intentId"]})
+            assert retried["error"]["code"] == "revision_conflict"
+            assert json.loads(state_path.read_bytes())["envelope"] == envelope
+            assert proposal_path.read_bytes() == original_proposal
+            assert wire.tool("get_plan", {})["result"]["data"]["program"] is None
+        assert runtime.operations.journal.state().revision == initial_revision + 1
+        current = runtime.operations.execute(
+            owner.principal,
+            Request("records.get", resource_id="synthetic-concurrent-weight"),
+        )
+        assert current.status == 200
+        assert decoded(current)["data"]["record"]["value"] == 79
 
 
 def test_redirect_refused_before_any_followup_or_credential_forwarding(
