@@ -54,8 +54,12 @@ def host_facts() -> dict[str, Any]:
         cpus = os.cpu_count()
     except (OSError, ValueError):
         memory, cpus = None, None
-    return {"system": platform.system(), "architecture": architecture,
-            "physicalMemoryBytes": memory, "logicalCpus": cpus}
+    return {
+        "system": platform.system(),
+        "architecture": architecture,
+        "physicalMemoryBytes": memory,
+        "logicalCpus": cpus,
+    }
 
 
 def docker_socket_state() -> str:
@@ -63,30 +67,51 @@ def docker_socket_state() -> str:
     try:
         native_directory(Path("/run"))
         details = Path("/run/docker.sock").lstat()
-        return "socket_present_not_connected" if stat.S_ISSOCK(details.st_mode) else "unavailable"
+        return (
+            "socket_present_not_connected"
+            if stat.S_ISSOCK(details.st_mode)
+            else "unavailable"
+        )
     except (OSError, ManifestError):
         return "unavailable"
 
 
 def preflight(
-    *, bundle: Path, manifest: Path, trusted_manifest_sha256: str,
-    workspace: Path, docker: Path, port: int | None = None,
+    *,
+    bundle: Path,
+    manifest: Path,
+    trusted_manifest_sha256: str,
+    workspace: Path,
+    docker: Path,
+    port: int | None = None,
 ) -> dict[str, Any]:
     diagnostics: list[dict[str, str]] = []
 
     def refuse(code: str) -> None:
-        diagnostics.append({"code": code, "severity": "error", "recovery": GUIDANCE[code]})
+        diagnostics.append(
+            {"code": code, "severity": "error", "recovery": GUIDANCE[code]}
+        )
 
     facts = host_facts()
     result: dict[str, Any] = {
-        "schemaVersion": 1, "kind": "install_preflight_dry_run",
-        "preflightPassed": False, "installed": False, "readyForActivation": False,
-        "host": facts, "release": {"state": "not_verified"},
-        "workspace": {"state": "not_inspected"}, "docker": {},
+        "schemaVersion": 1,
+        "kind": "install_preflight_dry_run",
+        "preflightPassed": False,
+        "installed": False,
+        "readyForActivation": False,
+        "host": facts,
+        "release": {"state": "not_verified"},
+        "workspace": {"state": "not_inspected"},
+        "docker": {},
         "port": "not_requested_no_published_runtime_port",
-        "pending": ["daemon_compose_and_ownership_admission", "checkpointed_install",
-                    "upgrade_recovery_interface", "private_https_and_user_sign_in",
-                    "matching_agent_guide_and_client_setup", "phone_pairing"],
+        "pending": [
+            "daemon_compose_and_ownership_admission",
+            "checkpointed_install",
+            "upgrade_recovery_interface",
+            "private_https_and_user_sign_in",
+            "matching_agent_guide_and_client_setup",
+            "phone_pairing",
+        ],
         "diagnostics": diagnostics,
     }
     architecture = facts["architecture"]
@@ -135,7 +160,9 @@ def preflight(
     trusted = bool(SHA256.fullmatch(trusted_manifest_sha256))
     if safe_paths and trusted:
         try:
-            trusted = file_digest(manifest, 2 * 1024 * 1024)[1] == trusted_manifest_sha256
+            trusted = (
+                file_digest(manifest, 2 * 1024 * 1024)[1] == trusted_manifest_sha256
+            )
         except (OSError, ManifestError):
             trusted = False
     if not trusted:
@@ -143,20 +170,29 @@ def preflight(
     elif safe_paths and architecture is not None:
         try:
             artifact = selected_artifact(manifest, architecture)
-            identity = verify_source_identity(bundle / "source", bundle / "release/source-manifest.json")
+            identity = verify_source_identity(
+                bundle / "source", bundle / "release/source-manifest.json"
+            )
             release = _json(manifest)
-            if not isinstance(release, dict) or not isinstance(release.get("sourceArchive"), dict):
+            if not isinstance(release, dict) or not isinstance(
+                release.get("sourceArchive"), dict
+            ):
                 raise ManifestError("invalid_runtime_manifest")
             if file_digest(manifest, 2 * 1024 * 1024)[1] != trusted_manifest_sha256:
                 refuse("release_untrusted")
-            elif (identity.source_commit != release["sourceCommit"]
-                or identity.source_archive_sha256 != release["sourceArchive"]["sha256"]):
+            elif (
+                identity.source_commit != release["sourceCommit"]
+                or identity.source_archive_sha256 != release["sourceArchive"]["sha256"]
+            ):
                 refuse("source_mismatch")
             else:
-                result["release"] = {"state": "pinned_archives_and_matching_source_verified",
-                    "sourceCommit": identity.source_commit, "architecture": architecture,
+                result["release"] = {
+                    "state": "pinned_archives_and_matching_source_verified",
+                    "sourceCommit": identity.source_commit,
+                    "architecture": architecture,
                     "imageArchiveSha256": artifact.archive_sha256,
-                    "trust": "operator_supplied_manifest_pin_not_publisher_identity_proof"}
+                    "trust": "operator_supplied_manifest_pin_not_publisher_identity_proof",
+                }
         except (OSError, ManifestError):
             refuse("release_invalid")
     try:
@@ -185,9 +221,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--docker", type=Path, required=True)
     parser.add_argument("--port", type=int, choices=range(1, 65536), metavar="PORT")
     args = parser.parse_args(argv)
-    result = preflight(bundle=args.bundle, manifest=args.manifest,
+    result = preflight(
+        bundle=args.bundle,
+        manifest=args.manifest,
         trusted_manifest_sha256=args.trusted_manifest_sha256,
-        workspace=args.workspace, docker=args.docker, port=args.port)
+        workspace=args.workspace,
+        docker=args.docker,
+        port=args.port,
+    )
     print(json.dumps(result, sort_keys=True))
     return 0 if result["preflightPassed"] else 2
 

@@ -16,7 +16,9 @@ from tests.test_runtime_context import context_fixture
 
 def prepared(tmp_path, monkeypatch):
     bundle, _ = context_fixture(tmp_path)
-    identity = verify_source_identity(bundle / "source", bundle / "release/source-manifest.json")
+    identity = verify_source_identity(
+        bundle / "source", bundle / "release/source-manifest.json"
+    )
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
     labels = {
@@ -28,39 +30,64 @@ def prepared(tmp_path, monkeypatch):
         ).hexdigest(),
     }
     for architecture in ("amd64", "arm64"):
-        make_archive(artifacts / f"health-buddy-linux-{architecture}.docker.tar",
-            architecture=architecture, config_override={"config": {"Labels": labels}})
+        make_archive(
+            artifacts / f"health-buddy-linux-{architecture}.docker.tar",
+            architecture=architecture,
+            config_override={"config": {"Labels": labels}},
+        )
     manifest = create_release(bundle, artifacts)
     workspace = tmp_path / "persistent-owner"
     workspace.mkdir(mode=0o700)
     docker = tmp_path / "docker"
     docker.write_bytes(b"synthetic executable never invoked")
     docker.chmod(0o700)
-    monkeypatch.setattr(install_preflight, "host_facts", lambda: {
-        "system": "Linux", "architecture": "amd64", "physicalMemoryBytes": 4 * 1024**3,
-        "logicalCpus": 2,
-    })
-    monkeypatch.setattr(install_preflight, "docker_socket_state", lambda: "socket_present_not_connected")
-    monkeypatch.setattr(install_preflight.shutil, "disk_usage", lambda _: SimpleNamespace(free=10 * 1024**3))
-    return dict(bundle=bundle, manifest=manifest,
+    monkeypatch.setattr(
+        install_preflight,
+        "host_facts",
+        lambda: {
+            "system": "Linux",
+            "architecture": "amd64",
+            "physicalMemoryBytes": 4 * 1024**3,
+            "logicalCpus": 2,
+        },
+    )
+    monkeypatch.setattr(
+        install_preflight, "docker_socket_state", lambda: "socket_present_not_connected"
+    )
+    monkeypatch.setattr(
+        install_preflight.shutil,
+        "disk_usage",
+        lambda _: SimpleNamespace(free=10 * 1024**3),
+    )
+    return dict(
+        bundle=bundle,
+        manifest=manifest,
         trusted_manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
-        workspace=workspace, docker=docker)
+        workspace=workspace,
+        docker=docker,
+    )
 
 
 def codes(value):
     return {item["code"] for item in value["diagnostics"]}
 
 
-def test_pinned_real_archive_inspection_reports_plan_without_creating_install(tmp_path, monkeypatch):
+def test_pinned_real_archive_inspection_reports_plan_without_creating_install(
+    tmp_path, monkeypatch
+):
     inputs = prepared(tmp_path, monkeypatch)
-    before = {str(path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    before = {
+        str(path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
+    }
     result = install_preflight.preflight(**inputs)
     assert result["preflightPassed"]
     assert result["release"]["state"] == "pinned_archives_and_matching_source_verified"
     assert not result["installed"] and not result["readyForActivation"]
     assert result["docker"]["compose"] == "not_executed_or_qualified"
     assert result["workspace"]["state"] == "empty_not_initialized"
-    assert before == {str(path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    assert before == {
+        str(path): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
+    }
     assert list(inputs["workspace"].iterdir()) == []
     assert "checkpointed_install" in result["pending"]
 
@@ -68,7 +95,11 @@ def test_pinned_real_archive_inspection_reports_plan_without_creating_install(tm
 def test_wrong_trust_pin_refuses_before_archive_validation(tmp_path, monkeypatch):
     inputs = prepared(tmp_path, monkeypatch)
     inputs["trusted_manifest_sha256"] = "0" * 64
-    monkeypatch.setattr(install_preflight, "selected_artifact", lambda *_: pytest.fail("untrusted release inspected"))
+    monkeypatch.setattr(
+        install_preflight,
+        "selected_artifact",
+        lambda *_: pytest.fail("untrusted release inspected"),
+    )
     result = install_preflight.preflight(**inputs)
     assert "release_untrusted" in codes(result)
     assert not result["preflightPassed"]
@@ -95,16 +126,29 @@ def test_existing_state_and_conflicting_port_are_preserved(tmp_path, monkeypatch
     assert str(inputs["workspace"]) not in json.dumps(result)
 
 
-def test_unsupported_resources_and_missing_docker_have_stable_refusals(tmp_path, monkeypatch):
+def test_unsupported_resources_and_missing_docker_have_stable_refusals(
+    tmp_path, monkeypatch
+):
     inputs = prepared(tmp_path, monkeypatch)
-    monkeypatch.setattr(install_preflight, "host_facts", lambda: {
-        "system": "ExampleOS", "architecture": None, "physicalMemoryBytes": 1,
-        "logicalCpus": 1,
-    })
+    monkeypatch.setattr(
+        install_preflight,
+        "host_facts",
+        lambda: {
+            "system": "ExampleOS",
+            "architecture": None,
+            "physicalMemoryBytes": 1,
+            "logicalCpus": 1,
+        },
+    )
     inputs["docker"].unlink()
     monkeypatch.setattr(install_preflight, "docker_socket_state", lambda: "unavailable")
     result = install_preflight.preflight(**inputs)
-    assert {"unsupported_host", "resources_low", "docker_cli_unavailable", "docker_socket_unavailable"} <= codes(result)
+    assert {
+        "unsupported_host",
+        "resources_low",
+        "docker_cli_unavailable",
+        "docker_socket_unavailable",
+    } <= codes(result)
     assert not result["preflightPassed"]
 
 
@@ -113,5 +157,9 @@ def test_linked_target_refuses_before_personal_inventory(tmp_path, monkeypatch):
     target = tmp_path / "linked-owner"
     target.symlink_to(inputs["workspace"], target_is_directory=True)
     inputs["workspace"] = target
-    monkeypatch.setattr(install_preflight.os, "scandir", lambda *_: pytest.fail("linked workspace inspected"))
+    monkeypatch.setattr(
+        install_preflight.os,
+        "scandir",
+        lambda *_: pytest.fail("linked workspace inspected"),
+    )
     assert "path_unavailable" in codes(install_preflight.preflight(**inputs))
