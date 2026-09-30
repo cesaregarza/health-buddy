@@ -50,6 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     from .upgrade_cli import add_commands as add_upgrade_commands
 
     add_upgrade_commands(commands)
+    from .import_cli import add_commands as add_import_commands
+
+    add_import_commands(commands)
     commands.add_parser("init")
     commands.add_parser("render")
     status = commands.add_parser("status")
@@ -153,6 +156,10 @@ def main(argv: list[str] | None = None) -> int:
                 if any(item["severity"] == "error" for item in result["diagnostics"])
                 else 0
             )
+        if args.command == "legacy-import":
+            from .import_cli import handle as handle_import
+
+            return handle_import(args)
         if args.command == "upgrade":
             from .upgrade_cli import handle as handle_upgrade
 
