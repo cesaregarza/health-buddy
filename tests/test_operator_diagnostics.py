@@ -1,7 +1,11 @@
 """Synthetic operator failures and support-summary privacy boundaries."""
 
 import json
+from importlib.resources import files
+from pathlib import Path
 import socket
+
+import pytest
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -68,3 +72,54 @@ def test_support_bundle_excludes_tokens_and_personal_records():
     for forbidden in ("synthetic-token", "123.456", "owner@example.test", "private-source"):
         assert forbidden not in raw
     assert "source_stale" in raw and "needs_review" in raw
+
+
+def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path):
+    from health_buddy.extension_diagnostics import observed_call, recent_failure
+    from health_buddy.extension_install import install
+    from health_buddy.service_api import ServiceError
+
+    app = App.development(tmp_path / "owner")
+    install(app.config, Path(str(files("health_buddy").joinpath("reference_extensions/local.weekly-mass"))))
+    private = "Bearer synthetic-failure-token body-mass=123.456"
+    before = (app.config.root / "personal/extensions/local.weekly-mass/src/metric.py").read_bytes()
+    with patch("health_buddy.extension_diagnostics.call", side_effect=ServiceError(503, "extension_timeout")):
+        with pytest.raises(ServiceError, match="extension_timeout"):
+            observed_call(app.config, "local.weekly-mass", "src/metric.py:compute", app.config.root, {"health": private})
+    value = report(app.config.root)
+    raw = json.dumps(value)
+    assert private not in raw
+    assert "extension_unavailable" in codes(value)
+    assert recent_failure(app.config, "local.weekly-mass")["code"] == "extension_timeout"
+    from health_buddy.extension_registry import Registry
+
+    Registry(app.config).disable("local.weekly-mass")
+    assert before == (app.config.root / "personal/extensions/local.weekly-mass/src/metric.py").read_bytes()
+
+
+def test_missing_worker_record_is_unknown(tmp_path):
+    from health_buddy.extension_diagnostics import recent_failure
+
+    app = App.development(tmp_path / "owner")
+    assert recent_failure(app.config, "local.weekly-mass")["state"] == "unknown"
+
+
+def test_receiver_failure_and_private_phone_unknown(tmp_path):
+    app = App.development(tmp_path / "owner")
+    path = app.config.root / "config.json"
+    config = json.loads(path.read_text())
+    config["security"].update({"ingress": "tailscale-uds", "externalOrigin": "https://synthetic.example.test", "ownerSubject": "synthetic@example.test"})
+    path.write_text(json.dumps(config))
+    value = report(app.config.root)
+    assert "receiver_unreachable" in codes(value)
+    assert value["connectivity"]["phone"] == "unknown"
+
+
+def test_partial_application_permissions_have_distinct_code(tmp_path):
+    from health_buddy.service_api import ServiceError
+
+    app = App.development(tmp_path / "owner")
+    with patch.object(app, "_read", side_effect=ServiceError(403, "forbidden")):
+        value = report(app.config.root, app=app)
+    assert "authorization_partial" in codes(value)
+    assert value["sources"] is None

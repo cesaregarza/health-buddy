@@ -47,8 +47,9 @@ submit its declared synthetic tests through the supported verification workflow
 After deliberate repair use `extension enable` with explicit sources, or
 `extension revert --id ID --review DIGEST` to select a retained reviewed snapshot.
 These commands preserve personal editable files and authoritative state. Runtime
-recent failures are not retained in an operator ledger yet; diagnostics explicitly
-report `unknown_not_retained`. A compatible manifest does not prove execution
+worker failures retain one latest safe code/timestamp in the extension state. No
+payload, exception text or credential is saved. Absence reports unknown, never
+proof of success; retention failures preserve the original worker error. A compatible manifest does not prove execution
 success, and a broken extension does not make cached output current.
 
 `support-bundle` emits a fixed allowlisted JSON summary of diagnostic codes and

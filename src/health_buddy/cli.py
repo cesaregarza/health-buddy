@@ -89,7 +89,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.development and args.credential_file is not None:
             raise ServiceError(422, "development_cannot_use_credentials")
         if args.command in {"status", "doctor", "support-bundle"}:
-            from .operator_diagnostics import finding, human, report, support_summary
+            from .operator_diagnostics import (
+                finding, human, report, runtime_details, support_summary,
+            )
 
             if args.command == "status" and not (
                 args.development or args.credential_file is not None
@@ -110,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
                             proof=BearerProof(read_credential(args.credential_file)),
                         )
                     )
-                    result = report(args.workspace.expanduser().resolve(), app=app, port=getattr(args, "port", None))
+                    runtime_details(result, app)
                 except (ConfigError, StoreError, OSError, ValueError, RuntimeError, ServiceError) as exc:
                     code = "authorization_partial" if isinstance(exc, ServiceError) and exc.status in {401, 403} else "runtime_unavailable"
                     result["diagnostics"].append(finding(code, "error"))

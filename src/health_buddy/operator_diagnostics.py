@@ -13,6 +13,7 @@ from typing import Any
 
 from .app import App
 from .config import ConfigError, load
+from .extension_diagnostics import recent_failure
 from .extension_registry import Registry, status_json
 from .service_api import ServiceError
 
@@ -62,7 +63,7 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
                          "releaseArtifact": None},
         "sources": None,
         "queue": {"state": "unknown", "scope": "current_cli_actor_only"},
-        "extensions": {"items": [], "recentFailures": "unknown_not_retained"},
+        "extensions": {"items": [], "recentFailures": "latest_safe_worker_failure_only"},
         "storage": [],
         "connectivity": {"phone": "unknown", "privateRoute": "not_probed"},
         "diagnostics": [],
@@ -101,6 +102,10 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
         result["storage"].append(entry)
     try:
         result["extensions"]["items"] = [status_json(item) for item in Registry(config).inspect()]
+        for item in result["extensions"]["items"]:
+            item["recentFailure"] = recent_failure(config, item["id"])
+            if item["recentFailure"].get("state") == "recorded":
+                diagnostics.append(finding("extension_unavailable"))
         if any(item["state"] not in {"ready", "disabled"} for item in result["extensions"]["items"]):
             diagnostics.append(finding("extension_unavailable"))
     except (OSError, ValueError, ServiceError):
@@ -127,18 +132,23 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
         finally:
             probe.close()
     if app is not None:
-        try:
-            result["capabilities"] = app._read("capabilities")
-            projection = app._read("projection.status")
-            if isinstance(projection, dict):
-                result["sources"] = projection
-                diagnostics.extend(source_findings(projection))
-            result["queue"] = {**app.workflow.inspect(), "scope": "current_cli_actor_only"}
-            if result["queue"]["state"] == "pending":
-                diagnostics.append(finding("pending_write"))
-        except ServiceError as exc:
-            diagnostics.append(finding("authorization_partial" if exc.status in {401, 403} else "runtime_unavailable", "error"))
+        runtime_details(result, app)
     return result
+
+
+def runtime_details(result: dict[str, Any], app: App) -> None:
+    diagnostics = result["diagnostics"]
+    try:
+        result["capabilities"] = app._read("capabilities")
+        projection = app._read("projection.status")
+        if isinstance(projection, dict):
+            result["sources"] = projection
+            diagnostics.extend(source_findings(projection))
+        result["queue"] = {**app.workflow.inspect(), "scope": "current_cli_actor_only"}
+        if result["queue"]["state"] == "pending":
+            diagnostics.append(finding("pending_write"))
+    except ServiceError as exc:
+        diagnostics.append(finding("authorization_partial" if exc.status in {401, 403} else "runtime_unavailable", "error"))
 
 
 def support_summary(value: dict[str, Any]) -> dict[str, Any]:
