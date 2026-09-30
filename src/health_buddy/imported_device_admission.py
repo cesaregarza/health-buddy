@@ -53,8 +53,14 @@ def admit(
                     ),
                     limit=16384,
                 ),
-                {"schemaVersion", "family", "sourceSha256", "snapshotSha256",
-                 "mapping", "realPairingBridge"},
+                {
+                    "schemaVersion",
+                    "family",
+                    "sourceSha256",
+                    "snapshotSha256",
+                    "mapping",
+                    "realPairingBridge",
+                },
             )
             if (
                 not isinstance(receipt, dict)
