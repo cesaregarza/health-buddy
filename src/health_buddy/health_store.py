@@ -19,7 +19,7 @@ from typing import cast
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from health_ingest.models import Batch, parse_batch
-from health_ingest.storage import BatchConflictError, HealthRepository
+from health_ingest.storage import BatchConflictError, HealthRepository, _canonical_hash
 
 from .domain import decode, digest, encode, identity_value, instant, object_value, text
 from .durability import fsync_path, private_file, unavailable
@@ -359,6 +359,46 @@ class HealthStore:
                     observation_id,
                 ),
             )
+
+    def adopted_acknowledgement(
+        self, batch: Batch, source_id: str, stream_id: str | None
+    ) -> dict[str, JSON] | None:
+        """Only explicitly imported legacy receipts; never mint journal history."""
+        private_file(self.path)
+        with closing(sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)) as connection:
+            connection.row_factory = sqlite3.Row
+            if connection.execute(
+                "SELECT 1 FROM source_streams WHERE source_id=? AND stream_id=? "
+                "AND active_device_id=?", (source_id, stream_id, batch.device_id)
+            ).fetchone() is None:
+                raise ServiceError(403, "device_mismatch")
+            if connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='legacy_adoption_ack'"
+            ).fetchone() is None:
+                return None
+            row = connection.execute(
+                "SELECT a.*,b.payload_sha256 AS stored_digest,"
+                "b.record_count AS stored_records,"
+                "b.deletion_count AS stored_deletions FROM legacy_adoption_ack a "
+                "LEFT JOIN batches b USING(device_id,batch_id) "
+                "WHERE a.device_id=? AND a.batch_id=?",
+                (batch.device_id, batch.batch_id),
+            ).fetchone()
+            if row is None:
+                return None
+            snapshots = connection.execute("SELECT snapshot_sha256 FROM legacy_adoption_snapshot").fetchall()
+            if (len(snapshots) != 1 or snapshots[0][0] != row["snapshot_sha256"]
+                or row["payload_sha256"] != row["stored_digest"]
+                or row["record_count"] != row["stored_records"]
+                or row["deletion_count"] != row["stored_deletions"]
+                or len(row["snapshot_sha256"]) != 64):
+                raise unavailable()
+            if row["payload_sha256"] != _canonical_hash(batch):
+                raise BatchConflictError("Adopted batch payload conflict")
+            return {"status": "accepted", "batchId": batch.batch_id,
+                    "duplicateBatch": True, "recordsAccepted": row["record_count"],
+                    "deletionsAccepted": row["deletion_count"]}
 
     def validate(self, effect: dict[str, JSON]) -> None:
         """Domain conflict validation with rollback before the global decision."""

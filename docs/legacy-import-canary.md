@@ -127,3 +127,61 @@ Remaining CES-1081 scope includes other manual record families, historical intak
 normalization, HealthKit and connector stores, device replay, richer reconciliation
 and full reversible-canary qualification. None is claimed by these retained-record
 tracers, and no real source, private Git history or actual cutover was exercised.
+
+## Synthetic legacy receiver data tracer
+
+The `legacy-healthkit-receiver` family exports the clean retained SQLite schema
+1: device IDs, current records, tombstones and acknowledged batch hashes/counts.
+It excludes device labels, token salts and token hashes. Select a closed,
+quiesced, private native database snapshot with no SQLite sidecars and review
+its exact SHA256. Supported input has only the four retained tables and indexes;
+foreign schemas, generated columns, views and triggers are refused. Limits are
+4 MiB and 1,000 combined rows, with at most eight devices. No live/private receiver
+or actual phone is qualified by the synthetic tests.
+
+The separately reviewed mapping JSON is exactly a list of
+`{deviceId, sourceId, streamId}` entries. Every retained UUID device needs one
+unique supported source ID and UUID stream. The mapping binds data to a new
+canonical stream; **it does not authorize the old phone** or establish continuity
+with any physical receiver identity. Observation IDs use the existing canonical
+stream/record identity rule; underlying HealthKit record and device IDs remain
+unchanged. Current records retain received timestamps, digests and metadata;
+tombstones preserve deletion semantics, including when a deleted record arrives
+again. Delivery provenance represents the retained current rows, not a complete
+historical delivery trace that the legacy schema did not store.
+
+```sh
+health-buddy --workspace /native/private/receiver-canary legacy-import export-receiver \
+  --source-db /native/private/closed-legacy.db \
+  --expected-source-sha256 REVIEWED_DATABASE_SHA256 \
+  --mapping-file /native/private/device-streams.json \
+  --expected-mapping-sha256 REVIEWED_MAPPING_SHA256 \
+  --confirm-quiesced --snapshot /native/private/receiver.json
+health-buddy --workspace /native/private/receiver-canary legacy-import adopt-receiver \
+  --snapshot /native/private/receiver.json \
+  --expected-snapshot-sha256 REVIEWED_RECEIVER_SNAPSHOT_SHA256
+```
+
+Adoption creates an isolated empty receiver, registers the explicitly selected
+streams through canonical operations, seeds current records through the retained
+HealthRepository transitions, and publishes only the verified new workspace.
+Ordinary startup still refuses a nonempty unadopted legacy receiver. Old device
+credential material never enters current authority: retained FK device rows have
+empty credentials and are disabled. The new workspace defaults to denied access;
+this command does not mint phone credentials or insert security actors.
+
+Imported acknowledgements are explicitly bound to the reviewed snapshot and
+retained normalized payload hash/counts. Under newly issued **synthetic fixture
+policy** authority, exact old replay returns the existing acknowledgement schema
+with `duplicateBatch: true` and the current canonical identity tuple, without
+advancing its revision. Changed same-batch content conflicts; new batches commit
+normally. The legacy schema stores hashes rather than original batch payloads:
+the replay fixture supplies known fabricated payloads. It does not invent old
+canonical journal entries, canonical revisions or unavailable original payloads.
+
+The real pairing bridge remains **unimplemented**. Existing production pairing
+chooses new source/stream IDs, so an explicit import mapping cannot silently
+become a production device grant. Receiver identity, actual phone re-pairing,
+checkpoint reconciliation/replay, credentials and cutover need the next explicit
+bridge and device qualification. This data-only checkpoint does not complete
+CES-1081 or authorize use against a personal/deployed receiver.

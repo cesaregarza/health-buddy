@@ -10,6 +10,7 @@ from typing import Any
 from .legacy_import import export_measurements, import_measurements
 from .legacy_manual_canary import INPUTS, export_manual_canary, import_manual_canary
 from .legacy_workout_import import export_workouts, import_workouts
+from .legacy_receiver_import import export_receiver, import_receiver
 from .service_api import ServiceError
 
 
@@ -52,11 +53,32 @@ def add_commands(commands: Any) -> None:
     adopt_combined.add_argument("--snapshot", type=Path, required=True)
     adopt_combined.add_argument("--expected-snapshot-sha256", required=True)
 
+    receiver = sub.add_parser("export-receiver")
+    receiver.add_argument("--source-db", type=Path, required=True)
+    receiver.add_argument("--expected-source-sha256", required=True)
+    receiver.add_argument("--mapping-file", type=Path, required=True)
+    receiver.add_argument("--expected-mapping-sha256", required=True)
+    receiver.add_argument("--confirm-quiesced", action="store_true")
+    receiver.add_argument("--snapshot", type=Path, required=True)
+    adopt_receiver = sub.add_parser("adopt-receiver")
+    adopt_receiver.add_argument("--snapshot", type=Path, required=True)
+    adopt_receiver.add_argument("--expected-snapshot-sha256", required=True)
+
 
 def handle(args: argparse.Namespace) -> int:
     if args.development or args.credential_file is not None:
         raise ServiceError(422, "import_requires_native_owner_maintenance")
-    if args.import_action == "export-manual-canary":
+    if args.import_action == "export-receiver":
+        result = export_receiver(
+            args.source_db, args.mapping_file, args.snapshot,
+            expected_source_sha256=args.expected_source_sha256,
+            expected_mapping_sha256=args.expected_mapping_sha256,
+            confirm_quiesced=args.confirm_quiesced,
+        )
+    elif args.import_action == "adopt-receiver":
+        result = import_receiver(args.workspace, args.snapshot,
+                                 expected_snapshot_sha256=args.expected_snapshot_sha256)
+    elif args.import_action == "export-manual-canary":
         selected = {
             "measurements": args.measurements_snapshot,
             "workouts": args.workouts_snapshot,
