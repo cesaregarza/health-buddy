@@ -31,6 +31,7 @@ actual runtime image, including transitive dependencies and base-image notices.
 | psycopg 3.3.6; psycopg-binary 3.3.6 | LGPL-3.0-only | Optional PostgreSQL extra; not required by core |
 | jsonschema 4.23.0 | MIT | Runtime extension manifest/configuration validation and contract checks |
 | attrs 26.1.0; jsonschema-specifications 2025.9.1; referencing 0.37.0; rpds-py 2026.6.3 | MIT project licenses; native rpds components have additional notices | Observed extension schema runtime dependencies |
+| types-jsonschema 4.23.0.20241208 | Apache-2.0 | Development-only schema typing; exact wheel and installed metadata verified |
 | pytest 9.1.1; Ruff 0.16.9; mypy 1.20.2; build 1.6.1; Hatchling 1.32.4 | MIT | Development and build tooling |
 | pytest-asyncio 1.4.0 | Apache-2.0 | Development checks |
 | Playwright 1.63.0 | Apache-2.0; bundled notices also retained | Optional browser validation tooling; not shipped in core source |
@@ -67,6 +68,10 @@ evidence digests. No dependency source or binary is vendored by this change.
 The personal-extension dependency promotion and selected development-only
 types-jsonschema typing package have a separate
 [dependency evidence inventory](docs/extension-dependencies.md). That inventory
-distinguishes installed Python metadata, the rpds wheel-shipped SBOM candidate,
-its broader Cargo.lock and pending exact artifact notice verification. It does
-not classify all Rust components as MIT or claim future-image qualification.
+distinguishes installed Python metadata, the verified rpds wheel-shipped SBOM
+and its broader Cargo.lock. The exact wheel matches the installed native binary
+and SBOM; 18 checksum-verified crate archives supplied 36 actual Rust legal
+texts, including LLVM and Unicode terms. Together with six Python notices and
+the dev-only typing license, 43 files are retained under
+[docs/notices/extensions](docs/notices/extensions/README.md). This is not proof
+of static-link membership or future-image qualification.

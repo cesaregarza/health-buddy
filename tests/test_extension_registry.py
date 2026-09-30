@@ -6,7 +6,7 @@ from importlib.resources import files
 
 import pytest
 
-from health_buddy import extension_files
+from health_buddy import extension_files, extension_manifest
 from health_buddy.extension_api import EXTENSION_API, MAX_EXTENSIONS
 from health_buddy.extension_files import runtime_files
 from health_buddy.extension_install import install
@@ -255,3 +255,15 @@ def test_invalid_registry_entry_count_is_reported_as_incomplete(tmp_path):
     )
     (status,) = Registry(runtime.operations.config).inspect()
     assert status.id == "registry" and status.state == "inventory_incomplete"
+
+
+@pytest.mark.parametrize("host_schema", [b"true", b"[]", b"null"])
+def test_invalid_bundled_schema_refuses_before_owner_manifest_validation(
+    tmp_path, monkeypatch, host_schema
+):
+    (tmp_path / "extension_manifest.schema.json").write_bytes(host_schema)
+    monkeypatch.setattr(extension_manifest, "files", lambda _package: tmp_path)
+    with pytest.raises(ServiceError) as failure:
+        extension_manifest.parse_manifest(b"{}")
+    assert failure.value.status == 503
+    assert failure.value.code == "extension_host_schema_invalid"

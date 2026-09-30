@@ -12,8 +12,10 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Source capture and scoped projections | `snapshots.py`, `views.py`, `projection.py`; canonical reads/extensions and portable workspace tests |
 | Maintained HTTP | `transport*.py`, `production_server.py`, `server.py`; transport, wire and portable HTTP tests |
 | Security authority and native setup | `security_api.py`, `security.py`, `security_store.py`, `security_actions.py`, `security_runtime.py`; security authority/pairing/recovery/setup tests |
-| UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and six browser suites |
-| Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |\n| Personal registry, native jobs and reviewed views | `extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |\n| Private discovery and recorded core forks | `personal_workspace.py`, `extension_cli.py`; preservation and native maintenance tests |
+| UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
+| Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
+| Personal registry, native jobs and reviewed views | `extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |
+| Private discovery and recorded core forks | `personal_workspace.py`, `extension_cli.py`; preservation and native maintenance tests |
 | Owner configuration/first run | `config.py`, `workspace.py`, `legacy_store.py`; portable workspace/config tests |
 | HealthKit schema-v1 calculations | `src/health_ingest/models.py`, `storage.py`, dashboard `healthkit_source.py`; protocol/storage and receiver recovery tests |
 | Dashboard/context calculations | dashboard `build_dashboard.py`, `context_pack.py`, scripts summaries/planning/progression; retained calculation tests |

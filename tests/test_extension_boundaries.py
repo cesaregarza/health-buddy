@@ -27,7 +27,8 @@ from tests.test_transport_auth_wire import short_directory as short_directory
             "extension_execution_failed",
         ),
         (
-            "def calculate(value):\n    raise RuntimeError('synthetic hidden detail')\n",
+            "def calculate(value):\n"
+            "    raise RuntimeError('synthetic hidden detail')\n",
             "extension_execution_failed",
         ),
     ],

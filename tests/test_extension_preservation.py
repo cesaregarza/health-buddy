@@ -322,12 +322,18 @@ value = decoded(runtime.operations.execute(
         "from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"
     }),
 ))["data"]["metric"]
-event = root / "personal/extensions/local.water-import/state/requests" / (digest({"eventId": "replacement-event"}) + ".json")
+event = (
+    root / "personal/extensions/local.water-import/state/requests"
+    / (digest({"eventId": "replacement-event"}) + ".json")
+)
 revision_before = runtime.operations.journal.state().revision
-replayed = run_event(runtime.operations.config, runtime, BearerProof(agent_token), "local.water-import", {
-    "eventId": "replacement-event", "sourceId": "fabricated-water",
-    "observedAt": "2030-01-03T09:00:00Z", "value": 250, "unit": "mL"
-})
+replayed = run_event(
+    runtime.operations.config, runtime, BearerProof(agent_token),
+    "local.water-import", {
+        "eventId": "replacement-event", "sourceId": "fabricated-water",
+        "observedAt": "2030-01-03T09:00:00Z", "value": 250, "unit": "mL"
+    }
+)
 inventory = personal_workspace.describe(runtime.operations.config)["personalInventory"]
 print(json.dumps({
     "metric": value,
@@ -396,7 +402,9 @@ assert sys.stdin.readline().strip() == "GO"
 print("ATTEMPT", flush=True)
 event = {"eventId": "backup-lock-event", "sourceId": "fabricated-water",
          "observedAt": "2030-01-03T10:00:00Z", "value": 300, "unit": "mL"}
-run_event(runtime.operations.config, runtime, BearerProof(token), "local.water-import", event)
+run_event(
+    runtime.operations.config, runtime, BearerProof(token), "local.water-import", event
+)
 print("DONE", flush=True)
 """
     child_proc = subprocess.Popen(  # noqa: S603 - fixed isolated child, no shell.

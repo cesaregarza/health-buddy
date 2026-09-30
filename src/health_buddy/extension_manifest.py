@@ -19,6 +19,8 @@ def parse_manifest(raw: bytes) -> ExtensionManifest:
         files("health_buddy").joinpath("extension_manifest.schema.json").read_bytes(),
         limit=32_768,
     )
+    if not isinstance(schema, dict):
+        raise ServiceError(503, "extension_host_schema_invalid")
     validator = Draft202012Validator(schema, registry=Registry())
     if not validator.is_valid(value) or not isinstance(value, dict):
         raise ServiceError(422, "extension_manifest_invalid")

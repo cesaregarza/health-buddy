@@ -156,7 +156,7 @@ def prepare(
             raise ServiceError(503, "extension_source_preparation_failed")
         fault("source_registered")
         actors = _actors(runtime, owner_proof)
-        actor_id = cast(str | None, record["actorId"])
+        actor_id = record["actorId"]
         if actor_id is None and record["phase"] in {"grant_pending", "handoff_pending"}:
             candidates = [
                 actor
