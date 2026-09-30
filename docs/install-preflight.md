@@ -287,3 +287,88 @@ nonroot metadata. Separate interruption cases retain owned config/token after
 lost acknowledgements, preserve unrelated personal choices, and refuse foreign
 edits, unowned output and partial authority. No actual host identity change,
 Docker daemon, Tailscale sign-in, paid model session or phone action is exercised.
+
+## Scoped private HTTPS Serve checkpoint
+
+This first Serve path targets the exact Tailscale **1.102.5** CLI/daemon interface
+from immutable upstream source
+[5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115](https://github.com/tailscale/tailscale/tree/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115).
+No Tailscale binary was installed or executed for this implementation; fixtures
+are source-backed synthetic evidence, not named-host/client qualification or
+compatibility with arbitrary patched builds. The owner must separately install,
+admit and sign in to a matching supported native CLI/daemon and approve the
+machine, MagicDNS and HTTPS certificate permissions. This command never logs in,
+enrolls a device, updates binaries or enables certificate provisioning.
+
+Observation requires lowercase version fields `majorMinorPatch`, `short`, `long`,
+`gitCommit` and `daemonLong` from
+[version metadata](https://github.com/tailscale/tailscale/blob/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115/version/prop.go)
+and [version command](https://github.com/tailscale/tailscale/blob/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115/cmd/tailscale/cli/version.go).
+It requires supported clean source/version and matching CLI/daemon long versions.
+[Status](https://github.com/tailscale/tailscale/blob/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115/ipn/ipnstate/ipnstate.go)
+must report that same `Version`, `BackendState:Running`, eligible `Self.DNSName`,
+`CurrentTailnet.MagicDNSSuffix`/`MagicDNSEnabled`, matching `CertDomains`, and the
+existing literal `"https"` key in `Self.CapMap`. That last gate keeps the supported
+[Serve feature flow](https://github.com/tailscale/tailscale/blob/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115/cmd/tailscale/cli/serve_legacy.go)
+from requesting HTTPS enablement. Origin must equal the configured private HTTPS
+DNS origin; no hostname or subject is guessed. Missing admission returns fixed
+owner-action codes without raw auth URLs or daemon logs.
+
+Use explicit native executable and local daemon-socket paths. The local API must
+already have an owned healthy activation, ready security authority and existing
+managed UDS socket. The read-only dry-run observes these states and Serve config;
+it writes no journal or workspace files and creates no route:
+
+```sh
+"$PYTHON" -m health_buddy.install_https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action dry-run --confirm-local-tailscale
+"$PYTHON" -m health_buddy.install_https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action setup --confirm-local-tailscale --confirm-serve --confirm-quiesced
+```
+
+The mutation is exactly `serve --bg --https=443 --set-path=/ unix:/absolute/socket`.
+Only this workspace's HTTPS 443 root handler is owned. Before mutation, the private
+journal binds the existing installation/authority/config, CLI bytes and version,
+daemon socket, origin and UDS target plus an unrelated-config digest. It refuses
+unowned root handlers, TCP/HTTP conflicts, other 443 hostnames, foreground 443
+entries, selected-port Funnel, ambiguous port state and changed owner binding.
+Other paths on the same private host, other ports, Services and unrelated
+Foreground config are preserved. Selected-port Funnel entries are refused even
+when already false if the CLI would remove them. No public Funnel is enabled.
+
+`setting` → `enabled` and `removing` → `removed` reconcile lost acknowledgements
+by reobserving exact owned handler and unrelated digest. Repeating setup/removal
+does not issue another mutation when its desired owned state is already present.
+Closed stdin, a 20-second deadline and 64 KiB output cap prevent hidden interactive
+flows and unbounded raw output. External Serve editors must be quiesced: the
+[CLI's read-modify-write](https://github.com/tailscale/tailscale/blob/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115/cmd/tailscale/cli/serve_v2.go)
+is not atomic with installer preflight. Before/after fingerprint comparison
+detects competing changes but cannot prevent them; a conflict retains all state
+for owner inspection and never resets/restores a whole configuration.
+
+Owned removal uses the exact original selection and explicit path flag:
+
+```sh
+"$PYTHON" -m health_buddy.install_https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action remove --confirm-local-tailscale --confirm-serve --confirm-quiesced
+```
+
+The resulting command is `serve --bg --https=443 --set-path=/ off`. It removes no
+other root/path/port, does not stop the API and keeps all personal data, config and
+credentials. An unowned or locally changed root refuses removal. Re-enabling
+a removed route requires deliberate lifecycle review; the saved ownership intent
+is retained. No `reset`, `set-raw`, whole-config restore or account operation is
+used. `privateRouteConfigured:true` records observed configuration only;
+`connected:false` remains until actual private HTTPS and named-client/phone
+acceptance. Owner grants to agents and those acceptance checks remain pending.
+
+Queue-owned targeted checks:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_https.py tests/test_install_owner.py::test_default_prepare_guided_owner_activation_and_repeat
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_https.py tests/test_install_https.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_https.py tests/test_install_https.py
+"$PYTHON" -m mypy src/health_buddy/install_https.py
+```
+
+All Tailscale/Docker responses in this gate are bounded synthetic fixtures.
+Setup/repeat/remove, lost acknowledgements, read-only dry-run, admission/conflict
+refusals and preservation of unrelated Serve/personal state are tested separately
+from actual installation, network access or host authentication.
