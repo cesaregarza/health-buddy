@@ -177,19 +177,31 @@ class Qualification:
         raw = self.run(
             "sdk-" + phase,
             [
-                str(self.sdk_python), "-I", "-B",
+                str(self.sdk_python),
+                "-I",
+                "-B",
                 str(SOURCE / "packaging/verify_packaged_mcp.py"),
-                "--phase", phase, "--workspace", str(workspace),
-                "--bundle", str(bundle), "--state", str(self.output / "sdk-private"),
-                "--listener-fd", str(self.sdk_listener.fileno()),
+                "--phase",
+                phase,
+                "--workspace",
+                str(workspace),
+                "--bundle",
+                str(bundle),
+                "--state",
+                str(self.output / "sdk-private"),
+                "--listener-fd",
+                str(self.sdk_listener.fileno()),
             ],
             timeout=200,
             pass_fds=(self.sdk_listener.fileno(),),
         )
         result = json.loads(raw)
-        if (result.get("result") != "passed" or result.get("phase") != phase
-                or result.get("backend") != "loaded-compose-image"
-                or result.get("source", {}).get("sourceCommit") != self.revision):
+        if (
+            result.get("result") != "passed"
+            or result.get("phase") != phase
+            or result.get("backend") != "loaded-compose-image"
+            or result.get("source", {}).get("sourceCommit") != self.revision
+        ):
             raise ManifestError("invalid_packaged_sdk_receipt")
 
     def _execute(self) -> None:
@@ -342,8 +354,17 @@ class Qualification:
             )
             if self.sdk_python is not None:
                 self.cp(
-                    "seed-sdk", "run", "--rm", "--no-deps", "--entrypoint",
-                    "python", "api", "-I", "-B", script, "seed-sdk",
+                    "seed-sdk",
+                    "run",
+                    "--rm",
+                    "--no-deps",
+                    "--entrypoint",
+                    "python",
+                    "api",
+                    "-I",
+                    "-B",
+                    script,
+                    "seed-sdk",
                 )
             self.cp("start", "up", "--detach", "--no-build", "--pull", "never", "api")
             container = self.wait_ready("initial")
@@ -552,8 +573,11 @@ class Qualification:
                     "apiAndJobCpu": 2,
                 },
                 "packagedSdk": (
-                    {"result": "passed", "phases": ["initial", "recreated"],
-                     "profile": "CPython-3.12-linux-x86_64"}
+                    {
+                        "result": "passed",
+                        "phases": ["initial", "recreated"],
+                        "profile": "CPython-3.12-linux-x86_64",
+                    }
                     if self.sdk_python is not None
                     else {"result": "not run", "reason": "ARM core-only qualification"}
                 ),
@@ -586,7 +610,9 @@ def main() -> None:
     ):
         raise SystemExit("exact source commit required")
     os.umask(0o077)
-    qualification = Qualification(args.output, args.docker, args.architecture, args.revision)
+    qualification = Qualification(
+        args.output, args.docker, args.architecture, args.revision
+    )
     qualification.sdk_python = args.sdk_python
     qualification.execute()
 

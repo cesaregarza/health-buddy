@@ -17,13 +17,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def module(name):
-    spec = importlib.util.spec_from_file_location(name, ROOT / "packaging" / (name + ".py"))
+    spec = importlib.util.spec_from_file_location(
+        name, ROOT / "packaging" / (name + ".py")
+    )
     selected = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(selected)
     return selected
 
 
-def test_existing_backend_reuses_owned_listener_without_source_backend(tmp_path, monkeypatch):
+def test_existing_backend_reuses_owned_listener_without_source_backend(
+    tmp_path, monkeypatch
+):
     def forbidden(*args, **kwargs):
         pytest.fail("A source backend or authority was started")
 
@@ -44,16 +48,22 @@ def test_existing_backend_reuses_owned_listener_without_source_backend(tmp_path,
         listener.listen(8)
         port = listener.getsockname()[1]
         for _ in range(2):
-            with fixtures.existing_backend(selected, listener.fileno(), certs) as bridge:
+            with fixtures.existing_backend(
+                selected, listener.fileno(), certs
+            ) as bridge:
                 assert bridge.origin == f"https://127.0.0.1:{port}"
                 connection = http.client.HTTPSConnection(
-                    "127.0.0.1", port, timeout=3,
+                    "127.0.0.1",
+                    port,
+                    timeout=3,
                     context=ssl.create_default_context(cafile=str(certs[0])),
                 )
                 try:
                     connection.request("GET", "/v1/capabilities")
                     reply = connection.getresponse()
-                    assert reply.status == 200 and reply.read(64) == b'{"synthetic":true}'
+                    assert (
+                        reply.status == 200 and reply.read(64) == b'{"synthetic":true}'
+                    )
                 finally:
                     connection.close()
             assert listener.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
@@ -66,7 +76,9 @@ def test_amd_sdk_required_and_arm_core_remains_explicit():
     qualification.architecture = "amd64"
     qualification.sdk_python = None
     qualification.sdk_listener = None
-    with pytest.raises(driver.ManifestError, match="amd64_packaged_sdk_interpreter_required"):
+    with pytest.raises(
+        driver.ManifestError, match="amd64_packaged_sdk_interpreter_required"
+    ):
         qualification.execute()
     qualification.architecture = "arm64"
     calls = []
@@ -104,9 +116,14 @@ def test_sdk_host_lock_is_exact_existing_runtime_and_five_fixture_wheels():
     got = {(item.name, item.version): item.sha256 for item in inputs.files}
     for item in public["wheels"]:
         assert got[item["name"], item["version"]] == item["sha256"]
-    assert set(got) - {(item["name"], item["version"]) for item in public["wheels"]} == {
-        ("pytest", "9.1.1"), ("iniconfig", "2.3.0"), ("packaging", "26.3"),
-        ("pluggy", "1.6.0"), ("pygments", "2.21.0"),
+    assert set(got) - {
+        (item["name"], item["version"]) for item in public["wheels"]
+    } == {
+        ("pytest", "9.1.1"),
+        ("iniconfig", "2.3.0"),
+        ("packaging", "26.3"),
+        ("pluggy", "1.6.0"),
+        ("pygments", "2.21.0"),
     }
 
 
@@ -123,17 +140,32 @@ def test_sdk_phase_deadline_enters_cleanup_and_sanitizes_failure(monkeypatch):
     monkeypatch.setattr(helper, "run_phase", stalled)
     monkeypatch.setattr(helper, "PHASE_SECONDS", 0.03)
     monkeypatch.setattr(helper.os, "umask", lambda value: 0o077)
-    monkeypatch.setattr(sys, "argv", [
-        "verify_packaged_mcp", "--phase", "initial", "--workspace", "/synthetic/workspace",
-        "--bundle", "/synthetic/bundle", "--state", "/synthetic/state", "--listener-fd", "99",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "verify_packaged_mcp",
+            "--phase",
+            "initial",
+            "--workspace",
+            "/synthetic/workspace",
+            "--bundle",
+            "/synthetic/bundle",
+            "--state",
+            "/synthetic/state",
+            "--listener-fd",
+            "99",
+        ],
+    )
     started = time.monotonic()
     with pytest.raises(SystemExit, match="^packaged_sdk_qualification_failed$"):
         helper.main()
     assert cleaned == [True] and time.monotonic() - started < 1
 
 
-def test_sdk_setup_passes_exact_fetched_directory_to_offline_install(tmp_path, monkeypatch):
+def test_sdk_setup_passes_exact_fetched_directory_to_offline_install(
+    tmp_path, monkeypatch
+):
     setup = module("setup_sdk_host")
     inputs, _ = setup.selected_inputs()
     fetched = []
@@ -224,7 +256,7 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
     def live_child(arguments, **options):
         # A real private child deliberately ignores stdin EOF. No MCP/backend
         # launch or dependency import is needed to exercise mandatory reaping.
-        process = original_popen(  # noqa: S603 - Fixed standard-library sleeper, owned test session.
+        process = original_popen(
             [sys.executable, "-I", "-B", "-c", "import time; time.sleep(30)"],
             **options,
         )
@@ -249,23 +281,41 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
     def phase(*args):
         try:
             with fixtures.client(
-                tmp_path / "unused-settings.json", tmp_path,
-                modern=True, shutdown_timeout=0.15, protect_cleanup=True,
+                tmp_path / "unused-settings.json",
+                tmp_path,
+                modern=True,
+                shutdown_timeout=0.15,
+                protect_cleanup=True,
             ):
                 pass
         except TimeoutError:
             process = owned[0]
-            observed.append((process.returncode, process.stdin.closed, process.stdout.closed))
+            observed.append(
+                (process.returncode, process.stdin.closed, process.stdout.closed)
+            )
             raise
 
     monkeypatch.setattr(fixtures.subprocess, "Popen", live_child)
     monkeypatch.setattr(helper, "run_phase", phase)
     monkeypatch.setattr(helper, "PHASE_SECONDS", 5)
     monkeypatch.setattr(helper.os, "umask", lambda value: 0o077)
-    monkeypatch.setattr(sys, "argv", [
-        "verify_packaged_mcp", "--phase", "initial", "--workspace", "/synthetic/workspace",
-        "--bundle", "/synthetic/bundle", "--state", "/synthetic/state", "--listener-fd", "99",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "verify_packaged_mcp",
+            "--phase",
+            "initial",
+            "--workspace",
+            "/synthetic/workspace",
+            "--bundle",
+            "/synthetic/bundle",
+            "--state",
+            "/synthetic/state",
+            "--listener-fd",
+            "99",
+        ],
+    )
     try:
         with pytest.raises(SystemExit, match="^packaged_sdk_qualification_failed$"):
             helper.main()
