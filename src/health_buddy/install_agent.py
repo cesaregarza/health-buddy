@@ -181,6 +181,29 @@ def setup(
             "python": str(python),
             "origin": origin,
         }
+        reviewed = record.get("reviewedReinstall")
+        if reviewed is not None:
+            if not isinstance(reviewed, dict):
+                raise ServiceError(
+                    409, "install_agent_reinstall_requires_original_review"
+                )
+            request = reviewed["request"]
+            old = reviewed["removedAgent"]["binding"]
+            if (
+                digest(value) != request["policySha256"]
+                or str(policy) != request["policy"]
+                or any(
+                    selected[key] != request[key]
+                    for key in ("token", "settings", "retryRoot")
+                )
+                or any(
+                    selected[key] != old[key]
+                    for key in ("client", "config", "skill", "python", "origin")
+                )
+            ):
+                raise ServiceError(
+                    409, "install_agent_reinstall_requires_original_review"
+                )
         inventory = actors(runtime, admitted)
         progress = record.get("agentSetup")
         if progress is None:
