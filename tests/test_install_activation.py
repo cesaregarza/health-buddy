@@ -76,7 +76,13 @@ def fixture(tmp_path, monkeypatch):
     before = identity_value(runtime.operations.journal.verify().identity)
     simulate_nonroot_owner(monkeypatch)
     artifact = selected_artifact(selected["manifest"], "amd64")
-    state = {"active": False, "other": False, "lost": None, "health": "healthy", "calls": []}
+    state = {
+        "active": False,
+        "other": False,
+        "lost": None,
+        "health": "healthy",
+        "calls": [],
+    }
     original_run = subprocess.run
 
     def response(command, **kwargs):
@@ -292,10 +298,15 @@ def test_lost_start_ack_waits_for_healthy_without_restarting(tmp_path, monkeypat
         install_activation.activate(**arguments)
     for health in ("starting", "unhealthy"):
         state["health"] = health
-        with pytest.raises(ServiceError, match="install_activation_runtime_not_healthy") as refused:
+        with pytest.raises(
+            ServiceError, match="install_activation_runtime_not_healthy"
+        ) as refused:
             install_activation.activate(**arguments)
         assert refused.value.retryable
-        assert json.loads(selected["journal"].read_bytes())["activation"]["phase"] == "starting"
+        assert (
+            json.loads(selected["journal"].read_bytes())["activation"]["phase"]
+            == "starting"
+        )
     state["health"] = "healthy"
     assert install_activation.activate(**arguments)["runtimeActivated"]
     assert sum("up" in item for item in state["calls"]) == 1

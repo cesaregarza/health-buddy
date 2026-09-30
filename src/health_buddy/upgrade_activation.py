@@ -82,7 +82,11 @@ def running(
                 "{{.Image}}\n{{.State.Running}}\n{{.Config.User}}\n"
                 '{{range .Mounts}}{{if eq .Destination "/workspace"}}'
                 "{{json .Source}}\n{{.Type}}\n{{.RW}}\n{{end}}{{end}}"
-                + ("{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}\n" if require_healthy else ""),
+                + (
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}\n"
+                    if require_healthy
+                    else ""
+                ),
                 ids[0],
             ],
             env={"PATH": os.defpath, "DOCKER_CONFIG": folder},
@@ -108,7 +112,9 @@ def running(
     ):
         raise ServiceError(409, "upgrade_running_installation_mismatch")
     if require_healthy and health != "healthy":
-        raise ServiceError(503, "install_activation_runtime_not_healthy", retryable=True)
+        raise ServiceError(
+            503, "install_activation_runtime_not_healthy", retryable=True
+        )
     return rows[0]
 
 
