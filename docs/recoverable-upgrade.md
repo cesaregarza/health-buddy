@@ -11,7 +11,7 @@ runtime manifest and obtain its SHA256 through your release delivery channel.
 The digest binds the selected bytes; it is not publisher authentication.
 
 ```sh
-healthbuddy --workspace /native/owner --credential-file /native/owner-token upgrade stage \
+health-buddy --workspace /native/owner --credential-file /native/owner-token upgrade stage \
   --manifest /native/release/runtime-manifest.json --manifest-sha256 EXPECTED_SHA256 \
   --architecture amd64 --archive /native/private/pre-upgrade.hbb \
   --key-file /native/private/backup.key --candidate /native/private/candidate \
@@ -32,7 +32,7 @@ Never serve original and candidate as concurrent writers. Stop connector jobs an
 other writers and keep editors quiesced during the explicit activation:
 
 ```sh
-healthbuddy --workspace /native/owner --credential-file /native/owner-token upgrade activate \
+health-buddy --workspace /native/owner --credential-file /native/owner-token upgrade activate \
   --candidate /native/private/candidate --manifest /native/target/runtime-manifest.json \
   --manifest-sha256 TARGET_SHA256 --architecture amd64 \
   --previous-manifest /native/current/runtime-manifest.json --previous-sha256 CURRENT_SHA256 \
