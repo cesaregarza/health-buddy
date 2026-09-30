@@ -461,8 +461,34 @@ def _oci_chain(
         *layers,
         *visited,
     }
-    if any(entry.isfile() and name not in allowed for name, entry in entries.items()):
+    extras = [
+        name for name, entry in entries.items() if entry.isfile() and name not in allowed
+    ]
+    if len(extras) > len(layers):
         raise ManifestError("unreferenced_artifact_content")
+    for name in extras:
+        # Moby also saves one legacy V1 config per layer. Modern loaders ignore
+        # these blobs; they must not expand the selected OCI image graph.
+        if name != "blobs/sha256/" + hashes[name]:
+            raise ManifestError("unreferenced_artifact_content")
+        legacy = _json_bytes(_payload(descriptor, entries[name], budget))
+        if (
+            not isinstance(legacy, dict)
+            or set(legacy) - {
+                "id", "parent", "comment", "created", "container",
+                "container_config", "docker_version", "author", "config",
+                "architecture", "variant", "os", "Size",
+            }
+            or not isinstance(legacy.get("id"), str)
+            or not SHA256.fullmatch(legacy["id"])
+            or legacy.get("os") != "linux"
+            or legacy.get("architecture") not in (None, "", architecture)
+            or not isinstance(legacy.get("container_config"), dict)
+            or "created" not in legacy
+        ):
+            raise ManifestError("unreferenced_artifact_content")
+        if legacy.get("parent") is not None:
+            _sha256_text(legacy["parent"], "invalid_artifact_legacy_parent")
     return tuple(ids), found[0]
 
 

@@ -307,6 +307,10 @@ class Qualification:
         # Failed archive qualification must be diagnosable without image downloads.
         metadata = {}
         with tarfile.open(archive, "r:") as saved:
+            metadata["entries"] = [
+                {"name": member.name, "bytes": member.size, "file": member.isfile()}
+                for member in saved.getmembers()
+            ]
             for name in ("manifest.json", "index.json", "oci-layout"):
                 try:
                     member = saved.getmember(name)
