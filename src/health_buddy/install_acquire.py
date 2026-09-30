@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 from http.client import HTTPMessage
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, cast
 
 from .backup import private_path
 from .domain import encode
@@ -88,8 +88,10 @@ def download(value: dict[str, Any]) -> None:
     if (
         type(limit) is not int
         or not 0 < limit <= ARCHIVE_LIMIT
-        or expected is not None
-        and (type(expected) is not int or not 0 < expected <= limit)
+        or (
+            expected is not None
+            and (type(expected) is not int or not 0 < expected <= limit)
+        )
         or not isinstance(value["sha256"], str)
         or not SHA256.fullmatch(value["sha256"])
     ):
@@ -115,8 +117,7 @@ def download(value: dict[str, Any]) -> None:
             or not length.isdecimal()
             or len(length) > 12
             or int(length) > limit
-            or expected is not None
-            and int(length) != expected
+            or (expected is not None and int(length) != expected)
         ):
             raise ServiceError(502, "install_acquire_size_refused")
         descriptor = os.open(path, os.O_WRONLY | os.O_NOFOLLOW)
@@ -139,8 +140,7 @@ def download(value: dict[str, Any]) -> None:
                 digest.update(chunk)
             if (
                 not total
-                or expected is not None
-                and total != expected
+                or (expected is not None and total != expected)
                 or digest.hexdigest() != value["sha256"]
             ):
                 raise ServiceError(409, "install_acquire_hash_mismatch")
@@ -208,7 +208,7 @@ def clear_partial(journal: Path) -> None:
         return
     if not isinstance(selected, dict) or not isinstance(selected.get("name"), str):
         raise ServiceError(409, "install_acquire_partial_ownership_changed")
-    name = selected["name"]
+    name = cast(str, selected["name"])
     if "/" in name or not name.startswith(".health-buddy-acquire-") or len(name) > 80:
         raise ServiceError(409, "install_acquire_partial_ownership_changed")
     partial = journal.parent / name
@@ -247,7 +247,7 @@ def artifact(
         ):
             raise ServiceError(409, "install_acquire_existing_file_changed")
         size, actual = file_digest(path, limit)
-        if actual != digest or expected is not None and size != expected:
+        if actual != digest or (expected is not None and size != expected):
             raise ServiceError(409, "install_acquire_existing_file_changed")
         return
     descriptor, temporary = tempfile.mkstemp(
@@ -279,7 +279,7 @@ def artifact(
             }
         )
         size, actual = file_digest(partial, limit)
-        if actual != digest or expected is not None and size != expected:
+        if actual != digest or (expected is not None and size != expected):
             raise ServiceError(409, "install_acquire_hash_mismatch")
         os.link(partial, path, follow_symlinks=False)
         fsync_path(path.parent)
