@@ -24,12 +24,19 @@ def fixture(tmp_path, monkeypatch):
     owner_note.write_text("synthetic personal work retained")
     configuration = workspace / "config.json"
     values = json.loads(configuration.read_bytes())
-    values["security"].update(ingress="tailscale-uds", externalOrigin="https://synthetic.example.test", ownerSubject="synthetic-owner", socketPath="security/runtime/http.sock")
+    values["security"].update(
+        ingress="tailscale-uds",
+        externalOrigin="https://synthetic.example.test",
+        ownerSubject="synthetic-owner",
+        socketPath="security/runtime/http.sock",
+    )
     configuration.write_text(json.dumps(values))
     setup_security(workspace, workspace / "secrets/synthetic-owner-proof")
     runtime = open_runtime(workspace)
     before = identity_value(runtime.operations.journal.verify().identity)
-    checked = install_activation.preflight(**{key: value for key, value in selected.items() if key != "journal"})
+    checked = install_activation.preflight(
+        **{key: value for key, value in selected.items() if key != "journal"}
+    )
     monkeypatch.setattr(install_activation, "preflight", lambda **_inputs: checked)
     # Retain real read-only preflight evidence before simulating only the
     # nonroot owner metadata needed by the actual immutable loader. Never chown.
@@ -65,11 +72,24 @@ def fixture(tmp_path, monkeypatch):
                 raise subprocess.TimeoutExpired(command, 180)
             return SimpleNamespace(returncode=0, stdout=b"")
         if command[3:5] == ["image", "inspect"]:
-            return SimpleNamespace(returncode=0, stdout=(artifact.loader_ids[0] + "\nlinux\namd64\n" + json.dumps(["sha256:" + item for item in artifact.diff_ids]) + "\n").encode())
+            return SimpleNamespace(
+                returncode=0,
+                stdout=(
+                    artifact.loader_ids[0]
+                    + "\nlinux\namd64\n"
+                    + json.dumps(["sha256:" + item for item in artifact.diff_ids])
+                    + "\n"
+                ).encode(),
+            )
         if command[3] == "compose":
             arguments = command[10:]
             if arguments[0] == "ps":
-                return SimpleNamespace(returncode=0, stdout=b"a" * 64 + b"\n" if state["active"] or state["other"] else b"")
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=b"a" * 64 + b"\n"
+                    if state["active"] or state["other"]
+                    else b"",
+                )
             assert arguments == ["up", "--detach", "--wait", "--no-deps", "api"]
             state["active"] = True
             if state["lost"] == "start":
@@ -78,29 +98,55 @@ def fixture(tmp_path, monkeypatch):
             return SimpleNamespace(returncode=0, stdout=b"")
         assert command[3] == "inspect"
         mount = workspace if not state["other"] else tmp_path / "other-owner"
-        return SimpleNamespace(returncode=0, stdout=(artifact.loader_ids[0] + "\ntrue\n1000:1000\n" + json.dumps(str(mount)) + "\nbind\ntrue\n").encode())
+        return SimpleNamespace(
+            returncode=0,
+            stdout=(
+                artifact.loader_ids[0]
+                + "\ntrue\n1000:1000\n"
+                + json.dumps(str(mount))
+                + "\nbind\ntrue\n"
+            ).encode(),
+        )
 
     monkeypatch.setattr(subprocess, "run", response)
-    arguments = dict(journal=selected["journal"], environment=selected["journal"].parent / "runtime.env", project="health-buddy-synthetic", uid=1000, gid=1000, confirm_local_daemon=True, confirm_quiesced=True)
+    arguments = dict(
+        journal=selected["journal"],
+        environment=selected["journal"].parent / "runtime.env",
+        project="health-buddy-synthetic",
+        uid=1000,
+        gid=1000,
+        confirm_local_daemon=True,
+        confirm_quiesced=True,
+    )
     return arguments, state, selected, before, owner_note
 
 
 @pytest.mark.parametrize("lost", [None, "load", "start"])
-def test_prepare_activation_and_lost_ack_resume_preserve_workspace(tmp_path, monkeypatch, lost):
+def test_prepare_activation_and_lost_ack_resume_preserve_workspace(
+    tmp_path, monkeypatch, lost
+):
     arguments, state, selected, before, note = fixture(tmp_path, monkeypatch)
     state["lost"] = lost
     config = (selected["workspace"] / "config.json").read_bytes()
     if lost:
-        with pytest.raises(ServiceError, match="install_activation_" + lost + "_interrupted"):
+        with pytest.raises(
+            ServiceError, match="install_activation_" + lost + "_interrupted"
+        ):
             install_activation.activate(**arguments)
         phase = json.loads(selected["journal"].read_bytes())["activation"]["phase"]
         assert phase == ("loading" if lost == "load" else "starting")
     value = install_activation.activate(**arguments)
     assert value["runtimeActivated"] and not value["connected"]
-    counts = sum("up" in item for item in state["calls"]), sum("load" in item for item in state["calls"])
+    counts = (
+        sum("up" in item for item in state["calls"]),
+        sum("load" in item for item in state["calls"]),
+    )
     assert counts == (1, 2 if lost == "load" else 1)
     assert install_activation.activate(**arguments) == value
-    assert counts == (sum("up" in item for item in state["calls"]), sum("load" in item for item in state["calls"]))
+    assert counts == (
+        sum("up" in item for item in state["calls"]),
+        sum("load" in item for item in state["calls"]),
+    )
     runtime = open_runtime(selected["workspace"])
     assert identity_value(runtime.operations.journal.verify().identity) == before
     assert runtime.operations.journal.verify().revision == 0
@@ -108,7 +154,9 @@ def test_prepare_activation_and_lost_ack_resume_preserve_workspace(tmp_path, mon
     assert (selected["workspace"] / "config.json").read_bytes() == config
 
 
-def test_unrelated_project_and_changed_binding_refuse_without_host_writes(tmp_path, monkeypatch):
+def test_unrelated_project_and_changed_binding_refuse_without_host_writes(
+    tmp_path, monkeypatch
+):
     arguments, state, selected, _before, note = fixture(tmp_path, monkeypatch)
     state["other"] = True
     with pytest.raises(ServiceError, match="project_not_empty"):
@@ -138,17 +186,42 @@ def test_owner_admission_and_environment_edit_refuse(tmp_path, monkeypatch, caps
     install_activation.activate(**arguments)
     arguments["environment"].write_text("synthetic owner edit retained")
     state["calls"].clear()
-    assert install_activation.main(["--journal", str(arguments["journal"]), "--environment", str(arguments["environment"]), "--project", arguments["project"], "--uid", "1000", "--gid", "1000", "--confirm-local-daemon", "--confirm-quiesced"]) == 2
+    assert (
+        install_activation.main(
+            [
+                "--journal",
+                str(arguments["journal"]),
+                "--environment",
+                str(arguments["environment"]),
+                "--project",
+                arguments["project"],
+                "--uid",
+                "1000",
+                "--gid",
+                "1000",
+                "--confirm-local-daemon",
+                "--confirm-quiesced",
+            ]
+        )
+        == 2
+    )
     value = json.loads(capsys.readouterr().out)
     assert value["code"] == "install_activation_environment_changed"
     assert str(arguments["environment"]) not in json.dumps(value)
-    assert state["calls"] == [] and arguments["environment"].read_text() == "synthetic owner edit retained"
+    assert (
+        state["calls"] == []
+        and arguments["environment"].read_text() == "synthetic owner edit retained"
+    )
 
 
-def test_default_prepared_workspace_refuses_before_any_daemon_contact(tmp_path, monkeypatch, capsys):
+def test_default_prepared_workspace_refuses_before_any_daemon_contact(
+    tmp_path, monkeypatch, capsys
+):
     selected = inputs(tmp_path, monkeypatch)
     install_prepare.prepare(**selected)
-    checked = install_activation.preflight(**{key: value for key, value in selected.items() if key != "journal"})
+    checked = install_activation.preflight(
+        **{key: value for key, value in selected.items() if key != "journal"}
+    )
     monkeypatch.setattr(install_activation, "preflight", lambda **_inputs: checked)
     original = Path.lstat
 
@@ -170,15 +243,36 @@ def test_default_prepared_workspace_refuses_before_any_daemon_contact(tmp_path, 
 
     monkeypatch.setattr(subprocess, "run", no_daemon)
     before = selected["journal"].read_bytes()
-    arguments = ["--journal", str(selected["journal"]), "--environment", str(selected["journal"].parent / "runtime.env"), "--project", "health-buddy-synthetic", "--uid", "1000", "--gid", "1000", "--confirm-local-daemon", "--confirm-quiesced"]
+    arguments = [
+        "--journal",
+        str(selected["journal"]),
+        "--environment",
+        str(selected["journal"].parent / "runtime.env"),
+        "--project",
+        "health-buddy-synthetic",
+        "--uid",
+        "1000",
+        "--gid",
+        "1000",
+        "--confirm-local-daemon",
+        "--confirm-quiesced",
+    ]
     assert install_activation.main(arguments) == 2
     value = json.loads(capsys.readouterr().out)
     assert value["code"] == "install_activation_requires_managed_owner_setup"
     assert "explicit security setup" in value["recovery"]
     configuration = selected["workspace"] / "config.json"
     values = json.loads(configuration.read_bytes())
-    values["security"].update(ingress="tailscale-uds", externalOrigin="https://synthetic.example.test", ownerSubject="synthetic-owner", socketPath="security/runtime/http.sock")
+    values["security"].update(
+        ingress="tailscale-uds",
+        externalOrigin="https://synthetic.example.test",
+        ownerSubject="synthetic-owner",
+        socketPath="security/runtime/http.sock",
+    )
     configuration.write_text(json.dumps(values))
     assert install_activation.main(arguments) == 2
-    assert json.loads(capsys.readouterr().out)["code"] == "install_activation_requires_ready_owner_authority"
+    assert (
+        json.loads(capsys.readouterr().out)["code"]
+        == "install_activation_requires_ready_owner_authority"
+    )
     assert selected["journal"].read_bytes() == before
