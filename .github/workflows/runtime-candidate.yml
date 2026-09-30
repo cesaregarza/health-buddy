@@ -86,6 +86,8 @@ jobs:
             ${{ runner.temp }}/hb-runtime-amd64/docker-version.log
             ${{ runner.temp }}/hb-runtime-amd64/builder.log
             ${{ runner.temp }}/hb-runtime-amd64/archive-metadata.json
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-initial.log
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-recreated.log
   native_arm64:
     needs: native_amd64
     runs-on: ubuntu-24.04-arm

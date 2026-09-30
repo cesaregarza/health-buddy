@@ -37,10 +37,14 @@ PHASE_SECONDS = 180
 DASHBOARD_ROUTE = "/?format=json"
 
 
+class QualificationFailure(AssertionError):
+    """A fixed assertion label authored here, without runtime values."""
+
+
 def require(condition: bool, message: str) -> None:
-    # Do not let pytest assertion introspection expand a secret-bearing value.
+    # Every call supplies a literal label, never a secret-bearing runtime value.
     if not condition:
-        raise AssertionError(message)
+        raise QualificationFailure(message)
 
 
 def read_json(path: Path):
@@ -399,9 +403,19 @@ def main() -> None:
         result = run_phase(
             args.phase, args.workspace, args.bundle, args.state, args.listener_fd
         )
-    except Exception:
-        # Deliberately exclude exception text/locals/settings from stdout/stderr.
-        raise SystemExit("packaged_sdk_qualification_failed") from None
+    except Exception as exc:
+        # Retain our source line and authored assertion label, never arbitrary
+        # exception text, traceback locals, settings or private fixture values.
+        failure_line = 0
+        trace = exc.__traceback__
+        while trace is not None:
+            if trace.tb_frame.f_code.co_filename == __file__:
+                failure_line = trace.tb_lineno
+            trace = trace.tb_next
+        detail = str(exc) if isinstance(exc, QualificationFailure) else "unexpected"
+        raise SystemExit(
+            f"packaged_sdk_qualification_failed:{failure_line}:{detail}"
+        ) from None
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)
