@@ -75,3 +75,13 @@ texts, including LLVM and Unicode terms. Together with six Python notices and
 the dev-only typing license, 43 files are retained under
 [docs/notices/extensions](docs/notices/extensions/README.md). This is not proof
 of static-link membership or future-image qualification.
+
+The optional MCP adapter adds a separate [runtime dependency collection](docs/mcp-dependencies.md)
+and [exact artifact/file map](provenance/mcp-dependencies.json). It covers the
+29 observed CPython 3.12 Linux x86-64 runtime wheels, their declared notices,
+and bounded native source associations, preserving original license choices
+and bytes. Development tools and optional provider extras are excluded. The
+Health Buddy source distribution retains these texts without redistributing
+external dependency binaries. All-target SBOMs, source locks and recipe
+associations do not establish all-linked coverage, reproducibility, complete
+binary legal compliance or qualification of a future image.
