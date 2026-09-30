@@ -10,6 +10,17 @@ import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
+# The source distribution must support the same discovered maintenance path.
+REQUIRED_AGENT_REFERENCES = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/agent-guide.md",
+    "src/health_buddy/extension_api.py",
+    "src/health_buddy/extension_manifest.schema.json",
+    "tests/test_extension_runtime.py",
+    "packaging/dev-cp312-linux-x86_64.lock",
+)
+
 PRIVATE_TOP = {"data", "personal", "secrets", "workspace", "plans", "reports", "reviews", "sessions", "handoff", ".git", "config", "deploy", "ios"}
 PRIVATE_COMPONENTS = {"data", "personal", "secrets", ".git", ".local", "__pycache__"}
 FORBIDDEN_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".csv", ".png", ".jpg", ".jpeg", ".heic", ".pem", ".key"}
@@ -39,7 +50,9 @@ def inspect(name: str, raw: bytes, *, strip_package_root=False) -> list[str]:
     return errors
 
 
-def inspect_archive(archive: Path) -> tuple[list[str], int]:
+def inspect_archive(
+    archive: Path, *, required_source: tuple[str, ...] = ()
+) -> tuple[list[str], int]:
     """Read archive entries without extracting or following links."""
     errors = []
     count = 0
@@ -56,6 +69,10 @@ def inspect_archive(archive: Path) -> tuple[list[str], int]:
     elif archive.name.endswith(".tar.gz"):
         expected_root = archive.name.removesuffix(".tar.gz")
         with tarfile.open(archive, "r:gz") as handle:
+            present = {entry.name for entry in handle.getmembers() if entry.isfile()}
+            for relative in required_source:
+                if expected_root + "/" + relative not in present:
+                    errors.append(f"{archive.name}: missing maintenance source {relative}")
             for entry in handle.getmembers():
                 parts = PurePosixPath(entry.name).parts
                 if not parts or parts[0] != expected_root:
@@ -98,7 +115,9 @@ def main(argv=None) -> int:
     archive_count = 0
     if args.archives:
         for archive in sorted(args.archives.glob("*")):
-            archive_errors, entries = inspect_archive(archive)
+            archive_errors, entries = inspect_archive(
+                archive, required_source=REQUIRED_AGENT_REFERENCES
+            )
             errors.extend(archive_errors)
             archive_count += entries
         if not archive_count:

@@ -64,12 +64,25 @@ Abstract examples: `contracts/v1/examples/{weekly-mass,water-import}.json` and
 ## First runnable change: weekly mass display
 
 The queue can start from a fresh synthetic workspace using Python 3.12+ and Git.
-From the selected source checkout, setup is:
+From the selected source checkout, use the existing pinned development closure
+[packaging/dev-cp312-linux-x86_64.lock](../packaging/dev-cp312-linux-x86_64.lock).
+It reuses the accepted runtime/MCP + dev tools + SleepIQ-test dependency inventory,
+with 53 exact wheel hashes. It targets CPython 3.12 on Linux x86_64 with glibc
+2.34 or newer; other platforms need a separately admitted closure. Git and the
+host IANA timezone database remain host prerequisites. No editable project
+install, package resolver or build backend is needed for the source checks.
+
+The queue can stage that exact closure into a new native WHEELHOUSE when needed:
+`python3.12 -m pip --isolated --disable-pip-version-check --no-cache-dir download --only-binary=:all: --no-deps --require-hashes -r packaging/dev-cp312-linux-x86_64.lock --dest "$WHEELHOUSE"`.
+Existing admitted wheels may be copied into that directory instead. Setup is:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev,sleepiq,mcp]'
-export PATH="$PWD/.venv/bin:$PATH"
+python3.12 -m venv .venv
+# WHEELHOUSE is a native directory containing the exact locked binary wheels.
+.venv/bin/python -m pip --isolated --disable-pip-version-check --no-cache-dir install --no-index --find-links "$WHEELHOUSE" --require-hashes --no-deps --no-compile -r packaging/dev-cp312-linux-x86_64.lock
+.venv/bin/python -m pip --isolated --disable-pip-version-check check
+export PYTHONPATH="$PWD/src"
+health-buddy() { .venv/bin/python -m health_buddy.cli "$@"; }
 umask 077
 # Choose an absent native path outside this checkout; never select private data.
 WORKSPACE="$(mktemp -d /tmp/hb-guide.XXXXXXXX)"
@@ -110,8 +123,8 @@ Submit this focused check set to the queue from the matching source checkout
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider "$EXTENSION/tests" tests/test_extension_runtime.py tests/test_extension_registry.py tests/test_extension_workflow.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
-# Relevant only for view/config rendering changes; queue supplies browser/cache.
-(cd health-runner/dashboard && ../../.venv/bin/python scripts/check_extensions.py)
+# View/config rendering only: queue supplies separately admitted BROWSER_PYTHON/cache.
+(cd health-runner/dashboard && "$BROWSER_PYTHON" scripts/check_extensions.py)
 ```
 
 Runtime tests prove actual values, honest missingness and local-midnight windows;
@@ -162,8 +175,10 @@ undone by code rollback.
 
 ## Dependencies, broader changes and upgrades
 
-Development extras in pyproject.toml contain ranges; the editable setup above is
-**not a locked production install**. `packaging/runtime-inputs.json` pins the
+Development extras in pyproject.toml contain ranges; the source setup above uses
+the committed hashed development lock instead. It is **not a production install**
+and excludes browser and distribution-build tooling; those retain their separate
+queue-owned setup and receipts. `packaging/runtime-inputs.json` pins the
 runtime binary/base closure. The exact lock/hash-checked fetch/context/build
 commands are in [runtime packaging](runtime-packaging.md#build-and-local-loading).
 Dependency changes require that owning lock/notice lane, not a personal hook.
@@ -171,6 +186,10 @@ For core interface edits submit `make contracts test lint typecheck package` and
 the distribution audit in CONTRIBUTING.md; the queue's private socket-root
 prerequisite and exact preview/browser commands are in [verification](verification.md).
 Synthetic dashboard preview: `make PYTHON=.venv/bin/python preview`.
+The default `make test` includes `tests/test_agent_guide.py`, checking local guide/
+discovery targets and retained bundle bytes. The existing distribution audit
+requires the guide, both entrypoints and extension interface/test paths in sdist;
+packaged source includes the complete tracked tree, including this dev lock.
 
 Supported additions survive compatible source replacement in the external
 workspace. Before replacement, retain a coordinated whole-workspace backup and
