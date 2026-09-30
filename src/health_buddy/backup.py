@@ -17,6 +17,7 @@ from .config import load
 from .domain import encode, identity_value
 from .durability import atomic_bytes, exclusive, fsync_path
 from .extension_files import read_file
+from .operations import Service
 from .runtime_manifest import native_directory
 from .security_api import Runtime
 from .security_runtime import _private_parent, open_runtime
@@ -44,15 +45,18 @@ def create(
     if not confirm_quiesced:
         raise ServiceError(422, "backup_requires_quiesced_external_editors")
     archive, key_file = private_path(archive), private_path(key_file)
-    root = runtime.operations.config.root
+    if not isinstance(runtime.operations, Service):
+        raise ServiceError(503, "native_coordinator_required")
+    service = runtime.operations
+    root = service.config.root
     native_directory(root)
     if archive.is_relative_to(root) or key_file.is_relative_to(root) or archive == key_file:
         raise ServiceError(422, "backup_outputs_and_key_must_be_external")
     if archive.exists():
         raise ServiceError(409, "backup_output_exists")
     key = read_key(key_file)
-    with runtime.operations.backup(principal) as inventory:
-        raw = snapshot(runtime.operations.config, inventory)
+    with service.backup(principal) as inventory:
+        raw = snapshot(service.config, inventory)
         manifest, _files = verified(raw)
     encrypted = seal(raw, key)
     # Verify exactly the authenticated bytes that will be published.
@@ -104,6 +108,8 @@ def restore(
             # Regenerable cache is deliberately absent in the archive.
             config.storage("cache").mkdir(mode=0o700, parents=True, exist_ok=True)
             copied = open_runtime(staged)
+            if not isinstance(copied.operations, Service):
+                raise ServiceError(503, "native_coordinator_required")
             service = copied.operations
             previous = service.journal.verify()
             if identity_value(previous.identity) != manifest["identity"] or previous.revision != manifest["dataRevision"]:
@@ -124,6 +130,8 @@ def restore(
                     "policy": "all_old_credentials_invalid_require_explicit_repair_or_rotation",
                 }))
             reopened = open_runtime(staged)
+            if not isinstance(reopened.operations, Service):
+                raise ServiceError(503, "native_coordinator_required")
             if reopened.operations.journal.verify().identity != current:
                 raise ServiceError(422, "restore_verification_failed")
             if reopened.operations.journal.receiver_binding() is not None:

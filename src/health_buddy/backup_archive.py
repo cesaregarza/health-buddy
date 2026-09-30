@@ -8,7 +8,7 @@ import os
 import stat
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .backup_crypto import MAX_ARCHIVE_BYTES
 from .config import Config, relative_path
@@ -30,11 +30,13 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
     directories: list[str] = []
     output = io.BytesIO()
     total = 0
+    observed_directories: dict[str, int] = {}
 
     def walk(directory: Path) -> None:
         nonlocal total
         if len(entries) + len(directories) >= MAX_ENTRIES:
             raise ServiceError(413, "backup_entry_limit")
+        observed_directories[str(directory.relative_to(root))] = directory.lstat().st_mtime_ns
         for path in sorted(directory.iterdir()):
             if path == cache:
                 continue
@@ -62,6 +64,10 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
         walk(root)
         required = [str(path.relative_to(root)) for path in inventory.required_paths]
+        if config.enabled("healthkit"):
+            required.append(str(config.storage("healthkit").relative_to(root)))
+        if config.enabled("sleepiq"):
+            required.append(config.values["integrations"]["sleepiq"]["exportFile"])
         manifest = {
             "schemaVersion": 1,
             "identity": identity_value(inventory.identity),
@@ -75,6 +81,9 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
         # Detect unsupported editors changing captured files despite the writer
         # lock. Canonical writers/security and supported extension edits share
         # the lock; external editing must remain quiesced by the owner.
+        for relative, stamp in observed_directories.items():
+            if (root / relative).lstat().st_mtime_ns != stamp:
+                raise ServiceError(409, "backup_workspace_changed")
         for entry in entries:
             path = config.path(entry["path"])
             info = path.lstat()
@@ -98,6 +107,7 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
             manifest = decode(archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True)
             if not isinstance(manifest, dict) or set(manifest) != {"schemaVersion", "identity", "dataRevision", "files", "directories", "requiredPaths", "regenerableCache"}:
                 raise ValueError("manifest")
+            manifest = cast(dict[str, Any], manifest)
             if manifest["schemaVersion"] != 1 or type(manifest["dataRevision"]) is not int or manifest["dataRevision"] < 0:
                 raise ValueError("version")
             files: dict[str, bytes] = {}
