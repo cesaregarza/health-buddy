@@ -11,7 +11,13 @@ from scripts.audit_distribution import REQUIRED_AGENT_REFERENCES
 from tests.test_runtime_bundle import git, source
 
 ROOT = Path(__file__).resolve().parents[1]
-ENTRYPOINTS = ("AGENTS.md", "CLAUDE.md", "docs/agent-guide.md")
+ENTRYPOINTS = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/agent-guide.md",
+    "docs/codex-integration.md",
+    "docs/claude-integration.md",
+)
 
 
 def guide_references() -> set[str]:
