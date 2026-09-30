@@ -11,19 +11,30 @@ from .security_api import BearerProof
 from .security_runtime import open_runtime, read_credential
 from .service_api import ServiceError
 from .upgrade import stage
+from .upgrade_activation import activate
 
 
 def add_commands(commands: Any) -> None:
     upgrade = commands.add_parser("upgrade")
     sub = upgrade.add_subparsers(dest="upgrade_action", required=True)
-    command = sub.add_parser("stage")
-    command.add_argument("--manifest", type=Path, required=True)
-    command.add_argument("--manifest-sha256", required=True)
-    command.add_argument("--architecture", choices=("amd64", "arm64"), required=True)
-    command.add_argument("--archive", type=Path, required=True)
-    command.add_argument("--key-file", type=Path, required=True)
-    command.add_argument("--candidate", type=Path, required=True)
-    command.add_argument("--confirm-quiesced", action="store_true")
+    for action in ("stage", "activate", "rollback", "recover"):
+        command = sub.add_parser(action)
+        command.add_argument("--manifest", type=Path, required=True)
+        command.add_argument("--manifest-sha256", required=True)
+        command.add_argument("--architecture", choices=("amd64", "arm64"), required=True)
+        command.add_argument("--candidate", type=Path, required=True)
+        command.add_argument("--confirm-quiesced", action="store_true")
+        if action == "stage":
+            command.add_argument("--archive", type=Path, required=True)
+            command.add_argument("--key-file", type=Path, required=True)
+        else:
+            command.add_argument("--previous-manifest", type=Path, required=True)
+            command.add_argument("--previous-sha256", required=True)
+            command.add_argument("--runtime-env", type=Path, required=True)
+            command.add_argument("--docker", type=Path, required=True)
+            command.add_argument("--project", required=True)
+            command.add_argument("--uid", type=int, required=True)
+            command.add_argument("--gid", type=int, required=True)
 
 
 def handle(args: argparse.Namespace) -> int:
@@ -33,16 +44,20 @@ def handle(args: argparse.Namespace) -> int:
     owner = runtime.security.authenticate(
         BearerProof(read_credential(args.credential_file))
     )
-    result = stage(
-        runtime,
-        owner.principal,
-        args.manifest,
-        args.manifest_sha256,
-        args.architecture,
-        args.archive,
-        args.key_file,
-        args.candidate,
-        confirm_quiesced=args.confirm_quiesced,
-    )
+    if args.upgrade_action == "stage":
+        result = stage(
+            runtime, owner.principal, args.manifest, args.manifest_sha256,
+            args.architecture, args.archive, args.key_file, args.candidate,
+            confirm_quiesced=args.confirm_quiesced,
+        )
+    else:
+        result = activate(
+            runtime, owner.principal, args.candidate, args.manifest,
+            args.manifest_sha256, args.architecture, args.previous_manifest,
+            args.previous_sha256, args.runtime_env, args.docker, args.project,
+            args.uid, args.gid, confirm_quiesced=args.confirm_quiesced,
+            rollback=args.upgrade_action in {"rollback", "recover"},
+            recover=args.upgrade_action == "recover",
+        )
     print(json.dumps(result, indent=2))
     return 0
