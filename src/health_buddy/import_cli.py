@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .legacy_import import export_measurements, import_measurements
+from .legacy_workout_import import export_workouts, import_workouts
 from .service_api import ServiceError
 
 
@@ -23,6 +24,17 @@ def add_commands(commands: Any) -> None:
     adopt.add_argument("--snapshot", type=Path, required=True)
     adopt.add_argument("--expected-snapshot-sha256", required=True)
 
+    export_workout = sub.add_parser("export-workouts")
+    export_workout.add_argument("--sessions-csv", type=Path, required=True)
+    export_workout.add_argument("--sets-csv", type=Path, required=True)
+    export_workout.add_argument("--source-id", required=True)
+    export_workout.add_argument("--expected-sessions-sha256", required=True)
+    export_workout.add_argument("--expected-sets-sha256", required=True)
+    export_workout.add_argument("--snapshot", type=Path, required=True)
+    adopt_workout = sub.add_parser("adopt-workouts")
+    adopt_workout.add_argument("--snapshot", type=Path, required=True)
+    adopt_workout.add_argument("--expected-snapshot-sha256", required=True)
+
 
 def handle(args: argparse.Namespace) -> int:
     if args.development or args.credential_file is not None:
@@ -33,6 +45,18 @@ def handle(args: argparse.Namespace) -> int:
             args.snapshot,
             source_id=args.source_id,
             expected_source_sha256=args.expected_source_sha256,
+        )
+    elif args.import_action == "export-workouts":
+        result = export_workouts(
+            args.sessions_csv, args.sets_csv, args.snapshot,
+            source_id=args.source_id,
+            expected_sessions_sha256=args.expected_sessions_sha256,
+            expected_sets_sha256=args.expected_sets_sha256,
+        )
+    elif args.import_action == "adopt-workouts":
+        result = import_workouts(
+            args.workspace, args.snapshot,
+            expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
     else:
         result = import_measurements(

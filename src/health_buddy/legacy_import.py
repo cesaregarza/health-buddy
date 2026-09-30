@@ -157,7 +157,6 @@ def import_measurements(
     """Publish only a new workspace; a matching unchanged owned repeat is inert."""
     raw = _read(snapshot, expected_snapshot_sha256)
     value, rows, ids = _snapshot(raw)
-    target = _path(target)
     provenance: dict[str, JSON] = {
         "schemaVersion": 1,
         "family": "measurement",
@@ -166,6 +165,21 @@ def import_measurements(
         "snapshotSha256": expected_snapshot_sha256,
         "records": len(rows),
     }
+    return adopt_snapshot(
+        target, raw, provenance, {MEASUREMENTS: str(value["csv"])},
+        {record_id: (MEASUREMENTS, row)
+         for record_id, row in zip(ids, rows, strict=True)},
+    )
+
+
+def adopt_snapshot(
+    target: Path, raw: bytes, provenance: dict[str, JSON],
+    seeded_files: dict[str, str],
+    identities: dict[str, tuple[str, dict[str, str]]],
+) -> dict[str, Any]:
+    """The shared create-only journal path for explicitly validated CSV families."""
+    target = _path(target)
+    count = len(identities)
     with exclusive(target.parent / ("." + target.name + ".import.lock")):
         if target.exists():
             native_directory(target)
@@ -185,15 +199,15 @@ def import_measurements(
                 index = records.load_object(files, RECORD_INDEX)
                 if (
                     state.revision != 0
-                    or files.get(MEASUREMENTS) != value["csv"]
-                    or set(index) != set(ids)
+                    or any(files.get(path) != csv for path, csv in seeded_files.items())
+                    or set(index) != set(identities)
                     or files.get(RECEIPT) != encode(provenance).decode() + "\n"
                 ):
                     raise ServiceError(409, "import_destination_changed")
             return {
                 "imported": True,
                 "duplicate": True,
-                "records": len(rows),
+                "records": count,
                 "dataRevision": state.revision,
             }
         disk_required(target.parent, len(raw) * 4)
@@ -210,20 +224,19 @@ def import_measurements(
             received = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
             def adopt(files: dict[str, str]) -> dict[str, str]:
-                seeded = files | {MEASUREMENTS: str(value["csv"])}
+                seeded = files | seeded_files
                 changes = records.adopt(seeded, received)
                 index = records.load_object(changes, RECORD_INDEX)
                 by_locator = {
-                    str(entry["locator"]): entry
+                    (str(entry["path"]), str(entry["locator"])): entry
                     for entry in index.values()
                     if isinstance(entry, dict)
                 }
                 stable: dict[str, JSON] = {
-                    record_id: by_locator[digest(row)]
-                    for record_id, row in zip(ids, rows, strict=True)
+                    record_id: by_locator[(path, digest(row))]
+                    for record_id, (path, row) in identities.items()
                 }
-                return changes | {
-                    MEASUREMENTS: str(value["csv"]),
+                return changes | seeded_files | {
                     RECORD_INDEX: encode(stable).decode() + "\n",
                     RECEIPT: encode(provenance).decode() + "\n",
                 }
@@ -241,6 +254,6 @@ def import_measurements(
     return {
         "imported": True,
         "duplicate": False,
-        "records": len(rows),
+        "records": count,
         "dataRevision": state.revision,
     }

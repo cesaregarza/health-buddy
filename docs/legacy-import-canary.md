@@ -1,7 +1,8 @@
-# Synthetic measurement import tracer
+# Synthetic retained-record import tracers
 
-This first CES-1081 slice exports only the retained measurement CSV schema
-and adopts it into a new isolated native workspace. It is not a live migration
+These bounded CES-1081 slices export the retained measurement CSV schema or
+workout sessions and their sets together, adopting either snapshot into a new
+isolated native workspace. It is not a live migration
 or cutover. Do not select personal data for this development tracer.
 
 All paths must be explicit absolute native paths, with private owner directories
@@ -42,7 +43,36 @@ unowned destination, or post-import canonical writes are refused. Do not erase a
 occupied destination to retry. The legacy source remains unchanged, so abandoning
 this isolated canary never requires writing back to the original source.
 
+The `workout-sessions-sets` snapshot family exports exactly sessions and sets,
+with separate reviewed SHA256 inputs and a combined 1,000-record/4 MiB limit.
+Session IDs are retained exactly as canonical session IDs. Child rows retain
+those parent IDs and matching session dates; set observation IDs are explicit,
+stable source-namespace/natural-key IDs. Duplicate IDs/keys, foreign parents and
+mismatched dates fail before destination creation. CSV values and notes remain
+unchanged. Validation reuses the retained canonical workout validators; the
+retained dashboard's `partial` status is preserved. Date-only rows use the new
+workspace's explicit default UTC timezone, with no inferred legacy timezone.
+The measurement snapshot schema/commands remain compatible.
+
+```sh
+health-buddy --workspace /native/private/workout-canary legacy-import export-workouts \
+  --sessions-csv /native/private/legacy/sessions.csv \
+  --sets-csv /native/private/legacy/sets.csv \
+  --source-id synthetic-legacy \
+  --expected-sessions-sha256 REVIEWED_SESSIONS_SHA256 \
+  --expected-sets-sha256 REVIEWED_SETS_SHA256 \
+  --snapshot /native/private/workouts.json
+health-buddy --workspace /native/private/workout-canary legacy-import adopt-workouts \
+  --snapshot /native/private/workouts.json \
+  --expected-snapshot-sha256 REVIEWED_WORKOUT_SNAPSHOT_SHA256
+```
+
+The paired source inputs are rechecked before export publication. Quiesce legacy
+writers while selecting/reviewing them; this does not establish a snapshot of an
+arbitrary running legacy service. Exact-repeat, destination preservation and
+redacted receipt rules are the same for both explicit snapshot families.
+
 Remaining CES-1081 scope includes other manual record families, plans,
 preferences, HealthKit and connector stores, device replay, richer reconciliation
-and full reversible-canary qualification. None is claimed by this measurement
-tracer, and no real source, private Git history or actual cutover was exercised.
+and full reversible-canary qualification. None is claimed by these retained-record
+tracers, and no real source, private Git history or actual cutover was exercised.
