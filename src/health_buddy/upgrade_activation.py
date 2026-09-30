@@ -27,11 +27,22 @@ def compose(docker: Path, environment: Path, project: str, *arguments: str) -> b
     """Only the maintained API service in the explicitly selected project."""
     with tempfile.TemporaryDirectory(prefix="hb-upgrade-docker-") as folder:
         result = subprocess.run(  # noqa: S603 - Fixed native CLI.
-            [*docker_command(docker), "compose", "--project-name", project,
-             "--env-file", str(environment), "--file", str(COMPOSE), *arguments],
+            [
+                *docker_command(docker),
+                "compose",
+                "--project-name",
+                project,
+                "--env-file",
+                str(environment),
+                "--file",
+                str(COMPOSE),
+                *arguments,
+            ],
             env={"PATH": os.defpath, "DOCKER_CONFIG": folder},
             cwd=environment.parent,
-            check=True, timeout=180, stdout=subprocess.PIPE,
+            check=True,
+            timeout=180,
+            stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
         if len(result.stdout) > 16384:
@@ -39,16 +50,31 @@ def compose(docker: Path, environment: Path, project: str, *arguments: str) -> b
         return result.stdout
 
 
-def running(docker: Path, environment: Path, project: str, manifest: Path, architecture: str) -> str:
-    ids = compose(docker, environment, project, "ps", "--quiet", "api").decode("ascii").splitlines()
+def running(
+    docker: Path, environment: Path, project: str, manifest: Path, architecture: str
+) -> str:
+    ids = (
+        compose(docker, environment, project, "ps", "--quiet", "api")
+        .decode("ascii")
+        .splitlines()
+    )
     if len(ids) != 1 or not re.fullmatch(r"[0-9a-f]{12,64}", ids[0]):
         raise ServiceError(409, "upgrade_requires_one_running_api")
     with tempfile.TemporaryDirectory(prefix="hb-upgrade-inspect-") as folder:
         result = subprocess.run(  # noqa: S603 - Fixed native CLI.
-            [*docker_command(docker), "inspect", "--format", "{{.Image}} {{.State.Running}}", ids[0]],
-            env={"PATH": os.defpath, "DOCKER_CONFIG": folder}, check=True,
+            [
+                *docker_command(docker),
+                "inspect",
+                "--format",
+                "{{.Image}} {{.State.Running}}",
+                ids[0],
+            ],
+            env={"PATH": os.defpath, "DOCKER_CONFIG": folder},
+            check=True,
             cwd=environment.parent,
-            timeout=15, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            timeout=15,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
     if len(result.stdout) > 256:
         raise ServiceError(502, "upgrade_runtime_response_limit")
@@ -64,9 +90,13 @@ def version(value: str) -> tuple[int, int, int, int, int]:
     if match is None:
         raise ServiceError(409, "upgrade_version_order_unknown_requires_release_review")
     major, minor, patch, development = match.groups()
-    return (int(major), int(minor), int(patch),
-            1 if development is None else 0,
-            int(development) if development is not None else 0)
+    return (
+        int(major),
+        int(minor),
+        int(patch),
+        1 if development is None else 0,
+        int(development) if development is not None else 0,
+    )
 
 
 def record(path: Path) -> dict[str, Any]:
@@ -77,11 +107,23 @@ def record(path: Path) -> dict[str, Any]:
 
 
 def activate(
-    runtime: Runtime, principal: Principal, candidate: Path,
-    manifest: Path, manifest_sha256: str, architecture: str,
-    previous_manifest: Path, previous_sha256: str,
-    environment: Path, docker: Path, project: str, uid: int, gid: int,
-    *, confirm_quiesced: bool, rollback: bool = False, recover: bool = False,
+    runtime: Runtime,
+    principal: Principal,
+    candidate: Path,
+    manifest: Path,
+    manifest_sha256: str,
+    architecture: str,
+    previous_manifest: Path,
+    previous_sha256: str,
+    environment: Path,
+    docker: Path,
+    project: str,
+    uid: int,
+    gid: int,
+    *,
+    confirm_quiesced: bool,
+    rollback: bool = False,
+    recover: bool = False,
 ) -> dict[str, Any]:
     if not confirm_quiesced:
         raise ServiceError(422, "upgrade_requires_quiesced_writers_and_editors")
@@ -97,7 +139,9 @@ def activate(
         raise ServiceError(422, "upgrade_environment_must_be_external")
     staged = record(private_path(candidate) / "operations/upgrade-receipt.json")
     target = preflight(runtime, manifest, manifest_sha256, architecture)
-    previous = preflight(runtime, previous_manifest, previous_sha256, architecture, check_personal=False)
+    previous = preflight(
+        runtime, previous_manifest, previous_sha256, architecture, check_personal=False
+    )
     path = service.config.path("operations/upgrade-activation.json")
     with exclusive(service.config.path("operations/upgrade.lock")):
         # This also enforces current, unrevoked operations:admin authority.
@@ -108,23 +152,38 @@ def activate(
         existing = record(path) if path.exists() else None
         action = "rollback" if rollback else "upgrade"
         if recover:
-            if (not rollback or not existing
-                    or existing["phase"] in ("active", "rolled_back")
-                    or existing["previous"] != target
-                    or existing["target"] != previous
-                    or existing["project"] != project
-                    or existing["environment"] != str(environment)):
-                raise ServiceError(409, "upgrade_recovery_requires_recorded_previous_release")
+            if (
+                not rollback
+                or not existing
+                or existing["phase"] in ("active", "rolled_back")
+                or existing["previous"] != target
+                or existing["target"] != previous
+                or existing["project"] != project
+                or existing["environment"] != str(environment)
+            ):
+                raise ServiceError(
+                    409, "upgrade_recovery_requires_recorded_previous_release"
+                )
             # A stopped/interrupted API may have no running image to inspect.
             # Only the recorded previous compatible binary is admitted here;
             # the live workspace remains mounted unchanged.
-            existing = {**existing, "target": target, "previous": previous,
-                        "action": "rollback", "phase": "prepared"}
+            existing = {
+                **existing,
+                "target": target,
+                "previous": previous,
+                "action": "rollback",
+                "phase": "prepared",
+            }
             atomic_bytes(path, encode(existing))
         if existing and existing["phase"] not in ("active", "rolled_back"):
-            if (existing["target"] != target or existing["action"] != action
-                    or existing["project"] != project or existing["environment"] != str(environment)
-                    or existing["uid"] != uid or existing["gid"] != gid):
+            if (
+                existing["target"] != target
+                or existing["action"] != action
+                or existing["project"] != project
+                or existing["environment"] != str(environment)
+                or existing["uid"] != uid
+                or existing["gid"] != gid
+            ):
                 raise ServiceError(409, "upgrade_pending_resume_same_target")
             progress = existing
         elif existing and existing["target"] == target and existing["action"] == action:
@@ -132,25 +191,43 @@ def activate(
             return existing
         else:
             if rollback:
-                if not existing or existing["phase"] != "active" or existing["previous"] != target:
-                    raise ServiceError(409, "upgrade_rollback_requires_recorded_compatible_previous_release")
+                if (
+                    not existing
+                    or existing["phase"] != "active"
+                    or existing["previous"] != target
+                ):
+                    raise ServiceError(
+                        409,
+                        "upgrade_rollback_requires_recorded_compatible_previous_release",
+                    )
                 if existing["target"] != previous:
                     raise ServiceError(409, "upgrade_rollback_current_release_mismatch")
             else:
                 if staged["target"] != target:
                     raise ServiceError(409, "upgrade_target_requires_restage")
-                if version(target["packageVersion"]) < version(previous["packageVersion"]):
-                    raise ServiceError(409, "upgrade_downgrade_requires_explicit_recorded_rollback")
+                if version(target["packageVersion"]) < version(
+                    previous["packageVersion"]
+                ):
+                    raise ServiceError(
+                        409, "upgrade_downgrade_requires_explicit_recorded_rollback"
+                    )
                 with service.backup(principal) as inventory:
                     current, _files = verified(snapshot(service.config, inventory))
                     if freshness(current) != staged["freshness"]:
-                        raise ServiceError(409, "upgrade_snapshot_stale_requires_restage")
+                        raise ServiceError(
+                            409, "upgrade_snapshot_stale_requires_restage"
+                        )
             running(docker, environment, project, previous_manifest, architecture)
             progress = {
-                "schemaVersion": 1, "phase": "prepared", "action": action,
-                "target": target, "previous": previous,
-                "project": project, "environment": str(environment),
-                "uid": uid, "gid": gid,
+                "schemaVersion": 1,
+                "phase": "prepared",
+                "action": action,
+                "target": target,
+                "previous": previous,
+                "project": project,
+                "environment": str(environment),
+                "uid": uid,
+                "gid": gid,
                 "identity": identity_value(state.identity),
                 "activationRevision": state.revision,
                 "workspacePolicy": "current_workspace_never_replaced",
@@ -164,23 +241,45 @@ def activate(
                     if not rollback:
                         current, _files = verified(snapshot(service.config, inventory))
                         if freshness(current) != staged["freshness"]:
-                            raise ServiceError(409, "upgrade_snapshot_stale_requires_restage")
+                            raise ServiceError(
+                                409, "upgrade_snapshot_stale_requires_restage"
+                            )
                     compose(docker, environment, project, "stop", "api")
                 progress["phase"] = "loading"
                 atomic_bytes(path, encode(progress))
             if progress["phase"] == "loading":
-                with tempfile.TemporaryDirectory(prefix=".upgrade-env-", dir=environment.parent) as folder:
+                with tempfile.TemporaryDirectory(
+                    prefix=".upgrade-env-", dir=environment.parent
+                ) as folder:
                     loaded = Path(folder) / "runtime.env"
-                    load_release(manifest, architecture, service.config.root, loaded,
-                                 docker=docker, uid=uid, gid=gid)
+                    load_release(
+                        manifest,
+                        architecture,
+                        service.config.root,
+                        loaded,
+                        docker=docker,
+                        uid=uid,
+                        gid=gid,
+                    )
                     # load_release only writes a new file. Publish it atomically
                     # after verified engine identity, before starting the API.
                     atomic_bytes(environment, read_file(loaded, 4096))
                 progress["phase"] = "starting"
                 atomic_bytes(path, encode(progress))
             if progress["phase"] == "starting":
-                compose(docker, environment, project, "up", "--detach", "--wait", "--no-deps", "api")
-                progress["runningImageId"] = running(docker, environment, project, manifest, architecture)
+                compose(
+                    docker,
+                    environment,
+                    project,
+                    "up",
+                    "--detach",
+                    "--wait",
+                    "--no-deps",
+                    "api",
+                )
+                progress["runningImageId"] = running(
+                    docker, environment, project, manifest, architecture
+                )
                 progress["phase"] = "rolled_back" if rollback else "active"
                 progress.pop("failureCode", None)
                 atomic_bytes(path, encode(progress))

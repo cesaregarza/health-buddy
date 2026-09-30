@@ -21,7 +21,9 @@ def add_commands(commands: Any) -> None:
         command = sub.add_parser(action)
         command.add_argument("--manifest", type=Path, required=True)
         command.add_argument("--manifest-sha256", required=True)
-        command.add_argument("--architecture", choices=("amd64", "arm64"), required=True)
+        command.add_argument(
+            "--architecture", choices=("amd64", "arm64"), required=True
+        )
         command.add_argument("--candidate", type=Path, required=True)
         command.add_argument("--confirm-quiesced", action="store_true")
         if action == "stage":
@@ -46,16 +48,32 @@ def handle(args: argparse.Namespace) -> int:
     )
     if args.upgrade_action == "stage":
         result = stage(
-            runtime, owner.principal, args.manifest, args.manifest_sha256,
-            args.architecture, args.archive, args.key_file, args.candidate,
+            runtime,
+            owner.principal,
+            args.manifest,
+            args.manifest_sha256,
+            args.architecture,
+            args.archive,
+            args.key_file,
+            args.candidate,
             confirm_quiesced=args.confirm_quiesced,
         )
     else:
         result = activate(
-            runtime, owner.principal, args.candidate, args.manifest,
-            args.manifest_sha256, args.architecture, args.previous_manifest,
-            args.previous_sha256, args.runtime_env, args.docker, args.project,
-            args.uid, args.gid, confirm_quiesced=args.confirm_quiesced,
+            runtime,
+            owner.principal,
+            args.candidate,
+            args.manifest,
+            args.manifest_sha256,
+            args.architecture,
+            args.previous_manifest,
+            args.previous_sha256,
+            args.runtime_env,
+            args.docker,
+            args.project,
+            args.uid,
+            args.gid,
+            confirm_quiesced=args.confirm_quiesced,
             rollback=args.upgrade_action in {"rollback", "recover"},
             recover=args.upgrade_action == "recover",
         )
