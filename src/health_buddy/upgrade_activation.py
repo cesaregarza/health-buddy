@@ -62,6 +62,7 @@ def running(
     gid: int,
     *,
     allow_inactive: bool = False,
+    require_healthy: bool = False,
 ) -> str:
     ids = (
         compose(docker, environment, project, "ps", "--quiet", "api")
@@ -80,7 +81,12 @@ def running(
                 "--format",
                 "{{.Image}}\n{{.State.Running}}\n{{.Config.User}}\n"
                 '{{range .Mounts}}{{if eq .Destination "/workspace"}}'
-                "{{json .Source}}\n{{.Type}}\n{{.RW}}\n{{end}}{{end}}",
+                "{{json .Source}}\n{{.Type}}\n{{.RW}}\n{{end}}{{end}}"
+                + (
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}\n"
+                    if require_healthy
+                    else ""
+                ),
                 ids[0],
             ],
             env={"PATH": os.defpath, "DOCKER_CONFIG": folder},
@@ -95,6 +101,7 @@ def running(
     rows = result.stdout.decode("utf-8").rstrip("\r\n").splitlines()
     if len(rows) == 6 and rows[1] == "false" and allow_inactive:
         return ""
+    health = rows.pop() if require_healthy and len(rows) == 7 else None
     artifact = selected_artifact(manifest, architecture)
     if len(rows) != 6 or rows[1] != "true" or rows[0] not in artifact.loader_ids:
         raise ServiceError(409, "upgrade_running_image_mismatch")
@@ -104,6 +111,10 @@ def running(
         or rows[4:] != ["bind", "true"]
     ):
         raise ServiceError(409, "upgrade_running_installation_mismatch")
+    if require_healthy and health != "healthy":
+        raise ServiceError(
+            503, "install_activation_runtime_not_healthy", retryable=True
+        )
     return rows[0]
 
 

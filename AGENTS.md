@@ -20,9 +20,14 @@ do not quietly invent a second API or data owner.
 - Implementation PRs do not authorize merges, deployment, production migration,
   paid signing builds, external Apple distribution or release publication.
 
-## Current orchestration restrictions
+## Temporary P-CES-17 orchestration restrictions
 
-All dependency installation, test execution, compilation, browser suites and
+These restrictions apply only to active P-CES-17 orchestration workers.
+Installed owners outside that orchestration may run the documented native setup,
+checks and previews under their own authorization; no project testing queue is
+required for maintaining their matching source.
+
+During P-CES-17, all dependency installation, test execution, compilation, browser suites and
 container builds belong to the single project testing queue. Workers prepare
 source and requests; they may inspect source and diffs. Do not execute local
 test commands independently, including the commands below. Send the queue an
@@ -35,7 +40,7 @@ draft PRs can trigger CI. Never disable unrelated workflows or run Apple builds
 to bypass the hold. Update these temporary restrictions only when the
 coordinator records the user's changed policy.
 
-## Contract validation entrypoints (queue-owned)
+## Contract validation entrypoints (queue-owned during P-CES-17)
 
 ```sh
 python3 -m pip install -r requirements-contract.txt

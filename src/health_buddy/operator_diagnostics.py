@@ -205,18 +205,26 @@ def report(
         finally:
             probe.close()
     if port is not None:
-        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            probe.bind(("127.0.0.1", port))
-            result["connectivity"]["port"] = "available_at_check_time"
-        except OSError:
-            result["connectivity"]["port"] = "unavailable_for_bind"
+        result["connectivity"]["port"] = port_state(port)
+        if result["connectivity"]["port"] != "available_at_check_time":
             diagnostics.append(finding("port_conflict", "error"))
-        finally:
-            probe.close()
     if app is not None:
         runtime_details(result, app)
     return result
+
+
+def port_state(port: int) -> str:
+    """Local bind check only; no reservation or unknown listener termination."""
+    if not 1 <= port <= 65535:
+        return "unavailable_for_bind"
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind(("127.0.0.1", port))
+        return "available_at_check_time"
+    except OSError:
+        return "unavailable_for_bind"
+    finally:
+        probe.close()
 
 
 def runtime_details(result: dict[str, Any], app: App) -> None:
