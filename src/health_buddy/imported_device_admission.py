@@ -46,15 +46,24 @@ def admit(
             if str(UUID(device_id)) != device_id:
                 raise ValueError
             name = _name(name)
-            receipt: Any = object_value(decode(
-                read_file(service.config.root / "operations/receiver-import.json", 16384),
-                limit=16384,
-            ))
+            receipt: Any = object_value(
+                decode(
+                    read_file(
+                        service.config.root / "operations/receiver-import.json", 16384
+                    ),
+                    limit=16384,
+                )
+            )
             if (
                 not isinstance(receipt, dict)
-                or set(receipt) != {
-                    "schemaVersion", "family", "sourceSha256", "snapshotSha256",
-                    "mapping", "realPairingBridge",
+                or set(receipt)
+                != {
+                    "schemaVersion",
+                    "family",
+                    "sourceSha256",
+                    "snapshotSha256",
+                    "mapping",
+                    "realPairingBridge",
                 }
                 or receipt["schemaVersion"] != 1
                 or receipt["family"] != "legacy-healthkit-receiver"
@@ -69,7 +78,9 @@ def admit(
             mappings = receipt["mapping"]
             for item in mappings:
                 if not isinstance(item, dict) or set(item) != {
-                    "deviceId", "sourceId", "streamId"
+                    "deviceId",
+                    "sourceId",
+                    "streamId",
                 }:
                     raise ValueError
                 if str(UUID(item["deviceId"])) != item["deviceId"]:
@@ -85,20 +96,23 @@ def admit(
                 raise ValueError
             source, stream = selected[0]["sourceId"], selected[0]["streamId"]
             if service.journal.sources().get(source) != {
-                "source_id": source, "source_kind": "healthkit",
-                "device_id": device_id, "source_stream_id": stream,
+                "source_id": source,
+                "source_kind": "healthkit",
+                "device_id": device_id,
+                "source_stream_id": stream,
             }:
                 raise ValueError
-            with closing(sqlite3.connect(
-                service.health.path.as_uri() + "?mode=ro", uri=True
-            )) as receiver:
+            with closing(
+                sqlite3.connect(service.health.path.as_uri() + "?mode=ro", uri=True)
+            ) as receiver:
                 if receiver.execute(
                     "SELECT snapshot_sha256 FROM legacy_adoption_snapshot"
                 ).fetchall() != [(expected_snapshot_sha256,)]:
                     raise ValueError
                 if receiver.execute(
                     "SELECT source_id,stream_id,active_device_id FROM source_streams "
-                    "WHERE source_id=?", (source,)
+                    "WHERE source_id=?",
+                    (source,),
                 ).fetchall() != [(source, stream, device_id)]:
                     raise ValueError
         except (OSError, ValueError, TypeError, KeyError, sqlite3.Error):
@@ -111,13 +125,16 @@ def admit(
         if existing:
             actor = existing[0]
             if len(existing) != 1 or (
-                actor["role"] != "device" or actor["name"] != name
-                or actor["device_id"] != device_id or actor["stream_id"] != stream
+                actor["role"] != "device"
+                or actor["name"] != name
+                or actor["device_id"] != device_id
+                or actor["stream_id"] != stream
                 or json.loads(actor["grants"]) != grants
                 or json.loads(actor["sources"]) != [source]
-                or any(json.loads(actor[key]) != [] for key in (
-                    "read_sources", "read_kinds", "read_fields"
-                ))
+                or any(
+                    json.loads(actor[key]) != []
+                    for key in ("read_sources", "read_kinds", "read_fields")
+                )
             ):
                 raise ServiceError(409, "import_admission_actor_conflict")
             actor_id, active, duplicate = actor["id"], bool(actor["active"]), True
@@ -127,11 +144,28 @@ def admit(
             actor_id, active, duplicate = str(uuid4()), False, False
             with connection:
                 authority.store.add_actor(
-                    connection, actor_id, "device", name, grants, [source], [], [], [],
-                    device=device_id, stream=stream, active=False,
+                    connection,
+                    actor_id,
+                    "device",
+                    name,
+                    grants,
+                    [source],
+                    [],
+                    [],
+                    [],
+                    device=device_id,
+                    stream=stream,
+                    active=False,
                 )
                 authority.store.event(connection, "devices.admit-imported")
-        return SecurityReply(200 if duplicate else 201, {
-            "id": actor_id, "deviceId": device_id, "sourceId": source,
-            "sourceStreamId": stream, "active": active, "duplicate": duplicate,
-        })
+        return SecurityReply(
+            200 if duplicate else 201,
+            {
+                "id": actor_id,
+                "deviceId": device_id,
+                "sourceId": source,
+                "sourceStreamId": stream,
+                "active": active,
+                "duplicate": duplicate,
+            },
+        )

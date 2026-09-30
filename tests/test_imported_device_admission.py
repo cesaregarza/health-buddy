@@ -47,20 +47,39 @@ def admit(runtime, owner, inputs, **changes):
 def inventory(runtime):
     with runtime.security._locked() as connection:
         return (
-            [tuple(row) for row in connection.execute("SELECT * FROM actors ORDER BY id")],
-            [tuple(row) for row in connection.execute("SELECT * FROM credentials ORDER BY id")],
+            [
+                tuple(row)
+                for row in connection.execute("SELECT * FROM actors ORDER BY id")
+            ],
+            [
+                tuple(row)
+                for row in connection.execute("SELECT * FROM credentials ORDER BY id")
+            ],
         )
 
 
 def test_owner_cli_admission_replacement_pairing_replay_and_new_batch(tmp_path, capsys):
     inputs, target, credential, runtime, owner = prepared(tmp_path)
     state = runtime.operations.journal.verify()
-    assert main([
-        "--workspace", str(target), "--credential-file", str(credential),
-        "legacy-import", "admit-device", "--device-id", inputs[2]["deviceId"],
-        "--expected-snapshot-sha256", sha(inputs[1]),
-        "--name", "Synthetic imported phone",
-    ]) == 0
+    assert (
+        main(
+            [
+                "--workspace",
+                str(target),
+                "--credential-file",
+                str(credential),
+                "legacy-import",
+                "admit-device",
+                "--device-id",
+                inputs[2]["deviceId"],
+                "--expected-snapshot-sha256",
+                sha(inputs[1]),
+                "--name",
+                "Synthetic imported phone",
+            ]
+        )
+        == 0
+    )
     admitted = json.loads(capsys.readouterr().out)
     assert admitted["active"] is False and admitted["duplicate"] is False
     actors, credentials = inventory(runtime)
@@ -85,10 +104,15 @@ def test_owner_cli_admission_replacement_pairing_replay_and_new_batch(tmp_path, 
     assert inventory(runtime) == after_pair
 
     def ingest(body):
-        return runtime.operations.execute(phone.principal, Request(
-            "healthkit.ingest", payload=body, identity=state.identity,
-            health_device_id=body["deviceId"],
-        ))
+        return runtime.operations.execute(
+            phone.principal,
+            Request(
+                "healthkit.ingest",
+                payload=body,
+                identity=state.identity,
+                health_device_id=body["deviceId"],
+            ),
+        )
 
     exact = ingest(inputs[3])
     assert exact.status == 200 and decoded(exact)["duplicateBatch"] is True
@@ -105,14 +129,22 @@ def test_owner_cli_admission_replacement_pairing_replay_and_new_batch(tmp_path, 
     assert new_state.revision == state.revision + 1
     assert ingest(inputs[3]).status == 200
     assert runtime.operations.journal.verify() == new_state
-    records = decoded(runtime.operations.execute(owner.principal, Request(
-        "records.list", query={"from": "2026-08-01T00:00:00Z", "to": "2026-09-01T00:00:00Z"}
-    )))["data"]["records"]
+    records = decoded(
+        runtime.operations.execute(
+            owner.principal,
+            Request(
+                "records.list",
+                query={"from": "2026-08-01T00:00:00Z", "to": "2026-09-01T00:00:00Z"},
+            ),
+        )
+    )["data"]["records"]
     assert len(records) == 1 and records[0]["value"] == 5000
     assert inputs[0].read_bytes() == inputs[7]
 
 
-@pytest.mark.parametrize("case", ["digest", "foreign", "epoch", "receipt", "marker", "agent"])
+@pytest.mark.parametrize(
+    "case", ["digest", "foreign", "epoch", "receipt", "marker", "agent"]
+)
 def test_import_admission_refuses_unreviewed_or_foreign_binding(tmp_path, case):
     inputs, target, _, runtime, owner = prepared(tmp_path)
     changes = {}
@@ -121,7 +153,9 @@ def test_import_admission_refuses_unreviewed_or_foreign_binding(tmp_path, case):
     elif case == "foreign":
         changes["device_id"] = str(uuid4())
     elif case == "epoch":
-        changes["identity"] = replace(runtime.operations.journal.state().identity, restore_epoch=str(uuid4()))
+        changes["identity"] = replace(
+            runtime.operations.journal.state().identity, restore_epoch=str(uuid4())
+        )
     elif case == "receipt":
         path = target / "operations/receiver-import.json"
         value = json.loads(path.read_text())
@@ -129,12 +163,19 @@ def test_import_admission_refuses_unreviewed_or_foreign_binding(tmp_path, case):
         path.write_text(json.dumps(value))
     elif case == "marker":
         with closing(sqlite3.connect(target / "stores/healthkit.db")) as connection:
-            connection.execute("UPDATE legacy_adoption_snapshot SET snapshot_sha256=?", ("0" * 64,))
+            connection.execute(
+                "UPDATE legacy_adoption_snapshot SET snapshot_sha256=?", ("0" * 64,)
+            )
             connection.commit()
     else:
-        granted = action(runtime, owner, "grants.create", payload=AgentGrant(
-            "Synthetic agent", ("records:read",), ("manual",), None, None, None
-        ))
+        granted = action(
+            runtime,
+            owner,
+            "grants.create",
+            payload=AgentGrant(
+                "Synthetic agent", ("records:read",), ("manual",), None, None, None
+            ),
+        )
         owner = runtime.security.authenticate(BearerProof(granted.secret.value))
     before = inventory(runtime)
     state = runtime.operations.journal.verify()

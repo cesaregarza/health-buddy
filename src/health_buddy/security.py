@@ -104,14 +104,25 @@ class SecurityAuthority:
         self.cache_lock = RLock()
 
     def admit_imported_device(
-        self, principal: Principal, *, identity: Identity, device_id: str,
-        expected_snapshot_sha256: str, name: str,
+        self,
+        principal: Principal,
+        *,
+        identity: Identity,
+        device_id: str,
+        expected_snapshot_sha256: str,
+        name: str,
     ) -> SecurityReply:
         """Native maintenance only; deliberately absent from transport actions."""
         from .imported_device_admission import admit
 
-        return admit(self, principal, identity=identity, device_id=device_id,
-                     expected_snapshot_sha256=expected_snapshot_sha256, name=name)
+        return admit(
+            self,
+            principal,
+            identity=identity,
+            device_id=device_id,
+            expected_snapshot_sha256=expected_snapshot_sha256,
+            name=name,
+        )
 
     def _identity(self) -> Identity:
         return self.service.journal.state().identity

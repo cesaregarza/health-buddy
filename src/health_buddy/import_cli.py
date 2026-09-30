@@ -11,11 +11,11 @@ from .legacy_import import export_measurements, import_measurements
 from .legacy_manual_canary import INPUTS, export_manual_canary, import_manual_canary
 from .legacy_receiver_import import export_receiver, import_receiver
 from .legacy_workout_import import export_workouts, import_workouts
-from .service_api import ServiceError
+from .runtime_manifest import native_directory
 from .security import SecurityAuthority
 from .security_api import BearerProof
 from .security_runtime import open_runtime, read_credential
-from .runtime_manifest import native_directory
+from .service_api import ServiceError
 
 
 def add_commands(commands: Any) -> None:
@@ -83,11 +83,15 @@ def handle(args: argparse.Namespace) -> int:
         runtime = open_runtime(args.workspace)
         if not isinstance(runtime.security, SecurityAuthority):
             raise ServiceError(503, "import_admission_unavailable")
-        owner = runtime.security.authenticate(BearerProof(read_credential(args.credential_file)))
+        owner = runtime.security.authenticate(
+            BearerProof(read_credential(args.credential_file))
+        )
         reply = runtime.security.admit_imported_device(
-            owner.principal, identity=runtime.operations.journal.state().identity,
+            owner.principal,
+            identity=runtime.operations.journal.state().identity,
             device_id=args.device_id,
-            expected_snapshot_sha256=args.expected_snapshot_sha256, name=args.name,
+            expected_snapshot_sha256=args.expected_snapshot_sha256,
+            name=args.name,
         )
         print(json.dumps(reply.data, indent=2))
         return 0
