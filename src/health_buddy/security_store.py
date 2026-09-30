@@ -337,9 +337,10 @@ class SecurityStore:
         *,
         device: str | None = None,
         stream: str | None = None,
+        active: bool = True,
     ) -> None:
         connection.execute(
-            "INSERT INTO actors VALUES (?,?,?,?,?,?,?,?,?,?,1)",
+            "INSERT INTO actors VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
                 actor,
                 role,
@@ -351,6 +352,7 @@ class SecurityStore:
                 None if read_fields is None else encode(read_fields).decode(),
                 device,
                 stream,
+                int(active),
             ),
         )
 

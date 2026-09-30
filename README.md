@@ -32,6 +32,7 @@ release qualification remain separate; installer and live-agent qualification re
 - [Owner, agent and device authorization](docs/authorization.md)
 - [Immutable runtime, private ownership and controlled image qualification](docs/runtime-packaging.md)
 - [Encrypted backup and clean-host recovery](docs/backup-restore.md)
+- [Synthetic data-only measurement import tracer](docs/legacy-import-canary.md)
 - [Queue verification commands](docs/verification.md)
 - [Dependency and asset notices](THIRD_PARTY.md)
 
