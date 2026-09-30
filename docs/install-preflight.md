@@ -441,3 +441,66 @@ These fixtures use real local authority, matching source/skill/client files and
 bounded fake Docker/Tailscale responses. Actual owner-host networking, named
 Codex/Claude acceptance, phone/device qualification and coherent retained-data
 runtime removal remain pending; this checkpoint does not complete CES-1077.
+
+## Explicit missing-secret recovery and retained-data removal
+
+Ordinary handoff retry never rotates credentials. If the retained pending grant
+has no credential output, explicitly repeat the original `install_agent` command
+with `--rotate-pending-missing-secret`. It uses canonical `grants.rotate` on that
+same recorded actor, revoking its previous credentials without changing the
+workspace identity, actor or security epoch. This flag refuses a new/unbound grant,
+a later configured stage with a missing token, and existing empty/unknown files.
+A retained valid token resumes inertly, even with the flag. If the rotation's
+one-time reply is lost before file creation, another rotation requires that same
+explicit flag; ordinary retries continue to refuse. No other actor is rotated.
+
+The prepared default has HealthKit disabled with mode `read-only`. A reservation
+or private pairing proof does not prove redemption or ingest can work. Before
+`install_owner`, explicitly edit only the intended HealthKit configuration to
+`integrations.healthkit: {enabled:true,mode:"receiver"}` using the supported
+[owner configuration](configuration.md#owner-configuration), validate it through
+`health_buddy.config.load` via the native workspace command, and review it:
+`"$PYTHON" -m health_buddy.cli --workspace "$WORKSPACE" workspace describe --json`.
+Keep that owner path inventory private. Owner
+setup preserves nonsecurity configuration and binds its exact resulting bytes.
+Never silently enable the receiver or edit a bound running installer config to
+bypass that binding; an already bound change requires explicit owner lifecycle
+review. Status exposes only receiver enabled/mode/configured booleans/enum.
+Phone setup remains the existing owner login and `/security` page headed
+“Connect a phone”; real HealthKit permission/device/build acceptance stays open.
+
+Removal requires deliberate owner consent and quiesced external Docker/Serve/
+client/grant editors. It removes the recorded private root route, managed client
+entry and managed skill files, revokes only the recorded grant, then stops and
+removes only the exact admitted API container ID. Before its first mutation,
+the private journal binds that ID and existing activation/agent/HTTPS selections.
+The API inspection checks immutable image, writable workspace bind mount,
+nonroot UID/GID and Compose project/service labels whether running or stopped.
+It refuses a replacement container, changed mounts/user/image/labels, edited
+client entry/skill, changed Serve configuration or original policy mismatch.
+Preflight and the external CLIs are not an atomic transaction: quiescence is an
+owner precondition, and unsafe drift stops subsequent actions without restoring
+an old whole configuration.
+
+```sh
+"$PYTHON" -m health_buddy.install_remove --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --confirm-remove --confirm-local-daemon --confirm-serve --confirm-quiesced
+"$PYTHON" -m health_buddy.install_status --journal "$PRIVATE_INSTALL/install.json"
+```
+
+The Docker mutations are only `stop --time 30 EXACT_ID` and `rm EXACT_ID`.
+There is no `compose down`, force removal, volume removal, data deletion or
+workspace reinitialization. Unrelated services/routes/client settings/grants
+remain. The workspace, personal source/assets/tests/notes/state, source bundle,
+installer journal, private tokens/settings/policy and runtime environment remain
+private recovery material. A revoked token is retained but confers no authority.
+After lost action acknowledgements, the journal reobserves owned component state;
+repeat issues no mutations once removed. Status remains usable with the retained
+owner credential after grant revocation and container removal. Reactivation or
+replacement credentials require separate explicit owner lifecycle review.
+
+The focused synthetic gate adds `tests/test_install_remove.py` to pytest and
+Ruff/format, and `src/health_buddy/install_remove.py` to Ruff/format/mypy; the shared
+`connect_agent.py` check-only ownership gate and activation lifecycle guard receive
+scoped static checks. All execution stays with the queue during P-CES-17.
+These tests do not qualify an actual daemon, HTTPS connection, named agent or
+phone; those required acceptance gates remain pending for their owning tickets.

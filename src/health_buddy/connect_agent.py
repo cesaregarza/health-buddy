@@ -62,6 +62,7 @@ def connect(
     source: Path | None = None,
     workspace: Path | None = None,
     remove: bool = False,
+    check_only: bool = False,
     client: str = "codex",
 ) -> None:
     """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
@@ -118,6 +119,8 @@ def connect(
                 raise ServiceError(409, "codex_integration_locally_changed")
         elif previous or any((skill / name).exists() for name in MANAGED):
             raise ServiceError(409, "codex_integration_requires_reconciliation")
+        if check_only:
+            return
         if remove:
             if not old:
                 return

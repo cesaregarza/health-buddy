@@ -99,6 +99,8 @@ def test_default_install_connection_repeats_with_same_authority_and_redacted_sta
         summary["agentGrantRetained"] and summary["pairingStatus"] == "awaiting_owner"
     )
     assert summary["activeDeviceCount"] == 0 and not summary["connected"]
+    assert not summary["phoneReceiverConfigured"]
+    assert summary["healthkitMode"] == "read-only"
     redacted = json.dumps(summary).encode()
     for private_value in (
         token.strip(),
@@ -126,7 +128,7 @@ def test_connection_refuses_owned_local_edits_without_overwriting(
     assert changed != original
     path.write_bytes(changed)
     with pytest.raises(
-        ServiceError, match="settings_locally_changed|integration_locally_changed"
+        ServiceError, match=r"settings_locally_changed|integration_locally_changed"
     ):
         install_agent.setup(**arguments)
     assert path.read_bytes() == changed

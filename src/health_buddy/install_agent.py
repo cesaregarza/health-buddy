@@ -97,6 +97,7 @@ def setup(
     confirm_grant: bool,
     acknowledge_ai_egress: bool,
     fault: Callable[[str], None] | None = None,
+    rotate_pending_missing_secret: bool = False,
 ) -> dict[str, Any]:
     if not confirm_grant or not acknowledge_ai_egress:
         raise ServiceError(
@@ -135,6 +136,8 @@ def setup(
         if not isinstance(retained, dict) or retained.get("schemaVersion") != 1:
             raise ServiceError(409, "install_agent_requires_prepared_installation")
         record: dict[str, Any] = dict(retained)
+        if record.get("removal") is not None:
+            raise ServiceError(409, "install_agent_removal_requires_owner_lifecycle_review")
         if (
             record.get("activation", {}).get("phase") != "active"
             or record.get("privateHttps", {}).get("phase") != "enabled"
@@ -179,6 +182,8 @@ def setup(
         inventory = actors(runtime, admitted)
         progress = record.get("agentSetup")
         if progress is None:
+            if rotate_pending_missing_secret:
+                raise ServiceError(409, "install_agent_rotation_requires_pending_missing_secret")
             if (
                 agent_token.exists()
                 or settings.exists()
@@ -220,6 +225,8 @@ def setup(
                 progress["phase"] = "handoff_pending"
                 atomic_bytes(journal, encode(record))
             else:
+                if rotate_pending_missing_secret:
+                    raise ServiceError(409, "install_agent_rotation_requires_pending_missing_secret")
                 if agent_token.exists():
                     raise ServiceError(409, "install_agent_unowned_handoff_or_grant")
                 reply = runtime.security.execute(
@@ -243,6 +250,21 @@ def setup(
         found = [actor for actor in inventory if actor["id"] == actor_id]
         if len(found) != 1 or not matches(found[0], value):
             raise ServiceError(409, "install_agent_grant_requires_owner_reconciliation")
+        if rotate_pending_missing_secret and not agent_token.exists():
+            if settings.exists():
+                raise ServiceError(409, "install_agent_settings_locally_changed")
+            if progress["phase"] != "handoff_pending":
+                raise ServiceError(409, "install_agent_rotation_requires_pending_missing_secret")
+            # Explicit owner action only: retry never rotates a retained credential.
+            reply = runtime.security.execute(admitted.principal, SecurityRequest(
+                "grants.rotate", resource_id=actor_id, identity=admitted.client.identity,
+            ))
+            fault("rotation_committed")
+            if reply.secret is None or reply.secret.kind != "agent-token":
+                raise ServiceError(503, "install_agent_private_handoff_incomplete")
+            if not create_file(agent_token, reply.secret.value + "\n"):
+                raise ServiceError(409, "install_agent_unowned_handoff_or_grant")
+            fault("credential_written")
         try:
             actual = runtime.security.authenticate(
                 BearerProof(read_credential(agent_token))
@@ -321,6 +343,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--client", choices=("codex", "claude"), required=True)
     parser.add_argument("--confirm-grant", action="store_true")
+    parser.add_argument("--rotate-pending-missing-secret", action="store_true")
     parser.add_argument("--acknowledge-ai-egress", action="store_true")
     try:
         value = setup(**vars(parser.parse_args(argv)))

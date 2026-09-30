@@ -9,7 +9,8 @@ Installed owners outside P-CES-17 can run these native commands directly under
 their own authorization, using the public lock and their matching source; they
 do not need our private queue or its caches. Current workers remain queue-only.
 No private health records, vendor login, network source or paid model key is
-needed. Live named-agent and upgrade qualification remains CES-1083.
+needed. CES-1073 and CES-1074 own their named Codex/Claude acceptance gates;
+CES-1083 owns cross-agent and final upgrade qualification.
 
 ## Discover before editing
 
