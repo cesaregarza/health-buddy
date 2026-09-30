@@ -47,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     from .backup_cli import add_commands as add_backup_commands
 
     add_backup_commands(commands)
+    from .upgrade_cli import add_commands as add_upgrade_commands
+
+    add_upgrade_commands(commands)
     commands.add_parser("init")
     commands.add_parser("render")
     status = commands.add_parser("status")
@@ -150,6 +153,10 @@ def main(argv: list[str] | None = None) -> int:
                 if any(item["severity"] == "error" for item in result["diagnostics"])
                 else 0
             )
+        if args.command == "upgrade":
+            from .upgrade_cli import handle as handle_upgrade
+
+            return handle_upgrade(args)
         if args.command == "backup":
             from .backup_cli import handle as handle_backup
 
