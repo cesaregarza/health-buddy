@@ -191,7 +191,10 @@ def preflight(
                     "sourceCommit": identity.source_commit,
                     "architecture": architecture,
                     "imageArchiveSha256": artifact.archive_sha256,
-                    "trust": "operator_supplied_manifest_pin_not_publisher_identity_proof",
+                    "trust": (
+                        "operator_supplied_manifest_pin_"
+                        "not_publisher_identity_proof"
+                    ),
                 }
         except (OSError, ManifestError):
             refuse("release_invalid")
