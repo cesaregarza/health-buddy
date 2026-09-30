@@ -1,4 +1,4 @@
-"""Explicit native Codex setup; own marked files, never credentials or health data."""
+"""Native Codex/Claude setup; own integration files, never credentials or data."""
 
 from __future__ import annotations
 
@@ -43,6 +43,16 @@ def partition(raw: bytes) -> tuple[str, str, str]:
     return before, BEGIN + body + END, after
 
 
+def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Refuse ambiguous duplicate JSON keys before adopting a client config."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ServiceError(409, "claude_config_duplicate_key")
+        result[key] = value
+    return result
+
+
 def connect(
     config: Path,
     skill: Path,
@@ -52,8 +62,13 @@ def connect(
     source: Path | None = None,
     workspace: Path | None = None,
     remove: bool = False,
+    client: str = "codex",
 ) -> None:
-    """Fail closed on unowned/edited integration files; leave unrelated bytes alone."""
+    """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
+    if client not in {"codex", "claude"}:
+        raise ServiceError(422, "unsupported_agent_client")
+    if client == "claude" and config.name != ".mcp.json":
+        raise ServiceError(422, "claude_project_config_required")
     for path in (config, skill):
         native_path(path)
         private_directory(path.parent)
@@ -63,17 +78,31 @@ def connect(
     native_path(lock)
     with exclusive(lock):
         raw = optional(config)
-        before, previous, after = partition(raw)
-        parsed = tomllib.loads(raw.decode("utf-8"))
-        servers = parsed.get("mcp_servers", {})
-        if not isinstance(servers, dict):
-            raise ServiceError(409, "codex_managed_config_conflict")
-        if "health_buddy" in servers and not previous:
-            raise ServiceError(409, "codex_unmanaged_server_exists")
-        if previous:
-            managed = tomllib.loads(previous)["mcp_servers"]["health_buddy"]
-            if servers.get("health_buddy") != managed:
-                raise ServiceError(409, "codex_integration_locally_changed")
+        if client == "codex":
+            before, previous, after = partition(raw)
+            parsed = tomllib.loads(raw.decode("utf-8"))
+            servers = parsed.get("mcp_servers", {})
+            if not isinstance(servers, dict):
+                raise ServiceError(409, "codex_managed_config_conflict")
+            if "health_buddy" in servers and not previous:
+                raise ServiceError(409, "codex_unmanaged_server_exists")
+            if previous:
+                managed = tomllib.loads(previous)["mcp_servers"]["health_buddy"]
+                if servers.get("health_buddy") != managed:
+                    raise ServiceError(409, "codex_integration_locally_changed")
+        else:
+            parsed = json.loads(raw or b"{}", object_pairs_hook=unique_object)
+            if not isinstance(parsed, dict):
+                raise ServiceError(409, "claude_managed_config_conflict")
+            servers = parsed.get("mcpServers", {})
+            if not isinstance(servers, dict):
+                raise ServiceError(409, "claude_managed_config_conflict")
+            previous = (
+                json.dumps(servers["health_buddy"], sort_keys=True)
+                if "health_buddy" in servers
+                else ""
+            )
+            before, after = "", ""
         manifest = skill / ".health-buddy-install.json"
         old = optional(manifest) if skill.exists() else b""
         if skill.exists():
@@ -92,12 +121,22 @@ def connect(
         if remove:
             if not old:
                 return
-            atomic_bytes(config, (before + after).encode())
+            if client == "codex":
+                remaining = (before + after).encode()
+            else:
+                del servers["health_buddy"]
+                parsed["mcpServers"] = servers
+                remaining = json.dumps(parsed, indent=2).encode() + b"\n"
+            atomic_bytes(config, remaining)
             for name in (*MANAGED, manifest.name):
                 (skill / name).unlink()
             return
         if settings is None or python is None or source is None or workspace is None:
             raise ServiceError(422, "codex_setup_arguments_required")
+        if client == "claude" and any(
+            "${" in str(path) for path in (settings, python, source, workspace)
+        ):
+            raise ServiceError(422, "claude_path_expansion_not_supported")
         admitted = Settings.read(settings)
         private_file(admitted.credential_file)
         credential = admitted.credential_file.lstat()
@@ -136,25 +175,37 @@ def connect(
         if not (source / "docs/agent-guide.md").is_file():
             raise ServiceError(409, "codex_source_guide_missing")
         arguments = ["-m", "health_buddy.mcp_server", "--settings", str(settings)]
-        table = "\n".join(
-            [
-                "[mcp_servers.health_buddy]",
-                "command = " + json.dumps(str(python)),
-                "args = " + json.dumps(arguments),
-                "cwd = " + json.dumps(str(source)),
-                "startup_timeout_sec = 15",
-                "tool_timeout_sec = 60",
-                "[mcp_servers.health_buddy.env]",
-                "PYTHONPATH = " + json.dumps(str(source / "src")),
-                "",
-            ]
-        )
-        block = BEGIN + table + END
-        separator = "\n" if before and not before.endswith("\n") else ""
-        prefix = before if previous else before + separator
-        updated = prefix + block + after
-        # Refuse conflicting dotted/inline tables before writing.
-        tomllib.loads(updated)
+        if client == "codex":
+            table = "\n".join(
+                [
+                    "[mcp_servers.health_buddy]",
+                    "command = " + json.dumps(str(python)),
+                    "args = " + json.dumps(arguments),
+                    "cwd = " + json.dumps(str(source)),
+                    "startup_timeout_sec = 15",
+                    "tool_timeout_sec = 60",
+                    "[mcp_servers.health_buddy.env]",
+                    "PYTHONPATH = " + json.dumps(str(source / "src")),
+                    "",
+                ]
+            )
+            block = BEGIN + table + END
+            separator = "\n" if before and not before.endswith("\n") else ""
+            prefix = before if previous else before + separator
+            updated = prefix + block + after
+            # Refuse conflicting dotted/inline tables before writing.
+            tomllib.loads(updated)
+        else:
+            entry = {
+                "type": "stdio",
+                "command": str(python),
+                "args": arguments,
+                "env": {"PYTHONPATH": str(source / "src")},
+            }
+            block = json.dumps(entry, sort_keys=True)
+            servers["health_buddy"] = entry
+            parsed["mcpServers"] = servers
+            updated = json.dumps(parsed, indent=2) + "\n"
         skill_bytes = (
             files("health_buddy")
             .joinpath("integrations/codex/health-buddy/SKILL.md")
@@ -187,7 +238,7 @@ def connect(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("client", choices=("codex",))
+    parser.add_argument("client", choices=("codex", "claude"))
     parser.add_argument("--config-file", required=True, type=Path)
     parser.add_argument("--skill-directory", required=True, type=Path)
     parser.add_argument("--settings", type=Path)
@@ -205,11 +256,12 @@ def main(argv: list[str] | None = None) -> int:
             source=args.source,
             workspace=args.workspace,
             remove=args.remove,
+            client=args.client,
         )
     except (ServiceError, OSError, ValueError, TypeError, KeyError):
-        print("Codex setup refused; inspect private paths and managed-file ownership.")
+        print("Agent setup refused; inspect private paths and managed-file ownership.")
         return 2
-    print("Codex integration updated. Restart Codex and inspect /mcp and /skills.")
+    print("Agent integration updated. Restart the client; inspect /mcp and /skills.")
     return 0
 
 
