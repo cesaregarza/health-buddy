@@ -19,7 +19,8 @@ from health_buddy import (
 from health_buddy.domain import encode
 from health_buddy.durability import atomic_bytes
 from health_buddy.security_api import BearerProof
-from health_buddy.service_api import ServiceError
+from health_buddy.service_api import Request, ServiceError
+from tests.canonical_fixtures import decoded, intent
 from tests.test_install_remove import removal_fixture
 
 
@@ -33,7 +34,13 @@ def fixture(tmp_path, monkeypatch):
     atomic_bytes(personal / "test.sh", b"#!/bin/sh\n# Never executed by reinstall.\n")
     (personal / "test.sh").chmod(0o700)
     runtime, owner = install_agent.owner(json.loads(selected["journal"].read_bytes()))
+    response = runtime.operations.execute(
+        owner.principal,
+        intent(runtime.operations, owner.principal, record_id="synthetic-retained-mass"),
+    )
+    assert response.status == 200, response.body
     original_state = runtime.operations.journal.verify()
+    assert original_state.revision == 1
     original_files = runtime.operations.manual.snapshot()
     original_token = connection["agent_token"].read_text().strip()
     install_remove.remove(**removal)
