@@ -167,7 +167,19 @@ def support_summary(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def human(value: dict[str, Any]) -> str:
-    lines = ["Health Buddy operator status (local check)"]
+    lines = [
+        "Health Buddy operator status (local check)",
+        f'Installed package: {value["installation"]["packageVersion"] or "unknown"}; API 1; extension API 1',
+        f'Phone: {value["connectivity"]["phone"]}; private route: {value["connectivity"]["privateRoute"]}',
+        f'Pending writes: {value["queue"]["state"]} (current CLI actor only)',
+    ]
+    projection = value.get("sources")
+    if isinstance(projection, dict):
+        lines.append(f'Projection: {projection.get("state", "unknown")}')
+        for name, source in projection.get("sources", {}).items():
+            lines.append(f'{name}: {source.get("availability", "unknown")}; {source.get("freshness", "unknown")}; last success {source.get("lastSuccessAt") or "unknown"}')
+    for item in value["extensions"]["items"]:
+        lines.append(f'Extension {item["id"]}: {item["state"]}; version {item["version"] or "unknown"}')
     for item in value["diagnostics"]:
         lines.append(f'{item["severity"]}: {item["code"]}: {item["recovery"]}')
     lines.append("Use --json for measured timestamps, scoped source and extension states.")
