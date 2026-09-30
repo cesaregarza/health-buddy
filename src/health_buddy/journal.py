@@ -224,7 +224,10 @@ class Journal:
         cannot authenticate after the restore tuple and authority change.
         """
         prior = self.verify()
-        if identity.dataset_id != prior.identity.dataset_id or identity.restore_epoch == prior.identity.restore_epoch:
+        if (
+            identity.dataset_id != prior.identity.dataset_id
+            or identity.restore_epoch == prior.identity.restore_epoch
+        ):
             raise unavailable()
         marker = encode({"schemaVersion": 1, **identity_value(identity)})
         target = self.manual.prepare(

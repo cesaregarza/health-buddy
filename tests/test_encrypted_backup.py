@@ -18,16 +18,24 @@ from tests.extension_fixtures import example
 from tests.security_fixtures import secured
 
 
-def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(tmp_path):
+def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
+    tmp_path,
+):
     runtime, owner, token = secured(tmp_path / "source")
     root = runtime.operations.config.root
     config = runtime.operations.config
     mass = example(config, "local.weekly-mass")
     # A small owner customization with its adapted synthetic behavioral tests.
     metric_source = mass / "src/metric.py"
-    atomic_bytes(metric_source, metric_source.read_bytes().replace(b"fmean(values)", b"max(values)"))
+    atomic_bytes(
+        metric_source,
+        metric_source.read_bytes().replace(b"fmean(values)", b"max(values)"),
+    )
     metric_tests = mass / "tests/test_metric.py"
-    atomic_bytes(metric_tests, metric_tests.read_bytes().replace(b'"value": 72.0', b'"value": 74.0'))
+    atomic_bytes(
+        metric_tests,
+        metric_tests.read_bytes().replace(b'"value": 72.0', b'"value": 74.0'),
+    )
     settings = mass / "config/settings.json"
     value = json.loads(settings.read_bytes())
     value["title"] = "Synthetic maximum mass"
@@ -36,13 +44,19 @@ def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
     atomic_bytes(mass / "notes/OWNER.md", b"Synthetic custom view notes\n")
     atomic_bytes(mass / "state/sentinel.json", b'{"synthetic":true}')
     executable = mass / "tests/synthetic-check.sh"
-    atomic_bytes(executable, b"#!/bin/sh\n# Synthetic owner script, never run by restore.\nexit 0\n")
+    atomic_bytes(
+        executable,
+        b"#!/bin/sh\n# Synthetic owner script, never run by restore.\nexit 0\n",
+    )
     executable.chmod(0o700)
     readonly = mass / "notes/READONLY.md"
     atomic_bytes(readonly, b"Synthetic owner read-only note\n")
     readonly.chmod(0o400)
     app = App.authenticated(root, proof=BearerProof(token), runtime=runtime)
-    app.log_record("measurement", ["--measured-at-local", "2030-01-03T09:00:00Z", "--weight-lb", "150"])
+    app.log_record(
+        "measurement",
+        ["--measured-at-local", "2030-01-03T09:00:00Z", "--weight-lb", "150"],
+    )
     from tests.synthetic_workspace import program
 
     plan_file = tmp_path / "synthetic-plan.json"
@@ -64,32 +78,92 @@ def test_first_encrypted_backup_to_empty_host_retains_customization_and_records(
     assert after.identity.dataset_id == before.identity.dataset_id
     assert after.identity.restore_epoch != before.identity.restore_epoch
     assert after.revision == before.revision
-    restored_executable = restored / "personal/extensions/local.weekly-mass/tests/synthetic-check.sh"
+    restored_executable = (
+        restored / "personal/extensions/local.weekly-mass/tests/synthetic-check.sh"
+    )
     assert restored_executable.read_bytes() == executable.read_bytes()
     assert restored_executable.stat().st_mode & 0o7777 == 0o700
-    assert (restored / "personal/extensions/local.weekly-mass/notes/READONLY.md").stat().st_mode & 0o7777 == 0o400
-    assert (restored / "config.json").read_bytes() == (root / "config.json").read_bytes()
-    assert (restored / "personal/extensions/local.weekly-mass/notes/OWNER.md").read_bytes() == (mass / "notes/OWNER.md").read_bytes()
-    assert (restored / "personal/extensions/local.weekly-mass/state/sentinel.json").read_bytes() == (mass / "state/sentinel.json").read_bytes()
+    assert (
+        restored / "personal/extensions/local.weekly-mass/notes/READONLY.md"
+    ).stat().st_mode & 0o7777 == 0o400
+    assert (restored / "config.json").read_bytes() == (
+        root / "config.json"
+    ).read_bytes()
+    assert (
+        restored / "personal/extensions/local.weekly-mass/notes/OWNER.md"
+    ).read_bytes() == (mass / "notes/OWNER.md").read_bytes()
+    assert (
+        restored / "personal/extensions/local.weekly-mass/state/sentinel.json"
+    ).read_bytes() == (mass / "state/sentinel.json").read_bytes()
     with pytest.raises(ServiceError):
         copied.security.authenticate(BearerProof(token))
     new_token = read_credential(restored / receipt["ownerCredentialReference"])
     admitted = copied.security.authenticate(BearerProof(new_token))
-    listed = decoded(copied.operations.execute(admitted.principal, Request("records.list", query={"from":"2030-01-01T00:00:00Z","to":"2030-01-07T23:59:59Z"})))
-    original = decoded(runtime.operations.execute(owner.principal, Request("records.list", query={"from":"2030-01-01T00:00:00Z","to":"2030-01-07T23:59:59Z"})))
+    listed = decoded(
+        copied.operations.execute(
+            admitted.principal,
+            Request(
+                "records.list",
+                query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"},
+            ),
+        )
+    )
+    original = decoded(
+        runtime.operations.execute(
+            owner.principal,
+            Request(
+                "records.list",
+                query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"},
+            ),
+        )
+    )
     assert listed["data"]["records"] == original["data"]["records"]
-    metric = copied.operations.execute(admitted.principal, Request("extensions.read", resource_id="local.weekly-mass", query={"from":"2030-01-01T00:00:00Z","to":"2030-01-07T23:59:59Z"}))
+    metric = copied.operations.execute(
+        admitted.principal,
+        Request(
+            "extensions.read",
+            resource_id="local.weekly-mass",
+            query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"},
+        ),
+    )
     assert metric.status == 200, metric.body
     assert Registry(copied.operations.config).inspect()[0].state == "ready"
     import subprocess
     import sys
 
-    checked = subprocess.run([sys.executable, "-m", "pytest", "-q", str(restored / "personal/extensions/local.weekly-mass/tests/test_metric.py")], capture_output=True, timeout=30, check=False)  # noqa: S603
+    checked = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            str(
+                restored / "personal/extensions/local.weekly-mass/tests/test_metric.py"
+            ),
+        ],
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )  # noqa: S603
     assert checked.returncode == 0, checked.stderr
-    assert decoded(copied.operations.execute(admitted.principal, Request("plan.read")))["data"] == decoded(runtime.operations.execute(owner.principal, Request("plan.read")))["data"]
+    assert (
+        decoded(copied.operations.execute(admitted.principal, Request("plan.read")))[
+            "data"
+        ]
+        == decoded(runtime.operations.execute(owner.principal, Request("plan.read")))[
+            "data"
+        ]
+    )
     # Entire authored test/assets/config/source trees survive.
-    for part in ("tests/test_metric.py", "src/view.js", "config/settings.json", "assets/README.md"):
-        assert (restored / "personal/extensions/local.weekly-mass" / part).read_bytes() == (mass / part).read_bytes()
+    for part in (
+        "tests/test_metric.py",
+        "src/view.js",
+        "config/settings.json",
+        "assets/README.md",
+    ):
+        assert (
+            restored / "personal/extensions/local.weekly-mass" / part
+        ).read_bytes() == (mass / part).read_bytes()
 
 
 @pytest.mark.parametrize("failure", ["wrong_key", "corrupt", "existing_destination"])
@@ -136,22 +210,38 @@ def test_low_disk_and_incomplete_archive_never_publish(tmp_path):
     archive = tmp_path / "snapshot.hbb"
     create(runtime, owner.principal, archive, key, confirm_quiesced=True)
     before = runtime.operations.journal.state()
-    with patch("health_buddy.backup.shutil.disk_usage", return_value=SimpleNamespace(free=1)):
+    with patch(
+        "health_buddy.backup.shutil.disk_usage", return_value=SimpleNamespace(free=1)
+    ):
         with pytest.raises(ServiceError, match="backup_insufficient_disk"):
             restore(tmp_path / "low-disk", archive, key, confirm_revoke_all=True)
         with pytest.raises(ServiceError, match="backup_insufficient_disk"):
-            create(runtime, owner.principal, tmp_path / "second.hbb", key, confirm_quiesced=True)
+            create(
+                runtime,
+                owner.principal,
+                tmp_path / "second.hbb",
+                key,
+                confirm_quiesced=True,
+            )
     assert not (tmp_path / "low-disk").exists()
     assert not (tmp_path / "second.hbb").exists()
     original = unseal(archive.read_bytes(), read_key(key))
     broken = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(original)) as source, zipfile.ZipFile(broken, "w") as output:
+    with (
+        zipfile.ZipFile(io.BytesIO(original)) as source,
+        zipfile.ZipFile(broken, "w") as output,
+    ):
         for name in source.namelist():
             if name != "workspace/operations/control.sqlite":
                 output.writestr(name, source.read(name))
     atomic_bytes(tmp_path / "incomplete.hbb", seal(broken.getvalue(), read_key(key)))
     with pytest.raises(ServiceError, match="backup_inventory_invalid"):
-        restore(tmp_path / "incomplete-target", tmp_path / "incomplete.hbb", key, confirm_revoke_all=True)
+        restore(
+            tmp_path / "incomplete-target",
+            tmp_path / "incomplete.hbb",
+            key,
+            confirm_revoke_all=True,
+        )
     assert not (tmp_path / "incomplete-target").exists()
     assert runtime.operations.journal.state() == before
     assert runtime.security.authenticate(BearerProof(token))
@@ -164,15 +254,38 @@ def test_backup_requires_admin_and_quiescence_and_rejects_symlinks(tmp_path):
     runtime, owner, _token = secured(tmp_path / "source")
     key = tmp_path / "backup.key"
     keygen(key)
-    grant = action(runtime, owner, "grants.create", payload=AgentGrant("Read only", ("records:read",), ("manual",)))
+    grant = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant("Read only", ("records:read",), ("manual",)),
+    )
     reader = runtime.security.authenticate(BearerProof(grant.secret.value))
     with pytest.raises(ServiceError):
-        create(runtime, reader.principal, tmp_path / "reader.hbb", key, confirm_quiesced=True)
+        create(
+            runtime,
+            reader.principal,
+            tmp_path / "reader.hbb",
+            key,
+            confirm_quiesced=True,
+        )
     with pytest.raises(ServiceError, match="backup_requires_quiesced_external_editors"):
-        create(runtime, owner.principal, tmp_path / "unquiesced.hbb", key, confirm_quiesced=False)
+        create(
+            runtime,
+            owner.principal,
+            tmp_path / "unquiesced.hbb",
+            key,
+            confirm_quiesced=False,
+        )
     (runtime.operations.config.root / "personal/link").symlink_to(tmp_path / "missing")
     with pytest.raises(ServiceError):
-        create(runtime, owner.principal, tmp_path / "symlink.hbb", key, confirm_quiesced=True)
+        create(
+            runtime,
+            owner.principal,
+            tmp_path / "symlink.hbb",
+            key,
+            confirm_quiesced=True,
+        )
     assert not (tmp_path / "symlink.hbb").exists()
 
 
@@ -187,10 +300,22 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
 
     runtime, owner, token, grant, setup = prepared(tmp_path / "source")
     config = runtime.operations.config
-    event = {"eventId":"before-backup","sourceId":"fabricated-water","observedAt":"2030-01-03T09:00:00Z","value":250,"unit":"mL"}
-    assert run_event(config, runtime, grant, "local.water-import", event)["data"]["recordId"]
+    event = {
+        "eventId": "before-backup",
+        "sourceId": "fabricated-water",
+        "observedAt": "2030-01-03T09:00:00Z",
+        "value": 250,
+        "unit": "mL",
+    }
+    assert run_event(config, runtime, grant, "local.water-import", event)["data"][
+        "recordId"
+    ]
     state = config.path("personal/extensions/local.water-import/state")
-    before = {str(path.relative_to(state)): path.read_bytes() for path in state.rglob("*") if path.is_file()}
+    before = {
+        str(path.relative_to(state)): path.read_bytes()
+        for path in state.rglob("*")
+        if path.is_file()
+    }
     key = tmp_path / "backup.key"
     keygen(key)
     archive = tmp_path / "connector.hbb"
@@ -199,10 +324,22 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
     receipt = restore(target, archive, key, confirm_revoke_all=True)
     reopened = open_runtime(target)
     current = reopened.operations.config
-    new_owner = BearerProof(read_credential(target / receipt["ownerCredentialReference"]))
+    new_owner = BearerProof(
+        read_credential(target / receipt["ownerCredentialReference"])
+    )
     with pytest.raises(ServiceError):
         reopened.security.authenticate(grant)
-    repaired = prepare(current, reopened, new_owner, PrepareConnector("local.water-import", "fabricated-water", "secrets/rekeyed-water", rotate_existing=True))
+    repaired = prepare(
+        current,
+        reopened,
+        new_owner,
+        PrepareConnector(
+            "local.water-import",
+            "fabricated-water",
+            "secrets/rekeyed-water",
+            rotate_existing=True,
+        ),
+    )
     assert repaired["actorId"] == setup["actorId"]
     new_grant = BearerProof(read_credential(target / repaired["credentialReference"]))
     with pytest.raises(ServiceError, match="client_identity_changed"):
@@ -214,11 +351,21 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
     next_event = {**event, "eventId": "after-explicit-rekey", "value": 300}
     result = run_event(current, reopened, new_grant, "local.water-import", next_event)
     assert result["data"]["recordId"]
-    assert run_event(current, reopened, new_grant, "local.water-import", next_event) == result
+    assert (
+        run_event(current, reopened, new_grant, "local.water-import", next_event)
+        == result
+    )
     # Fixed maintained synthetic test code, explicitly exercised by queue;
     # restore itself never imports/executes personal files or their tests.
-    test_file = current.path("personal/extensions/local.water-import/tests/test_connector.py")
-    checked = subprocess.run([sys.executable, "-m", "pytest", "-q", str(test_file)], capture_output=True, timeout=30, check=False)  # noqa: S603
+    test_file = current.path(
+        "personal/extensions/local.water-import/tests/test_connector.py"
+    )
+    checked = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", str(test_file)],
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )  # noqa: S603
     assert checked.returncode == 0, checked.stderr
 
 
@@ -235,7 +382,12 @@ def test_phone_newer_checkpoint_replays_history_after_epoch_repair(tmp_path):
     phone = runtime.security.authenticate(BearerProof(pairing.secret.value))
     first = batch_payload(pairing.data["deviceId"])
     old_identity = runtime.operations.journal.state().identity
-    upload = Request("healthkit.ingest", payload=first, identity=old_identity, health_device_id=first["deviceId"])
+    upload = Request(
+        "healthkit.ingest",
+        payload=first,
+        identity=old_identity,
+        health_device_id=first["deviceId"],
+    )
     assert runtime.operations.execute(phone.principal, upload).status == 200
     key = tmp_path / "backup.key"
     keygen(key)
@@ -245,28 +397,54 @@ def test_phone_newer_checkpoint_replays_history_after_epoch_repair(tmp_path):
     # Its second daily object is retained in device history for reconciliation.
     second = deepcopy(first)
     second["batchId"] = str(uuid4())
-    second["records"][0].update({"recordId":"daily:steps:2026-08-30:America-Chicago","startDate":"2026-08-30T00:00:00-05:00","endDate":"2026-08-31T00:00:00-05:00","localDate":"2026-08-30","value":5000})
-    assert runtime.operations.execute(phone.principal, replace(upload, payload=second)).status == 200
+    second["records"][0].update(
+        {
+            "recordId": "daily:steps:2026-08-30:America-Chicago",
+            "startDate": "2026-08-30T00:00:00-05:00",
+            "endDate": "2026-08-31T00:00:00-05:00",
+            "localDate": "2026-08-30",
+            "value": 5000,
+        }
+    )
+    assert (
+        runtime.operations.execute(
+            phone.principal, replace(upload, payload=second)
+        ).status
+        == 200
+    )
     target = tmp_path / "clean-host"
     receipt = restore(target, archive, key, confirm_revoke_all=True)
     copied = open_runtime(target)
     with pytest.raises(ServiceError):
         copied.security.authenticate(BearerProof(pairing.secret.value))
-    admitted = copied.security.authenticate(BearerProof(read_credential(target / receipt["ownerCredentialReference"])))
-    repaired, _, _, _ = enroll(copied, admitted, device=first["deviceId"], predecessor=pairing.data["id"])
+    admitted = copied.security.authenticate(
+        BearerProof(read_credential(target / receipt["ownerCredentialReference"]))
+    )
+    repaired, _, _, _ = enroll(
+        copied, admitted, device=first["deviceId"], predecessor=pairing.data["id"]
+    )
     assert repaired.data["sourceStreamId"] == pairing.data["sourceStreamId"]
     assert repaired.data["sourceId"] == pairing.data["sourceId"]
     rebound = copied.security.authenticate(BearerProof(repaired.secret.value))
     assert copied.operations.execute(rebound.principal, upload).status == 409
     identity = copied.operations.journal.state().identity
     for body in (first, second, second):
-        assert copied.operations.execute(rebound.principal, replace(upload, payload=body, identity=identity)).status == 200
+        assert (
+            copied.operations.execute(
+                rebound.principal, replace(upload, payload=body, identity=identity)
+            ).status
+            == 200
+        )
     from sqlite3 import connect
 
     with connect(copied.operations.health.path) as database:
-        rows = database.execute("SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id").fetchall()
+        rows = database.execute(
+            "SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id"
+        ).fetchall()
     with connect(runtime.operations.health.path) as database:
-        original_rows = database.execute("SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id").fetchall()
+        original_rows = database.execute(
+            "SELECT observation_id FROM stream_objects WHERE deleted_at IS NULL ORDER BY observation_id"
+        ).fetchall()
     assert len(rows) == 2
     assert rows == original_rows
 
@@ -302,17 +480,27 @@ def test_snapshot_holds_supported_writer_until_complete(tmp_path):
 
     try:
         with patch("health_buddy.backup.snapshot", held_snapshot):
-            create(runtime, owner.principal, tmp_path / "consistent.hbb", key, confirm_quiesced=True)
+            create(
+                runtime,
+                owner.principal,
+                tmp_path / "consistent.hbb",
+                key,
+                confirm_quiesced=True,
+            )
         assert completed.wait(10)
         thread.join(5)
         assert responses[0].status == 200
     finally:
         thread.join(10)
-    result = restore(tmp_path / "clean-host", tmp_path / "consistent.hbb", key, confirm_revoke_all=True)
+    result = restore(
+        tmp_path / "clean-host",
+        tmp_path / "consistent.hbb",
+        key,
+        confirm_revoke_all=True,
+    )
     assert result["dataRevision"] == 0
     assert service.journal.state().revision == 1
     assert root.exists() and runtime.security.authenticate(BearerProof(token))
-
 
 
 @pytest.mark.parametrize("unsafe_mode", [0o640, 0o1700, 0o2700, 0o4700])
@@ -324,5 +512,11 @@ def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
     key = tmp_path / "backup.key"
     keygen(key)
     with pytest.raises(ServiceError, match="backup_requires_private_owned_workspace"):
-        create(runtime, owner.principal, tmp_path / "unsafe.hbb", key, confirm_quiesced=True)
+        create(
+            runtime,
+            owner.principal,
+            tmp_path / "unsafe.hbb",
+            key,
+            confirm_quiesced=True,
+        )
     assert not (tmp_path / "unsafe.hbb").exists()

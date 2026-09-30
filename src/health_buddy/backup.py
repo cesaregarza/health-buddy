@@ -40,7 +40,12 @@ def disk_required(parent: Path, needed: int) -> None:
 
 
 def create(
-    runtime: Runtime, principal: Principal, archive: Path, key_file: Path, *, confirm_quiesced: bool
+    runtime: Runtime,
+    principal: Principal,
+    archive: Path,
+    key_file: Path,
+    *,
+    confirm_quiesced: bool,
 ) -> dict[str, Any]:
     if not confirm_quiesced:
         raise ServiceError(422, "backup_requires_quiesced_external_editors")
@@ -50,7 +55,11 @@ def create(
     service = runtime.operations
     root = service.config.root
     native_directory(root)
-    if archive.is_relative_to(root) or key_file.is_relative_to(root) or archive == key_file:
+    if (
+        archive.is_relative_to(root)
+        or key_file.is_relative_to(root)
+        or archive == key_file
+    ):
         raise ServiceError(422, "backup_outputs_and_key_must_be_external")
     if archive.exists():
         raise ServiceError(409, "backup_output_exists")
@@ -67,7 +76,13 @@ def create(
         atomic_bytes(temporary, encrypted)
         os.link(temporary, archive, follow_symlinks=False)
         fsync_path(archive.parent)
-    return {"schemaVersion": 1, "verified": True, "files": len(manifest["files"]), "archiveSha256": hashlib.sha256(encrypted).hexdigest(), "cache": "regenerable_excluded"}
+    return {
+        "schemaVersion": 1,
+        "verified": True,
+        "files": len(manifest["files"]),
+        "archiveSha256": hashlib.sha256(encrypted).hexdigest(),
+        "cache": "regenerable_excluded",
+    }
 
 
 def restore(
@@ -75,7 +90,11 @@ def restore(
 ) -> dict[str, Any]:
     if not confirm_revoke_all:
         raise ServiceError(422, "restore_requires_revoke_all_acknowledgment")
-    target, archive, key_file = private_path(target), private_path(archive), private_path(key_file)
+    target, archive, key_file = (
+        private_path(target),
+        private_path(archive),
+        private_path(key_file),
+    )
     if target.exists() or target.is_symlink():
         raise ServiceError(409, "restore_requires_absent_destination")
     if archive.is_relative_to(target) or key_file.is_relative_to(target):
@@ -90,17 +109,23 @@ def restore(
     with exclusive(target.parent / ".health-buddy-restore.lock"):
         if target.exists() or target.is_symlink():
             raise ServiceError(409, "restore_requires_absent_destination")
-        with tempfile.TemporaryDirectory(prefix=".restore-", dir=target.parent) as folder:
+        with tempfile.TemporaryDirectory(
+            prefix=".restore-", dir=target.parent
+        ) as folder:
             staged = Path(folder) / "workspace"
             staged.mkdir(mode=0o700)
-            for relative in sorted(manifest["directories"], key=lambda name: len(Path(name).parts)):
+            for relative in sorted(
+                manifest["directories"], key=lambda name: len(Path(name).parts)
+            ):
                 path = staged / relative
                 path.mkdir(mode=0o700, parents=True, exist_ok=True)
             modes = {entry["path"]: entry["mode"] for entry in manifest["files"]}
             for relative, raw in files.items():
                 path = staged / relative
                 path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+                descriptor = os.open(
+                    path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600
+                )
                 with os.fdopen(descriptor, "wb") as stream:
                     stream.write(raw)
                     stream.flush()
@@ -114,7 +139,10 @@ def restore(
                 raise ServiceError(503, "native_coordinator_required")
             service = copied.operations
             previous = service.journal.verify()
-            if identity_value(previous.identity) != manifest["identity"] or previous.revision != manifest["dataRevision"]:
+            if (
+                identity_value(previous.identity) != manifest["identity"]
+                or previous.revision != manifest["dataRevision"]
+            ):
                 raise ServiceError(422, "backup_identity_mismatch")
             current = replace(previous.identity, restore_epoch=str(uuid4()))
             security = SecurityStore(staged)
@@ -126,11 +154,18 @@ def restore(
                 token = security.rekey_staged_restore(previous.identity, current)
                 handoff = "secrets/restored-owner-" + uuid4().hex
                 create_file(config.path(handoff), token + "\n")
-                atomic_bytes(config.path("operations/restore-receipt.json"), encode({
-                    "schemaVersion": 1, "previousIdentity": identity_value(previous.identity),
-                    "currentIdentity": identity_value(current), "dataRevision": previous.revision,
-                    "policy": "all_old_credentials_invalid_require_explicit_repair_or_rotation",
-                }))
+                atomic_bytes(
+                    config.path("operations/restore-receipt.json"),
+                    encode(
+                        {
+                            "schemaVersion": 1,
+                            "previousIdentity": identity_value(previous.identity),
+                            "currentIdentity": identity_value(current),
+                            "dataRevision": previous.revision,
+                            "policy": "all_old_credentials_invalid_require_explicit_repair_or_rotation",
+                        }
+                    ),
+                )
             reopened = open_runtime(staged)
             if not isinstance(reopened.operations, Service):
                 raise ServiceError(503, "native_coordinator_required")
@@ -138,7 +173,11 @@ def restore(
                 raise ServiceError(422, "restore_verification_failed")
             if reopened.operations.journal.receiver_binding() is not None:
                 reopened.operations.check_receiver(current)
-            for directory in sorted((path for path in staged.rglob("*") if path.is_dir()), key=lambda path: len(path.parts), reverse=True):
+            for directory in sorted(
+                (path for path in staged.rglob("*") if path.is_dir()),
+                key=lambda path: len(path.parts),
+                reverse=True,
+            ):
                 fsync_path(directory)
             fsync_path(staged)
             # Destination creation is reserved with mkdir; only this empty
@@ -150,4 +189,16 @@ def restore(
                 target.rmdir()
                 raise
             fsync_path(target.parent)
-    return {"schemaVersion": 1, "restored": True, "dataRevision": previous.revision, "files": len(files), "ownerCredentialReference": handoff, "requires": ["phone_repair", "agent_grant_rotation", "connector_rekey", "pending_intent_review"]}
+    return {
+        "schemaVersion": 1,
+        "restored": True,
+        "dataRevision": previous.revision,
+        "files": len(files),
+        "ownerCredentialReference": handoff,
+        "requires": [
+            "phone_repair",
+            "agent_grant_rotation",
+            "connector_rekey",
+            "pending_intent_review",
+        ],
+    }

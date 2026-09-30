@@ -19,7 +19,9 @@ MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
 
 def keygen(path: Path) -> None:
     path = _private_parent(path)
-    descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    descriptor = os.open(
+        path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600
+    )
     with os.fdopen(descriptor, "wb") as stream:
         stream.write(AESGCM.generate_key(bit_length=256))
         stream.flush()
@@ -46,8 +48,8 @@ def unseal(raw: bytes, key: bytes) -> bytes:
         raise ServiceError(413, "backup_size_limit")
     if not raw.startswith(HEADER) or len(raw) < len(HEADER) + 28:
         raise ServiceError(422, "backup_format_invalid")
-    nonce = raw[len(HEADER):len(HEADER) + 12]
+    nonce = raw[len(HEADER) : len(HEADER) + 12]
     try:
-        return AESGCM(key).decrypt(nonce, raw[len(HEADER) + 12:], HEADER)
+        return AESGCM(key).decrypt(nonce, raw[len(HEADER) + 12 :], HEADER)
     except InvalidTag:
         raise ServiceError(422, "backup_authentication_failed") from None

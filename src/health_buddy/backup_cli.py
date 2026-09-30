@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from .backup import create, private_path, restore
-from .backup_crypto import keygen, read_key, unseal, MAX_ARCHIVE_BYTES
 from .backup_archive import verified
+from .backup_crypto import MAX_ARCHIVE_BYTES, keygen, read_key, unseal
 from .extension_files import read_file
 from .security_api import BearerProof
 from .security_runtime import open_runtime, read_credential
@@ -36,7 +36,9 @@ def handle(args: argparse.Namespace) -> int:
         raise ServiceError(422, "backup_requires_explicit_owner_mode")
     action = args.backup_action
     if action != "create" and args.credential_file is not None:
-        raise ServiceError(422, "native_backup_maintenance_does_not_use_health_credential")
+        raise ServiceError(
+            422, "native_backup_maintenance_does_not_use_health_credential"
+        )
     if action == "keygen":
         keygen(private_path(args.key_file))
         result = {"created": True, "key": "private_file_never_stdout"}
@@ -44,13 +46,31 @@ def handle(args: argparse.Namespace) -> int:
         if args.credential_file is None:
             raise ServiceError(401, "explicit_owner_credential_file_required")
         runtime = open_runtime(args.workspace)
-        owner = runtime.security.authenticate(BearerProof(read_credential(args.credential_file)))
-        result = create(runtime, owner.principal, args.archive, args.key_file, confirm_quiesced=args.confirm_quiesced)
+        owner = runtime.security.authenticate(
+            BearerProof(read_credential(args.credential_file))
+        )
+        result = create(
+            runtime,
+            owner.principal,
+            args.archive,
+            args.key_file,
+            confirm_quiesced=args.confirm_quiesced,
+        )
     elif action == "restore":
-        result = restore(args.workspace, args.archive, args.key_file, confirm_revoke_all=args.confirm_revoke_all)
+        result = restore(
+            args.workspace,
+            args.archive,
+            args.key_file,
+            confirm_revoke_all=args.confirm_revoke_all,
+        )
     else:
         raw = read_file(private_path(args.archive), MAX_ARCHIVE_BYTES + 256)
         manifest, files = verified(unseal(raw, read_key(private_path(args.key_file))))
-        result = {"schemaVersion": 1, "verified": True, "files": len(files), "dataRevision": manifest["dataRevision"]}
+        result = {
+            "schemaVersion": 1,
+            "verified": True,
+            "files": len(files),
+            "dataRevision": manifest["dataRevision"],
+        }
     print(json.dumps(result, indent=2))
     return 0

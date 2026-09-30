@@ -285,21 +285,35 @@ class SecurityStore:
         Caller holds canonical and authority locks in the private staging tree.
         """
         with self.connection(previous) as connection:
-            actors = [dict(row) for row in connection.execute(
-                "SELECT * FROM actors WHERE role IN ('agent','device') LIMIT 129"
-            )]
+            actors = [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM actors WHERE role IN ('agent','device') LIMIT 129"
+                )
+            ]
         if len(actors) > 128:
             raise unavailable()
         token = self.initialize(current, recover=True, owner_token=True)
         with self.connection(current) as connection, connection:
             for actor in actors:
                 self.add_actor(
-                    connection, actor["id"], actor["role"], actor["name"],
-                    json.loads(actor["grants"]), json.loads(actor["sources"]),
-                    None if actor["read_sources"] is None else json.loads(actor["read_sources"]),
-                    None if actor["read_kinds"] is None else json.loads(actor["read_kinds"]),
-                    None if actor["read_fields"] is None else json.loads(actor["read_fields"]),
-                    device=actor["device_id"], stream=actor["stream_id"],
+                    connection,
+                    actor["id"],
+                    actor["role"],
+                    actor["name"],
+                    json.loads(actor["grants"]),
+                    json.loads(actor["sources"]),
+                    None
+                    if actor["read_sources"] is None
+                    else json.loads(actor["read_sources"]),
+                    None
+                    if actor["read_kinds"] is None
+                    else json.loads(actor["read_kinds"]),
+                    None
+                    if actor["read_fields"] is None
+                    else json.loads(actor["read_fields"]),
+                    device=actor["device_id"],
+                    stream=actor["stream_id"],
                 )
                 connection.execute(
                     "UPDATE actors SET active=? WHERE id=?",

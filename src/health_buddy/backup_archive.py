@@ -36,7 +36,9 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
         nonlocal total
         if len(entries) + len(directories) >= MAX_ENTRIES:
             raise ServiceError(413, "backup_entry_limit")
-        observed_directories[str(directory.relative_to(root))] = directory.lstat().st_mtime_ns
+        observed_directories[str(directory.relative_to(root))] = (
+            directory.lstat().st_mtime_ns
+        )
         for path in sorted(directory.iterdir()):
             if path == cache:
                 continue
@@ -55,7 +57,15 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
                     raise ServiceError(413, "backup_size_limit")
                 raw = read_file(path, MAX_ARCHIVE_BYTES)
                 archive.writestr("workspace/" + relative, raw)
-                entries.append({"path": relative, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "mtimeNs": info.st_mtime_ns, "mode": stat.S_IMODE(info.st_mode)})
+                entries.append(
+                    {
+                        "path": relative,
+                        "bytes": len(raw),
+                        "sha256": hashlib.sha256(raw).hexdigest(),
+                        "mtimeNs": info.st_mtime_ns,
+                        "mode": stat.S_IMODE(info.st_mode),
+                    }
+                )
             else:
                 raise ServiceError(422, "backup_unsupported_workspace_entry")
             if len(entries) + len(directories) > MAX_ENTRIES:
@@ -87,7 +97,12 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
         for entry in entries:
             path = config.path(entry["path"])
             info = path.lstat()
-            if info.st_mtime_ns != entry["mtimeNs"] or stat.S_IMODE(info.st_mode) != entry["mode"] or hashlib.sha256(read_file(path, MAX_ARCHIVE_BYTES)).hexdigest() != entry["sha256"]:
+            if (
+                info.st_mtime_ns != entry["mtimeNs"]
+                or stat.S_IMODE(info.st_mode) != entry["mode"]
+                or hashlib.sha256(read_file(path, MAX_ARCHIVE_BYTES)).hexdigest()
+                != entry["sha256"]
+            ):
                 raise ServiceError(409, "backup_workspace_changed")
     return output.getvalue()
 
@@ -104,28 +119,61 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
                 raise ValueError("entries")
             if sum(item.file_size for item in infos) > MAX_ARCHIVE_BYTES:
                 raise ValueError("size")
-            manifest = decode(archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True)
-            if not isinstance(manifest, dict) or set(manifest) != {"schemaVersion", "identity", "dataRevision", "files", "directories", "requiredPaths", "regenerableCache"}:
+            manifest = decode(
+                archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True
+            )
+            if not isinstance(manifest, dict) or set(manifest) != {
+                "schemaVersion",
+                "identity",
+                "dataRevision",
+                "files",
+                "directories",
+                "requiredPaths",
+                "regenerableCache",
+            }:
                 raise ValueError("manifest")
             manifest = cast(dict[str, Any], manifest)
-            if manifest["schemaVersion"] != 1 or type(manifest["dataRevision"]) is not int or manifest["dataRevision"] < 0:
+            if (
+                manifest["schemaVersion"] != 1
+                or type(manifest["dataRevision"]) is not int
+                or manifest["dataRevision"] < 0
+            ):
                 raise ValueError("version")
             files: dict[str, bytes] = {}
-            if not isinstance(manifest["files"], list) or not isinstance(manifest["directories"], list) or not isinstance(manifest["requiredPaths"], list):
+            if (
+                not isinstance(manifest["files"], list)
+                or not isinstance(manifest["directories"], list)
+                or not isinstance(manifest["requiredPaths"], list)
+            ):
                 raise ValueError("inventory")
-            directories = [relative_path(item, "directory") for item in manifest["directories"]]
+            directories = [
+                relative_path(item, "directory") for item in manifest["directories"]
+            ]
             if len(directories) != len(set(directories)):
                 raise ValueError("duplicate")
             for entry in manifest["files"]:
-                if not isinstance(entry, dict) or set(entry) != {"path", "bytes", "sha256", "mtimeNs", "mode"}:
+                if not isinstance(entry, dict) or set(entry) != {
+                    "path",
+                    "bytes",
+                    "sha256",
+                    "mtimeNs",
+                    "mode",
+                }:
                     raise ValueError("file")
-                if type(entry["mode"]) is not int or not 0 <= entry["mode"] <= 0o700 or entry["mode"] & ~0o700:
+                if (
+                    type(entry["mode"]) is not int
+                    or not 0 <= entry["mode"] <= 0o700
+                    or entry["mode"] & ~0o700
+                ):
                     raise ValueError("unsafe_file_mode")
                 relative = relative_path(entry["path"], "file")
                 if relative in files or relative in directories:
                     raise ValueError("duplicate")
                 content = archive.read("workspace/" + relative)
-                if len(content) != entry["bytes"] or hashlib.sha256(content).hexdigest() != entry["sha256"]:
+                if (
+                    len(content) != entry["bytes"]
+                    or hashlib.sha256(content).hexdigest() != entry["sha256"]
+                ):
                     raise ValueError("hash")
                 files[relative] = content
             if set(names) != {MANIFEST, *("workspace/" + path for path in files)}:
@@ -136,7 +184,18 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
                     raise ValueError("incomplete")
             # These are always authoritative, independent of an archive's own
             # list of required paths. Canonical adapters verify their contents.
-            if not {"config.json", "identity.json", "operations/control.sqlite", "security/authority.sqlite", "security/epoch.json", "operations/security-binding.json"} <= files.keys() or "personal" not in directories:
+            if (
+                not {
+                    "config.json",
+                    "identity.json",
+                    "operations/control.sqlite",
+                    "security/authority.sqlite",
+                    "security/epoch.json",
+                    "operations/security-binding.json",
+                }
+                <= files.keys()
+                or "personal" not in directories
+            ):
                 raise ValueError("incomplete")
             relative_path(manifest["regenerableCache"], "cache")
             return manifest, files
