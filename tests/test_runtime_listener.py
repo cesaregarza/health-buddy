@@ -14,6 +14,7 @@ import os
 import signal
 import socket
 import time
+from pathlib import Path
 
 import pytest
 
@@ -554,11 +555,15 @@ def test_existing_listener_symlink_never_probes_target(
     original = Path.stat
 
     def no_target_probe(path, *args, **kwargs):
-        if path == selected:
-            pytest.fail("listener used a following stat on a linked input")
+        if path == selected and kwargs.get("follow_symlinks", True):
+            raise AssertionError("listener used a following stat on a linked input")
         return original(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "stat", no_target_probe)
+    with pytest.raises(AssertionError, match="following stat"):
+        selected.stat()
+    # Path.lstat delegates to stat(follow_symlinks=False), which is permitted.
+    selected.stat(follow_symlinks=False)
     with pytest.raises((ValueError, OSError, ServiceError)):
         with listener_lease(root / runtime_listener.MANAGED_PATH):
             pytest.fail("linked listener metadata was admitted")

@@ -75,6 +75,31 @@ def _git_read(root: Path, relative: str) -> bytes:
     return _read(path, private=False)
 
 
+def _git_head(root: Path) -> None:
+    # Git requires HEAD to recognize the store even though our canonical reads
+    # use main explicitly. Inspect only its shape; never resolve its referent.
+    value = _git_read(root, "HEAD").decode("utf-8").removesuffix("\n")
+    if OID.fullmatch(value):
+        return
+    if not value.startswith("ref: refs/"):
+        raise ValueError("readiness_git_head")
+    reference = value[5:]
+    if (
+        any(
+            ord(char) < 33 or ord(char) == 127 or char in "~^:?*[\\"
+            for char in reference
+        )
+        or ".." in reference
+        or "@{" in reference
+        or reference.endswith(".")
+        or any(
+            not part or part.startswith(".") or part.endswith(".lock")
+            for part in reference.split("/")
+        )
+    ):
+        raise ValueError("readiness_git_head")
+
+
 @contextmanager
 def _lock(path: Path, deadline: float) -> Iterator[None]:
     # Existing only: even a missing lock must not be created by a health probe.
@@ -173,11 +198,12 @@ def ready(config: Config, deadline: float) -> bool:
                 if not isinstance(head, str) or not OID.fullmatch(head):
                     return False
                 manual = config.storage("manual")
-                # Canonical backend deliberately uses a loose main ref and never
-                # packs/gc's refs. No Git process/hooks or health tree scan here.
+                # Canonical reads/writes bind the loose main ref explicitly;
+                # Git's initial HEAD may name a different branch and is not the
+                # canonical revision. No Git process or health tree scan here.
+                _git_head(manual)
                 if (
                     _git_read(manual, "config").decode("utf-8") != STORE_CONFIG
-                    or _git_read(manual, "HEAD") != b"ref: refs/heads/main\n"
                     or _git_read(manual, "refs/heads/main").decode("ascii").strip()
                     != head
                 ):

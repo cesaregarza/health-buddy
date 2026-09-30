@@ -59,6 +59,7 @@ def test_existing_ready_probe_preserves_all_workspace_bytes(
         "operations/security-binding.json",
         "operations/manual.lock",
         "security/authority.lock",
+        "stores/manual.git/HEAD",
     ],
 )
 def test_missing_required_state_is_not_ready_and_not_recreated(
@@ -257,12 +258,24 @@ def test_oversized_or_deep_corrupt_readiness_metadata_is_bounded_and_unchanged(
     assert footprint(root) == before
 
 
-def test_ready_preserves_normal_git_metadata_after_bootstrap_and_write(tmp_path):
+@pytest.mark.parametrize(
+    "initial_branch", ["main", "master", "owner-selected-initial", "detached"]
+)
+def test_ready_preserves_normal_git_metadata_after_bootstrap_and_write(
+    tmp_path, initial_branch
+):
     previous = os.umask(0o022)
     try:
         runtime, owner, _token = secured(tmp_path / "workspace")
         service = runtime.operations
-        reference = service.config.storage("manual") / "refs/heads/main"
+        manual = service.config.storage("manual")
+        reference = manual / "refs/heads/main"
+        initial_head = (
+            reference.read_bytes()
+            if initial_branch == "detached"
+            else f"ref: refs/heads/{initial_branch}\n".encode()
+        )
+        (manual / "HEAD").write_bytes(initial_head)
         assert reference.stat().st_mode & 0o777 == 0o644
         before = footprint(service.config.root)
         assert ready(service.config, time.monotonic() + 1)
@@ -273,5 +286,19 @@ def test_ready_preserves_normal_git_metadata_after_bootstrap_and_write(tmp_path)
         after = footprint(service.config.root)
         assert ready(service.config, time.monotonic() + 1)
         assert footprint(service.config.root) == after
+        assert (manual / "HEAD").read_bytes() == initial_head
     finally:
         os.umask(previous)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b"", b"main\n", b"ref: ../main\n", b"ref: refs/heads/bad..name\n"],
+)
+def test_malformed_git_head_is_not_ready_and_preserved(tmp_path, content):
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    config = runtime.operations.config
+    (config.storage("manual") / "HEAD").write_bytes(content)
+    before = footprint(config.root)
+    assert not ready(config, time.monotonic() + 1)
+    assert footprint(config.root) == before
