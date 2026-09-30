@@ -25,8 +25,12 @@ from .service_api import Principal, ServiceError
 
 
 def preflight(
-    runtime: Runtime, manifest: Path, manifest_sha256: str, architecture: str,
-    *, check_personal: bool = True,
+    runtime: Runtime,
+    manifest: Path,
+    manifest_sha256: str,
+    architecture: str,
+    *,
+    check_personal: bool = True,
 ) -> dict[str, Any]:
     if not isinstance(runtime.operations, Service):
         raise ServiceError(503, "native_coordinator_required")
@@ -39,7 +43,9 @@ def preflight(
     try:
         artifact = selected_artifact(manifest, architecture)
     except ManifestError:
-        raise ServiceError(422, "upgrade_release_invalid_or_unsupported_interfaces") from None
+        raise ServiceError(
+            422, "upgrade_release_invalid_or_unsupported_interfaces"
+        ) from None
     value = _json(manifest)
     if not isinstance(value, dict):
         raise ServiceError(422, "upgrade_invalid_manifest")
@@ -47,10 +53,15 @@ def preflight(
         raise ServiceError(409, "upgrade_target_changed")
     with exclusive(runtime.operations.lock):
         forks = forks_locked(runtime.operations.config, value["sourceCommit"])
-    if check_personal and any(not isinstance(item, dict) or item.get("state") != "recorded_compatible" for item in forks):
+    if check_personal and any(
+        not isinstance(item, dict) or item.get("state") != "recorded_compatible"
+        for item in forks
+    ):
         raise ServiceError(409, "upgrade_core_fork_requires_rebase_and_review")
     statuses = Registry(runtime.operations.config).compatibility(extension_api=1)
-    if check_personal and any(item.enabled and item.state != "ready" for item in statuses):
+    if check_personal and any(
+        item.enabled and item.state != "ready" for item in statuses
+    ):
         raise ServiceError(409, "upgrade_extension_requires_review_or_disable")
     return {
         "manifestSha256": manifest_sha256,
@@ -70,9 +81,13 @@ def freshness(inventory: dict[str, Any]) -> str:
         for item in inventory["files"]
         if not item["path"].startswith(("operations/", "security/"))
     ]
-    return digest({"identity": inventory["identity"],
-                   "revision": inventory["dataRevision"],
-                   "files": sorted(files, key=lambda item: item["path"])})
+    return digest(
+        {
+            "identity": inventory["identity"],
+            "revision": inventory["dataRevision"],
+            "files": sorted(files, key=lambda item: item["path"]),
+        }
+    )
 
 
 def stage(
