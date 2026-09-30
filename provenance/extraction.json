@@ -1,0 +1,884 @@
+{
+  "schemaVersion": 1,
+  "sourceLabel": "private source repository (not distributed)",
+  "sourceCommit": "5c502b8496b24f1031c811f5bd7514abb03f6cf1",
+  "contractPredecessor": "43b1f1158d3ff7968429678698b526f16bccc61f",
+  "included": [
+    {
+      "sourcePath": "alembic.ini",
+      "destinationPath": "alembic.ini",
+      "sourceBlobSha256": "58d63ac8d805337f913ffa5adf03c83592809027a90c5e34a973b363981d3d71",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "58d63ac8d805337f913ffa5adf03c83592809027a90c5e34a973b363981d3d71",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/build_dashboard.py",
+      "destinationPath": "health-runner/dashboard/build_dashboard.py",
+      "sourceBlobSha256": "c3bc89679c48b0b33e324d6c84b8f437555fc938f7c763095f68af3a9a80c68f",
+      "changes": "Remove host/owner defaults, private branch reads, fixed goals and inferred personal regimen; explicit legacy opt-in; preserve rendering/calculations with supplied inputs.",
+      "extractedSha256": "5d32a1ff690b89cef00b6b702f35fbfe48824732975baae940dff86ecad84ff8",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/context_pack.py",
+      "destinationPath": "health-runner/dashboard/context_pack.py",
+      "sourceBlobSha256": "119303c6506d45e3d6be835f826406178b882eb06dcbc11daefb73b611292626",
+      "changes": "Neutral UTC fallback and product naming.",
+      "extractedSha256": "df8d2e537bb43e30812619be603e3c91b6d449fc7e82c76672503c01c47b87b5",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/context_service.py",
+      "destinationPath": "health-runner/dashboard/context_service.py",
+      "sourceBlobSha256": "15f817b76876a498d217f5a98ec5cf2bf6ea018f6396b3f6c712c6dde4461601",
+      "changes": "Remove implicit personal secret lookup; explicit preview path; clarify optional external provider boundary.",
+      "extractedSha256": "3ad9bd8f3fb733254228d15528e9613fd4cb13ab2af2bd492b9d4142b97225f5",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/features.js",
+      "destinationPath": "health-runner/dashboard/features.js",
+      "sourceBlobSha256": "b46acd4fae5f5cf4d475d90c321e2949113fce44364354d2d6f3463881a3e029",
+      "changes": "Neutral UTC fallback for supplied snapshot timezone.",
+      "extractedSha256": "990d9b732346fefd6558f80c31ad6ea95a6d4939a417399a3272cc8558f825ba",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/pipeline.py",
+      "destinationPath": "health-runner/dashboard/pipeline.py",
+      "sourceBlobSha256": "459ef8879a406c7ad3088f307a886542749739632f74e2f7fff8dcf0aa6a89a6",
+      "changes": "Replace host paths, privileged HealthKit reads and implicit notification destination; neutral timezone; retain pipeline and report behavior.",
+      "extractedSha256": "0071063c6f9b740ef46a1cf7566eed263bf02bd47dd1b932fc7504162125aa58",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/scripts/check_browser.py",
+      "destinationPath": "health-runner/dashboard/scripts/check_browser.py",
+      "sourceBlobSha256": "59f7784ee6d4a7b483692d39c7a373020b2c329d349b0d13dd8974837bedbf57",
+      "changes": "Assert Today items and no inferred personal dose reminder in synthetic browser preview.",
+      "extractedSha256": "35ee078e76f9b23bb324687da8e16491b27642b94b89e6499e22c4a09e914318",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/scripts/check_fast_mode.py",
+      "destinationPath": "health-runner/dashboard/scripts/check_fast_mode.py",
+      "sourceBlobSha256": "2128af6aaa2839fcf0c080e13a931232c7d5b62052e53f6f4bec80e0949e969f",
+      "changes": "Preserve mocked optional-provider coverage and verify missing-plan rendering stays hidden with zero requests.",
+      "extractedSha256": "31ab31fa9c511eaf16b60e1a78821a8d0480f622b13aa2218e3ec51169c7c077",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/scripts/check_followups.py",
+      "destinationPath": "health-runner/dashboard/scripts/check_followups.py",
+      "sourceBlobSha256": "e369c62c389d304df15cf1c4c427f729c172a34012b761c87b3f712bb28b536b",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "e369c62c389d304df15cf1c4c427f729c172a34012b761c87b3f712bb28b536b",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/scripts/check_training_views.py",
+      "destinationPath": "health-runner/dashboard/scripts/check_training_views.py",
+      "sourceBlobSha256": "17db3e0fde23a0b48a3a2fef218193de19a0489cef44d2da9372bcaeab894dce",
+      "changes": "Preserve synthetic view/highlight coverage and verify unverified series never become comparable-change summaries.",
+      "extractedSha256": "26c04bbdf6a6457bfd78519e6cc69542c75e7c19c7230df1c034f3680258000c",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/scripts/preview.py",
+      "destinationPath": "health-runner/dashboard/scripts/preview.py",
+      "sourceBlobSha256": "f0e7ec851cc1670c33dacb30bfb4bfbaf68721fc0ea2a258e58dbb3760f39f88",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "f0e7ec851cc1670c33dacb30bfb4bfbaf68721fc0ea2a258e58dbb3760f39f88",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/scripts/verify_snapshot.py",
+      "destinationPath": "health-runner/dashboard/scripts/verify_snapshot.py",
+      "sourceBlobSha256": "0dfe8e006504edcf69c1a77614bc5f0b7d498c2671f2276e811340589898f181",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "6207ac3e3a1cba4f898a69f065871fcc9a56b7dd17d13cc3db01ec832bc3a117",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/snapshot_store.py",
+      "destinationPath": "health-runner/dashboard/snapshot_store.py",
+      "sourceBlobSha256": "7a3a373d4699b9595c381864b2a4f1f78aa1cde612353ec1a22ab97614bab05a",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "7a3a373d4699b9595c381864b2a4f1f78aa1cde612353ec1a22ab97614bab05a",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/template.html",
+      "destinationPath": "health-runner/dashboard/template.html",
+      "sourceBlobSha256": "0794cd6030f74e27da191a669fb6f61e6f707319c8ec65a5d9c3453957debbd3",
+      "changes": "Use Health Buddy identity, supplied goal metadata and neutral selected-window labels; no fixed personal goals or hidden medication tile.",
+      "extractedSha256": "09d5d76493c447a6f4b61b7a39bf4584bed0047bdf1dbb4f6e771a3ec6953325",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/dashboard_fixture.py",
+      "destinationPath": "health-runner/dashboard/tests/dashboard_fixture.py",
+      "sourceBlobSha256": "742a79bfb5de68623a9a7491f63a264a8878775c46678d51091e8863bf0af5a4",
+      "changes": "Preserve fabricated preview dataset; explicitly fabricated stable equipment ID enables comparable-work example.",
+      "extractedSha256": "4f3478e283e411b8ce836f11718333f0e84a8aa1b31393e000750c581c6d53dd",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_calculation_followups.py",
+      "destinationPath": "health-runner/dashboard/tests/test_calculation_followups.py",
+      "sourceBlobSha256": "c8e64865faa6a1fd5f72f7441eca0a1b04b327b1f8ff83a5339ce49d460287ee",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "c8e64865faa6a1fd5f72f7441eca0a1b04b327b1f8ff83a5339ce49d460287ee",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_context_pack.py",
+      "destinationPath": "health-runner/dashboard/tests/test_context_pack.py",
+      "sourceBlobSha256": "be35428e7e38ba59605880471b2d1d4ff389ab64d8e7164a633bf4ac3c5b1e0d",
+      "changes": "Assert neutral recorded-source provenance instead of a particular device claim.",
+      "extractedSha256": "573a235b0030569aed847d6adb0d5f547fad237aca9ecaba6a7ddd29e65a7c8b",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_context_service.py",
+      "destinationPath": "health-runner/dashboard/tests/test_context_service.py",
+      "sourceBlobSha256": "d4269d44ee0aa61b0f02fdf32046aa143cbac89fd5c58cefcd1c406befebea23",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "d4269d44ee0aa61b0f02fdf32046aa143cbac89fd5c58cefcd1c406befebea23",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_context_usability.py",
+      "destinationPath": "health-runner/dashboard/tests/test_context_usability.py",
+      "sourceBlobSha256": "c7ff7c72a3bc32aa8fa77a72d6db90a88216e410af005c1f56c770c8cd836d99",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "c7ff7c72a3bc32aa8fa77a72d6db90a88216e410af005c1f56c770c8cd836d99",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_dashboard.py",
+      "destinationPath": "health-runner/dashboard/tests/test_dashboard.py",
+      "sourceBlobSha256": "27d289154b5dd1f1bb63a849b076ee73ac0c95294bd98a40433a89b922b408e2",
+      "changes": "Neutral identity fixture; explicitly opt into mocked legacy main tests; verify unconfigured guard prevents source access.",
+      "extractedSha256": "16adce5e1c3190b80f58bd4bc42049e0231dba29d6cd7ff9b45e19593362426b",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_presentation.py",
+      "destinationPath": "health-runner/dashboard/tests/test_presentation.py",
+      "sourceBlobSha256": "b73f5afbc3984bfc7b710240712f78bed815530495dc8aaca59046a0430fd200",
+      "changes": "Expect only supplied-data Today items, with no inferred personal dose reminder.",
+      "extractedSha256": "ab651c885b4b8360b33fccfaf455c1afddacd6c0d3d4ad43d932eeae99a71e8b",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_preview.py",
+      "destinationPath": "health-runner/dashboard/tests/test_preview.py",
+      "sourceBlobSha256": "fa45fa50efe6c18220e36c371b23bd03171a6f886fcb0c53a30ea9e01ed3307f",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "fa45fa50efe6c18220e36c371b23bd03171a6f886fcb0c53a30ea9e01ed3307f",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_shared_pipeline.py",
+      "destinationPath": "health-runner/dashboard/tests/test_shared_pipeline.py",
+      "sourceBlobSha256": "9ff3b5c45d1bf7fe6bd42a62bea80c931899dab7a943df1643a96bd6f3690b87",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "9ff3b5c45d1bf7fe6bd42a62bea80c931899dab7a943df1643a96bd6f3690b87",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_snapshot_verification.py",
+      "destinationPath": "health-runner/dashboard/tests/test_snapshot_verification.py",
+      "sourceBlobSha256": "7ffd14fbeaeb7ea683af11667db4b0a89b3c29273c8b09055b0abfc141deb84a",
+      "changes": "Remove excluded host-wrapper expectations; preserve snapshot correctness checks; whitespace cleanup.",
+      "extractedSha256": "3f4f9757964c3505985fb74e4b078cbcbb84f13856c3dd74fea00f36327abf5c",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_strength_work.py",
+      "destinationPath": "health-runner/dashboard/tests/test_strength_work.py",
+      "sourceBlobSha256": "1ed454099ad65f9d0bd3f99e53bd259320bbe7366dd17f29653653d0b9e0b38c",
+      "changes": "Explicit synthetic alias and uncertainty inputs replace inherited owner defaults; assert generic equipment blocks progression and load bases stay separate.",
+      "extractedSha256": "e9fe0a8489d6e31e49caff4860c795a48e87a8df914176c6ab2d2f23679958e9",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_tracking_schedule.py",
+      "destinationPath": "health-runner/dashboard/tests/test_tracking_schedule.py",
+      "sourceBlobSha256": "f041f50a0b5e1d24a24295a4429a88787a6012c42b6a4b927c4860f0c86137ed",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "f041f50a0b5e1d24a24295a4429a88787a6012c42b6a4b927c4860f0c86137ed",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_training_fast.py",
+      "destinationPath": "health-runner/dashboard/tests/test_training_fast.py",
+      "sourceBlobSha256": "7407427f010f787e3a37607c27be6fdcea13712926926baad5f55b0d38b17efb",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "7407427f010f787e3a37607c27be6fdcea13712926926baad5f55b0d38b17efb",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_usability_data.py",
+      "destinationPath": "health-runner/dashboard/tests/test_usability_data.py",
+      "sourceBlobSha256": "fd2862a6aa91d6627cfcb22323ac2ee3fcf1f6edf92360cbf5ca5212d6e2532d",
+      "changes": "Explicitly opt into mocked legacy main test without contacting configured sources.",
+      "extractedSha256": "ea0d04a778f107e842c69739be0145f7771108cd539717feb842cd06d1bc32ba",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_workout_api.py",
+      "destinationPath": "health-runner/dashboard/tests/test_workout_api.py",
+      "sourceBlobSha256": "037c33cd649d500773e1489f08e63d21769a53fcd36c421063dc4ddf784eb054",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "037c33cd649d500773e1489f08e63d21769a53fcd36c421063dc4ddf784eb054",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/tests/test_workout_store.py",
+      "destinationPath": "health-runner/dashboard/tests/test_workout_store.py",
+      "sourceBlobSha256": "7bbdae6f12de3ab7012fb6d057544adf3d520223ee08fe90892b6f36750f1a98",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "46e4ef907fbacabc4c85c7d32b0dce9f8c0bde84fe61cbaf6afdc7f16d9752b5",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/training_fast.js",
+      "destinationPath": "health-runner/dashboard/training_fast.js",
+      "sourceBlobSha256": "ae6e2c06f5697769059ce564488dfd8a3974990ed7d9db2366dffd3855750323",
+      "changes": "Guard missing plans before computing a ranking key; optional ranking stays hidden and makes no request without a plan.",
+      "extractedSha256": "4ae87d818fc9434610510087f96b036233d985a29f88ad80234386791732a576",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "health-runner/dashboard/training_fast.py",
+      "destinationPath": "health-runner/dashboard/training_fast.py",
+      "sourceBlobSha256": "dd008466e3b4026eabbfe686a773caaf11a861561f612003e65a8e66ab128ae0",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "dd008466e3b4026eabbfe686a773caaf11a861561f612003e65a8e66ab128ae0",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "health-runner/dashboard/workout_store.py",
+      "destinationPath": "health-runner/dashboard/workout_store.py",
+      "sourceBlobSha256": "5d4b9814eee44c28b7483bdb0543733054456d0cee19a51d33514005f9b7c858",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "bb8fc14686f92aa11419084ce4c746caef0dda6c2b042d3b0dfbd52f187fafa0",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/__init__.py",
+      "destinationPath": "scripts/__init__.py",
+      "sourceBlobSha256": "f5a43fd941934a147e787cf7d42e7c0979fb56d0cd6384d2d5ecc42b6625d92b",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "f5a43fd941934a147e787cf7d42e7c0979fb56d0cd6384d2d5ecc42b6625d92b",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "scripts/audit_strength_labels.py",
+      "destinationPath": "scripts/audit_strength_labels.py",
+      "sourceBlobSha256": "7d58eeb535b0458488a2cd6d387ea4b17bdfc2bbdb69d099c4d76755c19b689e",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "7d58eeb535b0458488a2cd6d387ea4b17bdfc2bbdb69d099c4d76755c19b689e",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "scripts/doctor_note.py",
+      "destinationPath": "scripts/doctor_note.py",
+      "sourceBlobSha256": "a12d6cb90eac5d00010e5eeb9956313a1c5242aed7ed47abf756906f2937671b",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "fa8c6b3245ff431d340198c8a291f6c5d39807230500e516046d4f0889ed9a8c",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/health_db_query.py",
+      "destinationPath": "scripts/health_db_query.py",
+      "sourceBlobSha256": "ff1a76de2f6ac78adb900094d9cf9d66d9600947b6ca1d6d9b300ba8da18b80f",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "9789bbcd084bf34f821b2b0075207e81ef56dfa0e26a08072b2b3ecd418c29cd",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/import_athena_labs.py",
+      "destinationPath": "scripts/import_athena_labs.py",
+      "sourceBlobSha256": "e171e1ed83189b3ed8a169209b024e48125cd4f178bba72859ab269f7bf85371",
+      "changes": "Generic snapshot destination replaces a personal dated filename.",
+      "extractedSha256": "d727f7b7c133abd76b803529151ed04cc7fd7d353fe4b5d354f5bf165e147de9",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/import_healthkit_weights.py",
+      "destinationPath": "scripts/import_healthkit_weights.py",
+      "sourceBlobSha256": "a3d9a25fe33795495b15b333e1deacefa2582b069e0100e29a506b4c9ca3f369",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "5c9ff47288148869ea6d914737c256db3dfc961438830809652d06763dd75758",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/intake_summary.py",
+      "destinationPath": "scripts/intake_summary.py",
+      "sourceBlobSha256": "03fcaf86d45a7496623970523a837c2d01a9ff1c8bfd9fe867d52fde740584ab",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "03fcaf86d45a7496623970523a837c2d01a9ff1c8bfd9fe867d52fde740584ab",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "scripts/lab_review.py",
+      "destinationPath": "scripts/lab_review.py",
+      "sourceBlobSha256": "4bd427abbce8c3b41a648eae5b33c9c4602a68e78dc9b5eebd7b7815adcee917",
+      "changes": "Handle sparse/missing LDL observations without subtracting missing values.",
+      "extractedSha256": "e7ec19272e4d4e3407f6cfcc8d71ea33da974eea6ca2870da297f41c9a161214",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/log_blood_pressure.py",
+      "destinationPath": "scripts/log_blood_pressure.py",
+      "sourceBlobSha256": "df57d32c1659951fc6bfd66b40229a73305b92f580479b8f893ae402f5abbdc4",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "393a084d37bb432b381cbd815fc4562287a8dfda0998ab002a7959170ea2efa6",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/log_circumference.py",
+      "destinationPath": "scripts/log_circumference.py",
+      "sourceBlobSha256": "195921f5722dbdd0307c7d299da52e3b2817a273808d1b317a0c4060926e7aa0",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "cae984ec00ef5bbb15c59b369f8239272eb54b7cc2f4a115df1a89fb2a5aa0b4",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/log_intake.py",
+      "destinationPath": "scripts/log_intake.py",
+      "sourceBlobSha256": "012d60d8a4037808129d7aa5f15e8671e46d423dd2359f45e0cce492f11e0875",
+      "changes": "Fabricated meal help example and neutral timezone default.",
+      "extractedSha256": "a1b0f099e295cd4ea55d0dedc6eeac6a641df918722939aeafb251ad88f53373",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/log_measurement.py",
+      "destinationPath": "scripts/log_measurement.py",
+      "sourceBlobSha256": "e47817962ce1be596d66fb8b8369991941bd71454e10c5cd4745e9f225e01b30",
+      "changes": "Fabricated minimal help example, manual-entry source default and empty notes replace record-shaped example and unproven provenance.",
+      "extractedSha256": "153babc1854af7782b1a67db127f8da9843b71726d5e12e968d84036ecdc3eca",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/log_workout.py",
+      "destinationPath": "scripts/log_workout.py",
+      "sourceBlobSha256": "923f0bff7753a7b4303e8c7a7fc133a61d4d7c80156d6c36f4a228b5afaf0d1b",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "923f0bff7753a7b4303e8c7a7fc133a61d4d7c80156d6c36f4a228b5afaf0d1b",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "scripts/next_workout.py",
+      "destinationPath": "scripts/next_workout.py",
+      "sourceBlobSha256": "fde3e45d10992c388a2390c7d643276bc8a7726e3175fafb214b8850618b317c",
+      "changes": "Synthetic program integration remains external; narrowly annotate direct-script fallback imports for static typing.",
+      "extractedSha256": "89102edaa1ef63c99fb1bf176775340066884460f054cff5de12fbef5db5c3d1",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/plot_weight_history.py",
+      "destinationPath": "scripts/plot_weight_history.py",
+      "sourceBlobSha256": "440a78fe34621f7a53bed6e2311e0572cfce04ffa812f378b60951e795f7f286",
+      "changes": "Generic observation-window labels replace named medication.",
+      "extractedSha256": "cbb2b4b91cb41432474d58f8816b6b1a01767b493b8b1dc59a6820d2b183028c",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/prescription_progression.py",
+      "destinationPath": "scripts/prescription_progression.py",
+      "sourceBlobSha256": "64faebdecc7cacc28d56ef22526058864063e7a28af348e80175b99f4878b76c",
+      "changes": "Preserve mixed-trial validation while explicitly narrowing optional loads for supported static typing.",
+      "extractedSha256": "86a516c16d4ed048f7fcc7c2ccda9e6423c3ccf0af8611d53b7a7c1bc0e45d29",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/progress_summary.py",
+      "destinationPath": "scripts/progress_summary.py",
+      "sourceBlobSha256": "12e352d343189c248f1783b35f629691dd91810b9f231dae5c1cd9fc4b4aaead",
+      "changes": "Remove default personal medication choice; generic recorded timeline labels; preserve explicitly selected medication analysis.",
+      "extractedSha256": "9eb24335b3f05a3b8c2960029cce67ba4d517ec84391655b8e608dcd023d83b5",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/publish_training_day.py",
+      "destinationPath": "scripts/publish_training_day.py",
+      "sourceBlobSha256": "c8105a133d26e36da9ecd7a515e4cab03133b59afed7457f25ba389da19d5027",
+      "changes": "Neutral output permissions and narrowly annotated direct-script fallback imports for static typing.",
+      "extractedSha256": "cd6c37a2aafb161fdb5e690316a929c6bd27cc3edf4286330b223ff3dc909935",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/set_classification.py",
+      "destinationPath": "scripts/set_classification.py",
+      "sourceBlobSha256": "ea1706bd7458d9172f6eadd071fd91ba2f2e35cfc7acfec1e0734297e66e8120",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "ea1706bd7458d9172f6eadd071fd91ba2f2e35cfc7acfec1e0734297e66e8120",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "scripts/strength_identity.py",
+      "destinationPath": "scripts/strength_identity.py",
+      "sourceBlobSha256": "83ba531c4aaef05b25075f8940aad20e4927edf029264b5ca8b6e1b3ca5cc1d6",
+      "changes": "Remove owner-confirmed machine aliases, dated labels and personal comparison set; exact identity by default, generic equipment remains ambiguous; aliases are explicit inputs.",
+      "extractedSha256": "cf1f83617f35b78e636e35b325a838a31895c75efb36f2ea36f0323322e81740",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "scripts/training_progress.py",
+      "destinationPath": "scripts/training_progress.py",
+      "sourceBlobSha256": "7927449d5609d6e7ebd451c0be98c7e1635b80a34d6796aaf54b34097cfa40c1",
+      "changes": "Explicit equipment alias and uncertainty inputs; generic equipment does not establish comparable progression.",
+      "extractedSha256": "f6aae5f04e37223bf5165900623927c151c622c60bdd19ad38a24e816da9b7a2",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "src/health_ingest/__init__.py",
+      "destinationPath": "src/health_ingest/__init__.py",
+      "sourceBlobSha256": "b77f55fb68f0ba3202557151d03ff8fe0b0bf4606595ac1bd2792fe2f60e6cff",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "b77f55fb68f0ba3202557151d03ff8fe0b0bf4606595ac1bd2792fe2f60e6cff",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/health_ingest/cli.py",
+      "destinationPath": "src/health_ingest/cli.py",
+      "sourceBlobSha256": "4cb4ef0ebfd0372e906b36fa6c00f98cfcc9766d4743efc917fbffcf20d12894",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "4cb4ef0ebfd0372e906b36fa6c00f98cfcc9766d4743efc917fbffcf20d12894",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/health_ingest/models.py",
+      "destinationPath": "src/health_ingest/models.py",
+      "sourceBlobSha256": "4941902c1f99072ff1843dc6a64a2b13cba8784ffc5ff3ba45e7d9789ef6aca5",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "4941902c1f99072ff1843dc6a64a2b13cba8784ffc5ff3ba45e7d9789ef6aca5",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/health_ingest/server.py",
+      "destinationPath": "src/health_ingest/server.py",
+      "sourceBlobSha256": "f9d6e6e56f29c43b07dba0be05701f59f884264abe3765b98ecd16470531d959",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "f9d6e6e56f29c43b07dba0be05701f59f884264abe3765b98ecd16470531d959",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/health_ingest/storage.py",
+      "destinationPath": "src/health_ingest/storage.py",
+      "sourceBlobSha256": "3de9fdb49f3bde85f130e6aa6e343bafcd25d36fa2f5d4e569a14f0181623575",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "3de9fdb49f3bde85f130e6aa6e343bafcd25d36fa2f5d4e569a14f0181623575",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/__init__.py",
+      "destinationPath": "src/sleepiq_exporter/__init__.py",
+      "sourceBlobSha256": "ae802a5e41687ad0a69319011d18ae57c821fb1157f43db10e7be5a2c98a0a72",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "835c2f5591f7e7bb935c3d3c13e33c58646e963566945c901d873743743173af",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/__main__.py",
+      "destinationPath": "src/sleepiq_exporter/__main__.py",
+      "sourceBlobSha256": "e75de89ea637d2eb7ca2840190c1b61828558d22fa38b6e21a91c15ab207558d",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "e75de89ea637d2eb7ca2840190c1b61828558d22fa38b6e21a91c15ab207558d",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/adapter.py",
+      "destinationPath": "src/sleepiq_exporter/adapter.py",
+      "sourceBlobSha256": "844965054572e7751b3e4008a4b51768326d1b6d04d89227175584a703351a81",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "844965054572e7751b3e4008a4b51768326d1b6d04d89227175584a703351a81",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/cli.py",
+      "destinationPath": "src/sleepiq_exporter/cli.py",
+      "sourceBlobSha256": "2c3dc383f129e0f6079a399526164c311f70a74f6f95b7c784720cf1a29fda51",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "2c3dc383f129e0f6079a399526164c311f70a74f6f95b7c784720cf1a29fda51",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/config.py",
+      "destinationPath": "src/sleepiq_exporter/config.py",
+      "sourceBlobSha256": "7d250f4ff68a14259cd62395c3da5f9c29e61e5656c0ad0820dcc3306ca12f0a",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "7e364a6d205b17871093eee047f3a169fff753ff07debd3dd43b1a5d7aa2bf74",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/domain.py",
+      "destinationPath": "src/sleepiq_exporter/domain.py",
+      "sourceBlobSha256": "aa41f799c80def186128515a34d3a3180a32bf2435a3848e1149d584334bc9f6",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "aa41f799c80def186128515a34d3a3180a32bf2435a3848e1149d584334bc9f6",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/errors.py",
+      "destinationPath": "src/sleepiq_exporter/errors.py",
+      "sourceBlobSha256": "3c1944b40855044b97854f7640ef9b538204a5ac1121dc694a52b1ee1d9b18c1",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "3c1944b40855044b97854f7640ef9b538204a5ac1121dc694a52b1ee1d9b18c1",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/logging_utils.py",
+      "destinationPath": "src/sleepiq_exporter/logging_utils.py",
+      "sourceBlobSha256": "7c3310a314d86310ff0e61fa8113146d6093a1b2b686b8fc7e1e80a86ba779b1",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "7c3310a314d86310ff0e61fa8113146d6093a1b2b686b8fc7e1e80a86ba779b1",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/migration_runner.py",
+      "destinationPath": "src/sleepiq_exporter/migration_runner.py",
+      "sourceBlobSha256": "85dd81307d0e6f2bf79f571f2989bda7cb9c75e19e0ed5d7b991b8c2f669853e",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "85dd81307d0e6f2bf79f571f2989bda7cb9c75e19e0ed5d7b991b8c2f669853e",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/migrations/__init__.py",
+      "destinationPath": "src/sleepiq_exporter/migrations/__init__.py",
+      "sourceBlobSha256": "b9b682537c8c1c2adedde55ed6b45eaeaacd4d4d7804c65877373a029ad3d563",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "b9b682537c8c1c2adedde55ed6b45eaeaacd4d4d7804c65877373a029ad3d563",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/migrations/env.py",
+      "destinationPath": "src/sleepiq_exporter/migrations/env.py",
+      "sourceBlobSha256": "0a0222c31cf7adeb7e96595ff40a2f7259c2c546001db5ac66325f1689ce575a",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "0a0222c31cf7adeb7e96595ff40a2f7259c2c546001db5ac66325f1689ce575a",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/migrations/script.py.mako",
+      "destinationPath": "src/sleepiq_exporter/migrations/script.py.mako",
+      "sourceBlobSha256": "c20f6ab92d4ed36d77fbccb82bc410cd2ced42f2c162eebb43ddd45ae93dd90e",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "c20f6ab92d4ed36d77fbccb82bc410cd2ced42f2c162eebb43ddd45ae93dd90e",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/migrations/versions/0001_create_nightly_sleep.py",
+      "destinationPath": "src/sleepiq_exporter/migrations/versions/0001_create_nightly_sleep.py",
+      "sourceBlobSha256": "c9742fcbba91a60279c5c95a7f690f032c6c0ee38a47b5cab63a771c98452b57",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "c9742fcbba91a60279c5c95a7f690f032c6c0ee38a47b5cab63a771c98452b57",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/migrations/versions/__init__.py",
+      "destinationPath": "src/sleepiq_exporter/migrations/versions/__init__.py",
+      "sourceBlobSha256": "4e6213cd52f8248fb07d186a5ecd08e12be10e89b1921fa5a038aec84081efc7",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "4e6213cd52f8248fb07d186a5ecd08e12be10e89b1921fa5a038aec84081efc7",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/normalization.py",
+      "destinationPath": "src/sleepiq_exporter/normalization.py",
+      "sourceBlobSha256": "b449a6327ecdbef1f21decdda853c55955d28a50c945d99443b4f1d6043614a6",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "b449a6327ecdbef1f21decdda853c55955d28a50c945d99443b4f1d6043614a6",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/retry.py",
+      "destinationPath": "src/sleepiq_exporter/retry.py",
+      "sourceBlobSha256": "87e63d912d874218124d8128ef974c833f4fb6ef144c7d5a7bec2dc6ce662b16",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "87e63d912d874218124d8128ef974c833f4fb6ef144c7d5a7bec2dc6ce662b16",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/schema.py",
+      "destinationPath": "src/sleepiq_exporter/schema.py",
+      "sourceBlobSha256": "3939ae99cd4ff2f2eebb18413af9c9db377129c7ad9a390e64b1f7272d941059",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "3939ae99cd4ff2f2eebb18413af9c9db377129c7ad9a390e64b1f7272d941059",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/service.py",
+      "destinationPath": "src/sleepiq_exporter/service.py",
+      "sourceBlobSha256": "36a7967f2f0aa4aa6194f1beea929ef3ec6fe712da74f1496a34fb670e7aa6bf",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "36a7967f2f0aa4aa6194f1beea929ef3ec6fe712da74f1496a34fb670e7aa6bf",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "src/sleepiq_exporter/storage.py",
+      "destinationPath": "src/sleepiq_exporter/storage.py",
+      "sourceBlobSha256": "2d50a7a22f2a94c211b8636754000067fc57d2fca0f112321c15495826048513",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "2d50a7a22f2a94c211b8636754000067fc57d2fca0f112321c15495826048513",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/conftest.py",
+      "destinationPath": "tests/conftest.py",
+      "sourceBlobSha256": "2c506465d762c72b24240c268575681158d24cd74dcc95cbebfb9973d4d4a81d",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "9749beb7cf2c1646a62f7702467775b17e5e2e81425835b9a3ed1b7107390923",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_audit_strength_labels.py",
+      "destinationPath": "tests/test_audit_strength_labels.py",
+      "sourceBlobSha256": "fd57b0e7600adb5474e8a9bc43c7cdc60c2d6d68bee13a1af65d832b2f4799f2",
+      "changes": "Replace source-root personal strength-log audit with a fabricated record fixture.",
+      "extractedSha256": "97ceab71c3ef39079d2603e2e62bbb79d0d99384a1a0da83118ecdb1960804af",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_doctor_note.py",
+      "destinationPath": "tests/test_doctor_note.py",
+      "sourceBlobSha256": "033223c62e168d4eb675bdd4426ec333461ebeb8889b4772427d334a6db04e90",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "ab2cabe26571744a4b96e6eb770fc12487e1a66409adccd0a087515d7a974d3c",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_health_db_query.py",
+      "destinationPath": "tests/test_health_db_query.py",
+      "sourceBlobSha256": "a5850097214111385d4233c5901e96c7c8c503829a331e1c68bd93058a07c76a",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "a5850097214111385d4233c5901e96c7c8c503829a331e1c68bd93058a07c76a",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_health_ingest_models.py",
+      "destinationPath": "tests/test_health_ingest_models.py",
+      "sourceBlobSha256": "6835f98b2d2890c28e663e7ab77975386a2e13ed0aa0fef3b34d4256aa801fbc",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "6835f98b2d2890c28e663e7ab77975386a2e13ed0aa0fef3b34d4256aa801fbc",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_health_ingest_server.py",
+      "destinationPath": "tests/test_health_ingest_server.py",
+      "sourceBlobSha256": "c8d55c4fc36212b8e44f291962d63354ee026ef640189e22cc6c25b8b3b28ed6",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "c8d55c4fc36212b8e44f291962d63354ee026ef640189e22cc6c25b8b3b28ed6",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_health_ingest_storage.py",
+      "destinationPath": "tests/test_health_ingest_storage.py",
+      "sourceBlobSha256": "f64a9695df4c7fa7a02cecfa4154baa77cf0d985b95836c16ce5ba0f076e29f5",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "00adf0d3545d48e5c5152ab09e6c28cb89a26dab0be0e4b0134c97b933b449a2",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_import_athena_labs.py",
+      "destinationPath": "tests/test_import_athena_labs.py",
+      "sourceBlobSha256": "59e46c534b0e65d11e64a08113491298676d923a8a061b9785483de4a6b53ce2",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "59e46c534b0e65d11e64a08113491298676d923a8a061b9785483de4a6b53ce2",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_import_healthkit_weights.py",
+      "destinationPath": "tests/test_import_healthkit_weights.py",
+      "sourceBlobSha256": "0aef17569ee4e0dfa72e5d4788fcd50bbe1cf082905a05cafeab19c84aacba60",
+      "changes": "Make synthetic local-time expectation select its timezone explicitly.",
+      "extractedSha256": "2b08b7c5d9495c640a738d126462f29e4a1e646c521456dddc946908e8498ae9",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_intake_summary.py",
+      "destinationPath": "tests/test_intake_summary.py",
+      "sourceBlobSha256": "3bfafe55b22c7f552079aa122a352cb27c3df0389b8e2409bc46225da463b51d",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "3bfafe55b22c7f552079aa122a352cb27c3df0389b8e2409bc46225da463b51d",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_lab_review.py",
+      "destinationPath": "tests/test_lab_review.py",
+      "sourceBlobSha256": "6216ea1523d04a19229ddc2fb06ca93d741f5ee0c7892c1950302dacd9e87103",
+      "changes": "Replace source-root personal lab records and assertions with freshly fabricated temporary laboratory records.",
+      "extractedSha256": "3a266c29ca33ca49432817d23c2e22da4760fbf0afc7800fc4f567251efe4805",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_log_blood_pressure.py",
+      "destinationPath": "tests/test_log_blood_pressure.py",
+      "sourceBlobSha256": "25dc468cd0c255e6e68d1fc87fb88bd7f5d4247b3e0a2236e75ca2ffffc72abc",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "25dc468cd0c255e6e68d1fc87fb88bd7f5d4247b3e0a2236e75ca2ffffc72abc",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_log_circumference.py",
+      "destinationPath": "tests/test_log_circumference.py",
+      "sourceBlobSha256": "68808a0fdee7d190123b3253c328431cc51f349829ef4ff8554b30f4618db7c8",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "68808a0fdee7d190123b3253c328431cc51f349829ef4ff8554b30f4618db7c8",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_log_intake.py",
+      "destinationPath": "tests/test_log_intake.py",
+      "sourceBlobSha256": "857fa0086fd89af19d568ed04dd28a7648945d39c495dcea813f6aa858c608f4",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "857fa0086fd89af19d568ed04dd28a7648945d39c495dcea813f6aa858c608f4",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_log_measurement.py",
+      "destinationPath": "tests/test_log_measurement.py",
+      "sourceBlobSha256": "7b4708aea108604e37d6675f481c8bca11cd022ff37e810e080227ea9d52ad65",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "7b4708aea108604e37d6675f481c8bca11cd022ff37e810e080227ea9d52ad65",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_log_workout.py",
+      "destinationPath": "tests/test_log_workout.py",
+      "sourceBlobSha256": "578f00a7426022360636a80fbb7d2152488f6d173d4ec18794dca2ea444082a3",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "578f00a7426022360636a80fbb7d2152488f6d173d4ec18794dca2ea444082a3",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_next_workout.py",
+      "destinationPath": "tests/test_next_workout.py",
+      "sourceBlobSha256": "3b794148544b247a69307cec3975ce964ecb17ac0decce1570b65680943e32b1",
+      "changes": "Replace source-root personal program with freshly fabricated temporary program; preserve recommendation/monitoring coverage.",
+      "extractedSha256": "0027e2ffeb0fee442fa4b94294e04e97f7f5364585aa2a019f701eaa2bf2f0d0",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_plot_weight_history.py",
+      "destinationPath": "tests/test_plot_weight_history.py",
+      "sourceBlobSha256": "d803f1e048aceecb858dba2673c3f718251fc7e75b73a930e015c6ced5abe2a8",
+      "changes": "Fresh fabricated 2030 measurements and explicit medication selection; dynamic window and missing-selection checks.",
+      "extractedSha256": "408e55851e218ff36c8759a995d65c880283f9fc0b23f955dcf30b0e303f0f1a",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_prescription_progression.py",
+      "destinationPath": "tests/test_prescription_progression.py",
+      "sourceBlobSha256": "c767a07cdab5d5b8de8c1ff00b180bcf80c1447320e997192a6e520dafc87256",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "c767a07cdab5d5b8de8c1ff00b180bcf80c1447320e997192a6e520dafc87256",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_progress_summary.py",
+      "destinationPath": "tests/test_progress_summary.py",
+      "sourceBlobSha256": "36a063952e5b398898ee29b3096b33fd0565a62a44246ffeefe78aef21540845",
+      "changes": "Replace source-root measurements/program assumptions with fabricated temporary inputs; preserve calculation tests.",
+      "extractedSha256": "77ca5f1c5b7fbba1ff8054bf847c629cfaf5a1c831f2ef18279388464294dbdc",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_publish_training_day.py",
+      "destinationPath": "tests/test_publish_training_day.py",
+      "sourceBlobSha256": "b6b74fe1f3d71df506b22b59777ab1795b95c0aea4cf57ce69766384b132c560",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "b6b74fe1f3d71df506b22b59777ab1795b95c0aea4cf57ce69766384b132c560",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_sleepiq_adapter.py",
+      "destinationPath": "tests/test_sleepiq_adapter.py",
+      "sourceBlobSha256": "4a8db2ff2ac2bd427bcf8db1c1fb42f179603889ea3aa881828650ebaa6b37b2",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "4a8db2ff2ac2bd427bcf8db1c1fb42f179603889ea3aa881828650ebaa6b37b2",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_sleepiq_config_and_logging.py",
+      "destinationPath": "tests/test_sleepiq_config_and_logging.py",
+      "sourceBlobSha256": "97ac1c5953189349a54d7f16825fdc0779406e9989964e2503eb9573d791c4f3",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "6c23ce31510d1e94fb62ca0f90ac8cc1eaa20193a6766b6f703571da7c9fac94",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_sleepiq_normalization.py",
+      "destinationPath": "tests/test_sleepiq_normalization.py",
+      "sourceBlobSha256": "bc907761517f2929ad95fb7fd0680070c1039bb2e4ad87b78c4fd843644e4f3a",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "bc907761517f2929ad95fb7fd0680070c1039bb2e4ad87b78c4fd843644e4f3a",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_sleepiq_service.py",
+      "destinationPath": "tests/test_sleepiq_service.py",
+      "sourceBlobSha256": "016d0421e9ea884c854ae570eb897c566e8145d375aced5d29b0e836fd4c846c",
+      "changes": "Byte-identical committed source.",
+      "extractedSha256": "016d0421e9ea884c854ae570eb897c566e8145d375aced5d29b0e836fd4c846c",
+      "sourceUnchanged": true
+    },
+    {
+      "sourcePath": "tests/test_sleepiq_storage.py",
+      "destinationPath": "tests/test_sleepiq_storage.py",
+      "sourceBlobSha256": "90891cb76ee6629dbee4f7332360bf23fa8d32b031dcb139e79ae084de7356a8",
+      "changes": "Neutral product naming, host/path or timezone defaults; keep generic implementation and synthetic regression behavior. See extraction documentation and extraction commit.",
+      "extractedSha256": "8066067e822c558becc03061ccc50b8834b5c70a98dc39a5463007df68e1ed9a",
+      "sourceUnchanged": false
+    },
+    {
+      "sourcePath": "tests/test_training_progress.py",
+      "destinationPath": "tests/test_training_progress.py",
+      "sourceBlobSha256": "30f4757c4b8bb275d091467358b4701f15357b6701efc1391705fe21f0d4d1ec",
+      "changes": "Use fabricated stable equipment identifiers and explicit alias inputs; preserve ambiguous and incompatible comparison tests.",
+      "extractedSha256": "580389acfa7aaf73dff4595fa046445e053db2726b74898d25de5949cd7a89e6",
+      "sourceUnchanged": false
+    }
+  ],
+  "excludedCodePaths": [
+    "health-runner/dashboard/scripts/check_fast_jev.py",
+    "health-runner/dashboard/scripts/configure_pipeline.py",
+    "health-runner/dashboard/tests/test_context_command.py",
+    "health-runner/dashboard/tests/test_refresh_command.py",
+    "scripts/absorb_pending_csv.py",
+    "scripts/create_encrypted_snapshot.py",
+    "scripts/onepassword_item_json.py",
+    "tests/test_absorb_pending_csv.py",
+    "tests/test_create_encrypted_snapshot.py",
+    "tests/test_health_runner.py",
+    "tests/test_lab_review_report.py",
+    "tests/test_onepassword_integration.py"
+  ],
+  "excludedGroups": [
+    "all data/**",
+    "profile.yaml",
+    "plans/**",
+    "reports/**",
+    "reviews/**",
+    "sessions/**",
+    "handoff/**",
+    "config/**",
+    "deploy/**",
+    "ios/**",
+    "skills/**",
+    "health-runner/*.sh",
+    "health-runner/dashboard/systemd/**",
+    "health-runner/dashboard/scripts/deploy.sh",
+    "all original image/binary assets",
+    ".git and all private source Git history",
+    "original docs and personal instructions",
+    "original deployment/build/environment manifests and lockfile"
+  ],
+  "fixtureProvenance": "Replacement fixtures were authored as deliberately fabricated records/programs from required field schemas, not copied personal values with changed names. Existing isolated synthetic tests were preserved.",
+  "ownedAssetProvenance": "New simple SVG and web manifest authored for this repository. Original image and icon assets excluded."
+}

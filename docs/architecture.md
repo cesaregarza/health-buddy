@@ -1,0 +1,36 @@
+# Source map and data ownership
+
+Start with the v1 contract, this map, and the extraction inventory. The current
+code is an extracted baseline; the following explicit map preserves readable
+module boundaries while avoiding a premature rewrite during extraction.
+
+| Responsibility | Current source and tests | Contract destination / owner |
+| --- | --- | --- |
+| Dashboard | `health-runner/dashboard/build_dashboard.py`, `template.html`, feature scripts, `tests/` | `dashboard`; presentation-only after CES-1066 |
+| Typed ingest domain | `src/health_ingest/models.py`, `tests/test_health_ingest_models.py` | `health_buddy/domain`; CES-1066 |
+| HealthKit ingress/store | `src/health_ingest/server.py`, `storage.py`, matching tests | Transport adapter and `health_buddy/stores`; CES-1066/1067 |
+| Manual operations | `scripts/log_*.py`, `import_*.py`, `next_workout.py`, `prescription_progression.py`, matching tests | `health_buddy/operations` plus store adapters; CES-1066 |
+| Derived records and context | `scripts/*summary.py`, `doctor_note.py`, `lab_review.py`, dashboard `context_pack.py` | Pure domain/read projections; CES-1066/1072 |
+| Optional SleepIQ | `src/sleepiq_exporter`, migration source, `tests/test_sleepiq_*.py` | Optional integration adapter; no mandatory vendor credentials or Postgres |
+| Jobs and snapshots | Dashboard `pipeline.py`, `snapshot_store.py`, shared-pipeline tests | `jobs`; owner-configured scheduling later |
+| Configuration | Environment boundaries in current adapters; no personal `.env` | Portable configuration and empty-state contract; CES-1065 |
+| Identity, authorization | Legacy ingest token mechanisms and loopback preview only | `health_buddy/identity`; CES-1067, no current v1 security claim |
+| Extension interfaces/examples | `contracts/v1/extension.schema.json`, `examples/`, `docs/extensions.md` | `health_buddy/extensions` runtime CES-1085; tools CES-1086 |
+| Normative conformance | `contracts/v1`, `scripts/validate_contracts.py`, `tests/test_contract*` | Versioned interfaces, not a working HTTP server |
+
+CSV/JSON manual records and HealthKit SQLite are authoritative inputs. Derived
+HTML/JSON dashboards, context packs, reports and caches are rebuildable.
+Current legacy readers/writers are deliberately discoverable for adaptation;
+they must be routed through canonical operations before client use. Do not add
+another direct writer while implementing CES-1066.
+
+Release code belongs to this repository. User records, personal extension
+source/assets/config/tests/notes/migrations/state and secret material belong in
+the separately configured persistent workspace described by `docs/extensions.md`.
+No user profile or training program is shipped as a product default. Synthetic
+examples under tests have no medical-prescription meaning.
+
+The only supported extraction-stage demonstration is the fabricated dashboard
+preview. Its loopback context service is development-only and lacks the v1
+authorization boundary; neither it nor static health exports may be published.
+All actual validation/build execution follows the shared queue rule in AGENTS.md.

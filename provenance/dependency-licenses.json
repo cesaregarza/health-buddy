@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "asyncsleepiq",
+      "version": "1.7.1",
+      "licenseExpression": null,
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        {
+          "path": "asyncsleepiq-1.7.1.dist-info/licenses/LICENSE",
+          "sha256": "2a27612c975a69a90c2de20eb791f628ae8c91c11ffd6412da326add17408c3a"
+        }
+      ]
+    },
+    {
+      "name": "SQLAlchemy",
+      "version": "2.1.1",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "sqlalchemy-2.1.1.dist-info/licenses/AUTHORS",
+          "sha256": "dc1db0b5d17455adc37b693ff8e409c9a80f603e441695825518c36f786c963e"
+        },
+        {
+          "path": "sqlalchemy-2.1.1.dist-info/licenses/LICENSE",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9"
+        }
+      ]
+    },
+    {
+      "name": "alembic",
+      "version": "1.20.0",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "alembic-1.20.0.dist-info/licenses/LICENSE",
+          "sha256": "6e68d94a03a0e3e327ddf3e86d1ebedc14eece3922022618fc246a36296fd0cc"
+        }
+      ]
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.4",
+      "licenseExpression": null,
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [
+        "Apache-2.0"
+      ],
+      "noticeFiles": [
+        {
+          "path": "tzdata-2026.4.dist-info/licenses/LICENSE",
+          "sha256": "df58f69ea88683035d720b5375bcef0cf5aeaa98a1d098d572e0992c378deb46"
+        },
+        {
+          "path": "tzdata-2026.4.dist-info/licenses/licenses/LICENSE_APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.23.0",
+      "licenseExpression": null,
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataLicenseFirstLine": [
+        "MIT"
+      ],
+      "noticeFiles": [
+        {
+          "path": "jsonschema-4.23.0.dist-info/licenses/COPYING",
+          "sha256": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
+        }
+      ]
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "pytest-9.1.1.dist-info/licenses/LICENSE",
+          "sha256": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b"
+        }
+      ]
+    },
+    {
+      "name": "pytest-asyncio",
+      "version": "1.4.0",
+      "licenseExpression": "Apache-2.0",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "pytest_asyncio-1.4.0.dist-info/licenses/LICENSE",
+          "sha256": "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+        }
+      ]
+    },
+    {
+      "name": "ruff",
+      "version": "0.16.9",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "ruff-0.16.9.dist-info/licenses/LICENSE",
+          "sha256": "2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18"
+        }
+      ]
+    },
+    {
+      "name": "mypy",
+      "version": "1.20.2",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "mypy-1.20.2.dist-info/licenses/LICENSE",
+          "sha256": "fdf1cd17f50e1305ed8cfd37467312d27a984648dba622cef70573b5512e4e1b"
+        },
+        {
+          "path": "mypy-1.20.2.dist-info/licenses/mypy/typeshed/LICENSE",
+          "sha256": "295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe"
+        },
+        {
+          "path": "mypy/typeshed/LICENSE",
+          "sha256": "295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe"
+        }
+      ]
+    },
+    {
+      "name": "build",
+      "version": "1.6.1",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "build-1.6.1.dist-info/licenses/LICENSE",
+          "sha256": "aaf9a29ca5907971ccf07de025375db34539a8d5eeebce20b46099805722106f"
+        }
+      ]
+    },
+    {
+      "name": "hatchling",
+      "version": "1.32.4",
+      "licenseExpression": "MIT",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "hatchling-1.32.4.dist-info/licenses/LICENSE.txt",
+          "sha256": "7f143a8127ad4873862d70854b5bd2abd0085aa73e64fd2b08704a3b9f5c07fc"
+        },
+        {
+          "path": "hatchling/licenses/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "hatchling/licenses/supported.py",
+          "sha256": "641fb474d6916e23ea297f2b8d8ae20addad1c8f65e2852e7ca4445e73ed92e6"
+        }
+      ]
+    },
+    {
+      "name": "psycopg",
+      "version": "3.3.6",
+      "licenseExpression": "LGPL-3.0-only",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "psycopg-3.3.6.dist-info/licenses/LICENSE.txt",
+          "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+        }
+      ]
+    },
+    {
+      "name": "psycopg-binary",
+      "version": "3.3.6",
+      "licenseExpression": "LGPL-3.0-only",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "psycopg_binary-3.3.6.dist-info/licenses/LICENSE.txt",
+          "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+        }
+      ]
+    },
+    {
+      "name": "playwright",
+      "version": "1.63.0",
+      "licenseExpression": "Apache-2.0",
+      "licenseClassifiers": [],
+      "metadataLicenseFirstLine": [],
+      "noticeFiles": [
+        {
+          "path": "playwright-1.63.0.dist-info/licenses/LICENSE",
+          "sha256": "7fab1461b41970ff376f1c9303a637076bfaaeb71cd12dd3a1c44aaf59a1a2b9"
+        },
+        {
+          "path": "playwright/driver/LICENSE",
+          "sha256": "5888dbb9a1d2b18f2c3e6c5f6af1b39de658372b402a0577b002777f14c62ace"
+        },
+        {
+          "path": "playwright/driver/package/LICENSE",
+          "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb"
+        },
+        {
+          "path": "playwright/driver/package/NOTICE",
+          "sha256": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
+        },
+        {
+          "path": "playwright/driver/package/ThirdPartyNotices.txt",
+          "sha256": "a549d329bad8806fe279f0ecae0fc0270dec7e7c2dc8ec10f90e394f7c32b144"
+        },
+        {
+          "path": "playwright/driver/package/lib/serverRegistry.js.LICENSE",
+          "sha256": "3098a6efcbc11752cbdf6075fa65480f5470f78c8d981fab9c0796dc9a41cefe"
+        },
+        {
+          "path": "playwright/driver/package/lib/utilsBundle.js.LICENSE",
+          "sha256": "2495f30be29620d54b58339821eda0ebabdfb6ee9b09455f7285a06fd46fb9f3"
+        },
+        {
+          "path": "playwright/driver/package/lib/webp_codec.LICENSE",
+          "sha256": "995c7ee35aceb7666829b7a501ca89c0864e12b493c1174b155774ab1e03d831"
+        }
+      ]
+    }
+  ]
+}
