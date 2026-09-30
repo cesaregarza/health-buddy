@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "contract-only",
+  "contractVersion": "1.0.0",
+  "codeRelease": null,
+  "installAvailable": false,
+  "runtimeArtifacts": [],
+  "installer": null,
+  "guideKind": "pinned-source-and-contract",
+  "guideRoot": "../guides/contract-v1/",
+  "pendingInputs": [],
+  "sourceGuides": [
+    {"kind":"runtime-source","sourceRevision":"dec3fac6cf04772ac22aac3429cd7de3767fe1a3","packageVersion":"0.1.0.dev0","guide":"../guides/runtime-dec3fac/"},
+    {"kind":"agent-source","sourceRevision":"a0605d8b36f4b980e4a6706f3e8c1f7f87fe4a6c","packageVersion":"0.1.0.dev0","guide":"../guides/agent-a0605d8/"}
+  ],
+  "publicHostname": null
+}
