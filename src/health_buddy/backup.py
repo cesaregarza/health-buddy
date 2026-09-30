@@ -85,6 +85,29 @@ def create(
     }
 
 
+def materialize(
+    staged: Path, manifest: dict[str, Any], files: dict[str, bytes]
+) -> None:
+    """Write an already authenticated, validated inventory into an empty tree."""
+    for relative in sorted(
+        manifest["directories"], key=lambda name: len(Path(name).parts)
+    ):
+        path = staged / relative
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    modes = {entry["path"]: entry["mode"] for entry in manifest["files"]}
+    for relative, raw in files.items():
+        path = staged / relative
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(
+            path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600
+        )
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fchmod(stream.fileno(), modes[relative])
+            os.fsync(stream.fileno())
+
+
 def restore(
     target: Path, archive: Path, key_file: Path, *, confirm_revoke_all: bool
 ) -> dict[str, Any]:
@@ -114,23 +137,7 @@ def restore(
         ) as folder:
             staged = Path(folder) / "workspace"
             staged.mkdir(mode=0o700)
-            for relative in sorted(
-                manifest["directories"], key=lambda name: len(Path(name).parts)
-            ):
-                path = staged / relative
-                path.mkdir(mode=0o700, parents=True, exist_ok=True)
-            modes = {entry["path"]: entry["mode"] for entry in manifest["files"]}
-            for relative, raw in files.items():
-                path = staged / relative
-                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                descriptor = os.open(
-                    path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600
-                )
-                with os.fdopen(descriptor, "wb") as stream:
-                    stream.write(raw)
-                    stream.flush()
-                    os.fchmod(stream.fileno(), modes[relative])
-                    os.fsync(stream.fileno())
+            materialize(staged, manifest, files)
             config = load(staged)
             # Regenerable cache is deliberately absent in the archive.
             config.storage("cache").mkdir(mode=0o700, parents=True, exist_ok=True)
