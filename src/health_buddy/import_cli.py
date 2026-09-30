@@ -88,7 +88,7 @@ def handle(args: argparse.Namespace) -> int:
         )
         reply = runtime.security.admit_imported_device(
             owner.principal,
-            identity=runtime.operations.journal.state().identity,
+            identity=runtime.security.describe(owner.principal).identity,
             device_id=args.device_id,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
             name=args.name,

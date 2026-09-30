@@ -52,7 +52,9 @@ def admit(
                         service.config.root / "operations/receiver-import.json", 16384
                     ),
                     limit=16384,
-                )
+                ),
+                {"schemaVersion", "family", "sourceSha256", "snapshotSha256",
+                 "mapping", "realPairingBridge"},
             )
             if (
                 not isinstance(receipt, dict)
