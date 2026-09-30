@@ -405,7 +405,7 @@ class Wire:
 @contextmanager
 def client(
     settings, folder, *, modern=False, instrumented=False, shutdown_timeout=55,
-    protect_cleanup=False,
+    protect_cleanup=False, launch=None,
 ):
     environment = {
         **os.environ,
@@ -417,12 +417,19 @@ def client(
         "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:1",
     }
     module = "tests.mcp_process_runner" if instrumented else "health_buddy.mcp_server"
+    command = [sys.executable, "-m", module, "--settings", str(settings)]
+    cwd = ROOT
+    if launch is not None:
+        # Only the integration test supplies its owned helper-generated config.
+        command = [launch["command"], *launch["args"]]
+        environment.update(launch["env"])
+        cwd = launch["cwd"]
     stderr = folder / "mcp-stderr.log"
     with stderr.open("ab") as log:
         # Fixed module and exclusively owned synthetic paths, bounded by queue cgroup.
         process = subprocess.Popen(  # noqa: S603
-            [sys.executable, "-m", module, "--settings", str(settings)],
-            cwd=ROOT,
+            command,
+            cwd=cwd,
             env=environment,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
