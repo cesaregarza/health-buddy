@@ -22,24 +22,70 @@ from .runtime_manifest import read_source_identity
 from .service_api import ServiceError
 
 GUIDANCE = {
-    "config_invalid": "Validate config.json against docs/configuration.md; preserve stores.",
-    "storage_unavailable": "Check the selected store path and owner permissions; do not recreate stores.",
-    "permissions_partial": "Inspect the selected path ownership/mode; repair only that path.",
-    "disk_low": "Free unrelated space or expand storage; preserve stores and personal files.",
-    "port_conflict": "Identify the listener before changing the serve port; do not kill unknown processes.",
-    "receiver_unreachable": "Check the configured receiver process and socket, then private proxy routing.",
-    "connectivity_unknown": "From the phone check tailnet, HTTPS and pairing; this host cannot prove phone reachability.",
-    "phone_unknown": "Open the companion and inspect its sync/permission report; empty reads do not prove denial.",
-    "source_stale": "Inspect source sync and its last successful receipt before using old results.",
-    "source_failed": "Inspect the source configuration and safe error code; retry only documented transient failures.",
-    "source_empty": "No measured observations are available; do not substitute zero or infer denied permission.",
-    "projection_stale": "Cached results are stale; repair the unavailable store before claiming current data.",
-    "authorization_partial": "Use an explicitly approved read grant for source status; do not broaden grants automatically.",
-    "runtime_unavailable": "Check workspace configuration, ownership and receiver logs; preserve pending writes.",
-    "pending_write": "Use pending show, then pending retry with the same credential; inspect conflicts first.",
-    "extension_unavailable": "Use extension inspect/compatibility; disable the affected ID to recover core use. Review tests before enable or revert.",
+    "config_invalid": (
+        "Validate config.json against docs/configuration.md; preserve "
+        "stores."
+    ),
+    "storage_unavailable": (
+        "Check the selected store path and owner permissions; do not "
+        "recreate stores."
+    ),
+    "permissions_partial": (
+        "Inspect the selected path ownership/mode; repair only that path."
+    ),
+    "disk_low": (
+        "Free unrelated space or expand storage; preserve stores and "
+        "personal files."
+    ),
+    "port_conflict": (
+        "Identify the listener before changing the serve port; do not "
+        "kill unknown processes."
+    ),
+    "receiver_unreachable": (
+        "Check the configured receiver process and socket, then private "
+        "proxy routing."
+    ),
+    "connectivity_unknown": (
+        "From the phone check tailnet, HTTPS and pairing; this host "
+        "cannot prove phone reachability."
+    ),
+    "phone_unknown": (
+        "Open the companion and inspect its sync/permission report; empty "
+        "reads do not prove denial."
+    ),
+    "source_stale": (
+        "Inspect source sync and its last successful receipt before using "
+        "old results."
+    ),
+    "source_failed": (
+        "Inspect the source configuration and safe error code; retry only "
+        "documented transient failures."
+    ),
+    "source_empty": (
+        "No measured observations are available; do not substitute zero "
+        "or infer denied permission."
+    ),
+    "projection_stale": (
+        "Cached results are stale; repair the unavailable store before "
+        "claiming current data."
+    ),
+    "authorization_partial": (
+        "Use an explicitly approved read grant for source status; do not "
+        "broaden grants automatically."
+    ),
+    "runtime_unavailable": (
+        "Check workspace configuration, ownership and receiver logs; "
+        "preserve pending writes."
+    ),
+    "pending_write": (
+        "Use pending show, then pending retry with the same credential; "
+        "inspect conflicts first."
+    ),
+    "extension_unavailable": (
+        "Use extension inspect/compatibility; disable the affected ID to "
+        "recover core use. Review tests before enable or revert."
+    ),
 }
-
 
 def finding(code: str, severity: str = "warning") -> dict[str, str]:
     return {"code": code, "severity": severity, "recovery": GUIDANCE[code]}
@@ -248,8 +294,10 @@ def support_summary(value: dict[str, Any]) -> dict[str, Any]:
 def human(value: dict[str, Any]) -> str:
     lines = [
         "Health Buddy operator status (local check)",
-        f"Installed package: {value['installation']['packageVersion'] or 'unknown'}; API 1; extension API 1",
-        f"Phone: {value['connectivity']['phone']}; private route: {value['connectivity']['privateRoute']}",
+        f"Installed package: {value['installation']['packageVersion'] or 'unknown'}; "
+        "API 1; extension API 1",
+        f"Phone: {value['connectivity']['phone']}; "
+        f"private route: {value['connectivity']['privateRoute']}",
         f"Pending writes: {value['queue']['state']} (current CLI actor only)",
     ]
     projection = value.get("sources")
@@ -257,11 +305,14 @@ def human(value: dict[str, Any]) -> str:
         lines.append(f"Projection: {projection.get('state', 'unknown')}")
         for name, source in projection.get("sources", {}).items():
             lines.append(
-                f"{name}: {source.get('availability', 'unknown')}; {source.get('freshness', 'unknown')}; last success {source.get('lastSuccessAt') or 'unknown'}"
+                f"{name}: {source.get('availability', 'unknown')}; "
+                f"{source.get('freshness', 'unknown')}; "
+                f"last success {source.get('lastSuccessAt') or 'unknown'}"
             )
     for item in value["extensions"]["items"]:
         lines.append(
-            f"Extension {item['id']}: {item['state']}; version {item['version'] or 'unknown'}"
+            f"Extension {item['id']}: {item['state']}; "
+            f"version {item['version'] or 'unknown'}"
         )
     for item in value["diagnostics"]:
         lines.append(f"{item['severity']}: {item['code']}: {item['recovery']}")
