@@ -170,6 +170,14 @@ def test_reviewed_reinstall_preserves_personal_owner_revocation_and_inert_repeat
         state_after == original_state
         and runtime.operations.manual.snapshot() == original_files
     )
+    retained = runtime.operations.execute(
+        owner.principal, Request("records.get", resource_id="synthetic-retained-mass")
+    )
+    assert retained.status == 200, retained.body
+    observation = decoded(retained)["data"]["record"]
+    assert observation["id"] == "synthetic-retained-mass"
+    assert observation["kind"] == "body-mass" and observation["value"] == 80
+    assert observation["unit"] == "kg" and observation["sourceId"] == "manual"
     assert preserved == {
         path: (path.read_bytes(), path.stat().st_mode & 0o777) for path in preserved
     }
