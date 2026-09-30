@@ -160,9 +160,9 @@ def import_workouts(
     return adopt_snapshot(target, raw, provenance, selected, identities)
 
 
-def _snapshot(raw: bytes) -> tuple[
-    dict[str, JSON], dict[str, str], dict[str, tuple[str, dict[str, str]]]
-]:
+def _snapshot(
+    raw: bytes,
+) -> tuple[dict[str, JSON], dict[str, str], dict[str, tuple[str, dict[str, str]]]]:
     value = decode(raw, limit=MAX_BYTES)
     if (
         not isinstance(value, dict)

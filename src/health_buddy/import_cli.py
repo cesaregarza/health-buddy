@@ -37,8 +37,13 @@ def add_commands(commands: Any) -> None:
     adopt_workout.add_argument("--expected-snapshot-sha256", required=True)
 
     combined = sub.add_parser("export-manual-canary")
-    for name, suffix in (("measurements", "snapshot"), ("workouts", "snapshot"),
-                         ("intake", "csv"), ("plan", "json"), ("preferences", "json")):
+    for name, suffix in (
+        ("measurements", "snapshot"),
+        ("workouts", "snapshot"),
+        ("intake", "csv"),
+        ("plan", "json"),
+        ("preferences", "json"),
+    ):
         combined.add_argument("--" + name + "-" + suffix, type=Path, required=True)
         combined.add_argument("--expected-" + name + "-sha256", required=True)
     combined.add_argument("--source-revision", required=True)
@@ -54,16 +59,24 @@ def handle(args: argparse.Namespace) -> int:
     if args.import_action == "export-manual-canary":
         selected = {
             "measurements": args.measurements_snapshot,
-            "workouts": args.workouts_snapshot, "intake": args.intake_csv,
-            "plan": args.plan_json, "preferences": args.preferences_json,
+            "workouts": args.workouts_snapshot,
+            "intake": args.intake_csv,
+            "plan": args.plan_json,
+            "preferences": args.preferences_json,
         }
-        hashes = {name: getattr(args, "expected_" + name + "_sha256") for name in INPUTS}
-        result = export_manual_canary(selected, args.snapshot,
-                                      reviewed_hashes=hashes,
-                                      source_revision=args.source_revision)
+        hashes = {
+            name: getattr(args, "expected_" + name + "_sha256") for name in INPUTS
+        }
+        result = export_manual_canary(
+            selected,
+            args.snapshot,
+            reviewed_hashes=hashes,
+            source_revision=args.source_revision,
+        )
     elif args.import_action == "adopt-manual-canary":
         result = import_manual_canary(
-            args.workspace, args.snapshot,
+            args.workspace,
+            args.snapshot,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
     elif args.import_action == "export-measurements":

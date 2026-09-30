@@ -14,8 +14,15 @@ from .backup import disk_required
 from .domain import MAX_PLAN_BODY, decode, digest, encode, identifier
 from .durability import atomic_bytes, fsync_path
 from .legacy_import import (
-    MAX_BYTES, MAX_RECORDS, MEASUREMENTS, _path, _read,
-    _snapshot as measurement_snapshot, adopt_snapshot,
+    MAX_BYTES,
+    MAX_RECORDS,
+    MEASUREMENTS,
+    _path,
+    _read,
+    adopt_snapshot,
+)
+from .legacy_import import (
+    _snapshot as measurement_snapshot,
 )
 from .legacy_store import headers, parse_csv
 from .legacy_workout_import import _snapshot as workout_snapshot
@@ -30,13 +37,18 @@ PLAN = "plans/current_program.json"
 
 def _preferences(raw: str) -> dict[str, Any]:
     value = decode(raw, limit=16_384)
-    if (not isinstance(value, dict) or set(value) != {
-        "schemaVersion", "displayName", "timezone", "goals", "equipment"
-    } or type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1):
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {"schemaVersion", "displayName", "timezone", "goals", "equipment"}
+        or type(value["schemaVersion"]) is not int
+        or value["schemaVersion"] != 1
+    ):
         raise ServiceError(422, "import_unsupported_preferences")
     settings = config.defaults()
-    settings.update(timezone=value["timezone"], goals=value["goals"],
-                    equipment=value["equipment"])
+    settings.update(
+        timezone=value["timezone"], goals=value["goals"], equipment=value["equipment"]
+    )
     settings["identity"] = {"displayName": value["displayName"]}
     try:
         config.validate(settings, Path("/nonexistent"))
@@ -45,18 +57,25 @@ def _preferences(raw: str) -> dict[str, Any]:
     return settings
 
 
-def _contents(value: dict[str, JSON]) -> tuple[
-    dict[str, str], dict[str, tuple[str, dict[str, str]]], dict[str, Any], str
-]:
+def _contents(
+    value: dict[str, JSON],
+) -> tuple[dict[str, str], dict[str, tuple[str, dict[str, str]]], dict[str, Any], str]:
     inputs, hashes = value.get("inputs"), value.get("sourceHashes")
-    if (not isinstance(inputs, dict) or set(inputs) != set(INPUTS)
-        or not isinstance(hashes, dict) or set(hashes) != set(INPUTS)):
+    if (
+        not isinstance(inputs, dict)
+        or set(inputs) != set(INPUTS)
+        or not isinstance(hashes, dict)
+        or set(hashes) != set(INPUTS)
+    ):
         raise ServiceError(422, "import_invalid_snapshot")
     text: dict[str, str] = {}
     for name in INPUTS:
         raw, reviewed = inputs[name], hashes[name]
-        if (not isinstance(raw, str) or not isinstance(reviewed, str)
-            or not SHA256.fullmatch(reviewed)):
+        if (
+            not isinstance(raw, str)
+            or not isinstance(reviewed, str)
+            or not SHA256.fullmatch(reviewed)
+        ):
             raise ServiceError(422, "import_invalid_snapshot")
         if hashlib.sha256(raw.encode()).hexdigest() != reviewed:
             raise ServiceError(409, "import_input_changed")
@@ -89,8 +108,9 @@ def _contents(value: dict[str, JSON]) -> tuple[
         if key in seen:
             raise ServiceError(409, "import_duplicate_natural_key")
         seen.add(key)
-        record_id = str(uuid5(NAMESPACE_URL, "health-buddy:legacy:" + source_id +
-                              ":intake:" + key))
+        record_id = str(
+            uuid5(NAMESPACE_URL, "health-buddy:legacy:" + source_id + ":intake:" + key)
+        )
         if record_id in identities:
             raise ServiceError(409, "import_record_id_collision")
         identities[record_id] = (INTAKE, row)
@@ -110,7 +130,10 @@ def _contents(value: dict[str, JSON]) -> tuple[
 
 
 def export_manual_canary(
-    inputs: dict[str, Path], output: Path, *, reviewed_hashes: dict[str, str],
+    inputs: dict[str, Path],
+    output: Path,
+    *,
+    reviewed_hashes: dict[str, str],
     source_revision: str,
 ) -> dict[str, Any]:
     if set(inputs) != set(INPUTS) or set(reviewed_hashes) != set(INPUTS):
@@ -129,9 +152,12 @@ def export_manual_canary(
         except UnicodeError:
             raise ServiceError(422, "import_invalid_encoding") from None
     value: dict[str, JSON] = {
-        "schemaVersion": 1, "family": FAMILY, "inputs": text,
+        "schemaVersion": 1,
+        "family": FAMILY,
+        "inputs": text,
         "sourceHashes": cast(dict[str, JSON], reviewed_hashes),
-        "sourceRevision": source_revision, "sourceRevisionVerified": False,
+        "sourceRevision": source_revision,
+        "sourceRevisionVerified": False,
     }
     _selected, identities, _settings, _source_id = _contents(value)
     content = encode(value)
@@ -148,8 +174,11 @@ def export_manual_canary(
         atomic_bytes(staged, content)
         os.link(staged, output, follow_symlinks=False)
         fsync_path(output.parent)
-    return {"exported": True, "records": len(identities),
-            "snapshotSha256": hashlib.sha256(content).hexdigest()}
+    return {
+        "exported": True,
+        "records": len(identities),
+        "snapshotSha256": hashlib.sha256(content).hexdigest(),
+    }
 
 
 def import_manual_canary(
@@ -157,20 +186,36 @@ def import_manual_canary(
 ) -> dict[str, Any]:
     raw = _read(snapshot, expected_snapshot_sha256)
     value = decode(raw, limit=MAX_BYTES)
-    if (not isinstance(value, dict) or set(value) != {
-        "schemaVersion", "family", "inputs", "sourceHashes", "sourceRevision",
-        "sourceRevisionVerified"
-    } or type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1
-        or value["family"] != FAMILY or value["sourceRevisionVerified"] is not False
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {
+            "schemaVersion",
+            "family",
+            "inputs",
+            "sourceHashes",
+            "sourceRevision",
+            "sourceRevisionVerified",
+        }
+        or type(value["schemaVersion"]) is not int
+        or value["schemaVersion"] != 1
+        or value["family"] != FAMILY
+        or value["sourceRevisionVerified"] is not False
         or not isinstance(value["sourceRevision"], str)
-        or not GIT_SHA.fullmatch(value["sourceRevision"])):
+        or not GIT_SHA.fullmatch(value["sourceRevision"])
+    ):
         raise ServiceError(422, "import_invalid_snapshot")
     files, identities, preferences, source_id = _contents(value)
     provenance: dict[str, JSON] = {
-        "schemaVersion": 1, "family": FAMILY, "sourceId": source_id,
-        "sourceHashes": value["sourceHashes"], "sourceRevision": value["sourceRevision"],
-        "sourceRevisionVerified": False, "snapshotSha256": expected_snapshot_sha256,
+        "schemaVersion": 1,
+        "family": FAMILY,
+        "sourceId": source_id,
+        "sourceHashes": value["sourceHashes"],
+        "sourceRevision": value["sourceRevision"],
+        "sourceRevisionVerified": False,
+        "snapshotSha256": expected_snapshot_sha256,
         "records": len(identities),
     }
-    return adopt_snapshot(target, raw, provenance, files, identities,
-                          preferences=preferences)
+    return adopt_snapshot(
+        target, raw, provenance, files, identities, preferences=preferences
+    )

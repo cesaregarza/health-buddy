@@ -183,7 +183,8 @@ def adopt_snapshot(
     provenance: dict[str, JSON],
     seeded_files: dict[str, str],
     identities: dict[str, tuple[str, dict[str, str]]],
-    *, preferences: dict[str, Any] | None = None,
+    *,
+    preferences: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The shared create-only journal path for explicitly validated CSV families."""
     target = _path(target)
