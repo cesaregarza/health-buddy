@@ -80,14 +80,18 @@ def stage(
         runtime, principal, archive, key_file, confirm_quiesced=confirm_quiesced
     )
     inventory, files = verified(
-        unseal(read_file(private_path(archive), MAX_ARCHIVE_BYTES + 256),
-               read_key(private_path(key_file)))
+        unseal(
+            read_file(private_path(archive), MAX_ARCHIVE_BYTES + 256),
+            read_key(private_path(key_file)),
+        )
     )
     disk_required(candidate.parent, sum(len(raw) for raw in files.values()) * 2)
     with exclusive(candidate.parent / ".health-buddy-upgrade.lock"):
         if candidate.exists() or candidate.is_symlink():
             raise ServiceError(409, "upgrade_requires_absent_candidate")
-        with tempfile.TemporaryDirectory(prefix=".upgrade-", dir=candidate.parent) as folder:
+        with tempfile.TemporaryDirectory(
+            prefix=".upgrade-", dir=candidate.parent
+        ) as folder:
             staged = Path(folder) / "workspace"
             staged.mkdir(mode=0o700)
             materialize(staged, inventory, files)
@@ -97,8 +101,10 @@ def stage(
             if not isinstance(copied.operations, Service):
                 raise ServiceError(503, "native_coordinator_required")
             state = copied.operations.journal.verify()
-            if (identity_value(state.identity) != inventory["identity"]
-                    or state.revision != inventory["dataRevision"]):
+            if (
+                identity_value(state.identity) != inventory["identity"]
+                or state.revision != inventory["dataRevision"]
+            ):
                 raise ServiceError(422, "upgrade_candidate_identity_mismatch")
             if copied.operations.journal.receiver_binding() is not None:
                 copied.operations.check_receiver(state.identity)
@@ -112,10 +118,13 @@ def stage(
                 "migration": "storage_v1_no_conversion",
                 "credentialPolicy": "preserve_for_compatible_upgrade",
             }
-            atomic_bytes(config.path("operations/upgrade-receipt.json"), encode(receipt))
+            atomic_bytes(
+                config.path("operations/upgrade-receipt.json"), encode(receipt)
+            )
             for directory in sorted(
                 (path for path in staged.rglob("*") if path.is_dir()),
-                key=lambda path: len(path.parts), reverse=True,
+                key=lambda path: len(path.parts),
+                reverse=True,
             ):
                 fsync_path(directory)
             fsync_path(staged)

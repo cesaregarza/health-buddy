@@ -35,16 +35,24 @@ def test_stage_verified_release_preserves_custom_metric_connector_and_authority(
     for day, weight in ((3, 150), (4, 160)):
         app.log_record(
             "measurement",
-            ["--measured-at-local", f"2030-01-0{day}T09:00:00Z",
-             "--weight-lb", str(weight)],
+            [
+                "--measured-at-local",
+                f"2030-01-0{day}T09:00:00Z",
+                "--weight-lb",
+                str(weight),
+            ],
         )
     event = {
-        "eventId": "upgrade-before", "sourceId": "fabricated-water",
-        "observedAt": "2030-01-03T09:00:00Z", "value": 250, "unit": "mL",
+        "eventId": "upgrade-before",
+        "sourceId": "fabricated-water",
+        "observedAt": "2030-01-03T09:00:00Z",
+        "value": 250,
+        "unit": "mL",
     }
     original_event = run_event(config, runtime, grant, "local.water-import", event)
     request = Request(
-        "extensions.read", resource_id="local.weekly-mass",
+        "extensions.read",
+        resource_id="local.weekly-mass",
         query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"},
     )
     original_metric = runtime.operations.execute(owner.principal, request)
@@ -70,7 +78,8 @@ def test_stage_verified_release_preserves_custom_metric_connector_and_authority(
     for architecture in ("amd64", "arm64"):
         make_archive(
             artifacts / f"health-buddy-linux-{architecture}.docker.tar",
-            architecture=architecture, config_override={"config": {"Labels": labels}},
+            architecture=architecture,
+            config_override={"config": {"Labels": labels}},
         )
     manifest = create_release(bundle, artifacts)
     manifest_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
@@ -79,8 +88,15 @@ def test_stage_verified_release_preserves_custom_metric_connector_and_authority(
     archive = tmp_path / "pre-upgrade.hbb"
     candidate = tmp_path / "candidate"
     receipt = stage(
-        runtime, owner.principal, manifest, manifest_hash, "amd64",
-        archive, key, candidate, confirm_quiesced=True,
+        runtime,
+        owner.principal,
+        manifest,
+        manifest_hash,
+        "amd64",
+        archive,
+        key,
+        candidate,
+        confirm_quiesced=True,
     )
     assert receipt["target"]["manifestSha256"] == manifest_hash
     assert receipt["state"] == "staged_requires_explicit_activation"
@@ -92,12 +108,23 @@ def test_stage_verified_release_preserves_custom_metric_connector_and_authority(
     assert after.identity == before.identity
     assert after.revision == before.revision
     assert (candidate / "config.json").read_bytes() == original_config
-    assert (candidate / "personal/extensions/local.weekly-mass/src/metric.py").read_bytes() == source.read_bytes()
-    assert (candidate / "personal/extensions/local.weekly-mass/notes/OWNER.md").read_bytes() == (metric / "notes/OWNER.md").read_bytes()
-    assert copied.operations.execute(admitted.principal, request).body == original_metric.body
-    replay = run_event(copied.operations.config, copied, grant, "local.water-import", event)
+    assert (
+        candidate / "personal/extensions/local.weekly-mass/src/metric.py"
+    ).read_bytes() == source.read_bytes()
+    assert (
+        candidate / "personal/extensions/local.weekly-mass/notes/OWNER.md"
+    ).read_bytes() == (metric / "notes/OWNER.md").read_bytes()
+    assert (
+        copied.operations.execute(admitted.principal, request).body
+        == original_metric.body
+    )
+    replay = run_event(
+        copied.operations.config, copied, grant, "local.water-import", event
+    )
     assert replay["data"]["recordId"] == original_event["data"]["recordId"]
     next_event = {**event, "eventId": "upgrade-after", "value": 300}
-    assert run_event(copied.operations.config, copied, grant, "local.water-import", next_event)["data"]["recordId"]
+    assert run_event(
+        copied.operations.config, copied, grant, "local.water-import", next_event
+    )["data"]["recordId"]
     assert runtime.operations.journal.state().revision == before.revision
     assert (config.root / "config.json").read_bytes() == original_config

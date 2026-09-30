@@ -85,7 +85,9 @@ def create(
     }
 
 
-def materialize(staged: Path, manifest: dict[str, Any], files: dict[str, bytes]) -> None:
+def materialize(
+    staged: Path, manifest: dict[str, Any], files: dict[str, bytes]
+) -> None:
     """Write an already authenticated, validated inventory into an empty tree."""
     for relative in sorted(
         manifest["directories"], key=lambda name: len(Path(name).parts)
