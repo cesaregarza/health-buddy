@@ -523,7 +523,6 @@ def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
     assert not (tmp_path / "unsafe.hbb").exists()
 
 
-
 def test_snapshot_effective_privacy_normalizes_git_and_readable_modes(tmp_path):
     from health_buddy.backup_crypto import read_key, unseal
     from health_buddy.backup_archive import verified

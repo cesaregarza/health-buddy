@@ -47,19 +47,25 @@ def read_snapshot_file(root: Path, path: Path, limit: int) -> bytes:
         descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         descriptors.append(descriptor)
         if (root_info.st_dev, root_info.st_ino) != (
-            os.fstat(descriptor).st_dev, os.fstat(descriptor).st_ino
+            os.fstat(descriptor).st_dev,
+            os.fstat(descriptor).st_ino,
         ):
             raise ServiceError(409, "backup_workspace_changed")
         for part in relative.parts[:-1]:
             descriptor = os.open(
-                part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                part,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                 dir_fd=descriptor,
             )
             descriptors.append(descriptor)
             _owned_entry(os.fstat(descriptor))
         before = os.stat(relative.name, dir_fd=descriptor, follow_symlinks=False)
         _owned_entry(before)
-        if not stat.S_ISREG(before.st_mode) or before.st_size > limit or before.st_nlink != 1:
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_size > limit
+            or before.st_nlink != 1
+        ):
             raise ServiceError(422, "backup_file_invalid")
         file_descriptor = os.open(
             relative.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=descriptor
