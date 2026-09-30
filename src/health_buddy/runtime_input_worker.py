@@ -1,4 +1,5 @@
 """Fixed isolated fetch worker; all URLs and local output pass bounded admission."""
+
 from __future__ import annotations
 
 import json

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fixed release entrypoint, launched with Python isolation and bytecode disabled."""
-from pathlib import Path
+
 import sys
+from pathlib import Path
 
 # The image's root-owned .pth supplies dependencies to isolated child processes.
 # This fixed source path also supports a queue-owned extracted-source fixture.

@@ -1,4 +1,5 @@
 """Verified immutable context assembly includes every runtime source input."""
+
 from __future__ import annotations
 
 import os
@@ -18,7 +19,9 @@ def context_fixture(tmp_path: Path) -> tuple[Path, Path]:
     package = repository / "packaging"
     package.mkdir()
     lock(package).rename(package / "runtime-inputs.json")
-    (package / "runtime.Dockerfile").write_text("FROM @BASE_IMAGE@\nLABEL source=@COMMIT@\nCOPY source /source\n")
+    (package / "runtime.Dockerfile").write_text(
+        "FROM @BASE_IMAGE@\nLABEL source=@COMMIT@\nCOPY source /source\n"
+    )
     script = repository / "src/tool"
     script.write_text("#!/bin/sh\nexit 0\n")
     script.chmod(0o755)
@@ -33,7 +36,9 @@ def context_fixture(tmp_path: Path) -> tuple[Path, Path]:
     return bundle, downloads
 
 
-def test_context_exact_source_inputs_permissions_and_no_repository_history(tmp_path: Path) -> None:
+def test_context_exact_source_inputs_permissions_and_no_repository_history(
+    tmp_path: Path,
+) -> None:
     bundle, downloads = context_fixture(tmp_path)
     output = tmp_path / "context"
     previous = os.umask(0o077)
@@ -41,7 +46,9 @@ def test_context_exact_source_inputs_permissions_and_no_repository_history(tmp_p
         create_context(bundle, downloads, "amd64", output)
     finally:
         os.umask(previous)
-    identity = verify_source_identity(output / "source", output / "release/source-manifest.json")
+    identity = verify_source_identity(
+        output / "source", output / "release/source-manifest.json"
+    )
     assert identity.source_evidence == "packaged_manifest"
     assert (output / "source/src/tool").stat().st_mode & 0o777 == 0o755
     assert (output / "inputs/wheels/synthetic.whl").stat().st_mode & 0o777 == 0o644

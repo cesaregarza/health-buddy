@@ -1,4 +1,5 @@
 """Supported image entrypoints; source is replaceable, the owner workspace is not."""
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,12 @@ WORKSPACE = Path("/workspace")
 def private_workspace(root: Path) -> None:
     native_directory(root)
     details = root.lstat()
-    if os.geteuid() == 0 or os.getegid() == 0 or details.st_uid != os.geteuid() or stat.S_IMODE(details.st_mode) != 0o700:
+    if (
+        os.geteuid() == 0
+        or os.getegid() == 0
+        or details.st_uid != os.geteuid()
+        or stat.S_IMODE(details.st_mode) != 0o700
+    ):
         raise ManifestError("runtime_requires_existing_private_nonroot_workspace")
 
 
@@ -60,10 +66,14 @@ def initialize_packaged(root: Path, origin: str, subject: str) -> None:
     if next(root.iterdir(), None) is not None:
         raise ManifestError("packaged_initialization_requires_empty_workspace")
     values = config.defaults()
-    values["security"].update({
-        "ingress": "tailscale-uds", "externalOrigin": origin,
-        "ownerSubject": subject, "socketPath": "security/runtime/http.sock",
-    })
+    values["security"].update(
+        {
+            "ingress": "tailscale-uds",
+            "externalOrigin": origin,
+            "ownerSubject": subject,
+            "socketPath": "security/runtime/http.sock",
+        }
+    )
     config.validate(values, root)
     if not create_file(root / "config.json", json.dumps(values, indent=2) + "\n"):
         raise ManifestError("packaged_configuration_already_exists")
@@ -100,7 +110,8 @@ def health(root: Path) -> bool:
             return False
     header, separator, body = bytes(response).partition(b"\r\n\r\n")
     return (
-        bool(separator) and header.split(b"\r\n", 1)[0] == b"HTTP/1.1 200 OK"
+        bool(separator)
+        and header.split(b"\r\n", 1)[0] == b"HTTP/1.1 200 OK"
         and body == b'{"status":"ready"}'
     )
 
@@ -132,9 +143,9 @@ def main(argv: list[str] | None = None) -> int:
             position += 1
         else:
             break
-    if supplied[position:position + 1] == ["cli"]:
+    if supplied[position : position + 1] == ["cli"]:
         position += 1
-        if supplied[position:position + 1] != ["--"]:
+        if supplied[position : position + 1] != ["--"]:
             supplied.insert(position, "--")
     args = parser.parse_args(supplied)
     os.umask(0o077)
@@ -150,25 +161,62 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "info":
             print(json.dumps(asdict(identity), sort_keys=True))
         elif args.command == "init":
-            initialize_packaged(args.workspace, args.external_origin, args.owner_subject)
-            print("Private workspace initialized; security bootstrap and host HTTPS proxy setup remain explicit.")
+            initialize_packaged(
+                args.workspace, args.external_origin, args.owner_subject
+            )
+            print(
+                "Private workspace initialized; security bootstrap and host HTTPS proxy setup remain explicit."
+            )
         elif args.command == "cli":
-            arguments = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
-            if any(item == "--workspace" or item.startswith("--workspace=") or item == "--development" for item in arguments):
-                raise ManifestError("packaged_cli_workspace_or_development_override_refused")
+            arguments = (
+                args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
+            )
+            if any(
+                item == "--workspace"
+                or item.startswith("--workspace=")
+                or item == "--development"
+                for item in arguments
+            ):
+                raise ManifestError(
+                    "packaged_cli_workspace_or_development_override_refused"
+                )
             return canonical_cli(["--workspace", str(args.workspace), *arguments])
         elif args.command == "job":
             for path in (args.event_file, args.credential_file):
-                if not path.is_absolute() or not path.is_relative_to(args.workspace) or ".." in path.parts:
+                if (
+                    not path.is_absolute()
+                    or not path.is_relative_to(args.workspace)
+                    or ".." in path.parts
+                ):
                     raise ManifestError("job_inputs_must_be_inside_owner_workspace")
                 # Reject a linked ancestor before any input reader or canonical
                 # dispatch can probe a descendant outside the owner workspace.
                 native_directory(path.parent)
-            return canonical_cli([
-                "--workspace", str(args.workspace), "--credential-file", str(args.credential_file),
-                "extension", "run", "--id", args.id, "--event-file", str(args.event_file),
-            ])
-    except (ManifestError, ServiceError, config.ConfigError, OSError, ValueError, RuntimeError):
-        print("packaged_runtime_unavailable; inspect private configuration and exact artifact evidence", file=sys.stderr)
+            return canonical_cli(
+                [
+                    "--workspace",
+                    str(args.workspace),
+                    "--credential-file",
+                    str(args.credential_file),
+                    "extension",
+                    "run",
+                    "--id",
+                    args.id,
+                    "--event-file",
+                    str(args.event_file),
+                ]
+            )
+    except (
+        ManifestError,
+        ServiceError,
+        config.ConfigError,
+        OSError,
+        ValueError,
+        RuntimeError,
+    ):
+        print(
+            "packaged_runtime_unavailable; inspect private configuration and exact artifact evidence",
+            file=sys.stderr,
+        )
         return 1
     return 0

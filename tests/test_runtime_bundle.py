@@ -337,8 +337,13 @@ def test_source_and_release_contents_are_readable_by_distinct_uid(tmp_path):
         # Fixed interpreter/fixture code and already-opened immutable directories.
         result = subprocess.run(  # noqa: S603
             [
-                "/usr/bin/python3", "-I", "-B", "-c", script,
-                str(source_fd), str(release_fd),
+                "/usr/bin/python3",
+                "-I",
+                "-B",
+                "-c",
+                script,
+                str(source_fd),
+                str(release_fd),
             ],
             pass_fds=(source_fd, release_fd),
             cwd="/",

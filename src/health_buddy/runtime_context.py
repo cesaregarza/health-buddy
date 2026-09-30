@@ -8,10 +8,19 @@ from pathlib import Path
 
 from .runtime_bundle import _directory, _source_directory, _sync, _write
 from .runtime_inputs import load_inputs, verify_inputs
-from .runtime_manifest import ManifestError, canonical, file_digest, inventory, native_directory, verify_source_identity
+from .runtime_manifest import (
+    ManifestError,
+    canonical,
+    file_digest,
+    inventory,
+    native_directory,
+    verify_source_identity,
+)
 
 
-def _copy(source: Path, target: Path, size: int, digest: str, mode: int = 0o644) -> None:
+def _copy(
+    source: Path, target: Path, size: int, digest: str, mode: int = 0o644
+) -> None:
     descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         with os.fdopen(descriptor, "rb", closefd=False) as stream:
@@ -23,11 +32,16 @@ def _copy(source: Path, target: Path, size: int, digest: str, mode: int = 0o644)
         os.close(descriptor)
 
 
-def create_context(bundle: Path, downloads: Path, architecture: str, output: Path) -> Path:
+def create_context(
+    bundle: Path, downloads: Path, architecture: str, output: Path
+) -> Path:
     native_directory(bundle)
     native_directory(downloads)
     native_directory(output.parent)
-    if any(output.is_relative_to(path) or path.is_relative_to(output) for path in (bundle, downloads)):
+    if any(
+        output.is_relative_to(path) or path.is_relative_to(output)
+        for path in (bundle, downloads)
+    ):
         raise ManifestError("build_context_overlaps_input")
     source, release = bundle / "source", bundle / "release"
     identity = verify_source_identity(source, release / "source-manifest.json")
@@ -39,7 +53,11 @@ def create_context(bundle: Path, downloads: Path, architecture: str, output: Pat
     for name in ("source", "release", "inputs", "inputs/wheels", "inputs/debs"):
         _directory(output / name, 0o755)
     for item in inventory(source):
-        relative, size, digest = str(item["path"]), int(item["bytes"]), str(item["sha256"])
+        relative, size, digest = (
+            str(item["path"]),
+            int(item["bytes"]),
+            str(item["sha256"]),
+        )
         original, target = source / relative, output / "source" / relative
         _source_directory(output / "source", target.parent)
         _copy(original, target, size, digest, original.lstat().st_mode & 0o777)
@@ -48,10 +66,16 @@ def create_context(bundle: Path, downloads: Path, architecture: str, output: Pat
         _copy(release / name, output / "release" / name, size, digest)
     _copy(lock, output / "inputs/runtime-inputs.json", lock_size, lock_digest)
     for item in selected.files:
-        _copy(downloads / item.filename, output / "inputs" / item.kind / item.filename, item.size, item.sha256)
+        _copy(
+            downloads / item.filename,
+            output / "inputs" / item.kind / item.filename,
+            item.size,
+            item.sha256,
+        )
     requirements = "".join(
         f"{item.name}=={item.version} --hash=sha256:{item.sha256}\n"
-        for item in selected.files if item.kind == "wheels"
+        for item in selected.files
+        if item.kind == "wheels"
     )
     _write(output / "inputs/requirements.txt", requirements.encode("ascii"))
     substitutions = {
@@ -70,16 +94,26 @@ def create_context(bundle: Path, downloads: Path, architecture: str, output: Pat
     if "@" in dockerfile.replace(selected.base_image, ""):
         raise ManifestError("unresolved_dockerfile_input")
     _write(output / "Dockerfile", dockerfile.encode("utf-8"))
-    _write(output / ".dockerignore", b"**\n!Dockerfile\n!source/\n!source/**\n!release/\n!release/**\n!inputs/\n!inputs/**\n")
+    _write(
+        output / ".dockerignore",
+        b"**\n!Dockerfile\n!source/\n!source/**\n!release/\n!release/**\n!inputs/\n!inputs/**\n",
+    )
     record = {
-        "schemaVersion": 1, "architecture": architecture,
-        "baseImage": selected.base_image, "baseConfig": selected.base_config,
-        "sourceCommit": identity.source_commit, "packageVersion": identity.package_version,
-        "sourceArchiveSha256": identity.source_archive_sha256, "inputLockSha256": lock_digest,
-        "networkDuringAssembly": "none", "artifactStatus": "not-built",
+        "schemaVersion": 1,
+        "architecture": architecture,
+        "baseImage": selected.base_image,
+        "baseConfig": selected.base_config,
+        "sourceCommit": identity.source_commit,
+        "packageVersion": identity.package_version,
+        "sourceArchiveSha256": identity.source_archive_sha256,
+        "inputLockSha256": lock_digest,
+        "networkDuringAssembly": "none",
+        "artifactStatus": "not-built",
     }
     _write(output / "context.json", canonical(record) + b"\n")
-    for directory, _subdirs, _files in os.walk(output, topdown=False, followlinks=False):
+    for directory, _subdirs, _files in os.walk(
+        output, topdown=False, followlinks=False
+    ):
         _sync(Path(directory))
     _sync(output.parent)
     verify_source_identity(output / "source", output / "release/source-manifest.json")

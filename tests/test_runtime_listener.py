@@ -543,11 +543,14 @@ def test_existing_listener_symlink_never_probes_target(
     listener_folder, monkeypatch, target
 ):
     root = directories(listener_folder)
-    selected = root / {
-        "lock": runtime_listener.LOCK_PATH,
-        "marker": runtime_listener.MARKER_PATH,
-        "socket": runtime_listener.MANAGED_PATH,
-    }[target]
+    selected = (
+        root
+        / {
+            "lock": runtime_listener.LOCK_PATH,
+            "marker": runtime_listener.MARKER_PATH,
+            "socket": runtime_listener.MANAGED_PATH,
+        }[target]
+    )
     outside = root / "unread-target"
     outside.write_bytes(b"synthetic untouched target")
     outside.chmod(0o600)

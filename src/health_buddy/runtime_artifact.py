@@ -200,7 +200,9 @@ def _stream_entry(
             digest_or_bytes.extend(chunk)
             if len(digest_or_bytes) > MAX_METADATA:
                 raise ManifestError("artifact_metadata_size_exceeded")
-    return bytes(digest_or_bytes) if digest_or_bytes is not None else b"", digest.hexdigest()
+    return bytes(
+        digest_or_bytes
+    ) if digest_or_bytes is not None else b"", digest.hexdigest()
 
 
 def _read_entries(
@@ -214,7 +216,9 @@ def _read_entries(
     os.lseek(descriptor, 0, os.SEEK_SET)
     with os.fdopen(os.dup(descriptor), "rb") as stream:
         try:
-            archive = tarfile.open(fileobj=stream, mode="r|", encoding="utf-8", errors="strict")
+            archive = tarfile.open(
+                fileobj=stream, mode="r|", encoding="utf-8", errors="strict"
+            )
         except (tarfile.TarError, OSError, UnicodeError) as exc:
             raise ManifestError("invalid_artifact_archive") from exc
         with archive:
@@ -278,9 +282,18 @@ def _config_digest(path: str) -> str:
     return path[:-5]
 
 
-_INDEX_TYPES = {"application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json"}
-_MANIFEST_TYPES = {"application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json"}
-_CONFIG_TYPES = {"application/vnd.oci.image.config.v1+json", "application/vnd.docker.container.image.v1+json"}
+_INDEX_TYPES = {
+    "application/vnd.oci.image.index.v1+json",
+    "application/vnd.docker.distribution.manifest.list.v2+json",
+}
+_MANIFEST_TYPES = {
+    "application/vnd.oci.image.manifest.v1+json",
+    "application/vnd.docker.distribution.manifest.v2+json",
+}
+_CONFIG_TYPES = {
+    "application/vnd.oci.image.config.v1+json",
+    "application/vnd.docker.container.image.v1+json",
+}
 _LAYER_TYPES = {
     "application/vnd.oci.image.layer.v1.tar": False,
     "application/vnd.oci.image.layer.v1.tar+gzip": True,
@@ -299,28 +312,51 @@ def _payload(descriptor: int, member: tarfile.TarInfo, budget: list[int]) -> byt
     return result
 
 
-def _descriptor(value: object, entries: dict[str, tarfile.TarInfo], hashes: dict[str, str]) -> tuple[str, str]:
-    if not isinstance(value, dict) or set(value) - {"mediaType", "digest", "size", "platform", "annotations"}:
+def _descriptor(
+    value: object, entries: dict[str, tarfile.TarInfo], hashes: dict[str, str]
+) -> tuple[str, str]:
+    if not isinstance(value, dict) or set(value) - {
+        "mediaType",
+        "digest",
+        "size",
+        "platform",
+        "annotations",
+    }:
         raise ManifestError("invalid_artifact_descriptor")
     digest, size, media = value.get("digest"), value.get("size"), value.get("mediaType")
     if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         raise ManifestError("invalid_artifact_descriptor")
     name = "blobs/sha256/" + digest[7:]
     entry = entries.get(name)
-    if (type(size) is not int or entry is None or not entry.isfile()
-            or entry.size != size or hashes.get(name) != digest[7:] or not isinstance(media, str)):
+    if (
+        type(size) is not int
+        or entry is None
+        or not entry.isfile()
+        or entry.size != size
+        or hashes.get(name) != digest[7:]
+        or not isinstance(media, str)
+    ):
         raise ManifestError("artifact_descriptor_mismatch")
     if value.get("annotations"):
         raise ManifestError("artifact_name_annotations_refused")
     return name, media
 
 
-def _oci_chain(descriptor: int, entries: dict[str, tarfile.TarInfo], hashes: dict[str, str],
-               config_path: str, layers: list[str], architecture: str, budget: list[int]) -> tuple[tuple[str, ...], list[bool]]:
+def _oci_chain(
+    descriptor: int,
+    entries: dict[str, tarfile.TarInfo],
+    hashes: dict[str, str],
+    config_path: str,
+    layers: list[str],
+    architecture: str,
+    budget: list[int],
+) -> tuple[tuple[str, ...], list[bool]]:
     # Classic saves have no OCI descriptor graph. Blob-shaped saves require one:
     # compressed content digests are not uncompressed rootfs diff IDs.
     if "index.json" not in entries and "oci-layout" not in entries:
-        if config_path.startswith("blobs/") or any(path.startswith("blobs/") for path in layers):
+        if config_path.startswith("blobs/") or any(
+            path.startswith("blobs/") for path in layers
+        ):
             raise ManifestError("artifact_blob_layout_requires_index")
         allowed = {"manifest.json", config_path, *layers}
         for layer in layers:
@@ -330,10 +366,15 @@ def _oci_chain(descriptor: int, entries: dict[str, tarfile.TarInfo], hashes: dic
             if _json_bytes(_payload(descriptor, entries["repositories"], budget)) != {}:
                 raise ManifestError("artifact_repository_tags_refused")
             allowed.add("repositories")
-        if any(entry.isfile() and name not in allowed for name, entry in entries.items()):
+        if any(
+            entry.isfile() and name not in allowed for name, entry in entries.items()
+        ):
             raise ManifestError("unreferenced_artifact_content")
         return (), [False] * len(layers)
-    if not all(name in entries and entries[name].isfile() for name in ("index.json", "oci-layout")):
+    if not all(
+        name in entries and entries[name].isfile()
+        for name in ("index.json", "oci-layout")
+    ):
         raise ManifestError("invalid_artifact_oci_layout")
     layout = _json_bytes(_payload(descriptor, entries["oci-layout"], budget))
     if layout != {"imageLayoutVersion": "1.0.0"}:
@@ -344,9 +385,19 @@ def _oci_chain(descriptor: int, entries: dict[str, tarfile.TarInfo], hashes: dic
     found: list[list[bool]] = []
 
     def visit(node: object, depth: int) -> None:
-        if depth > 8 or len(visited) > 16 or not isinstance(node, dict) or node.get("schemaVersion") != 2:
+        if (
+            depth > 8
+            or len(visited) > 16
+            or not isinstance(node, dict)
+            or node.get("schemaVersion") != 2
+        ):
             raise ManifestError("invalid_artifact_oci_graph")
-        if set(node) - {"schemaVersion", "mediaType", "manifests", "annotations"} or node.get("annotations"):
+        if set(node) - {
+            "schemaVersion",
+            "mediaType",
+            "manifests",
+            "annotations",
+        } or node.get("annotations"):
             raise ManifestError("artifact_name_annotations_refused")
         children = node.get("manifests")
         if not isinstance(children, list) or len(children) != 1:
@@ -359,9 +410,11 @@ def _oci_chain(descriptor: int, entries: dict[str, tarfile.TarInfo], hashes: dic
         assert isinstance(child, dict)
         platform = child.get("platform")
         if platform is not None and (
-            not isinstance(platform, dict) or platform.get("os") != "linux"
+            not isinstance(platform, dict)
+            or platform.get("os") != "linux"
             or platform.get("architecture") != architecture
-            or platform.get("variant") not in (None, "", "v8" if architecture == "arm64" else "")
+            or platform.get("variant")
+            not in (None, "", "v8" if architecture == "arm64" else "")
         ):
             raise ManifestError("artifact_platform_mismatch")
         body = _json_bytes(_payload(descriptor, entries[name], budget))
@@ -369,9 +422,19 @@ def _oci_chain(descriptor: int, entries: dict[str, tarfile.TarInfo], hashes: dic
         if media in _INDEX_TYPES:
             visit(body, depth + 1)
             return
-        if media not in _MANIFEST_TYPES or not isinstance(body, dict) or body.get("schemaVersion") != 2:
+        if (
+            media not in _MANIFEST_TYPES
+            or not isinstance(body, dict)
+            or body.get("schemaVersion") != 2
+        ):
             raise ManifestError("invalid_artifact_oci_manifest")
-        if set(body) - {"schemaVersion", "mediaType", "config", "layers", "annotations"} or body.get("annotations"):
+        if set(body) - {
+            "schemaVersion",
+            "mediaType",
+            "config",
+            "layers",
+            "annotations",
+        } or body.get("annotations"):
             raise ManifestError("unsupported_artifact_oci_manifest")
         selected_config, config_media = _descriptor(body.get("config"), entries, hashes)
         if selected_config != config_path or config_media not in _CONFIG_TYPES:
@@ -390,13 +453,22 @@ def _oci_chain(descriptor: int, entries: dict[str, tarfile.TarInfo], hashes: dic
     visit(root, 0)
     if len(found) != 1:
         raise ManifestError("artifact_requires_single_platform_graph")
-    allowed = {"index.json", "oci-layout", "manifest.json", config_path, *layers, *visited}
+    allowed = {
+        "index.json",
+        "oci-layout",
+        "manifest.json",
+        config_path,
+        *layers,
+        *visited,
+    }
     if any(entry.isfile() and name not in allowed for name, entry in entries.items()):
         raise ManifestError("unreferenced_artifact_content")
     return tuple(ids), found[0]
 
 
-def _diff_id(descriptor: int, member: tarfile.TarInfo, compressed: bool, total: list[int]) -> str:
+def _diff_id(
+    descriptor: int, member: tarfile.TarInfo, compressed: bool, total: list[int]
+) -> str:
     digest = hashlib.sha256()
     remaining, offset, expanded = member.size, member.offset_data, 0
     decoder = zlib.decompressobj(31) if compressed else None
@@ -470,9 +542,18 @@ def verify_docker_archive(
         if not isinstance(manifest, list) or len(manifest) != 1:
             raise ManifestError("invalid_artifact_image_count")
         record = manifest[0]
-        if not isinstance(record, dict) or set(record) - {"Config", "Layers", "RepoTags"} or "Config" not in record or "Layers" not in record:
+        if (
+            not isinstance(record, dict)
+            or set(record) - {"Config", "Layers", "RepoTags"}
+            or "Config" not in record
+            or "Layers" not in record
+        ):
             raise ManifestError("invalid_artifact_manifest")
-        config_path = _image_config_path(record["Config"]) if isinstance(record["Config"], str) else ""
+        config_path = (
+            _image_config_path(record["Config"])
+            if isinstance(record["Config"], str)
+            else ""
+        )
         config_entries, config_payloads, _config_digests = _read_entries(
             descriptor, archive_bytes, capture_paths={config_path}
         )
@@ -506,7 +587,9 @@ def verify_docker_archive(
         if config_sha256 != config_digest:
             raise ManifestError("artifact_config_digest_mismatch")
         config = _json_bytes(config_bytes)
-        if not isinstance(config, dict) or not isinstance(config.get("architecture"), str):
+        if not isinstance(config, dict) or not isinstance(
+            config.get("architecture"), str
+        ):
             raise ManifestError("invalid_artifact_config")
         actual_architecture = config["architecture"]
         if actual_architecture != architecture or config.get("os") != "linux":
@@ -540,11 +623,18 @@ def verify_docker_archive(
                 _sha256_text(value[7:], "invalid_artifact_rootfs")
             )
         validated_diff_ids = tuple(validated_diff_ids_list)
-        layer_digests = tuple(entry_digests.get(layer_path, "") for layer_path in layer_paths)
+        layer_digests = tuple(
+            entry_digests.get(layer_path, "") for layer_path in layer_paths
+        )
         if any(not SHA256.fullmatch(value) for value in layer_digests):
             raise ManifestError("invalid_artifact_layer")
         graph_ids, compressed = _oci_chain(
-            descriptor, entries, entry_digests, config_path, layer_paths, architecture,
+            descriptor,
+            entries,
+            entry_digests,
+            config_path,
+            layer_paths,
+            architecture,
             [len(manifest_bytes) + len(config_bytes)],
         )
         expanded_total = [0]
@@ -560,7 +650,9 @@ def verify_docker_archive(
         loader_ids = tuple(dict.fromkeys((*graph_ids, "sha256:" + config_digest)))
         final = os.fstat(descriptor)
         current = path.lstat()
-        if _stable_fields(before) != _stable_fields(final) or _stable_fields(final) != _stable_fields(current):
+        if _stable_fields(before) != _stable_fields(final) or _stable_fields(
+            final
+        ) != _stable_fields(current):
             raise ManifestError("artifact_changed")
         final_bytes, final_sha256 = _hash_fd(descriptor, MAX_ARCHIVE_BYTES)
         if final_bytes != archive_bytes or final_sha256 != archive_sha256:
@@ -577,7 +669,15 @@ def verify_docker_archive(
             layer_digests,
             validated_diff_ids,
         )
-    except (KeyError, TypeError, RecursionError, tarfile.TarError, OSError, UnicodeError, zlib.error) as exc:
+    except (
+        KeyError,
+        TypeError,
+        RecursionError,
+        tarfile.TarError,
+        OSError,
+        UnicodeError,
+        zlib.error,
+    ) as exc:
         if isinstance(exc, ManifestError):
             raise
         raise ManifestError("invalid_artifact_archive") from exc

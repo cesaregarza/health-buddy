@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Explicit source, pinned-input and Docker-archive packaging operations."""
+
 from __future__ import annotations
 
 import argparse
@@ -68,16 +69,42 @@ def main() -> int:
         elif args.command == "context":
             create_context(args.bundle, args.downloads, args.architecture, args.output)
         elif args.command == "verify-image":
-            print(json.dumps(asdict(inspect_image(args.bundle, args.archive, args.architecture)), sort_keys=True))
+            print(
+                json.dumps(
+                    asdict(inspect_image(args.bundle, args.archive, args.architecture)),
+                    sort_keys=True,
+                )
+            )
             return 0
         elif args.command == "manifest":
             create_release(args.bundle, args.artifacts)
         elif args.command == "load":
-            load_release(args.manifest, args.architecture, args.workspace, args.output_env, docker=args.docker, uid=args.uid, gid=args.gid)
-    except (ManifestError, OSError, ValueError, KeyError, TypeError, RecursionError, subprocess.SubprocessError):
-        print("runtime_packaging_failed; preserve inputs and inspect selected artifact evidence", file=sys.stderr)
+            load_release(
+                args.manifest,
+                args.architecture,
+                args.workspace,
+                args.output_env,
+                docker=args.docker,
+                uid=args.uid,
+                gid=args.gid,
+            )
+    except (
+        ManifestError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        RecursionError,
+        subprocess.SubprocessError,
+    ):
+        print(
+            "runtime_packaging_failed; preserve inputs and inspect selected artifact evidence",
+            file=sys.stderr,
+        )
         return 1
-    print("runtime packaging operation completed; publication and qualification remain separate")
+    print(
+        "runtime packaging operation completed; publication and qualification remain separate"
+    )
     return 0
 
 

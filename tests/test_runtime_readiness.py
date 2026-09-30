@@ -142,10 +142,12 @@ async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(
     runtime, _owner, token = secured(tmp_path / "workspace")
     app = create_app(runtime=runtime)
     assert (await exchange(app, target="/livez", origin=None))[:2] == (
-        200, b'{"status":"ok"}'
+        200,
+        b'{"status":"ok"}',
     )
     assert (await exchange(app, target="/readyz", origin=None))[:2] == (
-        200, b'{"status":"ready"}'
+        200,
+        b'{"status":"ready"}',
     )
     runtime.operations.config.path("security/epoch.json").unlink()
     status, body, headers = await exchange(app, target="/readyz", origin=None)
@@ -153,7 +155,8 @@ async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(
     assert token.encode() not in body
     assert headers[b"cache-control"] == b"no-store"
     assert (await exchange(app, target="/livez", origin=None))[:2] == (
-        200, b'{"status":"ok"}'
+        200,
+        b'{"status":"ok"}',
     )
     assert (
         await exchange(
@@ -163,9 +166,9 @@ async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(
             extra=((b"host", b"attacker.invalid"),),
         )
     )[0] == 400
-    assert (
-        await exchange(app, target="/readyz", origin="https://attacker.invalid")
-    )[0] == 403
+    assert (await exchange(app, target="/readyz", origin="https://attacker.invalid"))[
+        0
+    ] == 403
 
 
 async def test_missing_or_safe_failed_callback_is_not_ready(tmp_path: Path) -> None:

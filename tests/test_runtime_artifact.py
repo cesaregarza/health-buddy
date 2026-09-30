@@ -27,7 +27,9 @@ LABELS = {
 }
 
 
-def _entry(archive: tarfile.TarFile, name: str, data: bytes, kind: bytes = tarfile.REGTYPE) -> None:
+def _entry(
+    archive: tarfile.TarFile, name: str, data: bytes, kind: bytes = tarfile.REGTYPE
+) -> None:
     info = tarfile.TarInfo(name)
     info.type = kind
     info.size = len(data) if kind == tarfile.REGTYPE else 0
@@ -55,7 +57,11 @@ def make_archive(
     extra_entries: tuple[tuple[str, bytes, bytes], ...] = (),
 ) -> tuple[str, tuple[str, ...]]:
     layer_ids = tuple(hashlib.sha256(layer).hexdigest() for layer in layers)
-    stored_layers = tuple(gzip.compress(layer, mtime=0) for layer in layers) if compressed else layers
+    stored_layers = (
+        tuple(gzip.compress(layer, mtime=0) for layer in layers)
+        if compressed
+        else layers
+    )
     stored_ids = tuple(hashlib.sha256(layer).hexdigest() for layer in stored_layers)
     layer_paths = tuple(
         f"blobs/sha256/{digest}" if modern_blobs else f"layer-{index}/layer.tar"
@@ -65,7 +71,10 @@ def make_archive(
         "architecture": architecture,
         "os": "linux",
         "config": {"Labels": dict(LABELS)},
-        "rootfs": {"type": "layers", "diff_ids": [f"sha256:{value}" for value in layer_ids]},
+        "rootfs": {
+            "type": "layers",
+            "diff_ids": [f"sha256:{value}" for value in layer_ids],
+        },
     }
     if config_override:
         config.update(config_override)
@@ -76,30 +85,62 @@ def make_archive(
         if modern_blobs
         else f"{config_id_override or image_id}.json"
     )
-    manifest = manifest_override or [{
-        "Config": config_path,
-        "RepoTags": None,
-        "Layers": list(reversed(layer_paths) if reverse_manifest_layers else layer_paths),
-    }]
-    manifest_bytes = manifest_raw_override or json.dumps(manifest, separators=(",", ":")).encode()
-    with path.open("wb") as output, tarfile.open(fileobj=output, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+    manifest = manifest_override or [
+        {
+            "Config": config_path,
+            "RepoTags": None,
+            "Layers": list(
+                reversed(layer_paths) if reverse_manifest_layers else layer_paths
+            ),
+        }
+    ]
+    manifest_bytes = (
+        manifest_raw_override or json.dumps(manifest, separators=(",", ":")).encode()
+    )
+    with (
+        path.open("wb") as output,
+        tarfile.open(fileobj=output, mode="w", format=tarfile.USTAR_FORMAT) as archive,
+    ):
         _entry(archive, "manifest.json", manifest_bytes)
         _entry(archive, config_path, config_bytes)
         if modern_blobs:
             body = {
                 "schemaVersion": 2,
                 "mediaType": "application/vnd.oci.image.manifest.v1+json",
-                "config": {"mediaType": "application/vnd.oci.image.config.v1+json", "digest": "sha256:" + image_id, "size": len(config_bytes)},
-                "layers": [{"mediaType": "application/vnd.oci.image.layer.v1.tar" + ("+gzip" if compressed else ""), "digest": "sha256:" + digest, "size": len(layer)} for digest, layer in zip(stored_ids, stored_layers, strict=True)],
+                "config": {
+                    "mediaType": "application/vnd.oci.image.config.v1+json",
+                    "digest": "sha256:" + image_id,
+                    "size": len(config_bytes),
+                },
+                "layers": [
+                    {
+                        "mediaType": "application/vnd.oci.image.layer.v1.tar"
+                        + ("+gzip" if compressed else ""),
+                        "digest": "sha256:" + digest,
+                        "size": len(layer),
+                    }
+                    for digest, layer in zip(stored_ids, stored_layers, strict=True)
+                ],
             }
             if oci_override:
                 body.update(oci_override)
             raw = json.dumps(body, separators=(",", ":")).encode()
-            descriptor = {"mediaType": body["mediaType"], "digest": "sha256:" + hashlib.sha256(raw).hexdigest(), "size": len(raw), "platform": {"os": "linux", "architecture": architecture}}
+            descriptor = {
+                "mediaType": body["mediaType"],
+                "digest": "sha256:" + hashlib.sha256(raw).hexdigest(),
+                "size": len(raw),
+                "platform": {"os": "linux", "architecture": architecture},
+            }
             if index_annotation:
-                descriptor["annotations"] = {"org.opencontainers.image.ref.name": "unrelated:latest"}
+                descriptor["annotations"] = {
+                    "org.opencontainers.image.ref.name": "unrelated:latest"
+                }
             _entry(archive, "blobs/sha256/" + hashlib.sha256(raw).hexdigest(), raw)
-            _entry(archive, "index.json", json.dumps({"schemaVersion": 2, "manifests": [descriptor]}).encode())
+            _entry(
+                archive,
+                "index.json",
+                json.dumps({"schemaVersion": 2, "manifests": [descriptor]}).encode(),
+            )
             _entry(archive, "oci-layout", b'{"imageLayoutVersion":"1.0.0"}')
         actual_layers = layer_content_override or stored_layers
         for layer_path, layer in zip(layer_paths, actual_layers, strict=True):
@@ -125,7 +166,9 @@ def test_inspects_single_docker_image_and_ordered_uncompressed_layers(
     tmp_path: Path, architecture: str
 ) -> None:
     path = tmp_path / "image.tar"
-    image_id, layer_ids = make_archive(path, architecture=architecture, layers=(b"first", b"second"))
+    image_id, layer_ids = make_archive(
+        path, architecture=architecture, layers=(b"first", b"second")
+    )
     result = inspect(path, architecture)
     assert result.architecture == architecture
     assert result.config_digest == "sha256:" + image_id
@@ -138,7 +181,11 @@ def test_inspects_single_docker_image_and_ordered_uncompressed_layers(
     ("kwargs", "extra", "error"),
     [
         ({"architecture": "arm64"}, (), "artifact_platform_mismatch"),
-        ({"config_override": {"config": {"Labels": {}}}}, (), "artifact_label_mismatch"),
+        (
+            {"config_override": {"config": {"Labels": {}}}},
+            (),
+            "artifact_label_mismatch",
+        ),
         ({}, (("unused/link", b"", tarfile.SYMTYPE),), "unsupported_artifact_entry"),
         ({}, (("unused/device", b"", tarfile.CHRTYPE),), "unsupported_artifact_entry"),
         ({}, (("../escape", b"bad", tarfile.REGTYPE),), "invalid_artifact_path"),
@@ -162,7 +209,12 @@ def test_rejects_multiple_images_and_missing_layer(tmp_path: Path) -> None:
     make_archive(path, manifest_override=[{}, {}])
     with pytest.raises(ManifestError, match="invalid_artifact_image_count"):
         inspect(path)
-    make_archive(path, manifest_override=[{"Config": "0" * 64 + ".json", "Layers": ["missing/layer.tar"]}])
+    make_archive(
+        path,
+        manifest_override=[
+            {"Config": "0" * 64 + ".json", "Layers": ["missing/layer.tar"]}
+        ],
+    )
     with pytest.raises(ManifestError, match="missing_artifact_layer"):
         inspect(path)
 
@@ -200,7 +252,9 @@ def test_rejects_malformed_json_and_duplicate_manifest_fields(tmp_path: Path) ->
         inspect(path)
 
 
-def test_rejects_config_filename_digest_and_layer_order_mismatch(tmp_path: Path) -> None:
+def test_rejects_config_filename_digest_and_layer_order_mismatch(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "image.tar"
     make_archive(path, config_id_override="0" * 64)
     with pytest.raises(ManifestError, match="artifact_config_digest_mismatch"):
@@ -233,9 +287,13 @@ def test_small_archive_and_entry_bounds_fail_without_large_allocations(
         inspect(path)
 
 
-def test_compressed_blob_hash_is_distinct_from_uncompressed_rootfs(tmp_path: Path) -> None:
+def test_compressed_blob_hash_is_distinct_from_uncompressed_rootfs(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "compressed.tar"
-    config_id, diff_ids = make_archive(path, modern_blobs=True, compressed=True, layers=(b"synthetic" * 2000,))
+    config_id, diff_ids = make_archive(
+        path, modern_blobs=True, compressed=True, layers=(b"synthetic" * 2000,)
+    )
     result = inspect(path)
     assert result.config_digest == "sha256:" + config_id
     assert result.diff_ids == diff_ids
@@ -244,19 +302,37 @@ def test_compressed_blob_hash_is_distinct_from_uncompressed_rootfs(tmp_path: Pat
     assert len(result.loader_ids) == 2
 
 
-@pytest.mark.parametrize("kwargs", [
-    {"index_annotation": True, "modern_blobs": True},
-    {"manifest_override": [{"Config": "0" * 64 + ".json", "Layers": [], "RepoTags": ["unrelated:latest"]}]},
-    {"modern_blobs": True, "oci_override": {"subject": {"digest": "sha256:" + "0" * 64}}},
-])
-def test_loader_actions_from_tags_annotations_or_referrers_are_refused(tmp_path: Path, kwargs) -> None:
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"index_annotation": True, "modern_blobs": True},
+        {
+            "manifest_override": [
+                {
+                    "Config": "0" * 64 + ".json",
+                    "Layers": [],
+                    "RepoTags": ["unrelated:latest"],
+                }
+            ]
+        },
+        {
+            "modern_blobs": True,
+            "oci_override": {"subject": {"digest": "sha256:" + "0" * 64}},
+        },
+    ],
+)
+def test_loader_actions_from_tags_annotations_or_referrers_are_refused(
+    tmp_path: Path, kwargs
+) -> None:
     path = tmp_path / "tagged.tar"
     make_archive(path, **kwargs)
     with pytest.raises(ManifestError):
         inspect(path)
 
 
-def test_expansion_limit_and_mismatched_oci_graph_fail_before_load(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expansion_limit_and_mismatched_oci_graph_fail_before_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = tmp_path / "expanded.tar"
     make_archive(path, modern_blobs=True, compressed=True, layers=(b"x" * 4096,))
     monkeypatch.setattr(runtime_artifact, "MAX_UNCOMPRESSED_LAYER", 1024)

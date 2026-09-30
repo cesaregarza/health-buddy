@@ -19,7 +19,13 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, cast
 
-from .runtime_manifest import SHA256, ManifestError, _json, file_digest, native_directory
+from .runtime_manifest import (
+    SHA256,
+    ManifestError,
+    _json,
+    file_digest,
+    native_directory,
+)
 
 ARCHES = {"amd64", "arm64"}
 MAX_INPUT_BYTES = 128 * 1024 * 1024
@@ -66,7 +72,10 @@ def _url(value: object, kind: str) -> str:
     parts = urllib.parse.urlsplit(value)
     host = "files.pythonhosted.org" if kind == "wheels" else "snapshot.debian.org"
     if (
-        parts.scheme != "https" or parts.netloc != host or parts.query or parts.fragment
+        parts.scheme != "https"
+        or parts.netloc != host
+        or parts.query
+        or parts.fragment
         or not parts.path.startswith("/packages/" if kind == "wheels" else "/archive/")
         or any(ord(char) < 33 or ord(char) > 126 for char in value)
     ):
@@ -77,11 +86,19 @@ def _url(value: object, kind: str) -> str:
 def load_inputs(path: Path, architecture: str) -> PlatformInputs:
     if architecture not in ARCHES:
         raise ManifestError("unsupported_runtime_architecture")
-    root = _object(_json(path), {
-        "lockVersion", "pythonVersion", "baseIndex", "debianSnapshot", "platforms",
-    })
+    root = _object(
+        _json(path),
+        {
+            "lockVersion",
+            "pythonVersion",
+            "baseIndex",
+            "debianSnapshot",
+            "platforms",
+        },
+    )
     if (
-        type(root["lockVersion"]) is not int or root["lockVersion"] != 1
+        type(root["lockVersion"]) is not int
+        or root["lockVersion"] != 1
         or root["pythonVersion"] != "3.12.14"
         or not isinstance(root["baseIndex"], str)
         or not DIGEST.fullmatch(root["baseIndex"])
@@ -89,16 +106,24 @@ def load_inputs(path: Path, architecture: str) -> PlatformInputs:
     ):
         raise ManifestError("unsupported_input_lock")
     platforms = _object(root["platforms"], ARCHES)
-    selected = _object(platforms[architecture], {
-        "baseImage", "baseConfig", "baseCompressedBytes", "wheels", "debs",
-    })
+    selected = _object(
+        platforms[architecture],
+        {
+            "baseImage",
+            "baseConfig",
+            "baseCompressedBytes",
+            "wheels",
+            "debs",
+        },
+    )
     base = selected["baseImage"]
     config = selected["baseConfig"]
     base_size = selected["baseCompressedBytes"]
     if (
         not isinstance(base, str)
         or not re.fullmatch(r"docker\.io/library/python@sha256:[0-9a-f]{64}", base)
-        or not isinstance(config, str) or not DIGEST.fullmatch(config)
+        or not isinstance(config, str)
+        or not DIGEST.fullmatch(config)
         or type(base_size) is not int
         or not 0 < base_size < MAX_INPUT_BYTES
     ):
@@ -114,15 +139,26 @@ def load_inputs(path: Path, architecture: str) -> PlatformInputs:
         for item in items:
             keys = {"name", "version", "filename", "url", "bytes", "sha256"}
             if kind == "debs":
-                keys |= {"architecture", "installedBytes", "source", "suite", "metadataSha256"}
+                keys |= {
+                    "architecture",
+                    "installedBytes",
+                    "source",
+                    "suite",
+                    "metadataSha256",
+                }
             record = _object(item, keys)
-            name, version, filename = (_text(record[key]) for key in ("name", "version", "filename"))
+            name, version, filename = (
+                _text(record[key]) for key in ("name", "version", "filename")
+            )
             digest, size = record["sha256"], record["bytes"]
             if (
-                not isinstance(digest, str) or not SHA256.fullmatch(digest)
-                or type(size) is not int or not 0 < size <= 32 * 1024 * 1024
+                not isinstance(digest, str)
+                or not SHA256.fullmatch(digest)
+                or type(size) is not int
+                or not 0 < size <= 32 * 1024 * 1024
                 or not filename.endswith(".whl" if kind == "wheels" else ".deb")
-                or (kind, name) in names or filename in filenames
+                or (kind, name) in names
+                or filename in filenames
             ):
                 raise ManifestError("invalid_input_file")
             installed_size = record.get("installedBytes")
@@ -138,7 +174,17 @@ def load_inputs(path: Path, architecture: str) -> PlatformInputs:
             names.add((kind, name))
             filenames.add(filename)
             total += size
-            result.append(InputFile(name, version, filename, _url(record["url"], kind), size, digest, kind))
+            result.append(
+                InputFile(
+                    name,
+                    version,
+                    filename,
+                    _url(record["url"], kind),
+                    size,
+                    digest,
+                    kind,
+                )
+            )
     if total > MAX_INPUT_BYTES:
         raise ManifestError("input_bytes_exceeded")
     return PlatformInputs(architecture, base, config, tuple(result))
@@ -147,28 +193,42 @@ def load_inputs(path: Path, architecture: str) -> PlatformInputs:
 def verify_inputs(inputs: PlatformInputs, directory: Path) -> None:
     native_directory(directory)
     for item in inputs.files:
-        if file_digest(directory / item.filename, item.size) != (item.size, item.sha256):
+        if file_digest(directory / item.filename, item.size) != (
+            item.size,
+            item.sha256,
+        ):
             raise ManifestError("runtime_input_hash_mismatch")
 
 
 class _Redirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(
-        self, req: urllib.request.Request, fp: IO[bytes], code: int,
-        msg: str, headers: HTTPMessage, newurl: str,
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
     ) -> urllib.request.Request | None:
         old = urllib.parse.urlsplit(req.full_url)
         new = urllib.parse.urlsplit(newurl)
         if (
-            len(newurl) > 2048 or new.scheme != "https" or new.netloc != old.netloc
-            or new.fragment or any(ord(char) < 33 or ord(char) > 126 for char in newurl)
+            len(newurl) > 2048
+            or new.scheme != "https"
+            or new.netloc != old.netloc
+            or new.fragment
+            or any(ord(char) < 33 or ord(char) > 126 for char in newurl)
         ):
             raise ManifestError("runtime_input_redirect_refused")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
-
     def http_error_302(
-        self, req: urllib.request.Request, fp: IO[bytes], code: int,
-        msg: str, headers: HTTPMessage,
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
     ) -> IO[bytes]:
         # CPython's handler otherwise drains fp.read() without a size bound.
         # Close the original response and give only an empty body to its existing
@@ -177,7 +237,9 @@ class _Redirect(urllib.request.HTTPRedirectHandler):
         fp.close()
         empty = io.BytesIO()
         try:
-            return cast(IO[bytes], super().http_error_302(req, empty, code, msg, headers))
+            return cast(
+                IO[bytes], super().http_error_302(req, empty, code, msg, headers)
+            )
         finally:
             empty.close()
 
@@ -204,11 +266,17 @@ def _download_inputs(inputs: PlatformInputs, directory: Path) -> None:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ManifestError("runtime_input_download_timeout")
-        request = urllib.request.Request(item.url, headers={"Accept-Encoding": "identity"})
+        request = urllib.request.Request(
+            item.url, headers={"Accept-Encoding": "identity"}
+        )
         digest = hashlib.sha256()
         total = 0
         with opener.open(request, timeout=min(20, remaining)) as response:
-            fd = os.open(directory / item.filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            fd = os.open(
+                directory / item.filename,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+            )
             with os.fdopen(fd, "wb") as output:
                 while True:
                     if time.monotonic() >= deadline:
@@ -231,10 +299,19 @@ def _download_inputs(inputs: PlatformInputs, directory: Path) -> None:
 def _wire_inputs(value: object) -> PlatformInputs:
     """Finite stdin DTO; the worker accepts no executable or resolver choice."""
     root = _object(value, {"architecture", "base_image", "base_config", "files"})
-    architecture, base, config = root["architecture"], root["base_image"], root["base_config"]
-    if (not isinstance(architecture, str) or architecture not in ARCHES
-            or not isinstance(base, str) or not re.fullmatch(r"docker\.io/library/python@sha256:[0-9a-f]{64}", base)
-            or not isinstance(config, str) or not DIGEST.fullmatch(config)):
+    architecture, base, config = (
+        root["architecture"],
+        root["base_image"],
+        root["base_config"],
+    )
+    if (
+        not isinstance(architecture, str)
+        or architecture not in ARCHES
+        or not isinstance(base, str)
+        or not re.fullmatch(r"docker\.io/library/python@sha256:[0-9a-f]{64}", base)
+        or not isinstance(config, str)
+        or not DIGEST.fullmatch(config)
+    ):
         raise ManifestError("invalid_input_worker_request")
     records = root["files"]
     if not isinstance(records, list) or not 1 <= len(records) <= 128:
@@ -244,16 +321,30 @@ def _wire_inputs(value: object) -> PlatformInputs:
     names: set[tuple[str, str]] = set()
     total = 0
     for value in records:
-        item = _object(value, {"name", "version", "filename", "url", "size", "sha256", "kind"})
-        name, version, filename = (_text(item[key]) for key in ("name", "version", "filename"))
+        item = _object(
+            value, {"name", "version", "filename", "url", "size", "sha256", "kind"}
+        )
+        name, version, filename = (
+            _text(item[key]) for key in ("name", "version", "filename")
+        )
         kind, size, digest = item["kind"], item["size"], item["sha256"]
-        if (not isinstance(kind, str) or kind not in {"wheels", "debs"}
-                or type(size) is not int or not 0 < size <= 32 * 1024**2
-                or not isinstance(digest, str) or not SHA256.fullmatch(digest)
-                or not filename.endswith(".whl" if kind == "wheels" else ".deb")
-                or filename in filenames or (kind, name) in names):
+        if (
+            not isinstance(kind, str)
+            or kind not in {"wheels", "debs"}
+            or type(size) is not int
+            or not 0 < size <= 32 * 1024**2
+            or not isinstance(digest, str)
+            or not SHA256.fullmatch(digest)
+            or not filename.endswith(".whl" if kind == "wheels" else ".deb")
+            or filename in filenames
+            or (kind, name) in names
+        ):
             raise ManifestError("invalid_input_worker_request")
-        result.append(InputFile(name, version, filename, _url(item["url"], kind), size, digest, kind))
+        result.append(
+            InputFile(
+                name, version, filename, _url(item["url"], kind), size, digest, kind
+            )
+        )
         filenames.add(filename)
         names.add((kind, name))
         total += size
@@ -262,7 +353,9 @@ def _wire_inputs(value: object) -> PlatformInputs:
     return PlatformInputs(architecture, base, config, tuple(result))
 
 
-def fetch_inputs(inputs: PlatformInputs, directory: Path, *, timeout: float = FETCH_SECONDS) -> None:
+def fetch_inputs(
+    inputs: PlatformInputs, directory: Path, *, timeout: float = FETCH_SECONDS
+) -> None:
     """An owned isolated worker gives the entire fetch a cancellable deadline.
 
     Header/redirect/chunk parsing is inside the child, including before its first
@@ -277,15 +370,20 @@ def fetch_inputs(inputs: PlatformInputs, directory: Path, *, timeout: float = FE
     # before process creation, and independently again at the child boundary.
     value = json.loads(json.dumps(asdict(inputs)))
     _wire_inputs(value)
-    raw = json.dumps({"directory": str(directory), "inputs": value}, separators=(",", ":")).encode("ascii")
+    raw = json.dumps(
+        {"directory": str(directory), "inputs": value}, separators=(",", ":")
+    ).encode("ascii")
     if len(raw) > 262144:
         raise ManifestError("input_worker_request_limit")
     deadline = time.monotonic() + timeout
     with tempfile.TemporaryFile() as output:
         process = subprocess.Popen(  # noqa: S603 - Fixed maintained isolated worker, finite stdin DTO.
             [sys.executable, "-I", "-B", str(_WORKER)],
-            stdin=subprocess.PIPE, stdout=output, stderr=subprocess.DEVNULL,
-            env={"LANG": "C.UTF-8"}, start_new_session=True,
+            stdin=subprocess.PIPE,
+            stdout=output,
+            stderr=subprocess.DEVNULL,
+            env={"LANG": "C.UTF-8"},
+            start_new_session=True,
         )
         expired = False
         try:
