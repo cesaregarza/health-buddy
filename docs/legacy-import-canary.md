@@ -73,7 +73,8 @@ arbitrary running legacy service. Exact-repeat, destination preservation and
 redacted receipt rules are the same for both explicit snapshot families.
 
 The `manual-canary` family composes the already validated measurement and
-workout snapshots with the current 16-column retained intake CSV, one retained
+workout snapshots with the current 16-column retained intake CSV or its known
+pre-sodium header, one retained
 schema-2 plan and a finite reviewed preference mapping. Its combined limit is
 1,000 records and 4 MiB, including embedded input snapshots. Each of the five
 inputs requires its separately reviewed SHA256. No source directories, Git
@@ -85,13 +86,13 @@ An explicit supported IANA timezone is required: date-only workout observations
 use that selected zone. Earlier standalone workout imports retain their documented
 UTC behavior. Security, credentials, absolute legacy storage paths, optional
 integrations and arbitrary legacy preferences are not accepted. All optional
-integrations and AI stay disabled in the new workspace.
+integrations and AI stay disabled in this manual-only workspace.
 
 The retained plan passes the supported plan validator and is stored in its
 existing schema-2 format; unsupported fields, schemas and references are refused
 before publication. Current intake fields pass the retained intake validator.
-The historical pre-sodium intake header is outside this slice; it must be reviewed
-through its existing missing-field normalization before being included.
+The known historical pre-sodium header uses the existing adoption normalization;
+added sodium remains empty/unknown. Other header drift is refused.
 
 ```json
 {"schemaVersion":1,"displayName":"Synthetic canary","timezone":"America/Chicago","goals":[],"equipment":[]}
@@ -123,10 +124,14 @@ is explicitly **unverified**: this helper never reads Git history. New canonical
 revision zero is a bootstrap revision, not the old Git revision. A changed portable
 preference file blocks exact repeat rather than overwriting owner changes.
 
-Remaining CES-1081 scope includes other manual record families, historical intake
-normalization, HealthKit and connector stores, device replay, richer reconciliation
-and full reversible-canary qualification. None is claimed by these retained-record
-tracers, and no real source, private Git history or actual cutover was exercised.
+Separate adapters below cover retained HealthKit records/tombstones and device
+acknowledgement replay. The unified canary composes those inputs with the reviewed
+SleepIQ nightly export, historical intake normalization, redacted reconciliation
+and a separate encrypted-backup readiness guard. Remaining parent CES-1081 gates
+include other unsupported manual/connector forms, actual legacy deployment backup
+before any live cutover, real phone identity/checkpoint/epoch qualification,
+upstream connector synchronization and an explicitly authorized live canary or
+cutover. Synthetic source coverage does not supply that external evidence.
 
 ## Synthetic legacy receiver data tracer
 
