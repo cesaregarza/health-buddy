@@ -68,9 +68,15 @@ request is in flight; replay reconciles its outcome after restore. Missing clien
 state is not permission to fabricate replacement keys for uncertain writes.
 
 The separate optional `health-buddy-mcp` entrypoint supplies finite tools and
-bounded private HTTP/stdio adapters. The repaired D2 queue run at ab9d3853 passed
-112 cases plus lint and configured type checking. Its one remaining failure
-exposed source-status grouping during the fresh-session scenario; that later
-path and the grouping repair need an exact subsequent receipt. Full configured verification, complete bundled
-dependency notices and actual host-client qualification remain separate gates.
-See [fresh-session and native customization guidance](mcp-adapter.md).
+bounded private HTTP/stdio adapters. The focused `3b0ad738` queue receipt passed
+156 cases with no skips, maintained lint and configured type checking, including
+the repaired source grouping and complete fresh-session scenario. The separate
+`9285342` supplement passed the actual SDK/canonical stale-plan CAS regression
+and its file lint/diff checks. These are exact parent-checkpoint observations;
+full final-source and artifact verification remained outstanding there.
+
+[Dependency evidence](mcp-dependencies.md) now records the 29 selected runtime
+wheels and exact retained notice/declaration texts. Its all-target, linkage and
+image qualification limits remain explicit. Full regression, package and
+installed-entrypoint receipts, and actual host-client qualification are separate
+gates. See [fresh-session and native customization guidance](mcp-adapter.md).

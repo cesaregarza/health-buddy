@@ -134,17 +134,22 @@ session rediscovers the currently admitted ready descriptor; it must not reuse
 old extension metadata after a native edit or assume omitted extensions exist.
 Broader host-specific scaffold/agent guidance remains a separate deliverable.
 
-Observed diagnostics at `ab9d3853` passed 112 of 113 focused cases, maintained
-lint and full configured type checking. Those cases include actual SDK
-processes over a synthetic HTTPS proxy, Granian UDS, the security authority and
-canonical service, plus cancellation, retry capacity and malformed-frame
-regressions. The remaining fresh-session test exposed a source-status grouping
-bug before its later native customization assertions ran. The source now keeps
-rendered status separate from admitted component metadata and limits the
-HealthKit group to actual HealthKit components. New canonical scope regressions
-and the full fresh-session path need the next exact queue receipt.
-Full verification uses `.[dev,sleepiq,mcp]`, `make test lint typecheck`, and the
-remaining documented gates. Complete bundled dependency notices remain pending;
-declared wheel licenses alone do not establish them. The synthetic proxy does
-not qualify a Tailscale deployment or actual Codex/Claude host setup. Neither
-focused tests nor wheel metadata substitute for those remaining gates.
+The focused queue run at `3b0ad738` passed 156 cases with no skips, maintained
+lint and full configured type checking. This included the repaired source-status
+grouping, the complete fresh-session/native customization scenario, actual SDK
+processes over a synthetic HTTPS proxy and Granian UDS, and canonical
+cancellation/retry/framing regressions. The separate `9285342` supplement passed
+one actual SDK plan-proposal test: a concurrent canonical write makes apply and
+retry reject the stale CAS while preserving the original proposal and envelope.
+Its file lint and diff checks also passed. These receipts apply to those exact
+checkpoints; they are not a full final-artifact verification claim.
+
+The current [dependency collection](mcp-dependencies.md) records the exact 29
+selected runtime wheels and preserved legal/declaration texts, with explicit
+source-to-binary and platform limits. Declared wheel notices or source collection
+alone do not establish complete binary legal compliance. Full verification uses
+`.[dev,sleepiq,mcp]`, `make test lint typecheck`, and the remaining documented
+contract, dashboard, browser, package, installed-entrypoint and privacy gates.
+The exact full-artifact receipt remained outstanding at the focused checkpoints
+above. A synthetic proxy does not qualify a deployed Tailscale proxy or actual
+Codex/Claude host setup; those remain separate acceptance gates.
