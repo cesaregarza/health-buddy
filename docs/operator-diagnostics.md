@@ -14,15 +14,17 @@ health-buddy --workspace "$WORKSPACE" support-bundle > "$PRIVATE_SUPPORT_FILE"
 credential and then omits capabilities, source status and pending-write state.
 JSON schema version 1 carries stable diagnostic codes and bounded recovery text;
 exit 2 means an error, exit 0 may include warnings or unknowns. The check timestamp
-is when diagnostics ran, not a successful phone sync. Package version is installed
-metadata when available; source archives report unknown, and no release artifact
+is when diagnostics ran, not a successful phone sync. Package version uses installed
+metadata, existing verified source-manifest identity, or the maintained source
+version declaration, with explicit `versionEvidence`. No release artifact
 or qualification is invented. API and extension API versions are contract facts.
 Storage presence/free space is not an integrity check or backup receipt.
 
 Source facts come from caller-scoped `projection.status`, including availability,
 freshness, missingness and measured last success. `source_empty` means no measured
 observations; a fresh empty receipt remains distinct from stale, unknown or failed
-sync. `source_failed`, `source_stale` and `projection_stale` must be resolved before
+sync. `source_failed` produces an error/nonzero result. `source_stale` and
+`projection_stale` remain explicit warnings; these must be resolved before
 claiming current results. Phone offline and partial HealthKit read permissions
 cannot be inferred by this receiver: `phone_unknown` requests the companion's
 report, and empty HealthKit reads do not prove denied permission. An unavailable
@@ -47,7 +49,9 @@ submit its declared synthetic tests through the supported verification workflow
 After deliberate repair use `extension enable` with explicit sources, or
 `extension revert --id ID --review DIGEST` to select a retained reviewed snapshot.
 These commands preserve personal editable files and authoritative state. Runtime
-worker failures retain one latest safe code/timestamp in the extension state. No
+worker failures retain one latest safe code/timestamp per extension in the
+host-owned `operations/operator-diagnostics/` namespace, leaving extension-owned
+state untouched. No
 payload, exception text or credential is saved. Absence reports unknown, never
 proof of success; retention failures preserve the original worker error. A compatible manifest does not prove execution
 success, and a broken extension does not make cached output current.

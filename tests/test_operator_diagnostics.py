@@ -81,6 +81,9 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
 
     app = App.development(tmp_path / "owner")
     install(app.config, Path(str(files("health_buddy").joinpath("reference_extensions/local.weekly-mass"))))
+    sentinel = app.config.root / "personal/extensions/local.weekly-mass/state/operator-failure.json"
+    sentinel.write_text("extension-owned sentinel")
+    sentinel.chmod(0o600)
     private = "Bearer synthetic-failure-token body-mass=123.456"
     before = (app.config.root / "personal/extensions/local.weekly-mass/src/metric.py").read_bytes()
     with patch("health_buddy.extension_diagnostics.call", side_effect=ServiceError(503, "extension_timeout")):
@@ -89,6 +92,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
     value = report(app.config.root)
     raw = json.dumps(value)
     assert private not in raw
+    assert sentinel.read_text() == "extension-owned sentinel"
     assert "extension_unavailable" in codes(value)
     assert recent_failure(app.config, "local.weekly-mass")["code"] == "extension_timeout"
     from health_buddy.extension_registry import Registry
@@ -123,3 +127,43 @@ def test_partial_application_permissions_have_distinct_code(tmp_path):
         value = report(app.config.root, app=app)
     assert "authorization_partial" in codes(value)
     assert value["sources"] is None
+
+
+
+def test_failed_source_is_error_and_status_returns_nonzero(tmp_path, capsys):
+    app = App.development(tmp_path / "owner")
+    path = app.config.root / "config.json"
+    settings = json.loads(path.read_text())
+    settings["integrations"]["healthkit"]["enabled"] = True
+    path.write_text(json.dumps(settings))
+    source = {"state": "partial", "sources": {"healthkit": {
+        "availability": "unavailable", "freshness": "unknown", "missingness": "source_error",
+    }}}
+    original = App._read
+
+    def read(instance, operation, **query):
+        if operation == "projection.status":
+            return source
+        return original(instance, operation, **query)
+
+    with patch.object(App, "_read", read):
+        assert main(["--workspace", str(app.config.root), "--development", "status", "--json"]) == 2
+    value = json.loads(capsys.readouterr().out)
+    assert {"code": "source_failed", "severity": "error"}.items() <= next(
+        item for item in value["diagnostics"] if item["code"] == "source_failed"
+    ).items()
+
+
+def test_source_runtime_version_without_installed_product_wheel(tmp_path):
+    from importlib.metadata import PackageNotFoundError
+    from health_buddy.release_identity import ReleaseIdentity
+
+    app = App.development(tmp_path / "owner")
+    with patch("health_buddy.operator_diagnostics.version", side_effect=PackageNotFoundError), patch(
+        "health_buddy.operator_diagnostics.read_source_identity",
+        return_value=ReleaseIdentity(package_version="0.1.0.dev0", source_evidence="packaged_manifest"),
+    ):
+        value = report(app.config.root)
+    assert value["installation"]["packageVersion"] == "0.1.0.dev0"
+    assert value["installation"]["versionEvidence"] == "packaged_manifest"
+    assert value["installation"]["releaseArtifact"] is None

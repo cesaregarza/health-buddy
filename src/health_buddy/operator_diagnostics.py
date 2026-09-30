@@ -6,15 +6,19 @@ import os
 import shutil
 import socket
 import stat
+import tomllib
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from . import legacy
 from .app import App
 from .config import ConfigError, load
 from .extension_diagnostics import recent_failure
 from .extension_registry import Registry, status_json
+from .discovery import source_identity
+from .runtime_manifest import read_source_identity
 from .service_api import ServiceError
 
 GUIDANCE = {
@@ -47,7 +51,7 @@ def source_findings(projection: dict[str, Any]) -> list[dict[str, str]]:
         result.append(finding("projection_stale"))
     for source in projection.get("sources", {}).values():
         if source.get("availability") == "unavailable":
-            result.append(finding("source_failed"))
+            result.append(finding("source_failed", "error"))
         elif source.get("freshness") == "stale":
             result.append(finding("source_stale"))
         elif source.get("availability") == "empty":
@@ -71,8 +75,27 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
     diagnostics = result["diagnostics"]
     try:
         result["installation"]["packageVersion"] = version("health-buddy")
+        result["installation"]["versionEvidence"] = "package_metadata"
     except PackageNotFoundError:
-        pass
+        identity = read_source_identity(
+            legacy.RELEASE, legacy.RELEASE.parent / "release/source-manifest.json"
+        )
+        result["installation"]["source"] = source_identity(identity)
+        result["installation"]["packageVersion"] = identity.package_version
+        result["installation"]["versionEvidence"] = identity.source_evidence
+        if identity.package_version is None:
+            # The maintained source declaration supplies version only, not
+            # proof of a release artifact or a clean working tree.
+            try:
+                path = legacy.RELEASE / "pyproject.toml"
+                if path.stat().st_size <= 100_000:
+                    with path.open("rb") as stream:
+                        declared = tomllib.load(stream)["project"]["version"]
+                    if isinstance(declared, str) and len(declared) <= 64:
+                        result["installation"]["packageVersion"] = declared
+                        result["installation"]["versionEvidence"] = "source_declaration"
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
     try:
         config = load(root)
     except ConfigError:

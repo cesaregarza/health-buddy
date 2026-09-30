@@ -19,7 +19,7 @@ FAILURES = frozenset({
 
 
 def failure_path(config: Config, name: str) -> Path:
-    return config.path(f"personal/extensions/{extension_id(name)}/state/operator-failure.json")
+    return config.path(f"operations/operator-diagnostics/{extension_id(name)}.json")
 
 
 def observed_call(
@@ -31,7 +31,7 @@ def observed_call(
         if exc.code in FAILURES:
             try:
                 path = failure_path(config, name)
-                private_directory(path.parent)
+                private_directory(path.parent, create=True)
                 atomic_bytes(path, encode({
                     "schemaVersion": 1, "code": exc.code,
                     "observedAt": datetime.now(UTC).isoformat(),
