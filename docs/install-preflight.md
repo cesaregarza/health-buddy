@@ -1,15 +1,23 @@
-# Native installer preflight: first dry-run tracer
+# Native owner installer lifecycle
 
-CES-1077 first provides read-only preflight for an explicitly selected native
-Linux host. It makes no downloads, Docker calls, SSH calls, Tailscale changes,
-service writes, workspace initialization or agent/client connection. Checkpointed
-installation and recovery remain pending until the verified CES-1071 interface
-is available. Named-client acceptance remains open in CES-1073/1074.
+The supported source flow is preflight → prepare → explicit owner setup → API
+activation → private HTTPS Serve → scoped agent configuration/status → owned
+removal with retained data. Each mutation requires owner admission; preflight
+alone is read-only. Use matching source and the pinned dependencies in the
+[canonical guide](agent-guide.md). No step downloads software, enrolls a host,
+signs in to Tailscale or launches a model client automatically.
+
+Verification uses synthetic host responses and real local workspace/authority/
+client files. Actual owner-host/HTTPS/phone acceptance remains unqualified, and
+named-client gates remain open in CES-1073/1074; CES-1083 owns cross-agent/final
+upgrade qualification. During active P-CES-17, all execution belongs to the queue.
+Installed owners outside that orchestration run documented native commands under
+their own authorization.
 
 Select an already retained immutable runtime-manifest.json, its two image
 archives/source archive and matching verified source bundle. Obtain the expected
 manifest SHA256 independently through the publisher trust channel; copying the
-hash from untrusted downloaded content does not establish trust. This tracer
+hash from untrusted downloaded content does not establish trust. This preflight
 checks an operator-supplied pin and existing archive/source verifiers, not a
 publisher signature or external release qualification. Do not execute arbitrary
 release scripts merely because this dry-run accepts archive integrity.
@@ -19,9 +27,8 @@ An empty workspace is reported as `empty_not_initialized`. Any existing entry
 produces `existing_state_requires_review`, without reading config, personal notes,
 secrets or health records. Diagnose existing installations with
 [operator status/doctor](operator-diagnostics.md), then use the verified upgrade
-path; never empty a workspace to make this gate pass. Future installation must
-retain persistent personal source, config, assets, extension notes/tests/state,
-and reconnect agents to matching source/documented development commands.
+path; never empty a workspace to make this gate pass. The installation retains persistent personal source, config, assets, extension notes/tests/state,
+and matching source/documented development commands for agent maintenance.
 Nonzero service UID/GID and ownership admission are still required before runtime
 loading, as described in [runtime packaging](runtime-packaging.md).
 
@@ -35,7 +42,7 @@ export PYTHONPATH="$SOURCE/src"
 The supported architecture mapping is x86_64→amd64 and aarch64/arm64→arm64, native
 Linux only; 32-bit Raspberry Pi OS and emulation are refused. Initial planning
 bounds are two logical CPUs, 2 GiB physical RAM and 6 GiB free workspace space.
-These are conservative first-tracer policy bounds, not measured capacity for
+These are conservative preflight policy bounds, not measured capacity for
 personal history. Free space on the Docker data root, staging filesystem and
 future data growth still require separate admission. Physical host facts do not
 prove cgroup/container quotas. A present native Docker executable and local
@@ -53,24 +60,7 @@ does not reserve a port or terminate an existing listener. The current runtime
 uses network-none containers and a private Unix socket, with no host port
 published by Compose. Phone/private HTTPS reachability remains unknown.
 
-Queue-owned focused validation from the immutable source checkpoint:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_preflight.py tests/test_operator_diagnostics.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_preflight.py src/health_buddy/operator_diagnostics.py tests/test_install_preflight.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_preflight.py src/health_buddy/operator_diagnostics.py tests/test_install_preflight.py
-"$PYTHON" -m mypy src/health_buddy/install_preflight.py src/health_buddy/operator_diagnostics.py
-```
-
-Synthetic fixtures reuse the existing real archive/source verifiers, check pin
-and archive tamper refusal, preserve existing personal files on refusal, reject
-linked targets and occupied ports, and prove that repeated dry-runs create no
-installation files. This is not actual host installation, interruption/resume,
-Docker runtime activation or one-URL product acceptance. Later steps require the
-frozen upgrade seam, publisher trust admission, private routing/ownership and
-accepted matching guide/client source rather than improvised host modifications.
-
-## Durable local preparation checkpoint
+## Durable local preparation
 
 After preflight, `health_buddy.install_prepare` can prepare the real empty local
 workspace and matching source references without loading/starting a runtime.
@@ -100,8 +90,8 @@ migration, restore identity, backup implementation or runtime API is introduced.
 `prepared` means local workspace/source files exist; it does not mean a container,
 private HTTPS origin, owner security, client or phone is operational. Default
 workspace config remains local/native until the owner separately configures the
-reviewed private ingress/security workflow. Nonroot UID/GID/runtime ownership,
-loader/Compose admission and activation remain pending.
+reviewed private ingress/security workflow. The owner setup and runtime activation steps below supply the next explicit
+admissions; preparation starts no service.
 
 After the owner independently establishes the matching private origin/authority,
 an explicit reviewed MCP adapter/settings file and credential may be supplied:
@@ -127,28 +117,78 @@ private saved source profile/journal and existing guide, preserving one canonica
 extension-maintenance path. Don't expose these private path-bearing files through
 health tools, public logs or chat.
 
-Queue-owned targeted checkpoint checks:
+## Guided native owner setup
+
+After default preparation, admit an exact HTTPS origin and exact owner subject
+for managed UDS ingress. Supplying them configures local trust expectations; it
+does not sign in to Tailscale, provision HTTPS or verify a remote identity. Run as
+the existing nonroot workspace owner, with its nonzero group and private native
+credential-output directory. Stop other writers/editors during this action.
+
+The prepared default has HealthKit disabled with mode `read-only`. A reservation
+or private pairing proof does not prove redemption or ingest can work. Before
+`install_owner`, explicitly edit only the intended HealthKit configuration to
+`integrations.healthkit: {enabled:true,mode:"receiver"}` using the supported
+[owner configuration](configuration.md#owner-configuration), validate it through
+`health_buddy.config.load` via the native workspace command, and review it:
+`"$PYTHON" -m health_buddy.cli --workspace "$WORKSPACE" workspace describe --json`.
+Keep that owner path inventory private. Owner
+setup preserves nonsecurity configuration and binds its exact resulting bytes.
+Never silently enable the receiver or edit a bound running installer config to
+bypass that binding; an already bound change requires explicit owner lifecycle
+review. Status exposes only receiver enabled/mode/configured booleans/enum.
+Phone setup remains the existing owner login and `/security` page headed
+“Connect a phone”; real HealthKit permission/device/build acceptance stays open.
+
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_prepare.py tests/test_install_preflight.py tests/test_agent_guide.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_prepare.py tests/test_install_prepare.py tests/test_install_preflight.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_prepare.py tests/test_install_prepare.py tests/test_install_preflight.py
-"$PYTHON" -m mypy src/health_buddy/install_prepare.py
+"$PYTHON" -m health_buddy.install_owner --journal "$PRIVATE_INSTALL/install.json" --owner-token "$OWNER_WORKSPACE/secrets/native-owner-token" --origin "$PRIVATE_HTTPS_ORIGIN" --owner-subject "$EXACT_OWNER_SUBJECT" --confirm-owner-setup
 ```
 
-The synthetic flow interrupts after create-only initialization and after source
-profile publication, then resumes identical input without changing canonical
-identity/revision or owner notes. Separate Codex/Claude configuration cases reuse
-real helper writes and refuse a changed restore epoch, without client/model/daemon
-execution. Existing verified guide/client/upgrade proofs are retained separately;
-this checkpoint does not rerun whole native/runtime/device qualification.
+This action accepts only the prepared workspace's default security fields. It
+preserves timezone, goals, equipment, storage, integrations and other personal
+config, changing only ingress mode, HTTPS origin, owner subject and managed socket
+path. Before writes, the private checkpoint binds original/target config digests,
+workspace identity, OS owner and private token-output path. Config and token paths
+must not contain links. The output must be new; unrelated existing authority or
+credentials are refused. No permissions, ownership or personal data are repaired.
 
-## Explicit runtime activation checkpoint
+`configuring` → `authority_preparing` → `ready` resumes the exact selection. A lost
+config acknowledgement is reconciled against exact original/target bytes. A lost
+security acknowledgement authenticates the retained durable owner credential and
+rechecks current owner authority and finite local readiness. It never regenerates
+a token or initializes an already present authority. Repeated setup retains the
+credential, security epoch, canonical identity/revision and owned config. Token
+bytes stay in the private output file; they never appear in summaries, logs or the
+installation journal. This is a native owner token, not an expiring browser
+bootstrap proof; keep it private and use credential-file arguments rather than
+pasting it into commands or chat.
+
+An empty output or incomplete/mismatched authority refuses with
+`install_owner_partial_requires_explicit_recovery`. Keep the checkpoint and
+partial files for inspection. Deliberate existing OS-owner recovery uses a **new**
+private credential output and revokes every previous credential:
+
+```sh
+health-buddy --workspace "$OWNER_WORKSPACE" security recover --owner-token-file "$NEW_PRIVATE_RECOVERY_TOKEN" --confirm-revoke-all
+```
+
+Recovery is a separate explicit operation, never an automatic installer retry.
+The installer does not adopt a recovered/foreign authority by rewriting its
+checkpoint; post-recovery lifecycle reconciliation still requires owner review.
+An edited config, changed origin/subject/output or changed authority also refuses
+without overwriting it. `ownerSetupReady:true` means local managed config and
+native owner authentication/readiness are verified. It does not mean HTTPS,
+client or phone is connected. Continue with the separate admitted activation
+command below, followed by private HTTPS and agent configuration. Tailscale
+sign-in is an independent owner prerequisite; live client/phone acceptance stays open.
+
+## Explicit runtime activation
 
 `health_buddy.install_activation` is the next owner-controlled action. It contacts
 only the explicitly admitted native CLI and local Unix Docker socket. Preparation
 and preflight commands still perform no activation. No tool or queue receipt here
-establishes an actual deployment: this checkpoint is verified with synthetic
+establishes an actual deployment: this source flow is verified with synthetic
 subprocess responses only.
 
 Preparation alone does not establish runtime readiness. A default prepared
@@ -157,7 +197,7 @@ loopback workspace refuses activation with
 with `install_activation_requires_ready_owner_authority`, before any daemon
 contact. Recovery is the existing reviewed managed UDS configuration and explicit
 OS-owner security initialization, preserving this same workspace. The guided
-owner command below supplies that local setup before activation. It creates no
+owner command above supplies that local setup before activation. It creates no
 agent grant or Tailscale sign-in.
 
 Run preparation and activation as the private workspace's nonroot OS owner, with
@@ -199,96 +239,12 @@ CLI failures expose fixed stage codes, such as
 `install_activation_project_not_empty` and
 `install_activation_environment_changed`, with no paths or captured daemon
 output. `runtimeActivated:true` records only the observed local API runtime.
-`connected:false` remains explicit: private HTTPS/Tailscale sign-in, owner grants,
-phone pairing and named-client qualification are still pending. The source
+`connected:false` remains explicit: next configure private HTTPS and the scoped
+agent grant. Phone pairing and named-client qualification require live acceptance. The source
 profile's `runtimeActivated:false` remains its preparation-time description;
 current activation evidence lives in the private journal's `activation` record.
 
-Queue-owned activation checks:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_activation.py tests/test_install_prepare.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_activation.py tests/test_install_activation.py tests/test_install_preflight.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_activation.py tests/test_install_activation.py tests/test_install_preflight.py
-"$PYTHON" -m mypy src/health_buddy/install_activation.py
-```
-
-The synthetic tracer executes real preparation, archive loading logic and
-maintained Compose/inspection command construction through bounded fake CLI
-responses. It simulates nonroot workspace metadata without changing host
-ownership, interrupts load/start acknowledgements, then repeats without another
-start or changed canonical identity/revision/personal data. This is separate from
-real native image qualification and actual owner-host deployment evidence.
-
-
-## Guided native owner setup
-
-After default preparation, admit an exact HTTPS origin and exact owner subject
-for managed UDS ingress. Supplying them configures local trust expectations; it
-does not sign in to Tailscale, provision HTTPS or verify a remote identity. Run as
-the existing nonroot workspace owner, with its nonzero group and private native
-credential-output directory. Stop other writers/editors during this checkpoint.
-
-```sh
-"$PYTHON" -m health_buddy.install_owner --journal "$PRIVATE_INSTALL/install.json" --owner-token "$OWNER_WORKSPACE/secrets/native-owner-token" --origin "$PRIVATE_HTTPS_ORIGIN" --owner-subject "$EXACT_OWNER_SUBJECT" --confirm-owner-setup
-```
-
-This action accepts only the prepared workspace's default security fields. It
-preserves timezone, goals, equipment, storage, integrations and other personal
-config, changing only ingress mode, HTTPS origin, owner subject and managed socket
-path. Before writes, the private checkpoint binds original/target config digests,
-workspace identity, OS owner and private token-output path. Config and token paths
-must not contain links. The output must be new; unrelated existing authority or
-credentials are refused. No permissions, ownership or personal data are repaired.
-
-`configuring` → `authority_preparing` → `ready` resumes the exact selection. A lost
-config acknowledgement is reconciled against exact original/target bytes. A lost
-security acknowledgement authenticates the retained durable owner credential and
-rechecks current owner authority and finite local readiness. It never regenerates
-a token or initializes an already present authority. Repeated setup retains the
-credential, security epoch, canonical identity/revision and owned config. Token
-bytes stay in the private output file; they never appear in summaries, logs or the
-installation journal. This is a native owner token, not an expiring browser
-bootstrap proof; keep it private and use credential-file arguments rather than
-pasting it into commands or chat.
-
-An empty output or incomplete/mismatched authority refuses with
-`install_owner_partial_requires_explicit_recovery`. Keep the checkpoint and
-partial files for inspection. Deliberate existing OS-owner recovery uses a **new**
-private credential output and revokes every previous credential:
-
-```sh
-health-buddy --workspace "$OWNER_WORKSPACE" security recover --owner-token-file "$NEW_PRIVATE_RECOVERY_TOKEN" --confirm-revoke-all
-```
-
-Recovery is a separate explicit operation, never an automatic installer retry.
-The installer does not adopt a recovered/foreign authority by rewriting its
-checkpoint; post-recovery lifecycle reconciliation still requires owner review.
-An edited config, changed origin/subject/output or changed authority also refuses
-without overwriting it. `ownerSetupReady:true` means local managed config and
-native owner authentication/readiness are verified. It does not mean HTTPS,
-client or phone is connected. Continue with the separate admitted activation
-command above. Tailscale sign-in/private HTTPS, agent grants, named-client and
-phone acceptance remain pending.
-
-Queue-owned owner setup checks:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_owner.py tests/test_install_activation.py::test_prepare_activation_and_lost_ack_resume_preserve_workspace
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_owner.py tests/test_install_owner.py tests/test_install_activation.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_owner.py tests/test_install_owner.py tests/test_install_activation.py
-"$PYTHON" -m mypy src/health_buddy/install_owner.py
-```
-
-The synthetic flow runs default preparation → guided owner setup → activation
-with the existing bounded CLI fixture. It uses real config validation, security
-initialization, retained credential authentication and readiness under simulated
-nonroot metadata. Separate interruption cases retain owned config/token after
-lost acknowledgements, preserve unrelated personal choices, and refuse foreign
-edits, unowned output and partial authority. No actual host identity change,
-Docker daemon, Tailscale sign-in, paid model session or phone action is exercised.
-
-## Scoped private HTTPS Serve checkpoint
+## Scoped private HTTPS Serve
 
 This first Serve path targets the exact Tailscale **1.102.5** CLI/daemon interface
 from immutable upstream source
@@ -359,20 +315,6 @@ used. `privateRouteConfigured:true` records observed configuration only;
 `connected:false` remains until actual private HTTPS and named-client/phone
 acceptance. The agent-grant slice below prepares configuration; live acceptance remains pending.
 
-Queue-owned targeted checks:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_https.py tests/test_install_owner.py::test_default_prepare_guided_owner_activation_and_repeat
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_https.py tests/test_install_https.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_https.py tests/test_install_https.py
-"$PYTHON" -m mypy src/health_buddy/install_https.py
-```
-
-All Tailscale/Docker responses in this gate are bounded synthetic fixtures.
-Setup/repeat/remove, lost acknowledgements, read-only dry-run, admission/conflict
-refusals and preservation of unrelated Serve/personal state are tested separately
-from actual installation, network access or host authentication.
-
 ## Explicit agent grant and redacted owner status
 
 After owned runtime activation and private Serve configuration, review a private
@@ -427,21 +369,6 @@ and private short-lived proof delivery to the phone. No installer log includes
 that proof. Recorded runtime/Serve/client stages are labeled as last configured,
 not live network, daemon or named-client observations. `connected:false` remains.
 
-Queue-owned during active P-CES-17 only; installed owners can run matching native
-checks directly under their authorization:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_agent.py tests/test_agent_guide.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_agent.py src/health_buddy/install_status.py tests/test_install_agent.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_agent.py src/health_buddy/install_status.py tests/test_install_agent.py
-"$PYTHON" -m mypy src/health_buddy/install_agent.py src/health_buddy/install_status.py
-```
-
-These fixtures use real local authority, matching source/skill/client files and
-bounded fake Docker/Tailscale responses. Actual owner-host networking, named
-Codex/Claude acceptance, phone/device qualification and coherent retained-data
-runtime removal remain pending; this checkpoint does not complete CES-1077.
-
 ## Explicit missing-secret recovery and retained-data removal
 
 Ordinary handoff retry never rotates credentials. If the retained pending grant
@@ -454,20 +381,6 @@ A retained valid token resumes inertly, even with the flag. If the rotation's
 one-time reply is lost before file creation, another rotation requires that same
 explicit flag; ordinary retries continue to refuse. No other actor is rotated.
 
-The prepared default has HealthKit disabled with mode `read-only`. A reservation
-or private pairing proof does not prove redemption or ingest can work. Before
-`install_owner`, explicitly edit only the intended HealthKit configuration to
-`integrations.healthkit: {enabled:true,mode:"receiver"}` using the supported
-[owner configuration](configuration.md#owner-configuration), validate it through
-`health_buddy.config.load` via the native workspace command, and review it:
-`"$PYTHON" -m health_buddy.cli --workspace "$WORKSPACE" workspace describe --json`.
-Keep that owner path inventory private. Owner
-setup preserves nonsecurity configuration and binds its exact resulting bytes.
-Never silently enable the receiver or edit a bound running installer config to
-bypass that binding; an already bound change requires explicit owner lifecycle
-review. Status exposes only receiver enabled/mode/configured booleans/enum.
-Phone setup remains the existing owner login and `/security` page headed
-“Connect a phone”; real HealthKit permission/device/build acceptance stays open.
 
 Removal requires deliberate owner consent and quiesced external Docker/Serve/
 client/grant editors. It removes the recorded private root route, managed client
@@ -498,9 +411,30 @@ repeat issues no mutations once removed. Status remains usable with the retained
 owner credential after grant revocation and container removal. Reactivation or
 replacement credentials require separate explicit owner lifecycle review.
 
-The focused synthetic gate adds `tests/test_install_remove.py` to pytest and
-Ruff/format, and `src/health_buddy/install_remove.py` to Ruff/format/mypy; the shared
-`connect_agent.py` check-only ownership gate and activation lifecycle guard receive
-scoped static checks. All execution stays with the queue during P-CES-17.
-These tests do not qualify an actual daemon, HTTPS connection, named agent or
-phone; those required acceptance gates remain pending for their owning tickets.
+Client removal writes a private `.health-buddy-remove.json` intent before changing
+configuration. It binds original/remaining config hashes, original block/file
+hashes and the installation manifest hash, never unrelated config values or
+secret bytes. After an internal interruption, absent owned entries are accepted
+only under that retained intent; changed present entries still refuse. Unrelated
+config edits during the intent also refuse without overwrite. The intent is
+removed only after config and all owned files are durably removed.
+
+## Synthetic checks and acceptance boundary
+
+Use the canonical guide's pinned setup. Select relevant checks for the component
+being maintained; the complete installer synthetic gate is:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_preflight.py tests/test_install_prepare.py tests/test_install_owner.py tests/test_install_activation.py tests/test_install_https.py tests/test_install_agent.py tests/test_install_remove.py tests/test_connect_removal.py tests/test_agent_guide.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_*.py src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_*.py src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
+"$PYTHON" -m mypy src/health_buddy/install_*.py src/health_buddy/connect_agent.py
+```
+
+Fixtures cover pinned source/archive refusal, durable prepare/owner/activation,
+real credentials and scoped grants, fake Serve setup/removal, interrupted client
+files and exact-container stop/remove acknowledgements. They preserve identity,
+revision, personal notes, unrelated settings/routes/grants and private recovery
+material. They never run Docker/Tailscale/client/model processes. These checks do
+not qualify an actual daemon, HTTPS connection, named agent or phone; required
+live acceptance remains open for the owning tickets, so CES-1077 is not complete.
