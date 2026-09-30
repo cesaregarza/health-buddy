@@ -217,6 +217,32 @@ class Journal:
             raise unavailable()
         return state
 
+    def rotate_staged_restore(self, identity: Identity) -> State:
+        """Offline staging only; caller publishes the entire verified workspace.
+
+        Retain records/revisions and historical receipts. Old receipt namespaces
+        cannot authenticate after the restore tuple and authority change.
+        """
+        prior = self.verify()
+        if (
+            identity.dataset_id != prior.identity.dataset_id
+            or identity.restore_epoch == prior.identity.restore_epoch
+        ):
+            raise unavailable()
+        marker = encode({"schemaVersion": 1, **identity_value(identity)})
+        target = self.manual.prepare(
+            {CANONICAL_MARKER: marker.decode() + "\n"}, prior.manual_head, uuid4().hex
+        )
+        self.manual.install(prior.manual_head, target)
+        with self.connection() as connection, connection:
+            connection.execute(
+                "UPDATE state SET identity_json=?,manual_head=? WHERE singleton=1",
+                (encode(identity_value(identity)).decode(), target),
+            )
+        self._sync()
+        atomic_bytes(self.identity_path, marker)
+        return self.verify()
+
     def lookup(self, key: str, request_digest: str) -> Response | None:
         with self.connection() as connection:
             row = connection.execute(

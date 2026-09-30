@@ -153,6 +153,20 @@ class HealthStore:
                 fsync_path(sibling)
         fsync_path(self.path.parent)
 
+    def rotate_staged_restore(self, previous: Identity, current: Identity) -> None:
+        """Offline copied receiver retains stable streams/objects/tombstones."""
+        private_file(self.path)
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA synchronous=FULL")
+            self._check_identity(connection, identity_value(previous))
+            with connection:
+                connection.execute(
+                    "UPDATE canonical_receiver SET identity_json=?",
+                    (encode(identity_value(current)).decode(),),
+                )
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        self._sync()
+
     def verify_binding(self, identity: Identity, binding: dict[str, JSON]) -> None:
         private_file(self.path)
         with closing(

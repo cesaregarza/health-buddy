@@ -105,6 +105,40 @@ def seed() -> None:
     check()
 
 
+def backup_crypto_check() -> None:
+    """Exercise shipped native crypto using fabricated bytes, never owner data."""
+    from health_buddy.backup_crypto import seal, unseal
+    from health_buddy.service_api import ServiceError
+
+    assert (QUALIFICATION / "seeded").read_bytes() == b"synthetic-only\n", (
+        "synthetic guard missing"
+    )
+    key = os.urandom(32)
+    fabricated = b"synthetic encrypted backup qualification"
+    ciphertext = seal(fabricated, key)
+    assert unseal(ciphertext, key) == fabricated, "backup crypto roundtrip failed"
+    altered = ciphertext[:-1] + bytes([ciphertext[-1] ^ 1])
+    try:
+        unseal(altered, key)
+    except ServiceError as error:
+        assert error.code == "backup_authentication_failed", (
+            "backup crypto tamper rejection failed"
+        )
+    else:
+        raise AssertionError("backup crypto accepted tampered ciphertext")
+    print(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "scope": "shipped_native_backup_crypto_fabricated_bytes_only",
+                "authenticatedRoundtrip": True,
+                "tamperRejected": True,
+            },
+            sort_keys=True,
+        )
+    )
+
+
 def seed_sdk() -> None:
     """OS-owner synthetic handoff; the host client never opens this authority."""
     check()
@@ -348,6 +382,8 @@ if __name__ == "__main__":
         raise SystemExit(0)
     if len(sys.argv) == 2 and sys.argv[1] == "seed":
         seed()
+    elif len(sys.argv) == 2 and sys.argv[1] == "backup-crypto-check":
+        backup_crypto_check()
     elif len(sys.argv) == 2 and sys.argv[1] == "seed-sdk":
         seed_sdk()
     elif len(sys.argv) == 2 and sys.argv[1] == "ordinary-check":

@@ -276,6 +276,53 @@ class SecurityStore:
         boundary("security_epoch_installed")
         return token
 
+    def rekey_staged_restore(self, previous: Identity, current: Identity) -> str:
+        """Offline restore: retain actor lineage, never old credentials/proofs.
+
+        Agents retain their declarations for explicit owner-reviewed rotation;
+        devices remain inactive until explicit pairing selects their old stream.
+        No credential/session/pairing proof is copied to the fresh authority.
+        Caller holds canonical and authority locks in the private staging tree.
+        """
+        with self.connection(previous) as connection:
+            actors = [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM actors WHERE role IN ('agent','device') LIMIT 129"
+                )
+            ]
+        if len(actors) > 128:
+            raise unavailable()
+        token = self.initialize(current, recover=True, owner_token=True)
+        with self.connection(current) as connection, connection:
+            for actor in actors:
+                self.add_actor(
+                    connection,
+                    actor["id"],
+                    actor["role"],
+                    actor["name"],
+                    json.loads(actor["grants"]),
+                    json.loads(actor["sources"]),
+                    None
+                    if actor["read_sources"] is None
+                    else json.loads(actor["read_sources"]),
+                    None
+                    if actor["read_kinds"] is None
+                    else json.loads(actor["read_kinds"]),
+                    None
+                    if actor["read_fields"] is None
+                    else json.loads(actor["read_fields"]),
+                    device=actor["device_id"],
+                    stream=actor["stream_id"],
+                )
+                connection.execute(
+                    "UPDATE actors SET active=? WHERE id=?",
+                    (actor["active"] if actor["role"] == "agent" else 0, actor["id"]),
+                )
+        fsync_path(self.path)
+        fsync_path(self.directory)
+        return token
+
     def add_actor(
         self,
         connection: sqlite3.Connection,

@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     from .extension_cli import add_commands
 
     add_commands(commands)
+    from .backup_cli import add_commands as add_backup_commands
+
+    add_backup_commands(commands)
     commands.add_parser("init")
     commands.add_parser("render")
     status = commands.add_parser("status")
@@ -147,6 +150,10 @@ def main(argv: list[str] | None = None) -> int:
                 if any(item["severity"] == "error" for item in result["diagnostics"])
                 else 0
             )
+        if args.command == "backup":
+            from .backup_cli import handle as handle_backup
+
+            return handle_backup(args)
         if args.command in {"workspace", "extension"}:
             from .extension_cli import handle
 

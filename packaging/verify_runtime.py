@@ -382,6 +382,19 @@ class Qualification:
                 script,
                 "seed",
             )
+            self.cp(
+                "backup-crypto",
+                "run",
+                "--rm",
+                "--no-deps",
+                "--entrypoint",
+                "python",
+                "api",
+                "-I",
+                "-B",
+                script,
+                "backup-crypto-check",
+            )
             if self.sdk_python is not None:
                 self.cp(
                     "seed-sdk",
