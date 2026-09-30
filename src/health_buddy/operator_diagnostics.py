@@ -23,27 +23,23 @@ from .service_api import ServiceError
 
 GUIDANCE = {
     "config_invalid": (
-        "Validate config.json against docs/configuration.md; preserve "
-        "stores."
+        "Validate config.json against docs/configuration.md; preserve stores."
     ),
     "storage_unavailable": (
-        "Check the selected store path and owner permissions; do not "
-        "recreate stores."
+        "Check the selected store path and owner permissions; do not recreate stores."
     ),
     "permissions_partial": (
         "Inspect the selected path ownership/mode; repair only that path."
     ),
     "disk_low": (
-        "Free unrelated space or expand storage; preserve stores and "
-        "personal files."
+        "Free unrelated space or expand storage; preserve stores and personal files."
     ),
     "port_conflict": (
         "Identify the listener before changing the serve port; do not "
         "kill unknown processes."
     ),
     "receiver_unreachable": (
-        "Check the configured receiver process and socket, then private "
-        "proxy routing."
+        "Check the configured receiver process and socket, then private proxy routing."
     ),
     "connectivity_unknown": (
         "From the phone check tailnet, HTTPS and pairing; this host "
@@ -54,8 +50,7 @@ GUIDANCE = {
         "reads do not prove denial."
     ),
     "source_stale": (
-        "Inspect source sync and its last successful receipt before using "
-        "old results."
+        "Inspect source sync and its last successful receipt before using old results."
     ),
     "source_failed": (
         "Inspect the source configuration and safe error code; retry only "
@@ -86,6 +81,7 @@ GUIDANCE = {
         "recover core use. Review tests before enable or revert."
     ),
 }
+
 
 def finding(code: str, severity: str = "warning") -> dict[str, str]:
     return {"code": code, "severity": severity, "recovery": GUIDANCE[code]}
