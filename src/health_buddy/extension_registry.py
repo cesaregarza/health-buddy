@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
-import os
-import stat
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from .config import Config
-from .domain import decode, digest, encode
+from .domain import decode, encode
 from .durability import atomic_bytes, exclusive, fsync_path
 from .extension_api import (
     EXTENSION_API,
     MAX_CONFIG_BYTES,
     MAX_EXTENSIONS,
-    MAX_MANIFEST_BYTES,
-    MAX_RUNTIME_BYTES,
     ExtensionManifest,
     ExtensionState,
     ExtensionStatus,
@@ -28,7 +23,6 @@ from .extension_files import (
     bounded_children,
     extension_id,
     private_directory,
-    read_file,
     read_json,
     runtime_files,
 )
@@ -97,7 +91,9 @@ class Registry:
                 or not isinstance(raw["approvedEgress"], list)
                 or not all(isinstance(item, str) for item in raw["approvedEgress"])
                 or not isinstance(raw["secretReferences"], dict)
-                or not all(isinstance(item, str) for item in raw["secretReferences"].values())
+                or not all(
+                    isinstance(item, str) for item in raw["secretReferences"].values()
+                )
             ):
                 raise ServiceError(503, "extension_registry_invalid")
             for key in ("selected", "working"):
@@ -109,7 +105,9 @@ class Registry:
                 ):
                     raise ServiceError(503, "extension_registry_invalid")
             schema = raw["stateSchema"]
-            if schema is not None and (type(schema) is not int or not 1 <= schema <= 9999):
+            if schema is not None and (
+                type(schema) is not int or not 1 <= schema <= 9999
+            ):
                 raise ServiceError(503, "extension_registry_invalid")
             result[name] = raw
         return result
@@ -127,7 +125,10 @@ class Registry:
         private_directory(base, create=True)
         base = self.config.path("personal/extension-reviews/" + name)
         private_directory(base, create=True)
-        if len(bounded_children(base, MAX_REVIEWS)) >= MAX_REVIEWS and not (base / files.digest).exists():
+        if (
+            len(bounded_children(base, MAX_REVIEWS)) >= MAX_REVIEWS
+            and not (base / files.digest).exists()
+        ):
             raise ServiceError(413, "extension_review_limit")
         target = self.config.path(f"personal/extension-reviews/{name}/{files.digest}")
         if target.exists():
@@ -137,7 +138,9 @@ class Registry:
         # A partially written review is never selected. Its presence blocks a
         # retry until explicit inspection; personal source remains untouched.
         target.mkdir(mode=0o700)
-        for directory in sorted(files.directories, key=lambda item: (item.count("/"), item)):
+        for directory in sorted(
+            files.directories, key=lambda item: (item.count("/"), item)
+        ):
             (target / directory).mkdir(mode=0o700)
         for relative, raw in files.files.items():
             path = target / relative
@@ -174,7 +177,10 @@ class Registry:
             raise ServiceError(409, "extension_state_migration_required")
         config = configuration(contents.files[manifest.config_file])
         return ReviewedExtension(
-            manifest, config, root, selected,
+            manifest,
+            config,
+            root,
+            selected,
             tuple(cast(list[str], entry["sourceIds"])),
             cast(dict[str, str], entry["secretReferences"]),
             tuple(cast(list[str], entry["approvedEgress"])),
@@ -196,8 +202,14 @@ class Registry:
             entries = self._load()
             names = sorted(set(self._names()) | set(entries))
         except (ServiceError, OSError, ValueError):
-            return (ExtensionStatus("registry", "inventory_incomplete", False,
-                                    diagnostics=("extension_registry_unavailable",)),)
+            return (
+                ExtensionStatus(
+                    "registry",
+                    "inventory_incomplete",
+                    False,
+                    diagnostics=("extension_registry_unavailable",),
+                ),
+            )
         statuses: dict[str, ExtensionStatus] = {}
         ready: dict[str, ReviewedExtension] = {}
         for index, name in enumerate(names):
@@ -223,7 +235,11 @@ class Registry:
                     state = "incompatible_api"
                     diagnostic = ("extension_incompatible_api",)
             except (ServiceError, OSError, ValueError, KeyError) as exc:
-                code = exc.code if isinstance(exc, ServiceError) else "extension_layout_invalid"
+                code = (
+                    exc.code
+                    if isinstance(exc, ServiceError)
+                    else "extension_layout_invalid"
+                )
                 state = {
                     "extension_needs_review": "needs_review",
                     "extension_incompatible_api": "incompatible_api",
@@ -233,17 +249,25 @@ class Registry:
                 if not isinstance(name, str) or len(name) > 80:
                     safe_name = f"invalid-entry-{index}"
             statuses[name] = ExtensionStatus(
-                safe_name, state, enabled, version,
-                cast(str | None, entry["selected"]), diagnostic,
+                safe_name,
+                state,
+                enabled,
+                version,
+                cast(str | None, entry["selected"]),
+                diagnostic,
             )
         memo: dict[str, ExtensionState | None] = {}
+
         def visit(name: str, chain: tuple[str, ...]) -> ExtensionState | None:
             if name in chain:
                 return "dependency_cycle"
             if name in memo:
                 return memo[name]
             for dependency, version in ready[name].manifest.dependencies.items():
-                if dependency not in ready or ready[dependency].manifest.version != version:
+                if (
+                    dependency not in ready
+                    or ready[dependency].manifest.version != version
+                ):
                     memo[name] = "dependency_unavailable"
                     return memo[name]
                 failure = visit(dependency, (*chain, name))
@@ -252,12 +276,17 @@ class Registry:
                     return failure
             memo[name] = None
             return None
+
         for name in ready:
             failure = visit(name, ())
             if failure:
                 old = statuses[name]
                 statuses[name] = ExtensionStatus(
-                    name, failure, True, old.version, old.reviewed_digest,
+                    name,
+                    failure,
+                    True,
+                    old.version,
+                    old.reviewed_digest,
                     ("extension_" + failure,),
                 )
         return tuple(statuses[name] for name in names)
@@ -268,12 +297,17 @@ class Registry:
 
     def ready_locked(self, name: str) -> ReviewedExtension:
         name = extension_id(name)
-        if not any(item.id == name and item.state == "ready" for item in self.inspect_locked()):
+        if not any(
+            item.id == name and item.state == "ready" for item in self.inspect_locked()
+        ):
             raise ServiceError(409, "extension_not_ready")
         return self._reviewed(name, self._load()[name], runtime_files(self.root(name)))
 
     def enable(
-        self, name: str, *, source_ids: tuple[str, ...],
+        self,
+        name: str,
+        *,
+        source_ids: tuple[str, ...],
         secret_references: Mapping[str, str] | None = None,
         approved_egress: tuple[str, ...] = (),
     ) -> ExtensionStatus:
@@ -284,7 +318,11 @@ class Registry:
         manifest = parse_manifest(current.files["extension.json"])
         if manifest.id != name or manifest.extension_api != EXTENSION_API:
             raise ServiceError(409, "extension_incompatible_api")
-        if not source_ids or len(source_ids) != len(set(source_ids)) or len(source_ids) > 8:
+        if (
+            not source_ids
+            or len(source_ids) != len(set(source_ids))
+            or len(source_ids) > 8
+        ):
             raise ServiceError(422, "extension_source_binding_required")
         if any(not isinstance(item, str) or len(item) > 128 for item in source_ids):
             raise ServiceError(422, "extension_source_binding_required")
@@ -312,8 +350,11 @@ class Registry:
                 raise ServiceError(409, "extension_state_migration_required")
             self._snapshot(name, current)
             entries[name] = {
-                "enabled": True, "selected": current.digest, "working": current.digest,
-                "stateSchema": manifest.state_schema, "sourceIds": list(source_ids),
+                "enabled": True,
+                "selected": current.digest,
+                "working": current.digest,
+                "stateSchema": manifest.state_schema,
+                "sourceIds": list(source_ids),
                 "secretReferences": cast(dict[str, JSON], refs),
                 "approvedEgress": list(approved_egress),
             }
@@ -324,8 +365,11 @@ class Registry:
             return next(item for item in self.inspect_locked() if item.id == name)
 
     def _check_dependencies(
-        self, name: str, manifest: ExtensionManifest,
-        entries: dict[str, dict[str, JSON]], chain: tuple[str, ...] = (),
+        self,
+        name: str,
+        manifest: ExtensionManifest,
+        entries: dict[str, dict[str, JSON]],
+        chain: tuple[str, ...] = (),
         visited: set[str] | None = None,
     ) -> None:
         if visited is None:
@@ -338,10 +382,14 @@ class Registry:
             entry = entries.get(dependency)
             if entry is None or not entry["enabled"]:
                 raise ServiceError(409, "extension_dependency_unavailable")
-            reviewed = self._reviewed(dependency, entry, runtime_files(self.root(dependency)))
+            reviewed = self._reviewed(
+                dependency, entry, runtime_files(self.root(dependency))
+            )
             if reviewed.manifest.version != version:
                 raise ServiceError(409, "extension_dependency_unavailable")
-            self._check_dependencies(dependency, reviewed.manifest, entries, (*chain, name), visited)
+            self._check_dependencies(
+                dependency, reviewed.manifest, entries, (*chain, name), visited
+            )
         visited.add(name)
 
     def disable(self, name: str) -> ExtensionStatus:
@@ -355,7 +403,9 @@ class Registry:
 
     def revert(self, name: str, selected: str) -> ExtensionStatus:
         name = extension_id(name)
-        if len(selected) != 64 or any(char not in "0123456789abcdef" for char in selected):
+        if len(selected) != 64 or any(
+            char not in "0123456789abcdef" for char in selected
+        ):
             raise ServiceError(422, "invalid_extension_review")
         with exclusive(self.lock):
             entries = self._load()
@@ -377,11 +427,19 @@ class Registry:
         if extension_api == EXTENSION_API:
             return statuses
         return tuple(
-            ExtensionStatus(item.id, "incompatible_api", item.enabled, item.version,
-                            item.reviewed_digest, ("extension_target_api_incompatible",))
+            ExtensionStatus(
+                item.id,
+                "incompatible_api",
+                item.enabled,
+                item.version,
+                item.reviewed_digest,
+                ("extension_target_api_incompatible",),
+            )
             for item in statuses
         )
 
 
 def status_json(status: ExtensionStatus) -> dict[str, JSON]:
-    return cast(dict[str, JSON], {**asdict(status), "diagnostics": list(status.diagnostics)})
+    return cast(
+        dict[str, JSON], {**asdict(status), "diagnostics": list(status.diagnostics)}
+    )

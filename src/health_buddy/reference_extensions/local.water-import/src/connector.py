@@ -13,5 +13,10 @@ def normalize(input_value: dict[str, Any]) -> dict[str, Any]:
     value = Decimal(str(event["value"]))
     if not value.is_finite() or value < 0 or value > 100_000:
         raise ValueError("Invalid water value")
-    return {"kind": "water-intake", "value": float(value / 1000), "unit": "L",
-            "observedAt": event["observedAt"], "sourceId": event["sourceId"]}
+    return {
+        "kind": "water-intake",
+        "value": float(value / 1000),
+        "unit": "L",
+        "observedAt": event["observedAt"],
+        "sourceId": event["sourceId"],
+    }

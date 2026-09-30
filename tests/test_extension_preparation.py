@@ -33,7 +33,9 @@ def _crash(root, token, point):
         if actual == point:
             os._exit(87)
 
-    prepare(runtime.operations.config, runtime, BearerProof(token), _intent(), fault=fault)
+    prepare(
+        runtime.operations.config, runtime, BearerProof(token), _intent(), fault=fault
+    )
     os._exit(89)
 
 
@@ -48,14 +50,23 @@ def _finish(process, expected=87):
             process.join(5)
 
 
-@pytest.mark.parametrize("point", [
-    "source_registered", "handoff_reserved", "grant_created", "actor_recorded", "credential_written",
-])
+@pytest.mark.parametrize(
+    "point",
+    [
+        "source_registered",
+        "handoff_reserved",
+        "grant_created",
+        "actor_recorded",
+        "credential_written",
+    ],
+)
 def test_process_exit_setup_reuses_exact_source_and_actor(tmp_path, point):
     root = tmp_path / "owner"
     runtime, owner, token = secured(root)
     example(runtime.operations.config, NAME)
-    process = multiprocessing.get_context("spawn").Process(target=_crash, args=(root, token, point))
+    process = multiprocessing.get_context("spawn").Process(
+        target=_crash, args=(root, token, point)
+    )
     process.start()
     _finish(process)
     fresh = open_runtime(root)
@@ -83,7 +94,9 @@ def test_process_exit_setup_reuses_exact_source_and_actor(tmp_path, point):
     assert result["enabled"] is False
     assert prepare(fresh.operations.config, fresh, BearerProof(token), intent) == result
     assert len(action(fresh, admitted, "grants.list").data["items"]) == 1
-    state = json.loads((root / f"personal/extensions/{NAME}/state/preparation.json").read_text())
+    state = json.loads(
+        (root / f"personal/extensions/{NAME}/state/preparation.json").read_text()
+    )
     assert state["phase"] == "ready"
     assert proof.value not in json.dumps(state)
 
@@ -99,23 +112,39 @@ def test_crash_then_changed_grant_never_creates_another_actor(tmp_path, change):
             raise OSError("synthetic lost private handoff")
 
     with pytest.raises(OSError):
-        prepare(runtime.operations.config, runtime, BearerProof(token), _intent(), fault=fault)
-    actor, = action(runtime, owner, "grants.list").data["items"]
+        prepare(
+            runtime.operations.config,
+            runtime,
+            BearerProof(token),
+            _intent(),
+            fault=fault,
+        )
+    (actor,) = action(runtime, owner, "grants.list").data["items"]
     if change == "revoked":
         action(runtime, owner, "grants.revoke", resource=actor["id"])
     else:
         # Explicit synthetic authority mutation represents a changed retained
         # policy. No production scope-change bypass is exposed by preparation.
         with sqlite3.connect(root / "security/authority.sqlite") as database:
-            database.execute("UPDATE actors SET read_sources=? WHERE id=?", ('["manual"]', actor["id"]))
+            database.execute(
+                "UPDATE actors SET read_sources=? WHERE id=?",
+                ('["manual"]', actor["id"]),
+            )
     with pytest.raises(ServiceError, match="requires_reconciliation"):
-        prepare(runtime.operations.config, runtime, BearerProof(token), _intent("secrets/new-handoff", True))
+        prepare(
+            runtime.operations.config,
+            runtime,
+            BearerProof(token),
+            _intent("secrets/new-handoff", True),
+        )
     current = action(runtime, owner, "grants.list").data["items"]
     assert len(current) == 1 and current[0]["id"] == actor["id"]
     assert not (root / "secrets/new-handoff").exists()
 
 
-def test_first_handoff_durability_error_closes_descriptor_and_preserves_intent(tmp_path, monkeypatch):
+def test_first_handoff_durability_error_closes_descriptor_and_preserves_intent(
+    tmp_path, monkeypatch
+):
     from health_buddy import extension_prepare
 
     runtime, _owner, token = secured(tmp_path / "owner")
@@ -142,13 +171,21 @@ def test_first_handoff_durability_error_closes_descriptor_and_preserves_intent(t
     with pytest.raises(OSError) as closed:
         os.fstat(descriptors[0])
     assert closed.value.errno == errno.EBADF
-    assert config.path(REFERENCE).exists() and config.path(REFERENCE).read_bytes() == b""
+    assert (
+        config.path(REFERENCE).exists() and config.path(REFERENCE).read_bytes() == b""
+    )
     assert config.path(f"personal/extensions/{NAME}/state/preparation.json").exists()
 
 
-@pytest.mark.parametrize("change", [
-    {"phase": []}, {"schemaVersion": True}, {"actorId": 7}, {"priorActorIds": [False]},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"phase": []},
+        {"schemaVersion": True},
+        {"actorId": 7},
+        {"priorActorIds": [False]},
+    ],
+)
 def test_malformed_preparation_is_not_overwritten_or_replayed(tmp_path, change):
     runtime, owner, token = secured(tmp_path / "owner")
     config = runtime.operations.config

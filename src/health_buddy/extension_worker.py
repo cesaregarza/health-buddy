@@ -70,13 +70,17 @@ def main() -> int:
                 schema = request["schema"]
                 schema_refs(schema)
                 Draft202012Validator.check_schema(schema)
-                Draft202012Validator(schema, registry=Registry()).validate(request["input"])
+                Draft202012Validator(schema, registry=Registry()).validate(
+                    request["input"]
+                )
                 result: Any = {"valid": True}
             except Exception:
                 result = {"valid": False}
         elif request["mode"] == "call":
             path = Path(request["file"])
-            specification = importlib.util.spec_from_file_location("owner_extension", path)
+            specification = importlib.util.spec_from_file_location(
+                "owner_extension", path
+            )
             if specification is None or specification.loader is None:
                 return 2
             module = importlib.util.module_from_spec(specification)

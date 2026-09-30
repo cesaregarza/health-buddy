@@ -33,7 +33,9 @@ def add_commands(commands: Any) -> None:
     added = sub.add_parser("install")
     origin = added.add_mutually_exclusive_group(required=True)
     origin.add_argument("--from", dest="source", type=Path)
-    origin.add_argument("--example", choices=("local.weekly-mass", "local.water-import"))
+    origin.add_argument(
+        "--example", choices=("local.weekly-mass", "local.water-import")
+    )
     sub.add_parser("inspect")
     compatible = sub.add_parser("compatibility")
     compatible.add_argument("--extension-api", type=int, default=1)
@@ -75,13 +77,20 @@ def handle(args: argparse.Namespace) -> int:
     if action not in {"prepare", "run", "preview"} and args.credential_file is not None:
         raise ServiceError(422, "native_maintenance_does_not_use_health_credential")
     if action == "install":
-        source = args.source or Path(str(files("health_buddy").joinpath("reference_extensions", args.example)))
+        source = args.source or Path(
+            str(files("health_buddy").joinpath("reference_extensions", args.example))
+        )
         result = {"installed": install(config, source), "enabled": False}
     elif action == "inspect":
         result = {"items": [status_json(item) for item in registry.inspect()]}
     elif action == "compatibility":
-        result = {"items": [status_json(item) for item in registry.compatibility(extension_api=args.extension_api)],
-                  "workspace": describe(config, upstream_base=args.upstream_base)}
+        result = {
+            "items": [
+                status_json(item)
+                for item in registry.compatibility(extension_api=args.extension_api)
+            ],
+            "workspace": describe(config, upstream_base=args.upstream_base),
+        }
     elif action == "enable":
         refs = {}
         for binding in args.secret_reference:
@@ -91,9 +100,14 @@ def handle(args: argparse.Namespace) -> int:
             if key in refs:
                 raise ServiceError(422, "invalid_secret_reference_binding")
             refs[key] = path
-        result = status_json(registry.enable(args.id, source_ids=tuple(args.source_id),
-                                            secret_references=refs,
-                                            approved_egress=tuple(args.approve_egress)))
+        result = status_json(
+            registry.enable(
+                args.id,
+                source_ids=tuple(args.source_id),
+                secret_references=refs,
+                approved_egress=tuple(args.approve_egress),
+            )
+        )
     elif action == "disable":
         result = status_json(registry.disable(args.id))
     elif action == "revert":
@@ -104,8 +118,17 @@ def handle(args: argparse.Namespace) -> int:
         proof = BearerProof(read_credential(args.credential_file))
         runtime = open_runtime(config.root)
         if action == "prepare":
-            result = prepare(config, runtime, proof, PrepareConnector(
-                args.id, args.source_id, args.credential_reference, args.rotate_existing))
+            result = prepare(
+                config,
+                runtime,
+                proof,
+                PrepareConnector(
+                    args.id,
+                    args.source_id,
+                    args.credential_reference,
+                    args.rotate_existing,
+                ),
+            )
         elif action == "run":
             event = decode(read_file(args.event_file, 65_536), limit=65_536)
             if not isinstance(event, dict):
@@ -113,10 +136,20 @@ def handle(args: argparse.Namespace) -> int:
             result = run_event(config, runtime, proof, args.id, event)
         else:
             admitted = runtime.security.authenticate(proof)
-            query = {key: value for key, value in {
-                "sourceId": args.source_id, "from": args.from_time, "to": args.to_time,
-            }.items() if value is not None}
-            result = decoded(runtime.operations.execute(
-                admitted.principal, Request("extensions.read", resource_id=args.id, query=query)))
+            query = {
+                key: value
+                for key, value in {
+                    "sourceId": args.source_id,
+                    "from": args.from_time,
+                    "to": args.to_time,
+                }.items()
+                if value is not None
+            }
+            result = decoded(
+                runtime.operations.execute(
+                    admitted.principal,
+                    Request("extensions.read", resource_id=args.id, query=query),
+                )
+            )
     print(json.dumps(result, indent=2))
     return 0

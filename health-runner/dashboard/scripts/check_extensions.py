@@ -17,7 +17,9 @@ from preview import render
 REVIEW = "a" * 64
 METRIC = "local.weekly-mass"
 WORKER = ROOT / "assets/extension-worker.js"
-VIEW = ROOT.parents[1] / "src/health_buddy/reference_extensions" / METRIC / "src/view.js"
+VIEW = (
+    ROOT.parents[1] / "src/health_buddy/reference_extensions" / METRIC / "src/view.js"
+)
 
 
 def run_width(browser, width):
@@ -25,11 +27,24 @@ def run_width(browser, width):
     data["meta"].update(META)
     data["extensions"] = [
         {"id": METRIC, "enabled": True, "state": "ready", "kind": "metric-view"},
-        {"id": "local.water-import", "enabled": True, "state": "ready", "kind": "connector-workflow"},
+        {
+            "id": "local.water-import",
+            "enabled": True,
+            "state": "ready",
+            "kind": "connector-workflow",
+        },
     ]
-    metric = {"value": 72, "unit": "kg", "count": 2, "sourceId": "synthetic-manual",
-              "missingness": None, "freshness": "fresh", "truncated": False,
-              "projectionState": "current", "dataRevision": META["dataRevision"]}
+    metric = {
+        "value": 72,
+        "unit": "kg",
+        "count": 2,
+        "sourceId": "synthetic-manual",
+        "missingness": None,
+        "freshness": "fresh",
+        "truncated": False,
+        "projectionState": "current",
+        "dataRevision": META["dataRevision"],
+    }
     settings = {"title": "Synthetic weekly mean", "displayUnit": "kg"}
     scenario = {"mode": "good"}
     errors, requests = [], []
@@ -40,11 +55,17 @@ def run_width(browser, width):
         assert address.netloc == "localhost", "unexpected external request"
         requests.append(address.path)
         if incoming.resource_type == "document":
-            request.fulfill(status=200, content_type="text/html", body=render(data, AS_OF))
+            request.fulfill(
+                status=200, content_type="text/html", body=render(data, AS_OF)
+            )
         elif address.path == "/v1/session":
-            request.fulfill(status=200, json={"data": {"development": True}, "meta": {}})
+            request.fulfill(
+                status=200, json={"data": {"development": True}, "meta": {}}
+            )
         elif address.path == "/extension-worker.js":
-            request.fulfill(status=200, content_type="text/javascript", body=WORKER.read_text())
+            request.fulfill(
+                status=200, content_type="text/javascript", body=WORKER.read_text()
+            )
         elif address.path == f"/v1/extensions/{METRIC}/view.js":
             assert "review=" + REVIEW in address.query
             source = VIEW.read_text()
@@ -57,13 +78,26 @@ def run_width(browser, width):
             if scenario["mode"] == "denied":
                 request.fulfill(status=403, json={"error": {"code": "forbidden"}})
             else:
-                request.fulfill(status=200, json={"data": {
-                    "id": METRIC, "version": "1.0.0", "review": REVIEW,
-                    "metric": copy.deepcopy(metric),
-                    "view": {"entrypoint": "render", "config": copy.deepcopy(settings)},
-                }, "meta": META})
+                request.fulfill(
+                    status=200,
+                    json={
+                        "data": {
+                            "id": METRIC,
+                            "version": "1.0.0",
+                            "review": REVIEW,
+                            "metric": copy.deepcopy(metric),
+                            "view": {
+                                "entrypoint": "render",
+                                "config": copy.deepcopy(settings),
+                            },
+                        },
+                        "meta": META,
+                    },
+                )
         else:
-            raise AssertionError("Unexpected synthetic extension request: " + address.path)
+            raise AssertionError(
+                "Unexpected synthetic extension request: " + address.path
+            )
 
     context = browser.new_context(viewport={"width": width, "height": 900})
     context.route("**/*", route)
@@ -78,17 +112,25 @@ def run_width(browser, width):
         expect(views).to_contain_text("Canonical revision " + str(META["dataRevision"]))
         settings.update(title="<img src=x onerror=alert(1)>", displayUnit="lb")
         page.reload()
-        expect(views.get_by_role("heading", name=settings["title"], exact=True)).to_be_visible()
-        expect(views.get_by_text("Mean body mass: 158.7 lb", exact=True)).to_be_visible()
+        expect(
+            views.get_by_role("heading", name=settings["title"], exact=True)
+        ).to_be_visible()
+        expect(
+            views.get_by_text("Mean body mass: 158.7 lb", exact=True)
+        ).to_be_visible()
         assert views.locator("img").count() == 0
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 2")
         metric.update(value=None, count=0, missingness="insufficient_data")
         page.reload()
         expect(views).to_contain_text("Mean body mass: Not available lb")
         expect(views).to_contain_text("No measurements in this selected window.")
-        metric.update(value=72, count=2, missingness=None, truncated=True, projectionState="stale")
+        metric.update(
+            value=72, count=2, missingness=None, truncated=True, projectionState="stale"
+        )
         page.reload()
-        expect(views).to_contain_text("This personal view is limited; totals may be incomplete.")
+        expect(views).to_contain_text(
+            "This personal view is limited; totals may be incomplete."
+        )
         expect(views).to_contain_text("stale or unavailable source data")
         for mode in ("denied", "invalid", "hang"):
             scenario["mode"] = mode
@@ -112,7 +154,9 @@ def main():
                 run_width(browser, width)
         finally:
             browser.close()
-    print("PASS personal views: real worker, config/unit/escaped text, missingness, stale/limited notices, connector exclusion and denied/invalid/hung view isolation at 390/1440; synthetic API model, no real saves/providers")
+    print(
+        "PASS personal views: real worker, config/unit/escaped text, missingness, stale/limited notices, connector exclusion and denied/invalid/hung view isolation at 390/1440; synthetic API model, no real saves/providers"
+    )
 
 
 if __name__ == "__main__":

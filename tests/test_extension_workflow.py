@@ -2,6 +2,7 @@
 
 Source-only candidate: parent integrates and the dedicated queue runs it.
 """
+
 from __future__ import annotations
 
 import base64
@@ -11,7 +12,7 @@ from dataclasses import replace
 import pytest
 
 from health_buddy.client_workflow import ClientWorkflow, WorkflowNamespace
-from health_buddy.domain import encode, envelope, digest
+from health_buddy.domain import digest, encode, envelope
 from health_buddy.security_api import AgentGrant, BearerProof
 from health_buddy.security_runtime import open_runtime
 from health_buddy.service_api import Identity, Principal, Request, ServiceError
@@ -53,14 +54,20 @@ class SyntheticOperations:
         return self.receipts[request.idempotency_key]
 
 
-def namespace(event_id): return WorkflowNamespace(EXTENSION, event_id)
+def namespace(event_id):
+    return WorkflowNamespace(EXTENSION, event_id)
 
 
-def state_path(config, event_id): return config.path(f"personal/extensions/{EXTENSION}/state/requests/{digest({'eventId': event_id})}.json")
+def state_path(config, event_id):
+    return config.path(
+        f"personal/extensions/{EXTENSION}/state/requests/{digest({'eventId': event_id})}.json"
+    )
 
 
 def make_workflow(config, operations, event_id):
-    return ClientWorkflow(config, operations, Principal("synthetic-handle"), namespace=namespace(event_id))
+    return ClientWorkflow(
+        config, operations, Principal("synthetic-handle"), namespace=namespace(event_id)
+    )
 
 
 def emit(workflow, value="same"):
@@ -73,7 +80,8 @@ def emit(workflow, value="same"):
     )
 
 
-def load_state(config, event_id): return json.loads(state_path(config, event_id).read_bytes())
+def load_state(config, event_id):
+    return json.loads(state_path(config, event_id).read_bytes())
 
 
 def test_events_are_isolated_and_never_touch_native_client_state(tmp_path):
@@ -85,7 +93,10 @@ def test_events_are_isolated_and_never_touch_native_client_state(tmp_path):
 
     emit(first, "one")
     emit(second, "two")
-    first_state, second_state = load_state(config, "event-one"), load_state(config, "event-two")
+    first_state, second_state = (
+        load_state(config, "event-one"),
+        load_state(config, "event-two"),
+    )
 
     assert first_state["state"] == second_state["state"] == "complete"
     assert first_state["cursor"] == second_state["cursor"] == 1
@@ -142,7 +153,9 @@ def test_completed_event_rejects_changed_intent_and_cannot_be_discarded(tmp_path
     assert operations.revision == 1 and len(operations.requests) == 1
 
 
-def test_real_authority_rotation_recovers_lost_ack_for_same_actor(tmp_path, monkeypatch):
+def test_real_authority_rotation_recovers_lost_ack_for_same_actor(
+    tmp_path, monkeypatch
+):
     """Canonical write commits once; revocation denies retry until token rotation."""
     from health_buddy.app import App
     from health_buddy.client_workflow import decoded
@@ -165,7 +178,9 @@ def test_real_authority_rotation_recovers_lost_ack_for_same_actor(tmp_path, monk
     original_token = grant.secret.value
     app = App.authenticated(root, proof=BearerProof(original_token), runtime=runtime)
     binding = app.operations.describe()
-    (app.config.path(f"personal/extensions/{EXTENSION}")).mkdir(mode=0o700, parents=True)
+    (app.config.path(f"personal/extensions/{EXTENSION}")).mkdir(
+        mode=0o700, parents=True
+    )
     event = "real-authority-event"
     app.workflow = ClientWorkflow(
         app.config,
@@ -175,9 +190,20 @@ def test_real_authority_rotation_recovers_lost_ack_for_same_actor(tmp_path, monk
         namespace=namespace(event),
     )
     arguments = [
-        "--event-at-local", "2030-01-01T08:00:00+00:00", "--timezone", "UTC",
-        "--item-name", "Fabricated retry oats", "--calories-kcal", "123",
-        "--status", "consumed", "--category", "meal", "--source", "synthetic-entry",
+        "--event-at-local",
+        "2030-01-01T08:00:00+00:00",
+        "--timezone",
+        "UTC",
+        "--item-name",
+        "Fabricated retry oats",
+        "--calories-kcal",
+        "123",
+        "--status",
+        "consumed",
+        "--category",
+        "meal",
+        "--source",
+        "synthetic-entry",
     ]
     saved_replies, sent_requests = [], []
     base_revision = runtime.operations.journal.state().revision
@@ -213,7 +239,9 @@ def test_real_authority_rotation_recovers_lost_ack_for_same_actor(tmp_path, monk
     with pytest.raises(ServiceError) as denied:
         App.authenticated(root, proof=BearerProof(original_token), runtime=reopened)
     assert denied.value.status == 401
-    after = App.authenticated(root, proof=BearerProof(rotated.secret.value), runtime=reopened)
+    after = App.authenticated(
+        root, proof=BearerProof(rotated.secret.value), runtime=reopened
+    )
     assert after.operations.describe() == binding
     after.workflow = ClientWorkflow(
         after.config,
@@ -244,5 +272,17 @@ def test_real_authority_rotation_recovers_lost_ack_for_same_actor(tmp_path, monk
     assert base64.b64decode(complete["receipt"]["bodyBase64"]) == saved_replies[0].body
     assert reopened.operations.journal.state().revision == first_revision
     audit = App.authenticated(root, proof=BearerProof(owner_token), runtime=reopened)
-    records = decoded(audit.operations.execute(audit.principal, Request("records.list", query={"kinds": "intake", "from": "2030-01-01T00:00:00Z", "to": "2030-01-02T00:00:00Z"})))
+    records = decoded(
+        audit.operations.execute(
+            audit.principal,
+            Request(
+                "records.list",
+                query={
+                    "kinds": "intake",
+                    "from": "2030-01-01T00:00:00Z",
+                    "to": "2030-01-02T00:00:00Z",
+                },
+            ),
+        )
+    )
     assert len(records["data"]["records"]) == 1

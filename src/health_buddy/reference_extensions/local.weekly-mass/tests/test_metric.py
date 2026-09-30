@@ -19,12 +19,34 @@ def metric() -> Any:
 
 
 def test_mean_and_record_provenance() -> None:
-    result = metric()({"sourceId": "fabricated-scale", "records": [
-        {"id": "a", "kind": "body-mass", "sourceId": "fabricated-scale", "value": 70, "unit": "kg"},
-        {"id": "b", "kind": "body-mass", "sourceId": "fabricated-scale", "value": 74, "unit": "kg"},
-    ]})
-    assert result == {"value": 72.0, "unit": "kg", "count": 2,
-                      "recordIds": ["a", "b"], "missingness": None}
+    result = metric()(
+        {
+            "sourceId": "fabricated-scale",
+            "records": [
+                {
+                    "id": "a",
+                    "kind": "body-mass",
+                    "sourceId": "fabricated-scale",
+                    "value": 70,
+                    "unit": "kg",
+                },
+                {
+                    "id": "b",
+                    "kind": "body-mass",
+                    "sourceId": "fabricated-scale",
+                    "value": 74,
+                    "unit": "kg",
+                },
+            ],
+        }
+    )
+    assert result == {
+        "value": 72.0,
+        "unit": "kg",
+        "count": 2,
+        "recordIds": ["a", "b"],
+        "missingness": None,
+    }
 
 
 def test_empty_is_not_zero() -> None:
@@ -34,8 +56,15 @@ def test_empty_is_not_zero() -> None:
 
 
 def test_pounds_and_overlapping_source_refusal() -> None:
-    row = {"id": "a", "kind": "body-mass", "sourceId": "fabricated-scale",
-           "value": 70 * 2.2046226218, "unit": "lb"}
-    assert metric()({"sourceId": "fabricated-scale", "records": [row]})["value"] == pytest.approx(70)
+    row = {
+        "id": "a",
+        "kind": "body-mass",
+        "sourceId": "fabricated-scale",
+        "value": 70 * 2.2046226218,
+        "unit": "lb",
+    }
+    assert metric()({"sourceId": "fabricated-scale", "records": [row]})[
+        "value"
+    ] == pytest.approx(70)
     with pytest.raises(ValueError, match="selection"):
         metric()({"sourceId": "another-scale", "records": [row]})

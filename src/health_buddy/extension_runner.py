@@ -59,5 +59,10 @@ def validate_config(schema: JSON, config: JSON) -> None:
 def call(entrypoint: str, root: Path, payload: dict[str, JSON]) -> JSON:
     name, function = entrypoint.split(":", 1)
     return invoke(
-        {"mode": "call", "file": str(root / name), "function": function, "input": payload}
+        {
+            "mode": "call",
+            "file": str(root / name),
+            "function": function,
+            "input": payload,
+        }
     )

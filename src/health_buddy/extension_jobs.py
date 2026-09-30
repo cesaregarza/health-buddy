@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from contextlib import AbstractContextManager
-from typing import cast
 
 from .client_auth import AuthenticatedOperations
 from .client_workflow import ClientWorkflow, WorkflowNamespace
@@ -27,21 +26,28 @@ def job_lock(config: Config, name: str) -> AbstractContextManager[None]:
 
 
 def run_event(
-    config: Config, runtime: Runtime, proof: BearerProof,
-    name: str, event: dict[str, JSON],
+    config: Config,
+    runtime: Runtime,
+    proof: BearerProof,
+    name: str,
+    event: dict[str, JSON],
 ) -> dict[str, JSON]:
     name = extension_id(name)
     deadline = time.monotonic() + 15
     with job_lock(config, name):
         admitted = runtime.security.authenticate(proof)
-        own = runtime.security.execute(admitted.principal, SecurityRequest("session.get"))
+        own = runtime.security.execute(
+            admitted.principal, SecurityRequest("session.get")
+        )
         if own.data.get("role") != "agent":
             raise ServiceError(403, "extension_scoped_credential_required")
         with exclusive(config.path("operations/manual.lock"), deadline):
             reviewed = Registry(config).ready_locked(name)
         if reviewed.manifest.kind != "connector-workflow":
             raise ServiceError(422, "extension_not_connector")
-        original = object_value(event, {"eventId", "observedAt", "sourceId", "value", "unit"})
+        original = object_value(
+            event, {"eventId", "observedAt", "sourceId", "value", "unit"}
+        )
         event_id = text(original["eventId"], limit=128)
         source = text(original["sourceId"], limit=128)
         if source not in reviewed.source_ids:
@@ -51,18 +57,27 @@ def run_event(
         text(original["unit"], limit=40)
         operations = AuthenticatedOperations(runtime, proof)
         workflow = ClientWorkflow(
-            config, operations, admitted.principal, client_identity=operations.describe,
+            config,
+            operations,
+            admitted.principal,
+            client_identity=operations.describe,
             namespace=WorkflowNamespace(name, event_id),
         )
 
         def build() -> JSON:
             check_deadline(deadline)
             normalized = object_value(
-                call(reviewed.manifest.entrypoints["connector"], reviewed.root,
-                     {"schemaVersion": 1, "event": original, "config": reviewed.config}),
+                call(
+                    reviewed.manifest.entrypoints["connector"],
+                    reviewed.root,
+                    {"schemaVersion": 1, "event": original, "config": reviewed.config},
+                ),
                 {"kind", "value", "unit", "observedAt", "sourceId"},
             )
-            if normalized["sourceId"] != source or normalized["observedAt"] != original["observedAt"]:
+            if (
+                normalized["sourceId"] != source
+                or normalized["observedAt"] != original["observedAt"]
+            ):
                 raise ServiceError(422, "extension_provenance_mismatch")
             if normalized["kind"] not in reviewed.manifest.write_kinds:
                 raise ServiceError(422, "extension_kind_mismatch")
@@ -71,8 +86,11 @@ def run_event(
             # Workflow hook returns the same validated intent plus its source
             # event identity. It never receives authority or a raw store.
             plan = object_value(
-                call(reviewed.manifest.entrypoints["workflow"], reviewed.root,
-                     {"schemaVersion": 1, "eventId": event_id, "record": normalized}),
+                call(
+                    reviewed.manifest.entrypoints["workflow"],
+                    reviewed.root,
+                    {"schemaVersion": 1, "eventId": event_id, "record": normalized},
+                ),
                 {"eventId", "record"},
             )
             if plan["eventId"] != event_id or plan["record"] != normalized:
@@ -85,7 +103,9 @@ def run_event(
         # The original source event is the retained intent. A later code review
         # cannot reinterpret it: identical retries reuse the saved payload.
         return workflow.write(
-            "records.put", build,
+            "records.put",
+            build,
             intent={"extensionId": name, "event": original},
-            resource_id="ext:" + digest({"extension": name, "source": source, "event": event_id}),
+            resource_id="ext:"
+            + digest({"extension": name, "source": source, "event": event_id}),
         )

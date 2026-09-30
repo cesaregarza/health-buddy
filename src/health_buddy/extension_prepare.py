@@ -19,12 +19,21 @@ from .extension_files import extension_id, private_directory, read_file, read_js
 from .extension_jobs import job_lock
 from .extension_manifest import parse_manifest
 from .extension_registry import Registry
-from .security_api import AgentGrant, Authenticated, BearerProof, ClientIdentity, Runtime, SecurityRequest
+from .security_api import (
+    AgentGrant,
+    Authenticated,
+    BearerProof,
+    ClientIdentity,
+    Runtime,
+    SecurityRequest,
+)
 from .security_runtime import read_credential
 from .service_api import JSON, ServiceError
 
 
-def _identity(runtime: Runtime, proof: BearerProof) -> tuple[Authenticated, ClientIdentity]:
+def _identity(
+    runtime: Runtime, proof: BearerProof
+) -> tuple[Authenticated, ClientIdentity]:
     admitted = runtime.security.authenticate(proof)
     return admitted, runtime.security.describe(admitted.principal)
 
@@ -33,26 +42,35 @@ def _actors(runtime: Runtime, proof: BearerProof) -> list[dict[str, JSON]]:
     admitted, _ = _identity(runtime, proof)
     reply = runtime.security.execute(admitted.principal, SecurityRequest("grants.list"))
     values = reply.data.get("items")
-    if not isinstance(values, list) or any(not isinstance(item, dict) for item in values):
+    if not isinstance(values, list) or any(
+        not isinstance(item, dict) for item in values
+    ):
         raise ServiceError(503, "extension_preparation_unavailable")
     return cast(list[dict[str, JSON]], values)
 
 
 def _matches(actor: dict[str, JSON], name: str, source: str) -> bool:
     return (
-        actor.get("name") == name and actor.get("role") == "agent"
+        actor.get("name") == name
+        and actor.get("role") == "agent"
         and actor.get("active") is True
         and actor.get("grants") == ["records:write"]
         and actor.get("sourceIds") == [source]
-        and actor.get("readSources") == [] and actor.get("readKinds") == []
+        and actor.get("readSources") == []
+        and actor.get("readKinds") == []
         and actor.get("readFields") == []
-        and actor.get("deviceId") is None and actor.get("sourceStreamId") is None
+        and actor.get("deviceId") is None
+        and actor.get("sourceStreamId") is None
     )
 
 
 def prepare(
-    config: Config, runtime: Runtime, owner_proof: BearerProof,
-    intent: PrepareConnector, *, fault: Callable[[str], None] | None = None,
+    config: Config,
+    runtime: Runtime,
+    owner_proof: BearerProof,
+    intent: PrepareConnector,
+    *,
+    fault: Callable[[str], None] | None = None,
 ) -> dict[str, JSON]:
     from .operations import Service
 
@@ -88,8 +106,12 @@ def prepare(
             if any(actor.get("name") == grant_name for actor in actors):
                 raise ServiceError(409, "extension_preparation_requires_reconciliation")
             record = {
-                "schemaVersion": 1, "extensionId": name, "sourceId": source,
-                "grantName": grant_name, "actorId": None, "phase": "source_pending",
+                "schemaVersion": 1,
+                "extensionId": name,
+                "sourceId": source,
+                "grantName": grant_name,
+                "actorId": None,
+                "phase": "source_pending",
                 "credentialReference": reference,
                 "priorActorIds": [actor["id"] for actor in actors],
             }
@@ -97,16 +119,28 @@ def prepare(
                 atomic_bytes(state_path, encode(record))
         if (
             not isinstance(record, dict)
-            or set(record) != {
-                "schemaVersion", "extensionId", "sourceId", "grantName", "actorId",
-                "phase", "credentialReference", "priorActorIds",
+            or set(record)
+            != {
+                "schemaVersion",
+                "extensionId",
+                "sourceId",
+                "grantName",
+                "actorId",
+                "phase",
+                "credentialReference",
+                "priorActorIds",
             }
-            or type(record["schemaVersion"]) is not int or record["schemaVersion"] != 1
-            or record["extensionId"] != name or record["sourceId"] != source
+            or type(record["schemaVersion"]) is not int
+            or record["schemaVersion"] != 1
+            or record["extensionId"] != name
+            or record["sourceId"] != source
             or record["grantName"] != grant_name
             or not isinstance(record["phase"], str)
-            or record["phase"] not in {"source_pending", "grant_pending", "handoff_pending", "ready"}
-            or (record["actorId"] is not None and not isinstance(record["actorId"], str))
+            or record["phase"]
+            not in {"source_pending", "grant_pending", "handoff_pending", "ready"}
+            or (
+                record["actorId"] is not None and not isinstance(record["actorId"], str)
+            )
             or not isinstance(record["credentialReference"], str)
             or not record["credentialReference"].startswith("secrets/")
             or len(Path(record["credentialReference"]).parts) != 2
@@ -125,18 +159,23 @@ def prepare(
         actor_id = record["actorId"]
         if actor_id is None and record["phase"] in {"grant_pending", "handoff_pending"}:
             candidates = [
-                actor for actor in actors
+                actor
+                for actor in actors
                 if actor["id"] not in record["priorActorIds"]
                 and actor.get("name") == grant_name
             ]
             if len(candidates) > 1:
-                raise ServiceError(409, "extension_preparation_ambiguous_revoke_and_reconcile")
+                raise ServiceError(
+                    409, "extension_preparation_ambiguous_revoke_and_reconcile"
+                )
             if candidates:
                 if not _matches(candidates[0], grant_name, source):
                     raise ServiceError(409, "extension_grant_requires_reconciliation")
                 actor_id = candidates[0]["id"]
                 record["actorId"] = actor_id
-        if actor_id is None and any(actor.get("name") == grant_name for actor in actors):
+        if actor_id is None and any(
+            actor.get("name") == grant_name for actor in actors
+        ):
             raise ServiceError(409, "extension_preparation_requires_reconciliation")
         if actor_id is not None:
             current = [actor for actor in actors if actor["id"] == actor_id]
@@ -146,18 +185,27 @@ def prepare(
                 if reference != record["credentialReference"]:
                     raise ServiceError(409, "credential_file_exists")
                 try:
-                    retained = runtime.security.authenticate(BearerProof(read_credential(output)))
+                    retained = runtime.security.authenticate(
+                        BearerProof(read_credential(output))
+                    )
                     retained_client = runtime.security.describe(retained.principal)
                     # Security actorBinding is the durable actor identifier.
                     if retained_client.actor_binding != actor_id:
                         raise ServiceError(409, "extension_credential_mismatch")
                 except ServiceError:
-                    raise ServiceError(409, "extension_private_handoff_requires_rotation") from None
+                    raise ServiceError(
+                        409, "extension_private_handoff_requires_rotation"
+                    ) from None
                 record["phase"] = "ready"
                 with exclusive(service.lock):
                     atomic_bytes(state_path, encode(record))
-                return {"prepared": True, "sourceId": source, "actorId": actor_id,
-                        "credentialReference": reference, "enabled": False}
+                return {
+                    "prepared": True,
+                    "sourceId": source,
+                    "actorId": actor_id,
+                    "credentialReference": reference,
+                    "enabled": False,
+                }
             if not intent.rotate_existing:
                 with exclusive(service.lock):
                     atomic_bytes(state_path, encode(record))
@@ -169,9 +217,13 @@ def prepare(
         descriptor: int | None = None
         try:
             with exclusive(service.lock):
-                descriptor = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+                descriptor = os.open(
+                    output, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600
+                )
                 fsync_path(output.parent)
-                record["phase"] = "grant_pending" if actor_id is None else "handoff_pending"
+                record["phase"] = (
+                    "grant_pending" if actor_id is None else "handoff_pending"
+                )
                 record["credentialReference"] = reference
                 atomic_bytes(state_path, encode(record))
             fault("handoff_reserved")
@@ -180,8 +232,11 @@ def prepare(
                 admitted.principal,
                 SecurityRequest(
                     "grants.create" if actor_id is None else "grants.rotate",
-                    payload=AgentGrant(grant_name, ("records:write",), (source,)) if actor_id is None else None,
-                    resource_id=cast(str | None, actor_id), identity=client.identity,
+                    payload=AgentGrant(grant_name, ("records:write",), (source,))
+                    if actor_id is None
+                    else None,
+                    resource_id=cast(str | None, actor_id),
+                    identity=client.identity,
                 ),
             )
             fault("grant_created")
@@ -203,5 +258,10 @@ def prepare(
         finally:
             if descriptor is not None:
                 os.close(descriptor)
-        return {"prepared": True, "sourceId": source, "actorId": record["actorId"],
-                "credentialReference": reference, "enabled": False}
+        return {
+            "prepared": True,
+            "sourceId": source,
+            "actorId": record["actorId"],
+            "credentialReference": reference,
+            "enabled": False,
+        }

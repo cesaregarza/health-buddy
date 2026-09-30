@@ -25,7 +25,11 @@ def catalog(service: Service) -> list[JSON]:
     result: list[JSON] = []
     for item in registry.inspect_locked():
         value = status_json(item)
-        value["kind"] = registry.ready_locked(item.id).manifest.kind if item.state == "ready" else None
+        value["kind"] = (
+            registry.ready_locked(item.id).manifest.kind
+            if item.state == "ready"
+            else None
+        )
         result.append(value)
     return result
 
@@ -49,7 +53,10 @@ def _scope(authority: Authority, reviewed: ReviewedExtension, source: str) -> No
 
 
 def _metric(
-    service: Service, authority: Authority, request: Request, state: State,
+    service: Service,
+    authority: Authority,
+    request: Request,
+    state: State,
     reviewed: ReviewedExtension,
 ) -> dict[str, JSON]:
     # Seven local calendar days, ending at today's selected local wall time.
@@ -65,8 +72,11 @@ def _metric(
             start = datetime.fromisoformat(request.query["from"].replace("Z", "+00:00"))
             end = datetime.fromisoformat(request.query["to"].replace("Z", "+00:00"))
             if (
-                start.tzinfo is None or end.tzinfo is None or end < start
-                or end.astimezone(zone).date() - start.astimezone(zone).date() > timedelta(days=6)
+                start.tzinfo is None
+                or end.tzinfo is None
+                or end < start
+                or end.astimezone(zone).date() - start.astimezone(zone).date()
+                > timedelta(days=6)
             ):
                 raise ValueError("window")
         except (ValueError, OverflowError):
@@ -81,16 +91,23 @@ def _metric(
     from .views import _records
 
     query = {
-        "from": start.isoformat(), "to": end.isoformat(), "sourceIds": source,
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "sourceIds": source,
         "kinds": ",".join(reviewed.manifest.read_kinds),
         "fields": ",".join(reviewed.manifest.read_fields),
         "limit": str(MAX_METRIC_ROWS),
     }
     capture = snapshots.capture(
-        service, state, window=(start.astimezone(UTC), end.astimezone(UTC)),
-        kinds=set(reviewed.manifest.read_kinds), sources={source},
+        service,
+        state,
+        window=(start.astimezone(UTC), end.astimezone(UTC)),
+        kinds=set(reviewed.manifest.read_kinds),
+        sources={source},
     )
-    data = _records(service, authority, Request("records.list", query=query), capture, False)
+    data = _records(
+        service, authority, Request("records.list", query=query), capture, False
+    )
     rows = data["records"]
     if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
         raise ServiceError(503, "extension_input_unavailable")
@@ -98,16 +115,24 @@ def _metric(
     truncated = data["nextCursor"] is not None
     stale = data["stale"] is True
     freshness = (
-        "stale" if stale or any(row.get("freshness") == "stale" for row in records)
-        else "fresh" if records and all(row.get("freshness") == "fresh" for row in records)
+        "stale"
+        if stale or any(row.get("freshness") == "stale" for row in records)
+        else "fresh"
+        if records and all(row.get("freshness") == "fresh" for row in records)
         else "unknown"
     )
     projection = "stale" if stale else "partial" if truncated else "current"
     payload: dict[str, JSON] = {
-        "schemaVersion": 1, "records": rows, "sourceId": source,
-        "timezone": zone.key, "from": start.isoformat(), "to": end.isoformat(),
-        "dataRevision": state.revision, "projectionState": projection,
-        "freshness": freshness, "truncated": truncated,
+        "schemaVersion": 1,
+        "records": rows,
+        "sourceId": source,
+        "timezone": zone.key,
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "dataRevision": state.revision,
+        "projectionState": projection,
+        "freshness": freshness,
+        "truncated": truncated,
         "missingness": "source_unavailable" if stale else None,
         "config": reviewed.config,
     }
@@ -136,11 +161,17 @@ def _metric(
     ):
         raise ServiceError(503, "extension_output_invalid")
     return {
-        "schemaVersion": 1, **result, "unit": unit,
-        "sourceId": source, "timezone": zone.key,
-        "from": start.isoformat(), "to": end.isoformat(),
-        "dataRevision": state.revision, "projectionState": projection,
-        "freshness": freshness, "truncated": truncated,
+        "schemaVersion": 1,
+        **result,
+        "unit": unit,
+        "sourceId": source,
+        "timezone": zone.key,
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "dataRevision": state.revision,
+        "projectionState": projection,
+        "freshness": freshness,
+        "truncated": truncated,
         "missingness": "source_unavailable" if stale else missingness,
     }
 
@@ -172,10 +203,14 @@ def read(
         return Response(200, raw, (("Content-Type", "text/javascript; charset=utf-8"),))
     result = _metric(service, authority, request, state, reviewed)
     payload: dict[str, JSON] = {
-        "id": name, "version": reviewed.manifest.version,
-        "review": reviewed.digest, "metric": result,
-        "view": {"entrypoint": reviewed.manifest.entrypoints["view"].split(":", 1)[1],
-                 "config": reviewed.config},
+        "id": name,
+        "version": reviewed.manifest.version,
+        "review": reviewed.digest,
+        "metric": result,
+        "view": {
+            "entrypoint": reviewed.manifest.entrypoints["view"].split(":", 1)[1],
+            "config": reviewed.config,
+        },
     }
     if len(encode(payload)) > 65_536:
         raise ServiceError(503, "extension_output_invalid")

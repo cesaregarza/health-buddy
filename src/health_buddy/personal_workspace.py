@@ -38,7 +38,13 @@ def inventory_locked(config: Config) -> dict[str, JSON]:
         before = path.lstat()
         relative = path.relative_to(root).as_posix()
         if stat.S_ISDIR(before.st_mode):
-            records.append({"path": relative, "type": "directory", "mode": stat.S_IMODE(before.st_mode)})
+            records.append(
+                {
+                    "path": relative,
+                    "type": "directory",
+                    "mode": stat.S_IMODE(before.st_mode),
+                }
+            )
             if len(path.relative_to(root).parts) > 16:
                 complete = False
                 return
@@ -49,15 +55,24 @@ def inventory_locked(config: Config) -> dict[str, JSON]:
                         break
                     walk(Path(entry.path))
             after = path.lstat()
-            if (before.st_mtime_ns, before.st_ctime_ns) != (after.st_mtime_ns, after.st_ctime_ns):
+            if (before.st_mtime_ns, before.st_ctime_ns) != (
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ):
                 complete = False
         elif stat.S_ISREG(before.st_mode):
             try:
                 raw = read_file(path, min(MAX_FILE_BYTES, MAX_TOTAL_BYTES - total))
                 total += len(raw)
-                records.append({"path": relative, "type": "file", "size": len(raw),
-                                "mode": stat.S_IMODE(before.st_mode),
-                                "sha256": hashlib.sha256(raw).hexdigest()})
+                records.append(
+                    {
+                        "path": relative,
+                        "type": "file",
+                        "size": len(raw),
+                        "mode": stat.S_IMODE(before.st_mode),
+                        "sha256": hashlib.sha256(raw).hexdigest(),
+                    }
+                )
             except (OSError, ServiceError):
                 complete = False
                 records.append({"path": relative, "type": "unreadable_or_changing"})
@@ -70,9 +85,14 @@ def inventory_locked(config: Config) -> dict[str, JSON]:
     except OSError:
         complete = False
     records.sort(key=lambda item: cast(str, cast(dict[str, JSON], item)["path"]))
-    return {"schemaVersion": 1, "complete": complete, "entries": records,
-            "bytes": total, "digest": digest(records),
-            "externalEditorConsistency": "requires_snapshot_coordination"}
+    return {
+        "schemaVersion": 1,
+        "complete": complete,
+        "entries": records,
+        "bytes": total,
+        "digest": digest(records),
+        "externalEditorConsistency": "requires_snapshot_coordination",
+    }
 
 
 def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
@@ -90,19 +110,33 @@ def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
                     raise ServiceError(422, "invalid_fork")
                 value = read_json(Path(child.path) / "fork.json", 32_768)
                 if not isinstance(value, dict) or set(value) != {
-                    "schemaVersion", "upstreamBase", "sourceCommit", "sourceTree",
-                    "patchFiles", "dirty", "conflicted", "buildRecipe", "tests",
+                    "schemaVersion",
+                    "upstreamBase",
+                    "sourceCommit",
+                    "sourceTree",
+                    "patchFiles",
+                    "dirty",
+                    "conflicted",
+                    "buildRecipe",
+                    "tests",
                 }:
                     raise ServiceError(422, "invalid_fork")
                 if (
                     value["schemaVersion"] != 1
                     or not isinstance(value["upstreamBase"], str)
                     or not SHA.fullmatch(value["upstreamBase"])
-                    or type(value["dirty"]) is not bool or type(value["conflicted"]) is not bool
-                    or not isinstance(value["buildRecipe"], str) or len(value["buildRecipe"]) > 2000
-                    or not isinstance(value["tests"], list) or len(value["tests"]) > 32
-                    or any(not isinstance(item, str) or len(item) > 300 for item in value["tests"])
-                    or not isinstance(value["patchFiles"], list) or len(value["patchFiles"]) > 32
+                    or type(value["dirty"]) is not bool
+                    or type(value["conflicted"]) is not bool
+                    or not isinstance(value["buildRecipe"], str)
+                    or len(value["buildRecipe"]) > 2000
+                    or not isinstance(value["tests"], list)
+                    or len(value["tests"]) > 32
+                    or any(
+                        not isinstance(item, str) or len(item) > 300
+                        for item in value["tests"]
+                    )
+                    or not isinstance(value["patchFiles"], list)
+                    or len(value["patchFiles"]) > 32
                 ):
                     raise ServiceError(422, "invalid_fork")
                 for key in ("sourceCommit", "sourceTree"):
@@ -117,15 +151,34 @@ def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
                     path = config.path(f"personal/forks/{child.name}/{relative}")
                     if not path.is_relative_to(Path(child.path)):
                         raise ServiceError(422, "invalid_fork")
-                    patches.append({"path": relative, "sha256": hashlib.sha256(read_file(path, MAX_FILE_BYTES)).hexdigest()})
+                    patches.append(
+                        {
+                            "path": relative,
+                            "sha256": hashlib.sha256(
+                                read_file(path, MAX_FILE_BYTES)
+                            ).hexdigest(),
+                        }
+                    )
                 state = (
-                    "conflicted" if value["conflicted"] else "dirty" if value["dirty"]
-                    else "core_fork_requires_rebase" if upstream_base and value["upstreamBase"] != upstream_base
-                    else "target_unknown" if upstream_base is None else "recorded_compatible"
+                    "conflicted"
+                    if value["conflicted"]
+                    else "dirty"
+                    if value["dirty"]
+                    else "core_fork_requires_rebase"
+                    if upstream_base and value["upstreamBase"] != upstream_base
+                    else "target_unknown"
+                    if upstream_base is None
+                    else "recorded_compatible"
                 )
-                result.append({"id": child.name, "state": state,
-                               "metadata": value, "patches": patches,
-                               "evidence": "owner_recorded_not_live_git_verification"})
+                result.append(
+                    {
+                        "id": child.name,
+                        "state": state,
+                        "metadata": value,
+                        "patches": patches,
+                        "evidence": "owner_recorded_not_live_git_verification",
+                    }
+                )
             except (OSError, ValueError, ServiceError):
                 result.append({"id": child.name, "state": "invalid_fork_metadata"})
     return result
@@ -134,18 +187,40 @@ def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
 def source_identity() -> dict[str, JSON]:
     """Describe this source only; no remotes, logs, hooks or build execution."""
     source = legacy.RELEASE
-    result: dict[str, JSON] = {"path": str(source), "kind": "source_bundle",
-                              "commit": None, "dirty": None,
-                              "releaseArtifact": None}
-    environment = {"PATH": os.defpath, "GIT_CONFIG_NOSYSTEM": "1",
-                   "GIT_CONFIG_GLOBAL": os.devnull, "GIT_OPTIONAL_LOCKS": "0",
-                   "GIT_NO_LAZY_FETCH": "1", "GIT_TERMINAL_PROMPT": "0"}
+    result: dict[str, JSON] = {
+        "path": str(source),
+        "kind": "source_bundle",
+        "commit": None,
+        "dirty": None,
+        "releaseArtifact": None,
+    }
+    environment = {
+        "PATH": os.defpath,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_OPTIONAL_LOCKS": "0",
+        "GIT_NO_LAZY_FETCH": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+    }
     try:
         head = subprocess.run(  # noqa: S603 - Fixed read-only Git metadata command.
-            ["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull,
-             "-C", str(source), "rev-parse", "--verify", "HEAD"],  # noqa: S607
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            timeout=3, env=environment, check=False,
+            [
+                "git",
+                "-c",
+                "core.fsmonitor=false",
+                "-c",
+                "core.hooksPath=" + os.devnull,
+                "-C",
+                str(source),
+                "rev-parse",
+                "--verify",
+                "HEAD",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+            env=environment,
+            check=False,
         )
         value = head.stdout.decode("ascii").strip()
         if head.returncode == 0 and SHA.fullmatch(value):
@@ -173,13 +248,20 @@ def describe(config: Config, *, upstream_base: str | None = None) -> dict[str, J
         except ServiceError:
             pass
         return {
-            "schemaVersion": 1, "extensionApi": 1, "workspace": str(config.root),
+            "schemaVersion": 1,
+            "extensionApi": 1,
+            "workspace": str(config.root),
             "source": source,
-            "interfaces": ["src/health_buddy/extension_api.py", "src/health_buddy/service_api.py"],
+            "interfaces": [
+                "src/health_buddy/extension_api.py",
+                "src/health_buddy/service_api.py",
+            ],
             "documentation": ["docs/extensions.md", "docs/extension-implementation.md"],
             "extensions": [status_json(item) for item in statuses],
             "personalInventory": inventory_locked(config),
             "requiredSecretReferences": sorted(required),
-            "forks": forks_locked(config, upstream_base or cast(str | None, source["commit"])),
+            "forks": forks_locked(
+                config, upstream_base or cast(str | None, source["commit"])
+            ),
             "restore": "whole_workspace_snapshot_and_credential_rotation_required",
         }

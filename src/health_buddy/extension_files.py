@@ -28,7 +28,6 @@ def bounded_children(directory: Path, limit: int) -> list[Path]:
     return sorted(children)
 
 
-
 def extension_id(value: str) -> str:
     if not isinstance(value, str) or len(value) > 80 or not ID.fullmatch(value):
         raise ServiceError(422, "invalid_extension_id")
@@ -128,6 +127,12 @@ def runtime_files(root: Path) -> FileInventory:
     return FileInventory(
         files,
         tuple(sorted(directories)),
-        digest({"files": {name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()},
-                "directories": sorted(directories)}),
+        digest(
+            {
+                "files": {
+                    name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()
+                },
+                "directories": sorted(directories),
+            }
+        ),
     )

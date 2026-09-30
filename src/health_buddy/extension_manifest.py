@@ -52,12 +52,22 @@ def parse_manifest(raw: bytes) -> ExtensionManifest:
     ):
         raise ServiceError(422, "extension_manifest_invalid")
     return ExtensionManifest(
-        data["schemaVersion"], data["id"], data["version"], data["extensionApi"],
-        kind, data["stateSchema"], entrypoints, data["dependencies"],
-        tuple(data["scopes"]), tuple(access["readKinds"]),
-        tuple(access["readFields"]), tuple(access["writeKinds"]),
-        tuple(data["egress"]), tuple(data["secretReferences"]),
-        data["configSchema"], data["configFile"],
+        data["schemaVersion"],
+        data["id"],
+        data["version"],
+        data["extensionApi"],
+        kind,
+        data["stateSchema"],
+        entrypoints,
+        data["dependencies"],
+        tuple(data["scopes"]),
+        tuple(access["readKinds"]),
+        tuple(access["readFields"]),
+        tuple(access["writeKinds"]),
+        tuple(data["egress"]),
+        tuple(data["secretReferences"]),
+        data["configSchema"],
+        data["configFile"],
     )
 
 

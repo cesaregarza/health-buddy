@@ -152,7 +152,9 @@ class ClientWorkflow:
             else:
                 parent = self.config.path(root)
                 for component in ("state", "requests"):
-                    child = self.config.path(str((parent / component).relative_to(self.config.root)))
+                    child = self.config.path(
+                        str((parent / component).relative_to(self.config.root))
+                    )
                     if not child.exists():
                         child.mkdir(mode=0o700)
                         fsync_path(child)

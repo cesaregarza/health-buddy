@@ -8,8 +8,8 @@ import stat
 from pathlib import Path
 
 from . import config, legacy
-from .legacy_store import Store
 from .durability import fsync_path
+from .legacy_store import Store
 
 OWNER_NOTE = """# Personal Health Buddy workspace
 

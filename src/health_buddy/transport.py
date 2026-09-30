@@ -115,12 +115,21 @@ ENDPOINTS = (
     Endpoint("/v1/healthkit/batches", "POST", "healthkit.ingest"),
     Endpoint("/v1/projections/status", "GET", "projection.status"),
     Endpoint("/v1/extensions", "GET", "extensions.list"),
-    Endpoint("/v1/extensions/{resource}", "GET", "extensions.read",
-             frozenset({"sourceId", "from", "to"})),
-    Endpoint("/v1/extensions/{resource}/view.js", "GET", "extensions.asset",
-             frozenset({"review", "sourceId"})),
-    Endpoint("/extension-worker.js", "GET", "asset.read", resource="extension-worker.js"),
-
+    Endpoint(
+        "/v1/extensions/{resource}",
+        "GET",
+        "extensions.read",
+        frozenset({"sourceId", "from", "to"}),
+    ),
+    Endpoint(
+        "/v1/extensions/{resource}/view.js",
+        "GET",
+        "extensions.asset",
+        frozenset({"review", "sourceId"}),
+    ),
+    Endpoint(
+        "/extension-worker.js", "GET", "asset.read", resource="extension-worker.js"
+    ),
     Endpoint("/v1/context/intent", "POST", "context.intent"),
     Endpoint(
         "/v1/training/fast",

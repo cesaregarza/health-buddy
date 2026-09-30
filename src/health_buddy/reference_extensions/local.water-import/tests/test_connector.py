@@ -19,16 +19,30 @@ def connector() -> Any:
 
 
 def test_exact_liters_and_provenance() -> None:
-    event = {"eventId": "fabricated-one", "value": 250, "unit": "mL",
-             "observedAt": "2030-01-01T08:00:00Z", "sourceId": "fabricated-water"}
+    event = {
+        "eventId": "fabricated-one",
+        "value": 250,
+        "unit": "mL",
+        "observedAt": "2030-01-01T08:00:00Z",
+        "sourceId": "fabricated-water",
+    }
     result = connector()({"event": event, "config": {"inputUnit": "mL"}})
-    assert result == {"kind": "water-intake", "value": 0.25, "unit": "L",
-                      "observedAt": event["observedAt"], "sourceId": event["sourceId"]}
+    assert result == {
+        "kind": "water-intake",
+        "value": 0.25,
+        "unit": "L",
+        "observedAt": event["observedAt"],
+        "sourceId": event["sourceId"],
+    }
 
 
 def test_zero_is_recorded_and_wrong_unit_rejected() -> None:
-    event = {"value": 0, "unit": "mL", "observedAt": "2030-01-01T08:00:00Z",
-             "sourceId": "fabricated-water"}
+    event = {
+        "value": 0,
+        "unit": "mL",
+        "observedAt": "2030-01-01T08:00:00Z",
+        "sourceId": "fabricated-water",
+    }
     assert connector()({"event": event, "config": {"inputUnit": "mL"}})["value"] == 0
     with pytest.raises(ValueError, match="unit"):
         connector()({"event": {**event, "unit": "kg"}, "config": {"inputUnit": "mL"}})

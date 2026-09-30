@@ -29,8 +29,14 @@ def prepared(root):
     runtime, owner, token = secured(root)
     config = runtime.operations.config
     example(config, "local.water-import")
-    result = prepare(config, runtime, BearerProof(token), PrepareConnector(
-        "local.water-import", "fabricated-water", "secrets/fabricated-water-token"))
+    result = prepare(
+        config,
+        runtime,
+        BearerProof(token),
+        PrepareConnector(
+            "local.water-import", "fabricated-water", "secrets/fabricated-water-token"
+        ),
+    )
     grant = BearerProof(read_credential(config.path(result["credentialReference"])))
     Registry(config).enable("local.water-import", source_ids=("fabricated-water",))
     return runtime, owner, token, grant, result

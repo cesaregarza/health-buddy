@@ -73,7 +73,6 @@ QUERY_KEYS = {
     "training.fast.read": {"date", "revision"},
     "extensions.read": {"sourceId", "from", "to"},
     "extensions.asset": {"review", "sourceId"},
-
 }
 
 
@@ -577,7 +576,6 @@ def read(
 
         return extension_read(service, authority, request, state)
     if request.operation == "asset.read":
-
         name = request.resource_id
         media_types = {
             "icon.svg": "image/svg+xml",

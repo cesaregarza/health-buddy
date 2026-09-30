@@ -25,7 +25,9 @@ def calculate(input_value: dict[str, Any]) -> dict[str, Any]:
         values.append(value)
         ids.append(row["id"])
     return {
-        "value": fmean(values) if values else None, "unit": "kg",
-        "count": len(values), "recordIds": ids,
+        "value": fmean(values) if values else None,
+        "unit": "kg",
+        "count": len(values),
+        "recordIds": ids,
         "missingness": None if values else "insufficient_data",
     }
