@@ -10,6 +10,7 @@ sys.path[:0]=[str(ROOT),str(ROOT/'tests')]
 from dashboard_fixture import snapshot,AS_OF
 from preview import render
 from check_browser import layout,contrast
+from api_fixture import META,envelope
 from playwright.sync_api import sync_playwright,expect
 
 
@@ -21,6 +22,7 @@ def main():
             for theme in ('light','dark'):
                 context=browser.new_context(viewport={'width':width,'height':900},color_scheme=theme,reduced_motion='reduce')
                 data=snapshot()
+                data['meta'].update(META)
                 # Stable bounds let the BP test detect mean movement independent of auto-scaling.
                 data['bp']=[{'d':'2026-08-18','t':'2026-08-18T08:00','sys':120,'dia':80,'session':'morning','status':'valid'},
                             {'d':'2026-08-19','t':'2026-08-19T08:00','sys':122,'dia':82,'session':'morning','status':'valid'},
@@ -31,10 +33,12 @@ def main():
                 calls=[]
                 def route(req):
                     if req.request.resource_type=='document':req.fulfill(status=200,content_type='text/html',body=render(data,AS_OF))
-                    elif req.request.url.endswith('/api/workouts'):
+                    elif req.request.url.endswith('/v1/capabilities'):
+                        req.fulfill(status=200,json=envelope({'writable':True}))
+                    elif req.request.url.endswith('/v1/workouts'):
                         value=req.request.post_data_json;calls.append(value)
-                        if len(calls)==1:req.fulfill(status=503,json={'error':'Synthetic save interruption'})
-                        else:req.fulfill(status=200,json={'saved':True,'session_id':value['session_id'],'commit':'b'*40,'duplicate':False,'refresh_requested':True})
+                        if len(calls)==1:req.fulfill(status=503,json={'error':{'code':'source_unavailable'},'meta':{}})
+                        else:req.fulfill(status=200,headers={'ETag':'"rev-1"'},json=envelope({'saved':True,'sessionId':value['session_id'],'duplicate':False,'projection':{'state':'pending'}},1))
                     else:raise AssertionError('Unexpected request '+req.request.url)
                 context.route('**/*',route)
                 page.goto('http://localhost/dashboard')
@@ -67,7 +71,7 @@ def main():
                 expect(page.locator('#workout-review')).to_contain_text('0 lb')
                 expect(page.locator('#workout-review')).to_contain_text('RIR unknown')
                 page.locator('#save-workout').click()
-                expect(page.locator('#draft-status')).to_contain_text('Synthetic save interruption')
+                expect(page.locator('#draft-status')).to_contain_text('source_unavailable')
                 page.locator('#save-workout').click()
                 expect(page.locator('#draft-status')).to_contain_text('Saved to the central health log')
                 assert calls[0]==calls[1] and calls[0]['sets'][0]['load_lb']==0 and calls[0]['sets'][0]['rir'] is None
@@ -92,6 +96,10 @@ def main():
                 page.reload();page.locator('#tab-training').click()
                 page.locator('#workout-editor > summary').click()
                 expect(page.locator('#draft-status')).to_contain_text('could not be restored')
+                expect(page.locator('#review-workout')).to_be_disabled()
+                assert page.evaluate("JSON.parse(localStorage.getItem('health-workout-draft-v1')).session_id")=='bad'
+                page.once('dialog',lambda dialog:dialog.accept())
+                page.get_by_role('button',name='Resolve saved retry request',exact=True).click()
                 page.locator('[data-field=notes]').first.fill('New draft after malformed storage')
                 expect(page.locator('#review-workout')).to_be_enabled()
                 assert page.evaluate("JSON.parse(localStorage.getItem('health-workout-draft-v1')).notes")=='New draft after malformed storage'

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,7 @@ def defaults() -> dict[str, Any]:
             "cache": "cache",
         },
         "integrations": {
-            "healthkit": {"enabled": False},
+            "healthkit": {"enabled": False, "mode": "read-only"},
             "sleepiq": {"enabled": False, "exportFile": "stores/sleepiq.csv"},
             "jev": {
                 "enabled": False,
@@ -149,7 +150,7 @@ class Config:
 
 
 def validate(values: Any, root: Path) -> Config:
-    value = _object(values, set(defaults()), "configuration")
+    value = deepcopy(_object(values, set(defaults()), "configuration"))
     if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
         raise ConfigError("Unsupported configuration schemaVersion")
     identity = _object(value["identity"], {"displayName"}, "identity")
@@ -208,8 +209,13 @@ def validate(values: Any, root: Path) -> Config:
     integrations = _object(
         value["integrations"], {"healthkit", "sleepiq", "jev"}, "integrations"
     )
+    # Existing v1 enabled-only files retain their read-only semantics without
+    # rewriting the owner's configuration or silently activating a receiver.
+    healthkit = integrations["healthkit"]
+    if isinstance(healthkit, dict) and set(healthkit) == {"enabled"}:
+        healthkit["mode"] = "read-only"
     fields_by_source = {
-        "healthkit": {"enabled"},
+        "healthkit": {"enabled", "mode"},
         "sleepiq": {"enabled", "exportFile"},
         "jev": {"enabled", "apiKeyFile", "endpoint", "model"},
     }
@@ -217,6 +223,11 @@ def validate(values: Any, root: Path) -> Config:
         source = _object(integrations[name], fields, f"integrations.{name}")
         if type(source["enabled"]) is not bool:
             raise ConfigError(f"integrations.{name}.enabled must be boolean")
+    if not isinstance(healthkit["mode"], str) or healthkit["mode"] not in {
+        "read-only",
+        "receiver",
+    }:
+        raise ConfigError("HealthKit mode must be read-only or receiver")
     relative_path(integrations["sleepiq"]["exportFile"], "sleepiq.exportFile")
     relative_path(integrations["jev"]["apiKeyFile"], "jev.apiKeyFile")
     _text(integrations["jev"]["model"], "jev.model")

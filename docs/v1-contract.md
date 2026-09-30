@@ -112,7 +112,9 @@ values, bearer tokens, pairing codes or full request bodies.
 | Revoke device | `DELETE /v1/devices/{id}`, `devices:manage` |
 | HealthKit ingest | `POST /v1/healthkit/batches`, device `healthkit:ingest` only |
 
-Capabilities describe available operations/versions and each source's
+Capabilities describe available operations/versions and advertise
+`sourceStatusOperation: "projection.status"` for a `records:read` principal.
+That separately admitted projection describes each currently granted source's
 `availability`, `lastSuccessAt`, `freshness` and `missingness`, with measured
 timestamps rather than a universal freshness claim. Empty fresh installations,
 disabled optional sources, unavailable/error sources, stale data and unknown
@@ -120,6 +122,8 @@ HealthKit read authorization are distinct. HealthKit empty reads mean
 `no_data_or_denied_read`, never proof of denied permission or a measured zero.
 Requested time ranges, bounds and requested fields must constrain agent context;
 provider transmission is explicit and previewable, not an automatic full dump.
+The `sync:status` device capability response has no source status projection or
+owner health data. Capability/CAS discovery never scans optional health history.
 
 Every observation carries stable record/source IDs, source kind, observedAt and
 receivedAt, typed value/unit, and provenance. Freshness states are `fresh`,
@@ -283,6 +287,13 @@ all supplied objects/deletions. A duplicate acknowledges either the original
 full counts or zero/zero; never partial counts. This legacy success body is an
 explicit exception to the general data/meta envelope: negotiated successful
 responses carry `X-Installation-ID`, `X-Dataset-ID` and `X-Restore-Epoch` headers.
+The canonical receiver retains the original accepted receipt unchanged. For a
+duplicate HealthKit batch it derives a deterministic acknowledgement with
+`duplicateBatch: true`, the original full counts and exact receiver tuple
+headers. This is the HealthKit-only replay-body exception; generic writes replay
+their original body byte-for-byte. Duplicate acknowledgement does not mutate
+records, stream metadata, tombstones or dataRevision, and still requires current
+authentication, device/source binding and the active identity epoch.
 Before advancing any anchor, the phone validates those response headers against
 its paired tuple as well as the body batch ID/status/counts. Missing or wrong
 response identity is not an acknowledgement, even with otherwise correct counts.

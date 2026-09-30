@@ -1,8 +1,9 @@
 # Durable personal workspace and extension API 1
 
-This contract is implemented by CES-1085; scaffolds, discovery and contract
-tests are CES-1086. Paths and commands below are target interfaces, not working
-commands in this contract-only repository.
+Durable extension lifecycle and activation are implemented by CES-1085;
+scaffolds and agent discovery are CES-1086. Their paths and commands below are
+target interfaces. The scoped canonical operation examples described at the end
+of this document are implemented in `src/health_buddy/extensions.py`.
 
 ## Ownership and discovery
 
@@ -152,3 +153,13 @@ compatibility. Never overwrite a dirty fork to make an upgrade proceed.
 5. Record exact code artifacts, data snapshot/schema, host, agent packages,
    extension versions and raw evidence. A contract-oracle pass, source review,
    simulator or merged PR is not this end-to-end qualification.
+
+## Implemented canonical examples
+
+`src/health_buddy/extensions.py` provides a small `ScopedClient`, a typed
+`latest_body_mass` metric and a `water_connector`. They call the same canonical
+Operations seam as UI/CLI, with current policy/source/field checks and exact
+retry envelopes. See [API ownership and examples](api-implementation.md).
+No dynamic plugin loader, production credential minting or arbitrary-code
+sandbox is implied. Runtime extension packaging/activation and cross-agent
+qualification remain later gates; owner source/tests/state stay under personal/.

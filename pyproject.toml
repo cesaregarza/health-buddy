@@ -9,7 +9,7 @@ description = "Self-hosted health workspace: clean extraction and v1 contracts"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-dependencies = []
+dependencies = ["granian==2.8.3", "starlette==1.7.0", "anyio==4.15.1"]
 
 [project.optional-dependencies]
 sleepiq = ["alembic>=1.15,<2", "asyncsleepiq==1.7.1", "sqlalchemy>=2.0,<3", "tzdata>=2025.2"]

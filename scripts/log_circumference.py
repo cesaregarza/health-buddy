@@ -4,9 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import os
 import csv
-import json
 import re
 import sys
 from datetime import datetime
@@ -149,37 +147,13 @@ def append_once(path: Path, fields: list[str], row: dict[str, str], apply: bool)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--measured-at-local", required=True)
-    parser.add_argument("--timezone", default=os.environ.get("HEALTH_TIMEZONE", "UTC"))
-    parser.add_argument("--site", required=True, choices=sorted(SITES))
-    parser.add_argument("--side", choices=["left", "right"])
-    parser.add_argument(
-        "--reading",
-        action="append",
-        required=True,
-        help="Repeat two or three times; decimal or mixed fraction inches",
-    )
-    parser.add_argument(
-        "--measurement-site",
-        required=True,
-        help="Repeatable anatomical landmark identifier",
-    )
-    parser.add_argument("--source", default="user_reported")
-    parser.add_argument("--notes", default="")
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
-    parser.add_argument(
-        "--apply", action="store_true", help="Append only after previewing"
-    )
-    args = parser.parse_args(argv)
     try:
-        path, fields, row = build_row(args)
-        status = append_once(path, fields, row, args.apply)
-    except (OSError, ValueError, argparse.ArgumentTypeError) as exc:
-        print(f"log_circumference: {exc}", file=sys.stderr)
+        from health_buddy.legacy_entrypoints import delegate_logger
+    except ImportError:
+        print("Install Health Buddy and use an explicit --workspace; "
+              "loose-file logging is retired.", file=sys.stderr)
         return 2
-    print(json.dumps({"path": str(path), "status": status, "row": row}, sort_keys=True))
-    return 0
+    return delegate_logger('circumference', argv)
 
 
 if __name__ == "__main__":

@@ -327,9 +327,9 @@ def weight_series(hk_bodymass: list) -> tuple[list, list]:
         by[day(r["measured_at_local"])].append(w)
     daily = [{"d": d, "lb": round(st.median(values), 1), "src": "log"} for d, values in sorted(by.items())]
     known_dates = set(by)
-    for p in hk_bodymass:  # scale -> HealthKit readings Codex has not imported yet
+    for p in hk_bodymass:  # Explicit secondary observations; manual-day precedence.
         if p["d"] not in known_dates:
-            daily.append({"d": p["d"], "lb": p["lb"], "src": "healthkit"})
+            daily.append({"d": p["d"], "lb": p["lb"], "src": p.get("sourceId", "healthkit")})
             known_dates.add(p["d"])
     daily.sort(key=lambda p: p["d"])
     # trailing 7-day mean over calendar days with data (>=3 points)

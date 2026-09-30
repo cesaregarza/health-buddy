@@ -1,91 +1,81 @@
+"""Legacy CSV helper format checks only; supported writes use canonical CLI."""
+
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 
-from scripts.log_measurement import main
+import pytest
+
+from scripts import log_measurement as measurement
 
 BASE_ARGS = [
     "--measured-at-local",
-    "2026-08-07T11:51:00",
+    "2030-01-01T08:00:00",
     "--weight-lb",
-    "209.2",
+    "150.2",
     "--body-fat-pct",
-    "23.4",
+    "20",
     "--muscle-mass-pct",
-    "39.5",
+    "40",
     "--water-pct",
-    "57.1",
+    "55",
     "--bmi",
-    "28.3",
+    "25",
     "--bone-mass-pct",
-    "4.1",
+    "4",
 ]
 
 
-def test_append_is_idempotent(tmp_path: Path, capsys: object) -> None:
+def row(arguments):
+    return measurement._row(measurement._parser().parse_args(arguments))
+
+
+def test_fixture_append_preserves_idempotency_and_lf(tmp_path):
     path = tmp_path / "measurements.csv"
-    args = [*BASE_ARGS, "--data-file", str(path)]
-
-    assert main(args) == 0
-    assert '"status": "inserted"' in capsys.readouterr().out  # type: ignore[attr-defined]
-    assert main(args) == 0
-    assert '"status": "unchanged"' in capsys.readouterr().out  # type: ignore[attr-defined]
-
-    with path.open(newline="", encoding="utf-8") as handle:
+    value = row(BASE_ARGS)
+    assert measurement.append_measurement(path, value) == "inserted"
+    assert measurement.append_measurement(path, value) == "unchanged"
+    with path.open(newline="") as handle:
         rows = list(csv.DictReader(handle))
-    assert len(rows) == 1
-    assert rows[0]["weight_lb"] == "209.2"
+    assert len(rows) == 1 and rows[0]["weight_lb"] == "150.2"
     assert b"\r\n" not in path.read_bytes()
 
 
-def test_conflicting_duplicate_fails(tmp_path: Path, capsys: object) -> None:
+def test_fixture_conflicting_measurement_preserves_bytes(tmp_path):
     path = tmp_path / "measurements.csv"
-    assert main([*BASE_ARGS, "--data-file", str(path)]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-
-    conflicting = ["210.0" if value == "209.2" else value for value in BASE_ARGS]
-    assert main([*conflicting, "--data-file", str(path)]) == 2
-    assert "different measurement already exists" in capsys.readouterr().err  # type: ignore[attr-defined]
-
-
-def test_rejects_invalid_percentage(tmp_path: Path, capsys: object) -> None:
-    path = tmp_path / "measurements.csv"
-    invalid = ["101" if value == "23.4" else value for value in BASE_ARGS]
-
-    assert main([*invalid, "--data-file", str(path)]) == 2
-    assert "body_fat_pct" in capsys.readouterr().err  # type: ignore[attr-defined]
+    measurement.append_measurement(path, row(BASE_ARGS))
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="different measurement"):
+        measurement.append_measurement(
+            path, row(["151" if value == "150.2" else value for value in BASE_ARGS])
+        )
+    assert path.read_bytes() == before
 
 
-def test_allows_partial_apple_health_measurement(
-    tmp_path: Path, capsys: object
-) -> None:
-    path = tmp_path / "measurements.csv"
-    args = [
-        "--measured-at-local",
-        "2026-09-01T10:24:34",
-        "--timezone",
-        "America/Chicago",
-        "--weight-lb",
-        "200.8",
-        "--body-fat-pct",
-        "21.9",
-        "--bmi",
-        "27.2",
-        "--source",
-        "apple_health_weight_gurus",
-        "--data-file",
-        str(path),
-    ]
+def test_invalid_percentage_is_rejected_before_file_access():
+    with pytest.raises(ValueError, match="body_fat_pct"):
+        row(["101" if value == "20" else value for value in BASE_ARGS])
 
-    assert main(args) == 0
-    assert '"status": "inserted"' in capsys.readouterr().out  # type: ignore[attr-defined]
 
-    with path.open(newline="", encoding="utf-8") as handle:
-        row = next(csv.DictReader(handle))
-    assert row["weight_lb"] == "200.8"
-    assert row["body_fat_pct"] == "21.9"
-    assert row["bmi"] == "27.2"
-    assert row["muscle_mass_pct"] == ""
-    assert row["water_pct"] == ""
-    assert row["bone_mass_pct"] == ""
+def test_partial_measurement_keeps_missing_fields_empty():
+    value = row(
+        [
+            "--measured-at-local",
+            "2030-01-01T08:00:00",
+            "--timezone",
+            "UTC",
+            "--weight-lb",
+            "150.2",
+            "--body-fat-pct",
+            "20",
+            "--bmi",
+            "25",
+            "--source",
+            "synthetic_import",
+        ]
+    )
+    assert value["weight_lb"] == "150.2" and value["body_fat_pct"] == "20.0"
+    assert value["bmi"] == "25.0"
+    assert (
+        value["muscle_mass_pct"] == value["water_pct"] == value["bone_mass_pct"] == ""
+    )

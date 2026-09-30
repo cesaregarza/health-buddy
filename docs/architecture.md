@@ -1,49 +1,49 @@
 # Source map and data ownership
 
-Start with the v1 contract, this map, and the extraction inventory. The current
-code combines the extracted calculations with a portable local development
-runtime. The map identifies their boundaries and the remaining contract owners.
+Start with the [v1 contract](v1-contract.md), [canonical API](api-implementation.md)
+and [client workflow](canonical-clients.md). Release code is separate from the
+owner's private workspace; no personal profile or training plan ships as a default.
 
-| Responsibility | Current source and tests | Contract destination / owner |
-| --- | --- | --- |
-| Dashboard | `health-runner/dashboard/build_dashboard.py`, `template.html`, feature scripts, `tests/` | `dashboard`; presentation-only after CES-1066 |
-| Typed ingest domain | `src/health_ingest/models.py`, `tests/test_health_ingest_models.py` | `health_buddy/domain`; CES-1066 |
-| HealthKit ingress/store | `src/health_ingest/server.py`, `storage.py`, matching tests | Transport adapter and `health_buddy/stores`; CES-1066/1067 |
-| Manual operations | `scripts/log_*.py`, `import_*.py`, `next_workout.py`, `prescription_progression.py`, matching tests | `health_buddy/operations` plus store adapters; CES-1066 |
-| Derived records and context | `scripts/*summary.py`, `doctor_note.py`, `lab_review.py`, dashboard `context_pack.py` | Pure domain/read projections; CES-1066/1072 |
-| Optional SleepIQ | `src/sleepiq_exporter`, migration source, `tests/test_sleepiq_*.py` | Optional integration adapter; no mandatory vendor credentials or Postgres |
-| Jobs and snapshots | Dashboard `pipeline.py`, `snapshot_store.py`, shared-pipeline tests | `jobs`; owner-configured scheduling later |
-| Configuration / local first run | `src/health_buddy/config.py`, `workspace.py`, `legacy_store.py`, `app.py`; `tests/test_portable_workspace.py`, `test_portable_http.py` | Implemented source-bundle runtime, version1 owner config; canonical adapter transition CES-1066 |
-| Identity, authorization | Legacy ingest token mechanisms and loopback preview only | `health_buddy/identity`; CES-1067, no current v1 security claim |
-| Extension interfaces/examples | `contracts/v1/extension.schema.json`, `examples/`, `docs/extensions.md` | `health_buddy/extensions` runtime CES-1085; tools CES-1086 |
-| Normative conformance | `contracts/v1`, `scripts/validate_contracts.py`, `tests/test_contract*` | Versioned interfaces, not a working HTTP server |
+| Responsibility | Current source and meaningful tests |
+| --- | --- |
+| Canonical admission/domain | `src/health_buddy/service_api.py`, `domain.py`, `policy.py`, `operations.py`; canonical operations/source ownership tests |
+| Durable stores and receipts | `journal.py`, `durability.py`, `stores.py`, `health_store.py`; canonical recovery/boundaries tests |
+| Manual values and stable IDs | `records.py`, `loggers.py`, `plans.py`; canonical logger/source ownership tests; retained pure validator tests |
+| Source capture and scoped projections | `snapshots.py`, `views.py`, `projection.py`; canonical reads/extensions and portable workspace tests |
+| Maintained HTTP | `transport*.py`, `production_server.py`, `server.py`; transport, wire and portable HTTP tests |
+| UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and six browser suites |
+| Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
+| Owner configuration/first run | `config.py`, `workspace.py`, `legacy_store.py`; portable workspace/config tests |
+| HealthKit schema-v1 calculations | `src/health_ingest/models.py`, `storage.py`, dashboard `healthkit_source.py`; protocol/storage and receiver recovery tests |
+| Dashboard/context calculations | dashboard `build_dashboard.py`, `context_pack.py`, scripts summaries/planning/progression; retained calculation tests |
+| Optional SleepIQ export | `src/sleepiq_exporter`; exporter/migration tests; selected local export projection |
+| Normative contracts | `contracts/v1`, `scripts/validate_contracts.py`, contract tests |
 
-CSV/JSON manual records and HealthKit SQLite are authoritative inputs. Derived
-HTML/JSON dashboards, context packs, reports and caches are rebuildable.
-Current legacy readers/writers are deliberately discoverable for adaptation;
-they must be routed through canonical operations before client use. Do not add
-another direct writer while implementing CES-1066.
+CSV/JSON manual records and the selected HealthKit SQLite store are authoritative.
+The canonical coordinator owns every supported health writer. The private Git
+backend preserves CSV business semantics; its metadata index stores stable
+identity/provenance, not duplicate health values. Generic JSON observations are
+disjoint records under the same revision. Derived HTML, context and caches are
+rebuildable. Scoped cached input is re-filtered under current policy before use.
 
-Release code belongs to this repository. User records, personal extension
-source/assets/config/tests/notes/migrations/state and secret material belong in
-the separately configured persistent workspace described by `docs/extensions.md`.
-No user profile or training program is shipped as a product default. Synthetic
-examples under tests have no medical-prescription meaning.
+Historical `health-ingest`/context servers and remote workout saves refuse or
+delegate through the canonical entrypoint. Compatibility logger mains require
+an explicit workspace. Pure imported calculations remain discoverable; their
+presence does not authorize a separate authoritative writer. Read the inventory
+in [canonical-clients.md](canonical-clients.md) before adding a command.
 
-The extraction stage supported only a fabricated dashboard preview. The current
-supported local development entrypoint is `health_buddy.cli`, documented below.
-The old preview context service remains extraction-only. Neither development
-service implements v1 authorization, and private health exports must not be published.
-All actual validation/build execution follows the shared queue rule in AGENTS.md.
+The source-bundle development entrypoint uses explicit `--development`, binds
+loopback, and applies the development policy. Default policy denies protected
+operations. Production authentication/pairing is CES-1067, packaged runtime is
+CES-1068. The prior extraction preview and CES-1065 HTTPServer were historical
+stages; they are not parallel supported runtime paths.
 
-## Portable local runtime
+Owner records, personal source/assets/config/tests/notes/migrations/state and
+secrets belong in the persistent workspace described in [extensions.md](extensions.md).
+Configuration initializes non-destructively. Canonical adoption/recovery retains
+identity, receipts and stable IDs; backup/restore release qualification remains
+separate. The native backup context holds admission while a later operator copies
+the complete workspace, not only its required-path inventory.
 
-`src/health_buddy` owns configuration, private workspace initialization and the
-transitional local manual-store adapter. `projection.py` supplies a request-local
-reader and selected zone to the extracted calculations; `healthkit_source.py`
-preserves the read-only HealthKit calculation path. `providers.py` owns explicit
-Jev policy, with no ambient credential fallback. `app.py`, `cli.py` and
-`server.py` provide the local development entrypoint described in
-[configuration.md](configuration.md). They do not implement the canonical v1
-API or production authorization. Personal code is never imported into the
-release by this adapter.
+All actual tests/builds follow the shared queue in AGENTS.md. Passing synthetic
+source checks is not physical-device, deployment, migration or release acceptance.

@@ -3,10 +3,13 @@
 import argparse
 import json
 from pathlib import Path
+import sys
 
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'tests'))
+from api_fixture import META
 MODULE = ROOT / 'training_fast.js'
 REVISION = 'a' * 40
 DATE = '2026-08-20'
@@ -31,17 +34,19 @@ def page_html():
       .fast-mode-head,.fast-mode-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
       .fast-mode-panel{padding:8px 0} button{min-height:40px} .fast-priority{display:inline-block;margin-top:4px}
     </style></head><body><div id="training-fast"></div><section id="training-next"><ul class="rx-list">ROWS</ul></section>
-      <script>SOURCE</script><script>
+      <script>API_SOURCE</script><script>SOURCE</script><script>
+      const identity=IDENTITY;
       const snapshot=SNAPSHOT;
       const host=document.getElementById('training-fast');
       const list=document.querySelector('.rx-list');
-      TrainingFast.mount(host,{snapshot,revision:'REVISION',rows:list});
+      TrainingFast.mount(host,{snapshot,revision:'REVISION',identity,enabled:true,rows:list});
       window.remountPlan=revision=>{
         const next=NEXT_SNAPSHOT;
-        TrainingFast.mount(host,{snapshot:next,revision,rows:list});
+        TrainingFast.mount(host,{snapshot:next,revision,identity,enabled:true,rows:list});
       };
       </script></body></html>"""
-    return (html.replace('ROWS', rows).replace('SOURCE', MODULE.read_text())
+    return (html.replace('ROWS', rows).replace('API_SOURCE', (ROOT/'features.js').read_text()).replace('SOURCE', MODULE.read_text())
+            .replace('IDENTITY',json.dumps(META))
             .replace('NEXT_SNAPSHOT', json.dumps(next_snapshot)).replace('SNAPSHOT', json.dumps(snapshot))
             .replace('REVISION', REVISION))
 
@@ -57,7 +62,7 @@ def add_mock_fetch(page, delayed_step=None, fail_step_once=None, uncertain=False
       const revision='{REVISION}', date='{DATE}';
       const scores={{e0:{{score:3.8,probabilities:{{'0':0.05,'1':0.1,'2':0.25,'3':0.4,'4':0.2}}}},e1:{{score:1.5,probabilities:{{'0':0.3,'1':0.4,'2':0.2,'3':0.1,'4':0}}}},e2:{{score:3.7,probabilities:{{'0':0.01,'1':0.04,'2':0.1,'3':0.35,'4':0.5}}}}}};
       const base={{schema_version:1,plan_id:'mock-plan',date,source_revision:revision,phase:'not_started',step:0,ranked:[],remaining:['e0','e1','e2'],scores:{{}},must_count:null,threshold_probability:null,threshold_uncertain:false,model:null}};
-      const response=(body,status=200)=>Promise.resolve(new Response(JSON.stringify(body),{{status,headers:{{'Content-Type':'application/json'}}}}));
+      const response=(body,status=200)=>Promise.resolve(new Response(JSON.stringify(status<300?{{data:body,meta:{json.dumps(META)}}}:{{error:{{code:'provider_unavailable'}},meta:{{}}}}),{{status,headers:{{'Content-Type':'application/json'}}}}));
       window.fetch=async (url,options={{}})=>{{
         const method=(options.method||'GET').toUpperCase();
         const call={{method,url:String(url),body:options.body?JSON.parse(options.body):null,headers:options.headers||{{}}}};
@@ -142,7 +147,7 @@ def check_retry(browser):
     open_page(page)
     page.locator('#training-fast button', has_text='Fast mode').click()
     page.locator('#training-fast button', has_text='Build with Jev').click()
-    expect(page.locator('#training-fast')).to_contain_text('temporary model outage')
+    expect(page.locator('#training-fast')).to_contain_text('provider_unavailable')
     expect(page.locator('#training-fast button', has_text='Retry / resume')).to_be_visible()
     assert page.locator('#training-next .fast-priority').count() == 1
     assert 'Absolute must' not in page.locator('#training-next').inner_text()
@@ -193,7 +198,7 @@ def check_invalid_response(browser):
       return original(url,options);
     }}""")
     page.locator('#training-fast').get_by_role('button', name='Build with Jev', exact=True).click()
-    expect(page.locator('#training-fast')).to_contain_text('invalid or unchanged ranking step')
+    expect(page.locator('#training-fast')).to_contain_text('response could not be verified')
     assert page.evaluate('window.__invalidPosts') == 1
     assert page.locator('.fast-priority').count() == 0
     context.close()

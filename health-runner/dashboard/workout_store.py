@@ -1,16 +1,12 @@
-"""Validate user-entered workouts and append them atomically to private Git main."""
+"""Pure workout validation and legacy CSV helpers; remote saving is retired."""
 from __future__ import annotations
 
 import csv
-import fcntl
 import io
 import math
 import os
 import re
-import subprocess
-import tempfile
 from datetime import date, datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 SESSION_FIELDS = ['session_id', 'date', 'workout_type', 'status', 'duration_min', 'bodyweight_lb', 'notes']
@@ -103,14 +99,6 @@ def normalize(payload, as_of=None):
     return dict(zip(SESSION_FIELDS, [sid, day, kind, status, duration, '', notes])), output
 
 
-def _git(repo, *args, check=True):
-    command = ['git', '-C', str(repo), *args]
-    result = subprocess.run(command, text=True, capture_output=True, timeout=60)
-    if check and result.returncode:
-        raise SaveError('The central log could not be updated. Your draft is safe; retry shortly.', 503)
-    return result
-
-
 def _csv(text, fields):
     reader = csv.DictReader(io.StringIO(text))
     if reader.fieldnames != fields:
@@ -132,95 +120,12 @@ def _matches(session, sets, existing_sessions, existing_sets):
     raise SaveError('This workout ID is already saved with different values. Existing records were preserved.', 409)
 
 
-def _append(path, fields, rows):
-    if not rows:
-        return
-    # Existing bytes remain untouched apart from adding a required trailing newline.
-    with path.open('rb') as handle:
-        raw = handle.read()
-    with path.open('a', newline='', encoding='utf-8') as handle:
-        if raw and not raw.endswith(b'\n'):
-            handle.write('\n')
-        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator='\n')
-        writer.writerows(rows)
 
-
-def request_refresh():
-    return subprocess.run(['systemctl', '--user', 'restart', '--no-block', 'health-dashboard.service'],
-                          capture_output=True, timeout=10).returncode == 0
-
-
-def save_workout(payload, origin, *, state_dir=None, refresh=request_refresh, as_of=None, before_push=None):
-    session, sets = normalize(payload, as_of)
-    origin = Path(origin).resolve()
-    state = Path(state_dir or Path.home() / '.local/state/health-dashboard').resolve()
-    if str(origin).startswith('/mnt/') or str(state).startswith('/mnt/'):
-        raise SaveError('Workout storage must use native Linux paths.', 503)
-    state.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with (state / 'save.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        for attempt in range(3):
-            with tempfile.TemporaryDirectory(prefix='workout-', dir=state) as temporary:
-                repo = Path(temporary).resolve()
-                if str(repo).startswith('/mnt/'):
-                    raise SaveError('Invalid temporary storage.', 503)
-                _git(repo, 'init', '--quiet')
-                _git(repo, 'remote', 'add', 'origin', str(origin))
-                _git(repo, 'fetch', '--quiet', '--depth=1', 'origin', 'main')
-                # A sparse index avoids checking out unrelated private assets.
-                _git(repo, 'config', 'core.sparseCheckout', 'true')
-                (repo / '.git/info/sparse-checkout').write_text('/data/sessions.csv\n/data/sets.csv\n')
-                _git(repo, 'checkout', '--quiet', '-b', 'main', 'FETCH_HEAD')
-                files = [(repo / 'data/sessions.csv', SESSION_FIELDS), (repo / 'data/sets.csv', SET_FIELDS)]
-                existing = [_csv(p.read_text(), fields) for p, fields in files]
-                duplicate = _matches(session, sets, *existing)
-                if duplicate:
-                    commit = _git(repo, 'rev-parse', 'HEAD').stdout.strip()
-                else:
-                    _append(files[0][0], SESSION_FIELDS, [session])
-                    _append(files[1][0], SET_FIELDS, sets)
-                    _git(repo, 'add', '--', 'data/sessions.csv', 'data/sets.csv')
-                    changed = set(_git(repo, 'diff', '--cached', '--name-only').stdout.splitlines())
-                    if not changed <= {'data/sessions.csv', 'data/sets.csv'}:
-                        raise SaveError('Unexpected files in workout update.', 503)
-                    _git(repo, '-c', 'user.name=Health dashboard', '-c', 'user.email=health-dashboard@localhost',
-                         'commit', '--quiet', '-m', 'Record dashboard workout ' + session['session_id'])
-                    commit = _git(repo, 'rev-parse', 'HEAD').stdout.strip()
-                    if before_push:
-                        before_push(attempt)
-                    pushed = _git(repo, 'push', '--quiet', 'origin', 'HEAD:main', check=False)
-                    if pushed.returncode:
-                        # Re-read authoritative content even if the push succeeded but its response was lost.
-                        _git(repo, 'fetch', '--quiet', 'origin', 'main')
-                        remote = [_csv(_git(repo, 'show', 'FETCH_HEAD:' + name).stdout, fields)
-                                  for name, fields in [('data/sessions.csv', SESSION_FIELDS), ('data/sets.csv', SET_FIELDS)]]
-                        if _matches(session, sets, *remote):
-                            commit = _git(repo, 'rev-parse', 'FETCH_HEAD').stdout.strip()
-                        elif attempt < 2:
-                            continue
-                        else:
-                            raise SaveError('The log changed during save. Your draft is safe; retry.', 409)
-                try:
-                    refreshed = bool(refresh())
-                except (OSError, subprocess.SubprocessError):
-                    refreshed = False
-                return {'saved': True, 'session_id': session['session_id'], 'commit': commit,
-                        'duplicate': duplicate, 'refresh_requested': refreshed}
-    raise SaveError('Workout could not be saved. Retry shortly.', 503)
-
-
-def settings():
-    return {name: os.environ.get(name, '').strip() for name in
-            ('HEALTH_WORKOUT_ORIGIN', 'HEALTH_WORKOUT_ALLOWED_USER', 'HEALTH_WORKOUT_ALLOWED_ORIGIN')}
+def save_workout(payload, origin, *, state_dir=None, refresh=None, as_of=None, before_push=None):
+    """Refuse the old remote writer before inspecting payload, paths or hooks."""
+    raise SaveError('Remote workout saving is retired; use canonical workspace operations.', 410)
 
 
 def authorize(headers, *, write=False):
-    config = settings()
-    if not all(config.values()):
-        raise SaveError('Workout saving is not configured yet. Your draft stays on this device.', 503)
-    if headers.get('Tailscale-User-Login') != config['HEALTH_WORKOUT_ALLOWED_USER']:
-        raise SaveError('Open this dashboard from your signed-in Tailscale device to save.', 403)
-    if write and (headers.get('Origin') != config['HEALTH_WORKOUT_ALLOWED_ORIGIN']
-                  or headers.get('X-Health-Action') != 'save-workout'):
-        raise SaveError('Workout saves must originate from this dashboard.', 403)
-    return config
+    """Caller-provided proxy headers cannot revive the retired boundary."""
+    raise SaveError('Legacy proxy authorization is retired; use canonical authentication.', 410)

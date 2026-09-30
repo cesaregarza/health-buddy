@@ -187,14 +187,23 @@ class Store:
         files = {}
         for name in names:
             # CSV/JSON projections only. Owner executables are never loaded.
-            if name.startswith(("data/", "plans/")) and name.endswith(
+            if name.startswith(("data/", "plans/", "metadata/")) and name.endswith(
                 (".csv", ".json")
             ):
                 files[name] = git(self.path, "show", f"{revision}:{name}")
         for name, fields in headers().items():
             if name not in files:
                 raise StoreError("Manual store is missing required CSV headers")
-            parse_csv(files[name], fields)
+            # One retained intake schema predates sodium. Canonical adoption
+            # adds an unknown field atomically; no other header drift is valid.
+            legacy_intake = [field for field in fields if field != "sodium_mg"]
+            if (
+                name == "data/intake.csv"
+                and files[name].splitlines()[:1] == [",".join(legacy_intake)]
+            ):
+                parse_csv(files[name], legacy_intake)
+            else:
+                parse_csv(files[name], fields)
         return revision, files
 
     def _commit(self, changes: dict[str, str], base: str | None) -> str:
@@ -231,6 +240,8 @@ class Store:
     ) -> dict[str, Any]:
         with self.locked():
             revision, files = self.snapshot()
+            if "metadata/canonical.json" in files:
+                raise StoreError("Use canonical operations to update an adopted store")
             changes = change(files)
             changes = {
                 name: text for name, text in changes.items() if files.get(name) != text

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import sys
 import tempfile
 from collections.abc import Sequence
@@ -382,27 +381,13 @@ def _finish(namespace: argparse.Namespace) -> tuple[str, str]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    namespace = _parser().parse_args(argv)
     try:
-        if namespace.command == "start":
-            status, key = _start(namespace)
-        elif namespace.command == "set":
-            status, key = _set(namespace)
-        elif namespace.command == "cardio":
-            status, key = _cardio(namespace)
-        else:
-            status, key = _finish(namespace)
-    except (OSError, ValueError) as exc:
-        print(f"log_workout: error: {exc}", file=sys.stderr)
+        from health_buddy.legacy_entrypoints import delegate_logger
+    except ImportError:
+        print("Install Health Buddy and use an explicit --workspace; "
+              "loose-file logging is retired.", file=sys.stderr)
         return 2
-
-    print(
-        json.dumps(
-            {"command": namespace.command, "key": key, "status": status},
-            sort_keys=True,
-        )
-    )
-    return 0
+    return delegate_logger('workout', argv)
 
 
 if __name__ == "__main__":
