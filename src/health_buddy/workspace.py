@@ -62,6 +62,8 @@ def initialize(root: Path) -> config.Config:
     for part in ("personal", "secrets", "operations", "security"):
         _private_directory(settings.path(part))
     _private_directory(settings.storage("cache"))
+    if settings.values["security"]["socketPath"] == "security/runtime/http.sock":
+        _private_directory(settings.path("security/runtime"))
     create_file(settings.path("personal/README.md"), OWNER_NOTE)
     create_file(settings.path("personal/WORKSPACE.md"), OWNER_NOTE)
     for part in ("personal/extensions", "personal/forks"):

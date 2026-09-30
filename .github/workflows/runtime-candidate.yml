@@ -1,0 +1,185 @@
+name: Controlled runtime candidate
+# This dedicated ref is pushed only after the coordinator reviews local tests,
+# source and PR description. No ordinary feature/PR push triggers image builds.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['validation/ces1068-*']
+permissions:
+  contents: read
+concurrency:
+  group: controlled-runtime-candidate
+  cancel-in-progress: false
+jobs:
+  native_amd64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Prepare pinned hosted Docker Engine
+        timeout-minutes: 5
+        env:
+          DOCKER_PACKAGE_VERSION: 5:29.8.1-1~ubuntu.24.04~noble
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # Hosted images do not retain Docker's apt source; configure it explicitly.
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl --fail --silent --show-error --location --max-time 30 https://download.docker.com/linux/ubuntu/gpg --output /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable\n' "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/health-buddy-docker.list
+          sudo apt-get update
+          sudo --preserve-env=DEBIAN_FRONTEND apt-get install --yes --no-install-recommends "docker-ce=$DOCKER_PACKAGE_VERSION" "docker-ce-cli=$DOCKER_PACKAGE_VERSION"
+          sudo systemctl restart docker
+          test "$(docker --host unix:///run/docker.sock version --format '{{.Client.Version}} {{.Server.Version}}')" = '29.8.1 29.8.1'
+      - name: Prepare exact AMD host SDK profile
+        timeout-minutes: 6
+        env:
+          SDK_OUTPUT: ${{ runner.temp }}/hb-sdk-host
+        run: python3.12 -I -B packaging/setup_sdk_host.py --output "$SDK_OUTPUT"
+      - name: Native build and whole-workspace qualification
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_ARCH: amd64
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-amd64
+          SDK_PYTHON: ${{ runner.temp }}/hb-sdk-host/venv/bin/python
+        run: >-
+          python3 packaging/verify_runtime.py --architecture "$CANDIDATE_ARCH"
+          --revision "$CANDIDATE_SHA" --output "$CANDIDATE_OUTPUT"
+          --sdk-python "$SDK_PYTHON"
+      - name: Retain private immutable candidate and safe receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-amd64-${{ github.sha }}
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-runtime-amd64/health-buddy-linux-amd64.docker.tar
+            ${{ runner.temp }}/hb-runtime-amd64/qualification.json
+            ${{ runner.temp }}/hb-runtime-amd64/build-metadata.json
+            ${{ runner.temp }}/hb-runtime-amd64/build.log
+            ${{ runner.temp }}/hb-runtime-amd64/license-inventory.log
+            ${{ runner.temp }}/hb-runtime-amd64/capture-installed-inputs-json.log
+            ${{ runner.temp }}/hb-runtime-amd64/capture-build-resources-json.log
+      - name: Retain AMD SDK qualification receipts
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: packaged-sdk-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-sdk-host/receipt.json
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-initial.log
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-recreated.log
+      - name: Retain safe failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-failure-amd64-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/hb-runtime-amd64/build.log
+            ${{ runner.temp }}/hb-runtime-amd64/docker-version.log
+            ${{ runner.temp }}/hb-runtime-amd64/builder.log
+            ${{ runner.temp }}/hb-runtime-amd64/archive-metadata.json
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-initial.log
+            ${{ runner.temp }}/hb-runtime-amd64/sdk-recreated.log
+  native_arm64:
+    needs: native_amd64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Prepare pinned hosted Docker Engine
+        timeout-minutes: 5
+        env:
+          DOCKER_PACKAGE_VERSION: 5:29.8.1-1~ubuntu.24.04~noble
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # Hosted images do not retain Docker's apt source; configure it explicitly.
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl --fail --silent --show-error --location --max-time 30 https://download.docker.com/linux/ubuntu/gpg --output /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable\n' "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/health-buddy-docker.list
+          sudo apt-get update
+          sudo --preserve-env=DEBIAN_FRONTEND apt-get install --yes --no-install-recommends "docker-ce=$DOCKER_PACKAGE_VERSION" "docker-ce-cli=$DOCKER_PACKAGE_VERSION"
+          sudo systemctl restart docker
+          test "$(docker --host unix:///run/docker.sock version --format '{{.Client.Version}} {{.Server.Version}}')" = '29.8.1 29.8.1'
+      - name: Native build and whole-workspace qualification
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_ARCH: arm64
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-arm64
+        run: >-
+          python3 packaging/verify_runtime.py --architecture "$CANDIDATE_ARCH"
+          --revision "$CANDIDATE_SHA" --output "$CANDIDATE_OUTPUT"
+      - name: Retain private immutable candidate and safe receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-arm64-${{ github.sha }}
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-runtime-arm64/health-buddy-linux-arm64.docker.tar
+            ${{ runner.temp }}/hb-runtime-arm64/qualification.json
+            ${{ runner.temp }}/hb-runtime-arm64/build-metadata.json
+            ${{ runner.temp }}/hb-runtime-arm64/build.log
+            ${{ runner.temp }}/hb-runtime-arm64/license-inventory.log
+            ${{ runner.temp }}/hb-runtime-arm64/capture-installed-inputs-json.log
+            ${{ runner.temp }}/hb-runtime-arm64/capture-build-resources-json.log
+      - name: Retain safe failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-failure-arm64-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/hb-runtime-arm64/build.log
+            ${{ runner.temp }}/hb-runtime-arm64/docker-version.log
+            ${{ runner.temp }}/hb-runtime-arm64/builder.log
+            ${{ runner.temp }}/hb-runtime-arm64/archive-metadata.json
+  manifest:
+    needs: [native_amd64, native_arm64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: runtime-*-${{ github.sha }}
+          path: candidate-downloads
+          merge-multiple: false
+      - name: Assemble both actual archive hashes and compatibility manifest
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_OUTPUT: ${{ runner.temp }}/hb-runtime-manifest
+        run: |
+          mkdir -m 0700 "$CANDIDATE_OUTPUT"
+          python3 scripts/package_runtime.py bundle --repository "$GITHUB_WORKSPACE" --revision "$CANDIDATE_SHA" --output "$CANDIDATE_OUTPUT/bundle"
+          mkdir -m 0700 "$CANDIDATE_OUTPUT/artifacts"
+          cp "candidate-downloads/runtime-amd64-$CANDIDATE_SHA/health-buddy-linux-amd64.docker.tar" "$CANDIDATE_OUTPUT/artifacts/"
+          cp "candidate-downloads/runtime-arm64-$CANDIDATE_SHA/health-buddy-linux-arm64.docker.tar" "$CANDIDATE_OUTPUT/artifacts/"
+          python3 scripts/package_runtime.py manifest --bundle "$CANDIDATE_OUTPUT/bundle" --artifacts "$CANDIDATE_OUTPUT/artifacts"
+          cp "candidate-downloads/runtime-amd64-$CANDIDATE_SHA/qualification.json" "$CANDIDATE_OUTPUT/qualification-amd64.json"
+          cp "candidate-downloads/runtime-arm64-$CANDIDATE_SHA/qualification.json" "$CANDIDATE_OUTPUT/qualification-arm64.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-manifest-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/runtime-manifest.json
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/SHA256SUMS
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-source.tar
+            ${{ runner.temp }}/hb-runtime-manifest/qualification-amd64.json
+            ${{ runner.temp }}/hb-runtime-manifest/qualification-arm64.json

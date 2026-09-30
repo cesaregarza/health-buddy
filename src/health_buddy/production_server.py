@@ -12,6 +12,7 @@ from granian.constants import HTTPModes, Interfaces, Loops, RuntimeModes, TaskIm
 from granian.http import HTTP1Settings
 from starlette.types import ASGIApp
 
+from .runtime_listener import ListenerLease, listener_lease
 from .security_api import IngressConfig, Runtime
 from .service_api import Operations
 from .transport import create_app
@@ -29,6 +30,7 @@ class _OwnedSocketServer(Granian):
     """Pinned2.8.3 hook: upstream cleanup otherwise unlinks any current path."""
 
     owned_socket: VerifiedSocket | None = None
+    listener_lease: ListenerLease | None = None
 
     def _unlink_pidfile(self) -> None:
         # This launcher never enables pid_file. Do not copy its subsystem or
@@ -43,7 +45,10 @@ class _OwnedSocketServer(Granian):
         except (OSError, ValueError):
             return
         if current == owned:
-            owned.path.unlink()
+            if self.listener_lease is not None:
+                self.listener_lease.cleanup(owned)
+            else:
+                owned.path.unlink()
 
 
 def _load(
@@ -75,12 +80,13 @@ def _load(
     return create_app(value, development=development)
 
 
-def serve(
+def _serve(
     operations_factory: Callable[[], Operations | Runtime],
     *,
     ingress: IngressConfig | None = None,
     port: int = 8791,
     development: bool = False,
+    lease: ListenerLease | None = None,
 ) -> None:
     """Serve one loopback or private UDS listener; never configure a proxy."""
     if type(port) is not int or not 1 <= port <= 65535:
@@ -128,11 +134,14 @@ def serve(
         static_path_mount=(),
         url_path_prefix=None,
     )
+    runtime.listener_lease = lease
     socket_evidence: list[VerifiedSocket] = []
     if socket_path is not None:
 
         def capture_socket() -> None:
             runtime.owned_socket = VerifiedSocket.capture(socket_path)
+            if lease is not None:
+                lease.capture(runtime.owned_socket)
             socket_evidence.append(runtime.owned_socket)
 
         runtime.on_startup(capture_socket)
@@ -149,3 +158,31 @@ def serve(
     finally:
         if previous_umask is not None:
             os.umask(previous_umask)
+
+
+def serve(
+    operations_factory: Callable[[], Operations | Runtime],
+    *,
+    ingress: IngressConfig | None = None,
+    port: int = 8791,
+    development: bool = False,
+    _listener_fault: Callable[[str], None] | None = None,
+) -> None:
+    """Keep the shared managed-listener lock through supervisor shutdown."""
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError("HTTP port must be between 1 and 65535")
+    if development and ingress is not None and ingress.mode == "tailscale-uds":
+        raise ValueError("development_requires_loopback")
+    socket_path = (
+        Path(ingress.socket_path)
+        if ingress is not None and ingress.mode == "tailscale-uds"
+        else None
+    )
+    with listener_lease(socket_path, _listener_fault) as lease:
+        _serve(
+            operations_factory,
+            ingress=ingress,
+            port=port,
+            development=development,
+            lease=lease,
+        )

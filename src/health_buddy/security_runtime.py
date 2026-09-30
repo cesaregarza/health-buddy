@@ -9,25 +9,37 @@ from __future__ import annotations
 import os
 import stat
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from .domain import encode, identity_value
 from .durability import exclusive, fsync_path
 from .operations import open_service
+from .release_identity import ReleaseIdentity
+from .runtime_readiness import ready
 from .security import SecurityAuthority
 from .security_api import Runtime
 from .security_store import SecurityStore, private_owned, valid_secret
 from .service_api import ServiceError
 
 
-def open_runtime(workspace: Path, *, development: bool = False) -> Runtime:
-    service = open_service(workspace, development=development)
+def open_runtime(
+    workspace: Path,
+    *,
+    development: bool = False,
+    release_identity: ReleaseIdentity | None = None,
+) -> Runtime:
+    service = open_service(
+        workspace, development=development, release_identity=release_identity
+    )
     ingress = service.config.ingress()
     boundary = object() if not development and ingress.mode == "tailscale-uds" else None
     authority = SecurityAuthority(service, proxy_boundary=boundary)
     if not development:
         service.policy = authority
-    return Runtime(service, authority, ingress, boundary)
+    return Runtime(
+        service, authority, ingress, boundary, partial(ready, service.config)
+    )
 
 
 def _private_parent(path: Path) -> Path:

@@ -10,6 +10,7 @@ import json
 import os
 import selectors
 import signal
+import socket
 import ssl
 import subprocess
 import sys
@@ -212,6 +213,144 @@ def actual_backend(folder, client_folder):
         bridge.server_close()
 
 
+@contextmanager
+def defer_phase_signals(enabled):
+    """Deliver phase cancellation only after bounded owned-resource cleanup.
+
+    The packaged helper calls this on its main thread. Temporary handlers also
+    defer process-directed signals delivered via another thread; blocking only
+    the main thread's POSIX signal mask would not establish that guarantee.
+    Existing source SDK tests leave this disabled by default.
+    """
+    if not enabled:
+        yield
+        return
+    signals = (signal.SIGTERM, signal.SIGALRM)
+    previous = {number: signal.getsignal(number) for number in signals}
+    pending = set()
+
+    def defer(number, frame):
+        pending.add(number)
+
+    for number in signals:
+        signal.signal(number, defer)
+    try:
+        yield
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+        # Both represent phase cancellation. Deliver once after mandatory reap;
+        # the original helper handler raises the same safe timeout exception.
+        if pending:
+            signal.raise_signal(next(number for number in signals if number in pending))
+
+
+class ExistingBridge(Bridge):
+    """One owned TLS connection at a time, with cancellable bounded handshake."""
+
+    handshake_timeout = 3
+
+    def __init__(self, address):
+        super().__init__(address, Proxy, bind_and_activate=False)
+        self.stop_requested = threading.Event()
+        self.accepted = threading.Event()
+        self.connection_lock = threading.Lock()
+        self.active_connection = None
+        self.tls_context = None
+
+    def get_request(self):
+        connection, address = self.socket.accept()
+        try:
+            # Accepted TCP sockets do not inherit the listening socket timeout.
+            # Never perform a blocking TLS handshake in the listener's accept().
+            connection.settimeout(self.handshake_timeout)
+            with self.connection_lock:
+                connection = self.tls_context.wrap_socket(
+                    connection, server_side=True, do_handshake_on_connect=False
+                )
+                self.active_connection = connection
+            self.accepted.set()
+            connection.do_handshake()
+            return connection, address
+        except BaseException:
+            connection.close()
+            with self.connection_lock:
+                if self.active_connection is connection:
+                    self.active_connection = None
+            if self.stop_requested.is_set():
+                # Owner shutdown can race the next SSL operation after accept.
+                # BaseServer handles an OSError here as an abandoned connection.
+                raise OSError("owned_bridge_stopped") from None
+            raise
+
+    def shutdown_request(self, request):
+        try:
+            super().shutdown_request(request)
+        finally:
+            with self.connection_lock:
+                if self.active_connection is request:
+                    self.active_connection = None
+
+    def serve_owned(self):
+        # handle_request's listener wait is bounded by Bridge.timeout (0.1s).
+        # No blocking BaseServer.shutdown() precedes the owner's timed join.
+        while not self.stop_requested.is_set():
+            self.handle_request()
+
+    def stop_owned(self):
+        self.stop_requested.set()
+        with self.connection_lock:
+            if self.active_connection is not None:
+                try:
+                    self.active_connection.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+
+
+@contextmanager
+def existing_backend(uds, listener_fd, certificate_files):
+    """TLS fixture over an already-running packaged UDS; no source backend.
+
+    The caller retains the original listening descriptor to preserve its exact
+    origin between sessions. This context closes only its duplicated socket.
+    """
+    owned = socket.fromfd(listener_fd, socket.AF_INET, socket.SOCK_STREAM)
+    bridge = None
+    thread = None
+    try:
+        host, port = owned.getsockname()
+        assert host == "127.0.0.1" and 0 < port < 65536
+        assert owned.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
+        bridge = ExistingBridge((host, port))
+        bridge.socket.close()
+        bridge.socket = owned
+        bridge.server_address = (host, port)
+        bridge.origin = f"https://127.0.0.1:{port}"
+        bridge.uds = uds
+        bridge.responses, bridge.seen = [], []
+        bridge.held, bridge.release = threading.Event(), threading.Event()
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(*certificate_files)
+        bridge.tls_context = context
+        owned.settimeout(0.1)
+        thread = threading.Thread(target=bridge.serve_owned, daemon=True)
+        thread.start()
+        yield bridge
+    finally:
+        with defer_phase_signals(True):
+            if bridge is not None:
+                bridge.release.set()
+                bridge.stop_owned()
+                try:
+                    if thread is not None:
+                        thread.join(5)
+                        assert not thread.is_alive(), "Packaged bridge cleanup timeout"
+                finally:
+                    bridge.server_close()
+            else:
+                owned.close()
+
+
 class Wire:
     def __init__(self, process, modern=False):
         self.process, self.modern = process, modern
@@ -264,7 +403,10 @@ class Wire:
 
 
 @contextmanager
-def client(settings, folder, *, modern=False, instrumented=False):
+def client(
+    settings, folder, *, modern=False, instrumented=False, shutdown_timeout=55,
+    protect_cleanup=False,
+):
     environment = {
         **os.environ,
         "PYTHONPATH": str(ROOT / "src") + os.pathsep + str(ROOT),
@@ -302,13 +444,21 @@ def client(settings, folder, *, modern=False, instrumented=False):
                 wire.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             yield wire
         finally:
-            if process.stdin is not None and not process.stdin.closed:
-                process.stdin.close()
-            try:
-                process.wait(timeout=55)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=5)
-            if process.stdout is not None:
-                process.stdout.close()
+            with defer_phase_signals(protect_cleanup):
+                try:
+                    if process.stdin is not None and not process.stdin.closed:
+                        try:
+                            process.stdin.close()
+                        except BrokenPipeError:
+                            pass
+                    try:
+                        process.wait(timeout=shutdown_timeout)
+                    except subprocess.TimeoutExpired:
+                        # Only this still-live, privately owned session is signalled.
+                        if process.returncode is None:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        process.wait(timeout=5)
+                finally:
+                    if process.stdout is not None:
+                        process.stdout.close()
     assert stderr.read_bytes() == b"", "Adapter emitted unexpected diagnostics"

@@ -364,8 +364,15 @@ def _security(config: Config) -> None:
         ):
             raise ConfigError("security.ownerSubject must be an exact ASCII subject")
     path = config.path(relative_path(settings["socketPath"], "security.socketPath"))
-    if path.parent != config.root / "security" or not path.name.endswith(".sock"):
-        raise ConfigError("security.socketPath must name a .sock file in security/")
+    legacy_socket = path.parent == config.root / "security" and path.name.endswith(
+        ".sock"
+    )
+    managed_socket = path == config.root / "security/runtime/http.sock"
+    if not legacy_socket and not managed_socket:
+        raise ConfigError(
+            "security.socketPath must name a .sock file in security/ "
+            "or security/runtime/http.sock"
+        )
     if settings["ingress"] == "tailscale-uds" and (origin is None or subject is None):
         raise ConfigError(
             "Trusted UDS ingress requires externalOrigin and ownerSubject"

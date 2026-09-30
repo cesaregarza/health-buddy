@@ -12,8 +12,10 @@ dashboard and context packs with every optional integration disabled. Canonical 
 one durable coordinator. Owner sessions, scoped agent grants and upload-only
 device pairing share a durable authorization authority. Reviewed personal
 metrics/views and connector jobs live outside the replaceable source, with
-maintained synthetic examples and durable event retries. Installer and agent
-packages remain later tickets. Passing source checks does not establish release qualification.
+maintained synthetic examples and durable event retries. Source packaging now includes
+immutable input locks, a Docker archive/Compose runtime and controlled native
+architecture qualification commands. Actual image/build receipts and operator
+release qualification remain separate; installer and agent guides remain later tickets. Passing source checks does not establish release qualification.
 
 - [Product, API, identity, and security contract](docs/v1-contract.md)
 - [Personal workspace and extension contract](docs/extensions.md)
@@ -27,6 +29,7 @@ packages remain later tickets. Passing source checks does not establish release 
 - [Canonical API and operation ownership](docs/api-implementation.md)
 - [Durable client retries and supported CLI](docs/canonical-clients.md)
 - [Owner, agent and device authorization](docs/authorization.md)
+- [Immutable runtime, private ownership and controlled image qualification](docs/runtime-packaging.md)
 - [Queue verification commands](docs/verification.md)
 - [Dependency and asset notices](THIRD_PARTY.md)
 

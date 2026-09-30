@@ -349,3 +349,21 @@ def test_failure_to_persist_before_send_does_not_execute(fixture):
         with pytest.raises(OSError):
             write(workflow)
     assert not service.requests
+
+
+def test_completed_replay_retains_first_receipt_when_http_date_changes(fixture):
+    config, service, workflow = fixture
+    service.mutate = lambda reply: replace(
+        reply, headers=(*reply.headers, ("date", "Wed, 30 Sep 2026 10:00:00 GMT"))
+    )
+    write(workflow)
+    original = state(config)
+    service.mutate = lambda reply: replace(
+        reply, headers=(*reply.headers, ("date", "Wed, 30 Sep 2026 10:02:00 GMT"))
+    )
+    ClientWorkflow(config, service, PRINCIPAL).retry()
+    reopened = state(config)
+    assert reopened["receipt"] == original["receipt"]
+    assert reopened["envelope"] == original["envelope"]
+    assert reopened["cursor"] == 1 and service.revision == 1
+    assert service.requests[0] == service.requests[1]
