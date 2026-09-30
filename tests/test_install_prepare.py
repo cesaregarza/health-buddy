@@ -52,10 +52,18 @@ def test_interrupted_initializer_reopens_same_workspace_without_duplicate_data(
     assert repeated.operations.journal.state().revision == revision
     assert (selected["workspace"] / "config.json").read_bytes() == config_before
     assert note.read_text() == "synthetic personal note added during interruption"
-    profile = json.loads((selected["workspace"] / "personal/INSTALLATION.json").read_bytes())
+    profile = json.loads(
+        (selected["workspace"] / "personal/INSTALLATION.json").read_bytes()
+    )
     assert profile["sourceRoot"] == str(selected["bundle"] / "source")
     assert profile["sourceCommit"] == result["sourceCommit"]
-    for key in ("guide", "developmentLock", "extensionCatalog", "tests", "previewAndReview"):
+    for key in (
+        "guide",
+        "developmentLock",
+        "extensionCatalog",
+        "tests",
+        "previewAndReview",
+    ):
         assert (Path(profile["sourceRoot"]) / profile[key]).exists()
 
 
@@ -116,29 +124,49 @@ def test_explicit_matching_client_config_preparation_repeats_without_claiming_li
     token.write_text("q" * 43)
     token.chmod(0o600)
     settings = selected["journal"].parent / "adapter.json"
-    settings.write_text(json.dumps({
-        "schemaVersion": 1, "origin": "https://synthetic.example.test",
-        "identity": identity_value(runtime.operations.journal.state().identity),
-        "credentialFile": str(token), "retryRoot": str(selected["journal"].parent / "retry"),
-        "clientId": "synthetic-installer", "writeSources": ["manual"], "acknowledgeAiEgress": True,
-    }))
+    settings.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "origin": "https://synthetic.example.test",
+                "identity": identity_value(runtime.operations.journal.state().identity),
+                "credentialFile": str(token),
+                "retryRoot": str(selected["journal"].parent / "retry"),
+                "clientId": "synthetic-installer",
+                "writeSources": ["manual"],
+                "acknowledgeAiEgress": True,
+            }
+        )
+    )
     settings.chmod(0o600)
     client_root = tmp_path / "synthetic-client"
     client_root.mkdir(mode=0o700)
     skills = tmp_path / "synthetic-skills"
     skills.mkdir(mode=0o700)
     client_config = client_root / ("config.toml" if name == "codex" else ".mcp.json")
-    unrelated = '# owner comment\nmodel = "owner-choice"\n' if name == "codex" else '{"mcpServers":{"owner":{"command":"owner-choice"}}}'
+    unrelated = (
+        '# owner comment\nmodel = "owner-choice"\n'
+        if name == "codex"
+        else '{"mcpServers":{"owner":{"command":"owner-choice"}}}'
+    )
     client_config.write_text(unrelated)
     client_config.chmod(0o600)
-    selected.update(client=name, client_config=client_config, skill_directory=skills / "health-buddy",
-                    settings=settings, python=Path(sys.executable))
+    selected.update(
+        client=name,
+        client_config=client_config,
+        skill_directory=skills / "health-buddy",
+        settings=settings,
+        python=Path(sys.executable),
+    )
     result = install_prepare.prepare(**selected)
     assert result["clientConfigurationPrepared"] and not result["connected"]
     assert not result["installed"]
     before = client_config.read_bytes()
     assert install_prepare.prepare(**selected) == result
-    assert client_config.read_bytes() == before and "owner-choice" in client_config.read_text()
+    assert (
+        client_config.read_bytes() == before
+        and "owner-choice" in client_config.read_text()
+    )
     assert token.read_text() == "q" * 43
     assert not (selected["journal"].parent / "retry").exists()
     mismatch = json.loads(settings.read_bytes())
