@@ -208,7 +208,7 @@ There is currently **no supported automatic extension state-migration command**.
 A changed state schema refuses activation. Preserve state and pending requests,
 disable the job, author and separately review an explicit migration under the
 extension's migrations/ with recovery/compatibility tests, and run its exact reviewed
-operator command (submit to the queue during P-CES-17). CES-1071 owns installer/upgrade execution; this
+operator command (submit to the queue during P-CES-17). CES-1077 owns installer execution; CES-1071 owns upgrades; this
 guide does not invent an unsafe migration or credential-preserving restore.
 
 A deeper core fork needs its own native source checkout, patches, exact upstream

@@ -1,6 +1,6 @@
 # Native owner installer lifecycle
 
-The supported source flow is preflight → prepare → explicit owner setup → API
+The supported source flow is pinned acquisition → preflight → prepare → explicit owner setup → API
 activation → private HTTPS Serve → scoped agent configuration/status → owned
 removal with retained data. Each mutation requires owner admission; preflight
 alone is read-only. Use matching source and the pinned dependencies in the
@@ -13,6 +13,56 @@ named-client gates remain open in CES-1073/1074; CES-1083 owns cross-agent/final
 upgrade qualification. During active P-CES-17, all execution belongs to the queue.
 Installed owners outside that orchestration run documented native commands under
 their own authorization.
+
+## Acquire pinned release artifacts
+
+Run these commands directly in the supported native Linux host's owner shell,
+or after the owner opens their own SSH session to that host. An SSH shell uses
+that host's native paths, Python environment, resources and local daemon; the
+installer never handles SSH credentials, connects remotely or forwards commands.
+Choose a matching already verified source bundle, private mode-0700 native
+staging and an independently supplied publisher-admitted manifest SHA256.
+A hash copied from the same untrusted response is not publisher trust. TLS and
+archive integrity do not imply a publisher signature or qualified deployment.
+
+```sh
+export PYTHONPATH="$SOURCE/src"
+"$PYTHON" -m health_buddy.install_acquire --manifest-url "$PUBLISHER_MANIFEST_URL" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --bundle "$BUNDLE" --staging "$ARTIFACTS"
+```
+
+The supported publisher origin serves `/.../runtime-manifest.json` and its three
+fixed neighboring files: `health-buddy-source.tar` and
+`health-buddy-linux-{amd64,arm64}.docker.tar`. HTTPS port 443 only, no userinfo,
+query credentials, cookies, ambient proxies or authorization headers. Redirects
+must stay on that exact HTTPS origin without query/fragment/userinfo, with the
+maintained redirect count and closed original bodies. Cross-origin CDNs and
+GitHub release redirects/signed-query URLs are intentionally refused: use an
+owner-admitted same-origin static publisher/mirror rather than assuming an
+arbitrary GitHub release URL is supported. No download host is silently adopted.
+
+The journal binds origin URL/pin/source identity before network activity. Each
+file streams at most 64 KiB per read; metadata is capped at 2 MiB, source archive
+at 64 MiB and each Docker archive at 1 GiB. A fixed isolated source worker gives
+each file a 120-second whole-operation deadline, including headers/redirects;
+the parent kills/reaps only its own worker. A cooperative body/socket budget is
+additional protection, not a claimed header-parser deadline. No fetched code is
+executed and no Docker/Tailscale/SSH tooling is downloaded or installed.
+
+Existing exact private files are reverified and reused without transport;
+changed files or binding refuse without overwrite. Completed verified files
+are retained after failures. Owned partial inode/path intent is retained before
+download, cleaned immediately on handled failure/interruption and reconciled
+on restart; unknown/replaced partials refuse deletion and require owner inspection.
+A crash before its ownership intent is durable can leave an unowned file which
+also refuses automatic deletion. Fixed `install_acquire_*` errors omit URL,
+headers, paths, responses and credentials. Retry the original command after the
+owner resolves network/admission errors. Acquisition still requires the existing
+verified bundle and checks its source identity against the pinned manifest;
+it does not reconstruct that bundle or infer a signing key. Both image archives
+pass the maintained archive/manifest validator before `artifactsVerified:true`.
+`installed:false` remains explicit. Then use the same bundle/staging/pin below.
+
+## Read-only preflight
 
 Select an already retained immutable runtime-manifest.json, its two image
 archives/source archive and matching verified source bundle. Obtain the expected
@@ -425,7 +475,7 @@ Use the canonical guide's pinned setup. Select relevant checks for the component
 being maintained; the complete installer synthetic gate is:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_preflight.py tests/test_install_prepare.py tests/test_install_owner.py tests/test_install_activation.py tests/test_install_https.py tests/test_install_agent.py tests/test_install_remove.py tests/test_connect_removal.py tests/test_agent_guide.py
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_acquire.py tests/test_install_preflight.py tests/test_install_prepare.py tests/test_install_owner.py tests/test_install_activation.py tests/test_install_https.py tests/test_install_agent.py tests/test_install_remove.py tests/test_connect_removal.py tests/test_agent_guide.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_*.py src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_*.py src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
 "$PYTHON" -m mypy src/health_buddy/install_*.py src/health_buddy/connect_agent.py
