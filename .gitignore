@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.coverage
+work/
+personal/
+state/
+secrets/
+*.db
+*.sqlite*
+.env

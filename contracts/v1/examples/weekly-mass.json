@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "id": "local.weekly-mass", "version": "1.0.0", "extensionApi": 1,
+    "kind": "metric-view", "stateSchema": 1,
+    "entrypoints": {"metric": "src/metric.py:calculate", "view": "src/view.js:render"},
+    "scopes": ["records:read"], "egress": [], "secretReferences": [],
+    "paths": {"source": "src", "assets": "assets", "config": "config", "tests": "tests", "notes": "notes", "state": "state", "migrations": "migrations"}
+  },
+  "cases": [
+    {"id": "mean", "input": {"values": [70, 74], "unit": "kg", "sourceId": "synthetic-manual", "timezone": "UTC"}, "output": {"value": 72, "unit": "kg", "count": 2, "missingness": null, "sourceId": "synthetic-manual"}},
+    {"id": "empty", "input": {"values": [], "unit": "kg", "sourceId": "synthetic-manual", "timezone": "UTC"}, "output": {"value": null, "unit": "kg", "count": 0, "missingness": "insufficient_data", "sourceId": "synthetic-manual"}}
+  ]
+}

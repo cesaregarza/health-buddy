@@ -1,0 +1,1497 @@
+{
+  "fixtureVersion": 1,
+  "synthetic": true,
+  "identity": {
+    "installationId": "11111111-1111-4111-8111-111111111111",
+    "datasetId": "22222222-2222-4222-8222-222222222222",
+    "restoreEpoch": "33333333-3333-4333-8333-333333333333"
+  },
+  "scenarios": [
+    {
+      "id": "read-present",
+      "rule": "read",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {},
+        "body": {
+          "data": {
+            "record": {
+              "recordId": "synthetic-mass-001",
+              "kind": "body_mass",
+              "value": 72,
+              "unit": "kg",
+              "observedAt": "2026-01-01T12:00:00Z",
+              "receivedAt": "2026-01-01T12:01:00Z",
+              "provenance": {
+                "sourceId": "synthetic-manual",
+                "sourceKind": "manual"
+              },
+              "freshness": {
+                "status": "fresh",
+                "asOf": "2026-01-01T12:01:00Z"
+              },
+              "missingness": null
+            }
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "grants": [
+          "records:read"
+        ]
+      }
+    },
+    {
+      "id": "read-missing",
+      "rule": "read",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-missing",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 404,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "record_not_found",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "grants": [
+          "records:read"
+        ]
+      }
+    },
+    {
+      "id": "capabilities",
+      "rule": "capabilities",
+      "request": {
+        "method": "GET",
+        "path": "/v1/capabilities",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {},
+        "body": {
+          "data": {
+            "apiMajor": 1,
+            "pairingProtocol": 1,
+            "phonePayloadSchema": 1,
+            "extensionApi": 1,
+            "operations": [
+              "records.read",
+              "records.write"
+            ],
+            "sources": [
+              {
+                "sourceId": "synthetic-manual",
+                "availability": "empty",
+                "lastSuccessAt": null,
+                "freshness": "unknown",
+                "missingness": "no_records"
+              },
+              {
+                "sourceId": "synthetic-optional",
+                "availability": "disabled",
+                "lastSuccessAt": null,
+                "freshness": "unknown",
+                "missingness": "not_configured"
+              },
+              {
+                "sourceId": "synthetic-healthkit",
+                "availability": "available",
+                "lastSuccessAt": "2026-01-01T12:00:00Z",
+                "freshness": "fresh",
+                "missingness": "no_data_or_denied_read"
+              },
+              {
+                "sourceId": "synthetic-stale",
+                "availability": "available",
+                "lastSuccessAt": "2025-12-01T12:00:00Z",
+                "freshness": "stale",
+                "missingness": null
+              },
+              {
+                "sourceId": "synthetic-unavailable",
+                "availability": "unavailable",
+                "lastSuccessAt": null,
+                "freshness": "unknown",
+                "missingness": "source_error"
+              }
+            ]
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 0
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 0,
+        "recordCount": 0
+      },
+      "after": {
+        "dataRevision": 0,
+        "recordCount": 0
+      },
+      "context": {
+        "grants": [
+          "records:read"
+        ]
+      }
+    },
+    {
+      "id": "write-create",
+      "rule": "write",
+      "request": {
+        "method": "PUT",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "Idempotency-Key": "synthetic-write-001",
+          "If-Match": "\"rev-0\""
+        },
+        "body": {
+          "kind": "body_mass",
+          "value": 72,
+          "unit": "kg",
+          "observedAt": "2026-01-01T12:00:00Z",
+          "sourceId": "synthetic-manual"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {},
+        "body": {
+          "data": {
+            "record": {
+              "recordId": "synthetic-mass-001",
+              "kind": "body_mass",
+              "value": 72,
+              "unit": "kg",
+              "observedAt": "2026-01-01T12:00:00Z",
+              "receivedAt": "2026-01-01T12:01:00Z",
+              "provenance": {
+                "sourceId": "synthetic-manual",
+                "sourceKind": "manual"
+              },
+              "freshness": {
+                "status": "fresh",
+                "asOf": "2026-01-01T12:01:00Z"
+              },
+              "missingness": null
+            }
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 0,
+        "recordCount": 0
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "actorId": "synthetic-agent",
+        "grants": [
+          "records:write"
+        ],
+        "allowedSourceIds": [
+          "synthetic-manual"
+        ],
+        "serverNow": "2026-01-01T12:01:00Z"
+      }
+    },
+    {
+      "id": "identical-retry",
+      "rule": "retry",
+      "request": {
+        "method": "PUT",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "Idempotency-Key": "synthetic-write-001",
+          "If-Match": "\"rev-0\""
+        },
+        "body": {
+          "kind": "body_mass",
+          "value": 72,
+          "unit": "kg",
+          "observedAt": "2026-01-01T12:00:00Z",
+          "sourceId": "synthetic-manual"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Idempotency-Replayed": "true"
+        },
+        "body": {
+          "data": {
+            "record": {
+              "recordId": "synthetic-mass-001",
+              "kind": "body_mass",
+              "value": 72,
+              "unit": "kg",
+              "observedAt": "2026-01-01T12:00:00Z",
+              "receivedAt": "2026-01-01T12:01:00Z",
+              "provenance": {
+                "sourceId": "synthetic-manual",
+                "sourceKind": "manual"
+              },
+              "freshness": {
+                "status": "fresh",
+                "asOf": "2026-01-01T12:01:00Z"
+              },
+              "missingness": null
+            }
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "prior": "write-create",
+        "actorId": "synthetic-agent",
+        "grants": [
+          "records:write"
+        ],
+        "allowedSourceIds": [
+          "synthetic-manual"
+        ],
+        "serverNow": "2026-01-01T12:01:00Z"
+      }
+    },
+    {
+      "id": "conflicting-retry",
+      "rule": "conflict",
+      "request": {
+        "method": "PUT",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "Idempotency-Key": "synthetic-write-001",
+          "If-Match": "\"rev-0\""
+        },
+        "body": {
+          "kind": "body_mass",
+          "value": 73,
+          "unit": "kg",
+          "observedAt": "2026-01-01T12:00:00Z",
+          "sourceId": "synthetic-manual"
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "idempotency_conflict",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "prior": "write-create",
+        "actorId": "synthetic-agent",
+        "grants": [
+          "records:write"
+        ],
+        "allowedSourceIds": [
+          "synthetic-manual"
+        ],
+        "serverNow": "2026-01-01T12:01:00Z"
+      }
+    },
+    {
+      "id": "stale-update",
+      "rule": "stale",
+      "request": {
+        "method": "PUT",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "Idempotency-Key": "synthetic-write-002",
+          "If-Match": "\"rev-0\""
+        },
+        "body": {
+          "kind": "body_mass",
+          "value": 74,
+          "unit": "kg",
+          "observedAt": "2026-01-01T12:00:00Z",
+          "sourceId": "synthetic-manual"
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "revision_conflict",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "grants": [
+          "records:write"
+        ],
+        "allowedSourceIds": [
+          "synthetic-manual"
+        ],
+        "serverNow": "2026-01-01T12:01:00Z"
+      }
+    },
+    {
+      "id": "spoofed-proxy",
+      "rule": "authorization",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "",
+          "Tailscale-User-Login": "synthetic-owner"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 401,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "unauthenticated",
+            "retryable": false
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "untrusted",
+        "identityHeader": "synthetic-owner",
+        "grants": []
+      }
+    },
+    {
+      "id": "trusted-owner-proxy",
+      "rule": "authorization",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "",
+          "Tailscale-User-Login": "synthetic-owner"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {},
+        "body": {
+          "data": {
+            "record": {
+              "recordId": "synthetic-mass-001",
+              "kind": "body_mass",
+              "value": 72,
+              "unit": "kg",
+              "observedAt": "2026-01-01T12:00:00Z",
+              "receivedAt": "2026-01-01T12:01:00Z",
+              "provenance": {
+                "sourceId": "synthetic-manual",
+                "sourceKind": "manual"
+              },
+              "freshness": {
+                "status": "fresh",
+                "asOf": "2026-01-01T12:01:00Z"
+              },
+              "missingness": null
+            }
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "verified-owner-proxy",
+        "identityHeader": "synthetic-owner",
+        "grants": [
+          "records:read"
+        ]
+      }
+    },
+    {
+      "id": "tagged-client-token",
+      "rule": "authorization",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {},
+        "body": {
+          "data": {
+            "record": {
+              "recordId": "synthetic-mass-001",
+              "kind": "body_mass",
+              "value": 72,
+              "unit": "kg",
+              "observedAt": "2026-01-01T12:00:00Z",
+              "receivedAt": "2026-01-01T12:01:00Z",
+              "provenance": {
+                "sourceId": "synthetic-manual",
+                "sourceKind": "manual"
+              },
+              "freshness": {
+                "status": "fresh",
+                "asOf": "2026-01-01T12:01:00Z"
+              },
+              "missingness": null
+            }
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "tagged-client",
+        "identityHeader": null,
+        "grants": [
+          "records:read"
+        ]
+      }
+    },
+    {
+      "id": "tagged-client-no-token",
+      "rule": "authorization",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": ""
+        },
+        "body": null
+      },
+      "response": {
+        "status": 401,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "unauthenticated",
+            "retryable": false
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "tagged-client",
+        "identityHeader": null,
+        "grants": []
+      }
+    },
+    {
+      "id": "device-cannot-read",
+      "rule": "authorization",
+      "request": {
+        "method": "GET",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-device-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 403,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "forbidden",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "device",
+        "grants": [
+          "healthkit:ingest",
+          "sync:status"
+        ]
+      }
+    },
+    {
+      "id": "agent-cannot-install",
+      "rule": "authorization",
+      "request": {
+        "method": "POST",
+        "path": "/v1/extensions/local.weekly-mass/enable",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token"
+        },
+        "body": {}
+      },
+      "response": {
+        "status": 403,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "forbidden",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "tagged-client",
+        "grants": [
+          "records:read",
+          "records:write"
+        ]
+      }
+    },
+    {
+      "id": "revoked-retry",
+      "rule": "authorization",
+      "request": {
+        "method": "PUT",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "Idempotency-Key": "synthetic-write-001",
+          "If-Match": "\"rev-0\""
+        },
+        "body": {
+          "kind": "body_mass",
+          "value": 72,
+          "unit": "kg",
+          "observedAt": "2026-01-01T12:00:00Z",
+          "sourceId": "synthetic-manual"
+        }
+      },
+      "response": {
+        "status": 401,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "credential_revoked",
+            "retryable": false
+          }
+        }
+      },
+      "before": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "after": {
+        "dataRevision": 1,
+        "recordCount": 1
+      },
+      "context": {
+        "peer": "tagged-client",
+        "grants": [
+          "records:write"
+        ],
+        "revoked": true,
+        "prior": "write-create",
+        "allowedSourceIds": [
+          "synthetic-manual"
+        ],
+        "serverNow": "2026-01-01T12:01:00Z"
+      }
+    },
+    {
+      "id": "pairing-created",
+      "rule": "pairing",
+      "request": {
+        "method": "POST",
+        "path": "/v1/pairing-intents",
+        "headers": {
+          "Authorization": "Bearer synthetic-owner-token"
+        },
+        "body": {}
+      },
+      "response": {
+        "status": 201,
+        "headers": {},
+        "body": {
+          "data": {
+            "pairingId": "synthetic-intent",
+            "pairingCode": "synthetic-one-use-secret-not-a-credential",
+            "expiresAt": "2026-01-01T12:05:00Z",
+            "identity": {
+              "installationId": "11111111-1111-4111-8111-111111111111",
+              "datasetId": "22222222-2222-4222-8222-222222222222",
+              "restoreEpoch": "33333333-3333-4333-8333-333333333333"
+            }
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 0
+          }
+        }
+      },
+      "before": {
+        "intent": "absent",
+        "activeDevices": 0
+      },
+      "after": {
+        "intent": "issued",
+        "activeDevices": 0
+      },
+      "context": {
+        "grants": [
+          "devices:manage"
+        ],
+        "now": "2026-01-01T12:00:00Z"
+      }
+    },
+    {
+      "id": "pairing-redeemed",
+      "rule": "pairing",
+      "request": {
+        "method": "POST",
+        "path": "/v1/pairings",
+        "headers": {
+          "Authorization": "",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "pairingCode": "synthetic-one-use-secret-not-a-credential",
+          "deviceId": "55555555-5555-4555-8555-555555555555"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {},
+        "body": {
+          "data": {
+            "deviceId": "55555555-5555-4555-8555-555555555555",
+            "deviceToken": "synthetic-device-token",
+            "scopes": [
+              "healthkit:ingest",
+              "sync:status"
+            ]
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 0
+          }
+        }
+      },
+      "before": {
+        "intent": "issued",
+        "activeDevices": 0
+      },
+      "after": {
+        "intent": "consumed",
+        "activeDevices": 1
+      },
+      "context": {
+        "now": "2026-01-01T12:01:00Z",
+        "expiresAt": "2026-01-01T12:05:00Z"
+      }
+    },
+    {
+      "id": "pairing-replayed",
+      "rule": "pairing",
+      "request": {
+        "method": "POST",
+        "path": "/v1/pairings",
+        "headers": {
+          "Authorization": "",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "pairingCode": "synthetic-one-use-secret-not-a-credential",
+          "deviceId": "55555555-5555-4555-8555-555555555555"
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "pairing_consumed",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 0
+          }
+        }
+      },
+      "before": {
+        "intent": "consumed",
+        "activeDevices": 1
+      },
+      "after": {
+        "intent": "consumed",
+        "activeDevices": 1
+      },
+      "context": {
+        "now": "2026-01-01T12:02:00Z",
+        "expiresAt": "2026-01-01T12:05:00Z"
+      }
+    },
+    {
+      "id": "pairing-expired",
+      "rule": "pairing",
+      "request": {
+        "method": "POST",
+        "path": "/v1/pairings",
+        "headers": {
+          "Authorization": "",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "pairingCode": "synthetic-one-use-secret-not-a-credential",
+          "deviceId": "55555555-5555-4555-8555-555555555555"
+        }
+      },
+      "response": {
+        "status": 410,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "pairing_expired",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 0
+          }
+        }
+      },
+      "before": {
+        "intent": "issued",
+        "activeDevices": 0
+      },
+      "after": {
+        "intent": "issued",
+        "activeDevices": 0
+      },
+      "context": {
+        "now": "2026-01-01T12:05:00Z",
+        "expiresAt": "2026-01-01T12:05:00Z"
+      }
+    },
+    {
+      "id": "device-revoked",
+      "rule": "revoke",
+      "request": {
+        "method": "DELETE",
+        "path": "/v1/devices/55555555-5555-4555-8555-555555555555",
+        "headers": {
+          "Authorization": "Bearer synthetic-owner-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {},
+        "body": {
+          "data": {
+            "deviceId": "55555555-5555-4555-8555-555555555555",
+            "revoked": true
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "activeDevices": 1
+      },
+      "after": {
+        "activeDevices": 0
+      },
+      "context": {
+        "grants": [
+          "devices:manage"
+        ]
+      }
+    },
+    {
+      "id": "healthkit-accepted",
+      "rule": "healthkit",
+      "request": {
+        "method": "POST",
+        "path": "/v1/healthkit/batches",
+        "headers": {
+          "Authorization": "Bearer synthetic-device-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "X-Health-Device-ID": "55555555-5555-4555-8555-555555555555"
+        },
+        "body": {
+          "schemaVersion": 1,
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "deviceId": "55555555-5555-4555-8555-555555555555",
+          "generatedAt": "2026-01-01T12:00:00Z",
+          "records": [],
+          "deletions": [
+            {
+              "recordId": "synthetic-hk-deleted",
+              "typeIdentifier": "HKQuantityTypeIdentifierBodyMass",
+              "observedAt": "2026-01-01T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "status": "accepted",
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "recordsAccepted": 0,
+          "deletionsAccepted": 1,
+          "duplicateBatch": false
+        }
+      },
+      "before": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 0
+      },
+      "after": {
+        "anchorAdvanced": true,
+        "tombstoneCount": 1
+      },
+      "context": {
+        "boundDeviceId": "55555555-5555-4555-8555-555555555555",
+        "grants": [
+          "healthkit:ingest"
+        ]
+      }
+    },
+    {
+      "id": "healthkit-duplicate",
+      "rule": "healthkit",
+      "request": {
+        "method": "POST",
+        "path": "/v1/healthkit/batches",
+        "headers": {
+          "Authorization": "Bearer synthetic-device-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "X-Health-Device-ID": "55555555-5555-4555-8555-555555555555"
+        },
+        "body": {
+          "schemaVersion": 1,
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "deviceId": "55555555-5555-4555-8555-555555555555",
+          "generatedAt": "2026-01-01T12:00:00Z",
+          "records": [],
+          "deletions": [
+            {
+              "recordId": "synthetic-hk-deleted",
+              "typeIdentifier": "HKQuantityTypeIdentifierBodyMass",
+              "observedAt": "2026-01-01T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "status": "accepted",
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "recordsAccepted": 0,
+          "deletionsAccepted": 0,
+          "duplicateBatch": true
+        }
+      },
+      "before": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "after": {
+        "anchorAdvanced": true,
+        "tombstoneCount": 1
+      },
+      "context": {
+        "boundDeviceId": "55555555-5555-4555-8555-555555555555",
+        "grants": [
+          "healthkit:ingest"
+        ],
+        "prior": "healthkit-accepted"
+      }
+    },
+    {
+      "id": "healthkit-missing-epoch",
+      "rule": "healthkit",
+      "request": {
+        "method": "POST",
+        "path": "/v1/healthkit/batches",
+        "headers": {
+          "Authorization": "Bearer synthetic-device-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Health-Device-ID": "55555555-5555-4555-8555-555555555555"
+        },
+        "body": {
+          "schemaVersion": 1,
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "deviceId": "55555555-5555-4555-8555-555555555555",
+          "generatedAt": "2026-01-01T12:00:00Z",
+          "records": [],
+          "deletions": [
+            {
+              "recordId": "synthetic-hk-deleted",
+              "typeIdentifier": "HKQuantityTypeIdentifierBodyMass",
+              "observedAt": "2026-01-01T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 428,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "identity_required",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "after": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "context": {
+        "boundDeviceId": "55555555-5555-4555-8555-555555555555",
+        "grants": [
+          "healthkit:ingest"
+        ]
+      }
+    },
+    {
+      "id": "healthkit-revoked-retry",
+      "rule": "healthkit",
+      "request": {
+        "method": "POST",
+        "path": "/v1/healthkit/batches",
+        "headers": {
+          "Authorization": "Bearer synthetic-device-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "X-Health-Device-ID": "55555555-5555-4555-8555-555555555555"
+        },
+        "body": {
+          "schemaVersion": 1,
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "deviceId": "55555555-5555-4555-8555-555555555555",
+          "generatedAt": "2026-01-01T12:00:00Z",
+          "records": [],
+          "deletions": [
+            {
+              "recordId": "synthetic-hk-deleted",
+              "typeIdentifier": "HKQuantityTypeIdentifierBodyMass",
+              "observedAt": "2026-01-01T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 401,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "credential_revoked",
+            "retryable": false
+          }
+        }
+      },
+      "before": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "after": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "context": {
+        "boundDeviceId": "55555555-5555-4555-8555-555555555555",
+        "grants": [
+          "healthkit:ingest"
+        ],
+        "revoked": true,
+        "prior": "healthkit-accepted"
+      }
+    },
+    {
+      "id": "healthkit-wrong-device",
+      "rule": "healthkit",
+      "request": {
+        "method": "POST",
+        "path": "/v1/healthkit/batches",
+        "headers": {
+          "Authorization": "Bearer synthetic-device-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "X-Health-Device-ID": "55555555-5555-4555-8555-555555555555"
+        },
+        "body": {
+          "schemaVersion": 1,
+          "batchId": "66666666-6666-4666-8666-666666666666",
+          "deviceId": "77777777-7777-4777-8777-777777777777",
+          "generatedAt": "2026-01-01T12:00:00Z",
+          "records": [],
+          "deletions": [
+            {
+              "recordId": "synthetic-hk-deleted",
+              "typeIdentifier": "HKQuantityTypeIdentifierBodyMass",
+              "observedAt": "2026-01-01T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 403,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "device_mismatch",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "after": {
+        "anchorAdvanced": false,
+        "tombstoneCount": 1
+      },
+      "context": {
+        "boundDeviceId": "55555555-5555-4555-8555-555555555555",
+        "grants": [
+          "healthkit:ingest"
+        ]
+      }
+    },
+    {
+      "id": "old-epoch-write",
+      "rule": "restore",
+      "request": {
+        "method": "PUT",
+        "path": "/v1/records/synthetic-mass-001",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-restored-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333",
+          "Idempotency-Key": "synthetic-write-001",
+          "If-Match": "\"rev-0\""
+        },
+        "body": {
+          "kind": "body_mass",
+          "value": 72,
+          "unit": "kg",
+          "observedAt": "2026-01-01T12:00:00Z",
+          "sourceId": "synthetic-manual"
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "restore_epoch_changed",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "44444444-4444-4444-8444-444444444444",
+            "dataRevision": 0
+          }
+        }
+      },
+      "before": {
+        "identity": {
+          "installationId": "11111111-1111-4111-8111-111111111111",
+          "datasetId": "22222222-2222-4222-8222-222222222222",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "dataRevision": 0,
+        "recordCount": 0
+      },
+      "after": {
+        "identity": {
+          "installationId": "11111111-1111-4111-8111-111111111111",
+          "datasetId": "22222222-2222-4222-8222-222222222222",
+          "restoreEpoch": "44444444-4444-4444-8444-444444444444"
+        },
+        "dataRevision": 0,
+        "recordCount": 0
+      },
+      "context": {
+        "grants": [
+          "records:write"
+        ],
+        "freshGrant": true,
+        "backupIdentity": {
+          "installationId": "11111111-1111-4111-8111-111111111111",
+          "datasetId": "22222222-2222-4222-8222-222222222222",
+          "restoreEpoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "allowedSourceIds": [
+          "synthetic-manual"
+        ],
+        "serverNow": "2026-01-01T12:01:00Z"
+      }
+    },
+    {
+      "id": "replacement-same-observation",
+      "rule": "replacement",
+      "request": {
+        "method": "POST",
+        "path": "fixture:canonical-reconciliation",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "incoming": {
+            "sourceStreamId": "synthetic-stream",
+            "recordId": "synthetic-hk-native-001",
+            "payload": {
+              "type": "body_mass",
+              "value": 72,
+              "unit": "kg"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {},
+        "body": {
+          "data": {
+            "reconciliation": "same_observation",
+            "canonicalAdded": 0
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "canonicalCount": 1,
+        "deliveryCount": 1,
+        "oldWriterActive": false
+      },
+      "after": {
+        "canonicalCount": 1,
+        "deliveryCount": 2,
+        "oldWriterActive": false
+      },
+      "context": {
+        "priorObservation": {
+          "sourceStreamId": "synthetic-stream",
+          "recordId": "synthetic-hk-native-001",
+          "payload": {
+            "type": "body_mass",
+            "value": 72,
+            "unit": "kg"
+          }
+        },
+        "ownerApprovedReplacement": true
+      }
+    },
+    {
+      "id": "replacement-uncertain-overlap",
+      "rule": "replacement",
+      "request": {
+        "method": "POST",
+        "path": "fixture:canonical-reconciliation",
+        "headers": {
+          "Authorization": "Bearer synthetic-agent-token",
+          "X-Installation-ID": "11111111-1111-4111-8111-111111111111",
+          "X-Dataset-ID": "22222222-2222-4222-8222-222222222222",
+          "X-Restore-Epoch": "33333333-3333-4333-8333-333333333333"
+        },
+        "body": {
+          "incoming": {
+            "sourceStreamId": "synthetic-stream",
+            "recordId": "synthetic-hk-changed-id",
+            "payload": {
+              "type": "body_mass",
+              "value": 72,
+              "unit": "kg"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {},
+        "body": {
+          "error": {
+            "code": "reconciliation_required",
+            "retryable": false
+          },
+          "meta": {
+            "installationId": "11111111-1111-4111-8111-111111111111",
+            "datasetId": "22222222-2222-4222-8222-222222222222",
+            "restoreEpoch": "33333333-3333-4333-8333-333333333333",
+            "dataRevision": 1
+          }
+        }
+      },
+      "before": {
+        "canonicalCount": 1,
+        "deliveryCount": 1,
+        "oldWriterActive": false
+      },
+      "after": {
+        "canonicalCount": 1,
+        "deliveryCount": 1,
+        "oldWriterActive": false
+      },
+      "context": {
+        "priorObservation": {
+          "sourceStreamId": "synthetic-stream",
+          "recordId": "synthetic-hk-native-001",
+          "payload": {
+            "type": "body_mass",
+            "value": 72,
+            "unit": "kg"
+          }
+        },
+        "ownerApprovedReplacement": true,
+        "overlappingHistory": true
+      }
+    }
+  ]
+}
