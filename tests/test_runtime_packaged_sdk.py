@@ -338,7 +338,11 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
 def test_sdk_measurement_reaches_dashboard_data_route(short_directory, tmp_path):
     helper = module("verify_packaged_mcp")
     with fixtures.actual_backend(short_directory, tmp_path) as (
-        bridge, settings_path, _, _, grant
+        bridge,
+        settings_path,
+        _,
+        _,
+        grant,
     ):
         settings = json.loads(settings_path.read_bytes())
         with fixtures.client(settings_path, tmp_path) as wire:
