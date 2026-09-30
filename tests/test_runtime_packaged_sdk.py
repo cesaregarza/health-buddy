@@ -160,7 +160,9 @@ def test_sdk_phase_deadline_enters_cleanup_and_sanitizes_failure(monkeypatch):
         ],
     )
     started = time.monotonic()
-    with pytest.raises(SystemExit, match=r"^packaged_sdk_qualification_failed:[0-9]+:unexpected$"):
+    with pytest.raises(
+        SystemExit, match=r"^packaged_sdk_qualification_failed:[0-9]+:unexpected$"
+    ):
         helper.main()
     assert cleaned == [True] and time.monotonic() - started < 1
 
@@ -319,7 +321,9 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
         ],
     )
     try:
-        with pytest.raises(SystemExit, match=r"^packaged_sdk_qualification_failed:[0-9]+:unexpected$"):
+        with pytest.raises(
+            SystemExit, match=r"^packaged_sdk_qualification_failed:[0-9]+:unexpected$"
+        ):
             helper.main()
         assert observed == ["live-child-cleanup-entered", (-signal.SIGKILL, True, True)]
         assert len(owned) == 1 and owned[0].wait(timeout=0) == -signal.SIGKILL
@@ -385,17 +389,34 @@ def test_sdk_failure_diagnostic_keeps_authored_label_but_not_private_error(
 ):
     helper = module("verify_packaged_mcp")
     monkeypatch.setattr(helper.os, "umask", lambda value: 0o077)
-    monkeypatch.setattr(sys, "argv", [
-        "verify_packaged_mcp", "--phase", "recreated", "--workspace", "/synthetic",
-        "--bundle", "/synthetic", "--state", "/synthetic", "--listener-fd", "99",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "verify_packaged_mcp",
+            "--phase",
+            "recreated",
+            "--workspace",
+            "/synthetic",
+            "--bundle",
+            "/synthetic",
+            "--state",
+            "/synthetic",
+            "--listener-fd",
+            "99",
+        ],
+    )
     for failure, label in (
-        (helper.QualificationFailure("Recreated backend replay failed"),
-         "Recreated backend replay failed"),
+        (
+            helper.QualificationFailure("Recreated backend replay failed"),
+            "Recreated backend replay failed",
+        ),
         (ValueError("Bearer synthetic-private-token record=123"), "unexpected"),
     ):
+
         def failed(*args, failure=failure):
             raise failure
+
         monkeypatch.setattr(helper, "run_phase", failed)
         with pytest.raises(SystemExit) as caught:
             helper.main()
