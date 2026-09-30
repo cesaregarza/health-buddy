@@ -11,12 +11,13 @@ from .backup import create, disk_required, materialize, private_path
 from .backup_archive import verified
 from .backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
 from .config import load
-from .domain import encode, identity_value
+from .domain import digest, encode, identity_value
 from .durability import atomic_bytes, exclusive, fsync_path
 from .extension_files import read_file
 from .extension_registry import Registry
 from .operations import Service
-from .runtime_manifest import MAX_METADATA, SHA256, _json, file_digest
+from .personal_workspace import forks_locked
+from .runtime_manifest import MAX_METADATA, SHA256, ManifestError, _json, file_digest
 from .runtime_release import selected_artifact
 from .security_api import Runtime
 from .security_runtime import open_runtime
@@ -24,7 +25,8 @@ from .service_api import Principal, ServiceError
 
 
 def preflight(
-    runtime: Runtime, manifest: Path, manifest_sha256: str, architecture: str
+    runtime: Runtime, manifest: Path, manifest_sha256: str, architecture: str,
+    *, check_personal: bool = True,
 ) -> dict[str, Any]:
     if not isinstance(runtime.operations, Service):
         raise ServiceError(503, "native_coordinator_required")
@@ -34,14 +36,21 @@ def preflight(
         raise ServiceError(422, "upgrade_target_digest_mismatch")
     # This checks actual image/source bytes and every supported interface,
     # without loading an image or invoking a daemon.
-    artifact = selected_artifact(manifest, architecture)
+    try:
+        artifact = selected_artifact(manifest, architecture)
+    except ManifestError:
+        raise ServiceError(422, "upgrade_release_invalid_or_unsupported_interfaces") from None
     value = _json(manifest)
     if not isinstance(value, dict):
         raise ServiceError(422, "upgrade_invalid_manifest")
     if file_digest(manifest, MAX_METADATA)[1] != manifest_sha256:
         raise ServiceError(409, "upgrade_target_changed")
+    with exclusive(runtime.operations.lock):
+        forks = forks_locked(runtime.operations.config, value["sourceCommit"])
+    if check_personal and any(not isinstance(item, dict) or item.get("state") != "recorded_compatible" for item in forks):
+        raise ServiceError(409, "upgrade_core_fork_requires_rebase_and_review")
     statuses = Registry(runtime.operations.config).compatibility(extension_api=1)
-    if any(item.enabled and item.state != "ready" for item in statuses):
+    if check_personal and any(item.enabled and item.state != "ready" for item in statuses):
         raise ServiceError(409, "upgrade_extension_requires_review_or_disable")
     return {
         "manifestSha256": manifest_sha256,
@@ -52,6 +61,18 @@ def preflight(
         "packageVersion": value["packageVersion"],
         "interfaces": value["interfaces"],
     }
+
+
+def freshness(inventory: dict[str, Any]) -> str:
+    """Canonical revision plus content/modes, excluding ephemeral host state."""
+    files = [
+        {key: item[key] for key in ("path", "sha256", "mode")}
+        for item in inventory["files"]
+        if not item["path"].startswith(("operations/", "security/"))
+    ]
+    return digest({"identity": inventory["identity"],
+                   "revision": inventory["dataRevision"],
+                   "files": sorted(files, key=lambda item: item["path"])})
 
 
 def stage(
@@ -113,6 +134,7 @@ def stage(
                 "state": "staged_requires_explicit_activation",
                 "target": target,
                 "backupSha256": backup["archiveSha256"],
+                "freshness": freshness(inventory),
                 "identity": inventory["identity"],
                 "dataRevision": state.revision,
                 "migration": "storage_v1_no_conversion",
