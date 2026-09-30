@@ -81,10 +81,10 @@ def test_broad_credential_and_duplicate_config_keys_refuse(tmp_path):
         Settings.read(path)
 
 
-@pytest.mark.parametrize(
-    "name", ["/mnt/forbidden/credential", "//mnt/forbidden/credential"]
-)
-def test_forbidden_native_boundary_rejected_without_filesystem_probe(monkeypatch, name):
+@pytest.mark.parametrize("prefix", ["/", "//"])
+def test_forbidden_native_boundary_rejected_without_filesystem_probe(monkeypatch, prefix):
+    name = prefix + "/".join(("mnt", "forbidden", "credential"))
+
     def forbidden(*args, **kwargs):
         raise AssertionError("forbidden target must never be probed")
 
