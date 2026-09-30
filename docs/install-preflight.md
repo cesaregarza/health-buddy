@@ -357,7 +357,7 @@ a removed route requires deliberate lifecycle review; the saved ownership intent
 is retained. No `reset`, `set-raw`, whole-config restore or account operation is
 used. `privateRouteConfigured:true` records observed configuration only;
 `connected:false` remains until actual private HTTPS and named-client/phone
-acceptance. Owner grants to agents and those acceptance checks remain pending.
+acceptance. The agent-grant slice below prepares configuration; live acceptance remains pending.
 
 Queue-owned targeted checks:
 
@@ -372,3 +372,72 @@ All Tailscale/Docker responses in this gate are bounded synthetic fixtures.
 Setup/repeat/remove, lost acknowledgements, read-only dry-run, admission/conflict
 refusals and preservation of unrelated Serve/personal state are tested separately
 from actual installation, network access or host authentication.
+
+## Explicit agent grant and redacted owner status
+
+After owned runtime activation and private Serve configuration, review a private
+0600 policy file with exactly `name`, `grants`, `sourceIds`, `readSources`,
+`readKinds`, and `readFields`. For example, a synthetic manual-only policy is:
+
+```json
+{"name":"Synthetic Health Buddy agent","grants":["records:read","records:write"],"sourceIds":["manual"],"readSources":["manual"],"readKinds":["workout","weight","hydration"],"readFields":null}
+```
+
+`null` read fields deliberately authorizes all fields within those selected
+sources/kinds. Select only the scopes you want to disclose to the AI client;
+`providers:invoke` is a separate optional grant. This uses the existing canonical
+`grants.create/list` validator and current native owner token authentication.
+No new authority or source registration is created by the installer.
+
+Choose absent private token/settings/retry paths, a native client config and the
+supported standalone `health-buddy` skill directory. Parent directories must be
+0700. Existing unrelated client settings are preserved by `connect_agent`;
+owned local edits refuse further changes. Stop competing config/grant editors
+while running this explicit setup. No client process is launched:
+
+```sh
+"$PYTHON" -m health_buddy.install_agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
+"$PYTHON" -m health_buddy.install_status --journal "$PRIVATE_INSTALL/install.json"
+```
+
+For Claude, choose `--client claude` and its supported project `.mcp.json`;
+see [Codex integration](codex-integration.md) and
+[Claude integration](claude-integration.md) for exact supported client versions,
+permissions, reload/update/removal and shared maintenance paths. A fresh named
+client must still be verified; generated configuration alone proves no connection.
+
+Before grant creation, the private installation journal binds policy, workspace
+identity, security epoch, original actor inventory and selected handoff paths.
+The journal contains no credential values. A retained token authenticates the
+same actor after an interrupted write or repeated setup; scope changes, foreign
+actors and locally edited settings/config refuse adoption. If a one-time secret
+is lost before it reaches its create-only private file, retry discovers the
+original grant and returns `install_agent_private_handoff_requires_owner_rotation`
+without creating a duplicate. Retain the journal. The owner must explicitly
+reconcile/rotate or revoke that actor using existing security operations; this
+first slice does not automatically adopt a replacement credential or epoch.
+
+Status authenticates existing owner/agent authority and lists canonical devices;
+it does not create pairings or fetch health records. Authentication can update
+existing security budgets, so this is not a byte-for-byte read-only workspace
+operation. Optional `--pairing-id "$PRIVATE_PAIRING_ID"` reports only the finite
+pairing status, omitting identifiers, approval paths, names and secret values.
+Log in as owner and open `/security` (heading “Connect a phone”) for deliberate owner approval
+and private short-lived proof delivery to the phone. No installer log includes
+that proof. Recorded runtime/Serve/client stages are labeled as last configured,
+not live network, daemon or named-client observations. `connected:false` remains.
+
+Queue-owned during active P-CES-17 only; installed owners can run matching native
+checks directly under their authorization:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_agent.py tests/test_agent_guide.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_agent.py src/health_buddy/install_status.py tests/test_install_agent.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_agent.py src/health_buddy/install_status.py tests/test_install_agent.py
+"$PYTHON" -m mypy src/health_buddy/install_agent.py src/health_buddy/install_status.py
+```
+
+These fixtures use real local authority, matching source/skill/client files and
+bounded fake Docker/Tailscale responses. Actual owner-host networking, named
+Codex/Claude acceptance, phone/device qualification and coherent retained-data
+runtime removal remain pending; this checkpoint does not complete CES-1077.

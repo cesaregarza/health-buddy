@@ -1,10 +1,13 @@
 # One guide for Codex and Claude Code
 
 This is the canonical maintenance entrypoint for both agents. Read AGENTS.md for
-current execution boundaries. During project orchestration, the testing queue
+current execution boundaries. During active P-CES-17 project orchestration, the testing queue
 alone executes **every command below that installs, tests, lints, builds, previews
 or runs the application**. An implementation worker inspects/edits source and
 submits an immutable commit, exact commands and expected synthetic outcomes.
+Installed owners outside P-CES-17 can run these native commands directly under
+their own authorization, using the public lock and their matching source; they
+do not need our private queue or its caches. Current workers remain queue-only.
 No private health records, vendor login, network source or paid model key is
 needed. Live named-agent and upgrade qualification remains CES-1083.
 
@@ -63,7 +66,7 @@ Abstract examples: `contracts/v1/examples/{weekly-mass,water-import}.json` and
 
 ## First runnable change: weekly mass display
 
-The queue can start from a fresh synthetic workspace using Python 3.12+ and Git.
+Start from a fresh synthetic workspace using Python 3.12+ and Git.
 Use Bash for the commands in this guide.
 From the selected source checkout, use the existing pinned development closure
 [packaging/dev-cp312-linux-x86_64.lock](../packaging/dev-cp312-linux-x86_64.lock).
@@ -73,7 +76,7 @@ with 53 exact wheel hashes. It targets CPython 3.12 on Linux x86_64 with glibc
 host IANA timezone database remain host prerequisites. No editable project
 install, package resolver or build backend is needed for the source checks.
 
-The queue can stage that exact closure into a new native WHEELHOUSE when needed:
+Stage that exact closure into a new native WHEELHOUSE when needed:
 `python3.12 -m pip --isolated --disable-pip-version-check --no-cache-dir download --only-binary=:all: --no-deps --require-hashes -r packaging/dev-cp312-linux-x86_64.lock --dest "$WHEELHOUSE"`.
 Existing admitted wheels may be copied into that directory instead. Setup is:
 
@@ -117,14 +120,15 @@ preview must refuse until review/enable. Add the reason and expected 72 kg →
 158.7 lb display to the installed notes/DESIGN.md. Keep a regression alongside
 the extension; the maintained host adaptation test is a reusable example.
 
-Submit this focused check set to the queue from the matching source checkout
+Run this focused check set from the matching source checkout
+(submit it to the queue during active P-CES-17 orchestration)
 (set EXTENSION to the installed private extension directory):
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider "$EXTENSION/tests" tests/test_extension_runtime.py tests/test_extension_registry.py tests/test_extension_workflow.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
-# View/config rendering only: queue supplies separately admitted BROWSER_PYTHON/cache.
+# View/config rendering only: separately admitted BROWSER_PYTHON/cache required.
 (cd health-runner/dashboard && "$BROWSER_PYTHON" scripts/check_extensions.py)
 ```
 
@@ -179,12 +183,12 @@ undone by code rollback.
 Development extras in pyproject.toml contain ranges; the source setup above uses
 the committed hashed development lock instead. It is **not a production install**
 and excludes browser and distribution-build tooling; those retain their separate
-queue-owned setup and receipts. `packaging/runtime-inputs.json` pins the
+admitted setup and receipts (queue-owned during P-CES-17). `packaging/runtime-inputs.json` pins the
 runtime binary/base closure. The exact lock/hash-checked fetch/context/build
 commands are in [runtime packaging](runtime-packaging.md#build-and-local-loading).
 Dependency changes require that owning lock/notice lane, not a personal hook.
-For core interface edits submit `make contracts test lint typecheck package` and
-the distribution audit in CONTRIBUTING.md; the queue's private socket-root
+For core interface edits run (submit to the queue during P-CES-17) `make contracts test lint typecheck package` and
+the distribution audit in CONTRIBUTING.md; the native private socket-root
 prerequisite and exact preview/browser commands are in [verification](verification.md).
 Synthetic dashboard preview: `make PYTHON=.venv/bin/python preview`.
 The default `make test` includes `tests/test_agent_guide.py`, checking local guide/
@@ -202,8 +206,8 @@ source-only preservation tests.
 There is currently **no supported automatic extension state-migration command**.
 A changed state schema refuses activation. Preserve state and pending requests,
 disable the job, author and separately review an explicit migration under the
-extension's migrations/ with recovery/compatibility tests, and submit its exact
-operator command to the queue. CES-1071 owns installer/upgrade execution; this
+extension's migrations/ with recovery/compatibility tests, and run its exact reviewed
+operator command (submit to the queue during P-CES-17). CES-1071 owns installer/upgrade execution; this
 guide does not invent an unsafe migration or credential-preserving restore.
 
 A deeper core fork needs its own native source checkout, patches, exact upstream
