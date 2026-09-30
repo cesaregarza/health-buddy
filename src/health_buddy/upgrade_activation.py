@@ -60,7 +60,8 @@ def running(
     workspace: Path,
     uid: int,
     gid: int,
-    *, allow_inactive: bool = False,
+    *,
+    allow_inactive: bool = False,
 ) -> str:
     ids = (
         compose(docker, environment, project, "ps", "--quiet", "api")
@@ -282,8 +283,17 @@ def activate(
         if progress["phase"] in ("prepared", "stopping"):
             # Resume can observe an absent/stopped API, but an active one must
             # still be this installation before any stop command is sent.
-            running(docker, environment, project, previous_manifest, architecture,
-                    service.config.root, uid, gid, allow_inactive=True)
+            running(
+                docker,
+                environment,
+                project,
+                previous_manifest,
+                architecture,
+                service.config.root,
+                uid,
+                gid,
+                allow_inactive=True,
+            )
         try:
             if progress["phase"] in ("prepared", "stopping"):
                 progress["phase"] = "stopping"
