@@ -36,7 +36,9 @@ def fixture(tmp_path, monkeypatch):
     runtime, owner = install_agent.owner(json.loads(selected["journal"].read_bytes()))
     response = runtime.operations.execute(
         owner.principal,
-        intent(runtime.operations, owner.principal, record_id="synthetic-retained-mass"),
+        intent(
+            runtime.operations, owner.principal, record_id="synthetic-retained-mass"
+        ),
     )
     assert response.status == 200, response.body
     original_state = runtime.operations.journal.verify()
