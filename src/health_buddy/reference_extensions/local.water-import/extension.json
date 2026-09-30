@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "local.water-import", "version": "1.0.0", "extensionApi": 1,
+  "kind": "connector-workflow", "stateSchema": 1,
+  "entrypoints": {"connector": "src/connector.py:normalize", "workflow": "src/workflow.py:run"},
+  "dependencies": {}, "scopes": ["records:write"],
+  "dataAccess": {"readKinds": [], "readFields": [], "writeKinds": ["water-intake"]},
+  "egress": [], "secretReferences": [],
+  "configSchema": "config/schema.json", "configFile": "config/settings.json",
+  "paths": {"source": "src", "assets": "assets", "config": "config", "tests": "tests", "notes": "notes", "state": "state", "migrations": "migrations"}
+}

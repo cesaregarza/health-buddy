@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "local.weekly-mass", "version": "1.0.0", "extensionApi": 1,
+  "kind": "metric-view", "stateSchema": 1,
+  "entrypoints": {"metric": "src/metric.py:calculate", "view": "src/view.js:render"},
+  "dependencies": {}, "scopes": ["records:read"],
+  "dataAccess": {"readKinds": ["body-mass"], "readFields": ["id", "kind", "value", "unit", "observedAt", "sourceId", "freshness", "missingness", "provenance", "timezone"], "writeKinds": []},
+  "egress": [], "secretReferences": [],
+  "configSchema": "config/schema.json", "configFile": "config/settings.json",
+  "paths": {"source": "src", "assets": "assets", "config": "config", "tests": "tests", "notes": "notes", "state": "state", "migrations": "migrations"}
+}

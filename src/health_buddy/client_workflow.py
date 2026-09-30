@@ -29,6 +29,7 @@ from .domain import (
     revision,
 )
 from .durability import atomic_bytes, exclusive, fsync_path, private_file
+from .extension_files import bounded_children
 from .security_api import ClientIdentity
 from .service_api import (
     JSON,
@@ -146,7 +147,23 @@ class ClientWorkflow:
                 relative = root + "/state/requests"
                 basename = digest({"eventId": self.namespace.event_id})
             directory = self.config.path(relative)
-            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if self.namespace is None:
+                directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            else:
+                parent = self.config.path(root)
+                for component in ("state", "requests"):
+                    child = self.config.path(str((parent / component).relative_to(self.config.root)))
+                    if not child.exists():
+                        child.mkdir(mode=0o700)
+                        fsync_path(child)
+                        fsync_path(parent)
+                    if not child.is_dir() or stat.S_IMODE(child.stat().st_mode) & 0o077:
+                        raise ServiceError(503, "client_state_unavailable")
+                    parent = child
+                children = bounded_children(directory, 2048)
+                occupied = {path.stem for path in children}
+                if basename not in occupied and len(occupied) >= 1024:
+                    raise ServiceError(413, "extension_event_capacity")
             if not directory.is_dir() or stat.S_IMODE(directory.stat().st_mode) & 0o077:
                 raise ServiceError(503, "client_state_unavailable")
             return (
@@ -194,7 +211,7 @@ class ClientWorkflow:
 
     def _save(self, path: Path, state: dict[str, Any]) -> None:
         raw = encode(state)
-        if len(raw) > MAX_STATE:
+        if len(raw) > (262_144 if self.namespace is not None else MAX_STATE):
             raise ServiceError(503, "client_state_unavailable")
         with self._storage_guard():
             atomic_bytes(path, raw)

@@ -41,6 +41,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    from .extension_cli import add_commands
+
+    add_commands(commands)
     commands.add_parser("init")
     commands.add_parser("render")
     commands.add_parser("status")
@@ -80,6 +83,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.development and args.credential_file is not None:
             raise ServiceError(422, "development_cannot_use_credentials")
+        if args.command in {"workspace", "extension"}:
+            from .extension_cli import handle
+
+            return handle(args)
         if args.command == "security":
             if args.development or args.credential_file is not None:
                 raise ServiceError(422, "security_setup_requires_os_owner")

@@ -9,12 +9,12 @@ description = "Self-hosted health workspace: clean extraction and v1 contracts"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-dependencies = ["granian==2.8.3", "starlette==1.7.0", "anyio==4.15.1"]
+dependencies = ["granian==2.8.3", "starlette==1.7.0", "anyio==4.15.1", "jsonschema==4.23.0"]
 
 [project.optional-dependencies]
 sleepiq = ["alembic>=1.15,<2", "asyncsleepiq==1.7.1", "sqlalchemy>=2.0,<3", "tzdata>=2025.2"]
 postgres = ["psycopg[binary]>=3.2,<4"]
-dev = ["jsonschema==4.23.0", "pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "mypy>=1.15,<2", "build>=1.2,<2"]
+dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "mypy>=1.15,<2", "build>=1.2,<2"]
 browser = ["playwright>=1.51,<2"]
 
 [project.scripts]
@@ -26,7 +26,7 @@ sleepiq-exporter = "sleepiq_exporter.cli:main"
 packages = ["src/health_buddy", "src/health_ingest", "src/sleepiq_exporter"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/scripts/*.py", "/tests", "/contracts", "/docs", "/provenance", "/health-runner/dashboard/*.py", "/health-runner/dashboard/*.js", "/health-runner/dashboard/template.html", "/health-runner/dashboard/assets/*.svg", "/health-runner/dashboard/assets/*.webmanifest", "/health-runner/dashboard/tests", "/health-runner/dashboard/scripts/*.py", "/README.md", "/CONTRIBUTING.md", "/AGENTS.md", "/LICENSE", "/THIRD_PARTY.md", "/pyproject.toml", "/requirements-contract.txt", "/alembic.ini", "/Makefile"]
+include = ["/src", "/scripts/*.py", "/tests", "/contracts", "/docs", "/provenance", "/health-runner/dashboard/*.py", "/health-runner/dashboard/*.js", "/health-runner/dashboard/template.html", "/health-runner/dashboard/assets/*.svg", "/health-runner/dashboard/assets/*.js", "/health-runner/dashboard/assets/*.webmanifest", "/health-runner/dashboard/tests", "/health-runner/dashboard/scripts/*.py", "/README.md", "/CONTRIBUTING.md", "/AGENTS.md", "/LICENSE", "/THIRD_PARTY.md", "/pyproject.toml", "/requirements-contract.txt", "/alembic.ini", "/Makefile"]
 exclude = ["**/__pycache__/**", "**/*.pyc", "**/.env*", "**/*.db", "**/*.sqlite*", "**/design/**", "**/web/**"]
 
 [tool.pytest.ini_options]

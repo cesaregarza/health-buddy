@@ -60,7 +60,7 @@ class DevelopmentPolicy:
 
 def require_grant(authority: Authority, operation: Operation) -> None:
     if operation == "capabilities":
-        allowed = bool(authority.grants & {"records:read", "sync:status"})
+        allowed = bool(authority.grants & {"records:read", "records:write", "sync:status"})
     elif operation == "healthkit.ingest":
         allowed = "healthkit:ingest" in authority.grants
     elif operation in READ_OPERATIONS:

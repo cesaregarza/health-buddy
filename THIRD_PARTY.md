@@ -29,7 +29,7 @@ actual runtime image, including transitive dependencies and base-image notices.
 | SQLAlchemy 2.1.1; Alembic 1.20.0 | MIT | Optional SleepIQ store and migrations |
 | tzdata 2026.4 | Apache-2.0; IANA data notice retained in distribution LICENSE | Optional timezone data |
 | psycopg 3.3.6; psycopg-binary 3.3.6 | LGPL-3.0-only | Optional PostgreSQL extra; not required by core |
-| jsonschema 4.23.0 | MIT | Contract development checks |
+| jsonschema 4.23.0 | MIT | Runtime extension manifest/configuration validation and contract checks |
 | pytest 9.1.1; Ruff 0.16.9; mypy 1.20.2; build 1.6.1; Hatchling 1.32.4 | MIT | Development and build tooling |
 | pytest-asyncio 1.4.0 | Apache-2.0 | Development checks |
 | Playwright 1.63.0 | Apache-2.0; bundled notices also retained | Optional browser validation tooling; not shipped in core source |
