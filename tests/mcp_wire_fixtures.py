@@ -278,7 +278,7 @@ def client(settings, folder, *, modern=False, instrumented=False):
     stderr = folder / "mcp-stderr.log"
     with stderr.open("ab") as log:
         # Fixed module and exclusively owned synthetic paths, bounded by queue cgroup.
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # noqa: S603
             [sys.executable, "-m", module, "--settings", str(settings)],
             cwd=ROOT,
             env=environment,

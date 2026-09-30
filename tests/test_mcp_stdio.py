@@ -66,6 +66,23 @@ def test_inflight_envelope_bound_and_duplicate_ids():
             )
 
 
+async def test_unanswered_admission_cleanup_is_guarded_against_id_reuse():
+    framing = Framing()
+    raw = b'{"jsonrpc":"2.0","method":"ping","id":1}'
+    first = framing.parse(raw)
+    with pytest.raises(ValueError):
+        framing.parse(raw)
+    await first.metadata.on_request_unanswered()
+    assert not framing.pending
+    second = framing.parse(raw)
+    await first.metadata.on_request_unanswered()
+    assert 1 in framing.pending
+    with pytest.raises(ValueError):
+        framing.parse(raw)
+    await second.metadata.on_request_unanswered()
+    assert not framing.pending
+
+
 async def test_idle_pipe_reader_is_cancelled_without_blocked_worker():
     read_fd, source = os.pipe()
     sink, write_fd = os.pipe()

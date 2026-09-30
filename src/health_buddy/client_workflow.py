@@ -255,6 +255,24 @@ class ClientWorkflow:
                 self.config.path(f"{relative}/{basename}.lock"),
             )
 
+    def _lookup_paths(self) -> tuple[Path, Path] | None:
+        if not isinstance(self.namespace, McpWorkflowNamespace):
+            return self._paths()
+        # Lookup is linearized against reservations by state.lock, but must not
+        # create a profile, directory or intent lock merely to report absence.
+        # A reserved writer is inspected under its existing per-intent lock.
+        with self._storage_guard():
+            profile = digest({"clientId": self.namespace.client_id})
+            basename = digest({"intentId": self.namespace.intent_id})
+            relative = f"profiles/{profile}/requests/{basename}"
+            path = self.config.path(relative + ".json")
+            lock = self.config.path(relative + ".lock")
+            if not lock.exists():
+                if path.exists():
+                    raise ServiceError(503, "client_state_unavailable")
+                return None
+            return path, lock
+
     def _load(self, path: Path) -> dict[str, Any] | None:
         with self._storage_guard():
             return self._load_locked(path)
@@ -595,7 +613,10 @@ class ClientWorkflow:
             self._binding()
         else:
             decoded(self.operations.execute(self.principal, Request("capabilities")))
-        path, lock = self._paths()
+        paths = self._lookup_paths()
+        if paths is None:
+            return {"state": "empty", "cursor": 0}
+        path, lock = paths
         with exclusive(lock):
             state = self._load(path)
             if state is None:
@@ -612,7 +633,10 @@ class ClientWorkflow:
             }
 
     def retry(self) -> dict[str, JSON]:
-        path, lock = self._paths()
+        paths = self._lookup_paths()
+        if paths is None:
+            raise ServiceError(409, "no_pending_write")
+        path, lock = paths
         with exclusive(lock, time.monotonic() + 40):
             state = self._load(path)
             if state is None or state["state"] == "discarded":

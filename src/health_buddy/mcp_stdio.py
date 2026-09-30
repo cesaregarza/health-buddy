@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from typing import Any, cast
 
 import anyio
-from mcp.shared.message import SessionMessage
+from mcp.shared.message import ServerMessageMetadata, SessionMessage
 from mcp_types.jsonrpc import JSONRPCError, jsonrpc_message_adapter
 
 from .domain import encode
@@ -27,7 +27,7 @@ PARTIAL_TOTAL_SECONDS = 10.0
 
 class Framing:
     def __init__(self) -> None:
-        self.pending: set[str | int] = set()
+        self.pending: dict[str | int, object] = {}
 
     def parse(self, raw: bytes) -> SessionMessage:
         if not raw or len(raw) > MAX_FRAME:
@@ -51,7 +51,20 @@ class Framing:
             identifier = cast(str | int, value["id"])
             if identifier in self.pending or len(self.pending) >= 8:
                 raise ValueError("too_many_requests")
-            self.pending.add(identifier)
+            admission = object()
+            self.pending[identifier] = admission
+
+            async def unanswered() -> None:
+                # Public SDK settlement runs after its handler context closes.
+                # No await between compare/remove: an old callback must never
+                # release a later request that deliberately reuses this ID.
+                if self.pending.get(identifier) is admission:
+                    del self.pending[identifier]
+
+            return SessionMessage(
+                message,
+                ServerMessageMetadata(on_request_unanswered=unanswered),
+            )
         return SessionMessage(message)
 
     def serialize(self, item: SessionMessage) -> bytes:
@@ -72,7 +85,7 @@ class Framing:
         if len(raw) > MAX_OUTPUT:
             raise ValueError("response_too_large")
         if "id" in value and "method" not in value:
-            self.pending.discard(value["id"])
+            self.pending.pop(value["id"], None)
         return raw
 
 

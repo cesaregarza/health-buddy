@@ -255,7 +255,7 @@ class HttpOperations:
                 or request.payload.get("sourceId") not in self.settings.write_sources
             ):
                 raise ServiceError(403, "source_not_owned")
-            path += cast(str, request.resource_id)
+            path += request.resource_id
         elif request.resource_id is not None:
             raise ServiceError(422, "invalid_request")
         if method == "GET" and request.payload is not None:

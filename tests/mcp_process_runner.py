@@ -46,6 +46,7 @@ def importing(name, *args, **kwargs):
 
 
 builtins.__import__ = importing
-from health_buddy.mcp_server import main
+# Instrumentation must precede importing the actual entrypoint.
+from health_buddy.mcp_server import main  # noqa: E402
 
 raise SystemExit(main())

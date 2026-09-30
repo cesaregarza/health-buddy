@@ -98,7 +98,11 @@ _LOG_REQUIRED = {
     "workout-finish": ("sessionId",),
 }
 _NUMERIC_NAMES = frozenset(
-    "systolic diastolic pulse reading_number set_number set_count reps rir segment_number level steps_per_min floors_climbed calories avg_heart_rate_bpm max_heart_rate_bpm serving_quantity distance_value reading".split()
+    (
+        "systolic diastolic pulse reading_number set_number set_count reps rir "
+        "segment_number level steps_per_min floors_climbed calories "
+        "avg_heart_rate_bpm max_heart_rate_bpm serving_quantity distance_value reading"
+    ).split()
 )
 
 
@@ -162,7 +166,9 @@ def _plan_node(node: str) -> Schema:
             value = object_schema(
                 {
                     day: text(1000)
-                    for day in "monday tuesday wednesday thursday friday saturday sunday".split()
+                    for day in (
+                        "monday tuesday wednesday thursday friday saturday sunday"
+                    ).split()
                 }
             )
         elif name in {
@@ -281,13 +287,19 @@ SPECS = (
     ToolSpec(
         "discover_workspace",
         "workspace.discover",
-        "Discover admitted interfaces and logical source/docs references. Selected health content reaches your chosen AI host.",
+        (
+            "Discover admitted interfaces and logical source/docs references. "
+            "Selected health content reaches your chosen AI host."
+        ),
         object_schema({}),
     ),
     ToolSpec(
         "get_context",
         "context.read",
-        "Read only explicitly selected context scopes over a bounded window; preserves missingness and truncation.",
+        (
+            "Read only explicitly selected context scopes over a bounded window; "
+            "preserves missingness and truncation."
+        ),
         object_schema(
             {
                 "scopes": array(CONTEXT_SCOPE, 9, minimum=1),
@@ -300,7 +312,10 @@ SPECS = (
     ToolSpec(
         "list_records",
         "records.list",
-        "Read one bounded page. Repeat the exact returned window/filter and cursor to continue at one revision.",
+        (
+            "Read one bounded page. Repeat the exact returned window/filter and "
+            "cursor to continue at one revision."
+        ),
         object_schema(
             {
                 "from": TIMESTAMP,
@@ -323,20 +338,30 @@ SPECS = (
     ToolSpec(
         "sync_status",
         "projection.status",
-        "Read admitted source availability/freshness; missing, disabled and fresh-empty are distinct.",
+        (
+            "Read admitted source availability/freshness; "
+            "missing, disabled and fresh-empty are distinct."
+        ),
         object_schema({}),
     ),
     ToolSpec(
         "record_workout",
         "workouts.write",
-        "Save one completed workout with an explicit receiver/CAS revision and stable action ID. Retry uncertain outcomes with the same ID.",
+        (
+            "Save one completed workout with an explicit receiver/CAS revision and "
+            "stable action ID. Retry uncertain outcomes with the same ID."
+        ),
         object_schema({**WRITE, "workout": WORKOUT}, (*WRITE, "workout")),
         True,
     ),
     ToolSpec(
         "log_health",
         "logs.write",
-        "Log a typed observation under an explicit source and original CAS. Timestamps/dates are explicit; repeating the same ID preserves the original request.",
+        (
+            "Log a typed observation under an explicit source and original CAS. "
+            "Timestamps/dates are explicit; repeating the same ID preserves "
+            "the original request."
+        ),
         {
             "type": "object",
             "oneOf": [
@@ -358,13 +383,19 @@ SPECS = (
     ToolSpec(
         "propose_plan",
         "plan.write",
-        "Persist a reviewable plan proposal and its original CAS without applying it. Server semantic validation remains pending until apply.",
+        (
+            "Persist a reviewable plan proposal and its original CAS without "
+            "applying it. Server semantic validation remains pending until apply."
+        ),
         object_schema({**WRITE, "plan": PLAN}, (*WRITE, "plan")),
     ),
     ToolSpec(
         "apply_plan",
         "plan.write",
-        "Apply only the retained proposal body/CAS after reviewing its returned digest. Never refresh a stale proposal automatically.",
+        (
+            "Apply only the retained proposal body/CAS after reviewing its returned "
+            "digest. Never refresh a stale proposal automatically."
+        ),
         object_schema(
             {
                 "proposalId": ID,
@@ -378,13 +409,19 @@ SPECS = (
     ToolSpec(
         "write_status",
         "capabilities",
-        "Inspect safe status for an existing action ID; no private payload or raw errors.",
+        (
+            "Inspect safe status for an existing action ID; "
+            "no private payload or raw errors."
+        ),
         object_schema({"intentId": ID}, ("intentId",)),
     ),
     ToolSpec(
         "retry_write",
         "capabilities",
-        "Replay the exact retained request after an uncertain outcome. No new key or revision is generated.",
+        (
+            "Replay the exact retained request after an uncertain outcome. "
+            "No new key or revision is generated."
+        ),
         object_schema({"intentId": ID}, ("intentId",)),
         True,
     ),

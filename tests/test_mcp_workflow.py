@@ -102,6 +102,9 @@ def test_copied_intent_and_corrupt_bytes_are_retained_without_send(tmp_path):
     other = workflow(root, operations, intent="action-2")
     assert other.inspect()["state"] == "empty"
     destination = state_path(root, "action-2")
+    # Fabricate a retained reservation so this probes copied-state validation,
+    # not the separate missing-lock corruption refusal.
+    destination.with_suffix(".lock").touch(mode=0o600)
     destination.write_bytes(state_path(root).read_bytes())
     destination.chmod(0o600)
     for raw in (destination.read_bytes(), b"{corrupt"):
@@ -255,3 +258,87 @@ def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(
         reopened.operations.journal.state().revision == result["meta"]["dataRevision"]
     )
     assert set(path.name for path in root.root.iterdir()) == {"profiles", "state.lock"}
+
+
+def test_unknown_status_and_retry_do_not_consume_write_capacity(tmp_path):
+    root = RetryRoot.create(tmp_path / "adapter")
+    operations = SyntheticOperations()
+    for index in range(1025):
+        client = workflow(root, operations, intent=f"missing-{index}")
+        assert client.inspect() == {"state": "empty", "cursor": 0}
+        with pytest.raises(ServiceError, match="no_pending_write"):
+            client.retry()
+    assert {path.name for path in root.root.iterdir()} == {"state.lock"}
+    assert operations.requests == []
+    operations.lose_once = True
+    client = workflow(root, operations)
+    with pytest.raises(ServiceError, match="outcome_unknown"):
+        emit(client)
+    pending = state_path(root).read_bytes()
+    assert client.inspect()["state"] == "pending"
+    assert state_path(root).read_bytes() == pending
+    assert len(list(state_path(root).parent.iterdir())) == 2
+    client.retry()
+    assert client.inspect()["state"] == "complete"
+    assert operations.revision == 1
+
+
+def test_status_lookup_serializes_existing_writer_without_reserving_absent_id(
+    tmp_path,
+):
+    import threading
+
+    root = RetryRoot.create(tmp_path / "adapter")
+    operations = SyntheticOperations()
+    client = workflow(root, operations)
+    entered, release = threading.Event(), threading.Event()
+    looking, finished = threading.Event(), threading.Event()
+    original = operations.execute
+    errors, statuses = [], []
+
+    def delayed(principal, request):
+        if request.operation == "logs.write":
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("synthetic writer release timeout")
+        return original(principal, request)
+
+    def write():
+        try:
+            emit(client)
+        except Exception as error:
+            errors.append(error)
+
+    def inspect():
+        looking.set()
+        try:
+            statuses.append(client.inspect())
+        except Exception as error:
+            errors.append(error)
+        finally:
+            finished.set()
+
+    operations.execute = delayed
+    writer = threading.Thread(target=write, daemon=True)
+    reader = threading.Thread(target=inspect, daemon=True)
+    writer.start()
+    try:
+        assert entered.wait(5)
+        pending = json.loads(state_path(root).read_bytes())
+        assert pending["state"] == "pending"
+        reader.start()
+        assert looking.wait(5) and not finished.wait(0.05)
+        assert workflow(root, operations, intent="absent").inspect() == {
+            "state": "empty",
+            "cursor": 0,
+        }
+        assert not state_path(root, "absent").with_suffix(".lock").exists()
+    finally:
+        release.set()
+        writer.join(5)
+        if reader.ident is not None:
+            reader.join(5)
+    assert not writer.is_alive() and not reader.is_alive() and not errors
+    assert statuses[0]["state"] == "complete" and statuses[0]["cursor"] == 1
+    assert json.loads(state_path(root).read_bytes())["envelope"] == pending["envelope"]
+    assert operations.revision == 1
