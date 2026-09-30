@@ -520,7 +520,9 @@ def _available_operations(service: Service, authority: Authority) -> list[JSON]:
         except ServiceError:
             continue
         if operation in {
-            "context.intent", "training.fast.read", "training.fast.write",
+            "context.intent",
+            "training.fast.read",
+            "training.fast.write",
         } and not service.config.enabled("jev"):
             continue
         available.append(operation)
@@ -534,7 +536,9 @@ def read(
     if request.operation == "workspace.discover":
         from .discovery import read as discover
 
-        return discover(service, authority, state, _available_operations(service, authority))
+        return discover(
+            service, authority, state, _available_operations(service, authority)
+        )
     writable = "records:write" in authority.grants
     if request.operation == "capabilities":
         data: dict[str, JSON] = {

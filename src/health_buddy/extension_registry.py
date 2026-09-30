@@ -215,14 +215,17 @@ class Registry:
             entries = self._load()
             names = sorted(set(self._names()) | set(entries))
         except (ServiceError, OSError, ValueError):
-            return ((
-                ExtensionStatus(
-                    "registry",
-                    "inventory_incomplete",
-                    False,
-                    diagnostics=("extension_registry_unavailable",),
+            return (
+                (
+                    ExtensionStatus(
+                        "registry",
+                        "inventory_incomplete",
+                        False,
+                        diagnostics=("extension_registry_unavailable",),
+                    ),
                 ),
-            ), {})
+                {},
+            )
         statuses: dict[str, ExtensionStatus] = {}
         ready: dict[str, ReviewedExtension] = {}
         for index, name in enumerate(names):

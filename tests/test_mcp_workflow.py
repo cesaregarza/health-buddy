@@ -22,15 +22,23 @@ from tests.test_extension_workflow import IDENTITY, SyntheticOperations, emit
 
 def state_path(root, intent="action-1", client="synthetic-client"):
     return root.path(
-        "profiles/" + digest({"clientId": client}) + "/requests/"
-        + digest({"intentId": intent}) + ".json"
+        "profiles/"
+        + digest({"clientId": client})
+        + "/requests/"
+        + digest({"intentId": intent})
+        + ".json"
     )
 
 
-def workflow(root, operations, *, binding=None, intent="action-1", client="synthetic-client"):
+def workflow(
+    root, operations, *, binding=None, intent="action-1", client="synthetic-client"
+):
     return ClientWorkflow(
-        root, operations, Principal("synthetic-admission"),
-        client_identity=binding or (lambda: ClientIdentity("actor-one", "epoch-one", IDENTITY)),
+        root,
+        operations,
+        Principal("synthetic-admission"),
+        client_identity=binding
+        or (lambda: ClientIdentity("actor-one", "epoch-one", IDENTITY)),
         namespace=McpWorkflowNamespace(client, intent),
     )
 
@@ -74,7 +82,12 @@ def test_status_retry_and_changed_intent_refuse_other_binding(tmp_path, change):
     elif change == "security_epoch":
         current = replace(current, security_epoch="epoch-two")
     else:
-        current = replace(current, identity=replace(IDENTITY, restore_epoch="00000000-0000-4000-8000-000000000004"))
+        current = replace(
+            current,
+            identity=replace(
+                IDENTITY, restore_epoch="00000000-0000-4000-8000-000000000004"
+            ),
+        )
     for command in (client.inspect, client.retry, lambda: emit(client, "different")):
         with pytest.raises(ServiceError, match="client_identity_changed"):
             command()
@@ -153,7 +166,9 @@ def test_capacity_refuses_new_intents_without_evicting_completed_receipts(tmp_pa
     assert operations.revision == 1
 
 
-def test_directory_barrier_failure_retries_existing_ancestors_before_send(tmp_path, monkeypatch):
+def test_directory_barrier_failure_retries_existing_ancestors_before_send(
+    tmp_path, monkeypatch
+):
     from health_buddy import client_workflow
 
     root = RetryRoot.create(tmp_path / "adapter")
@@ -182,19 +197,32 @@ def test_directory_barrier_failure_retries_existing_ancestors_before_send(tmp_pa
     assert operations.revision == 1
 
 
-def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(tmp_path, monkeypatch):
+def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(
+    tmp_path, monkeypatch
+):
     backend = tmp_path / "backend"
     runtime, owner, _ = secured(backend)
-    grant = action(runtime, owner, "grants.create", payload=AgentGrant(
-        "Fabricated MCP actor", ("records:write",), source_ids=("manual",),
-    ))
+    grant = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant(
+            "Fabricated MCP actor",
+            ("records:write",),
+            source_ids=("manual",),
+        ),
+    )
     proof = BearerProof(grant.secret.value)
     operations = AuthenticatedOperations(runtime, proof)
     root = RetryRoot.create(tmp_path / "adapter")
     client = workflow(root, operations, binding=operations.describe)
     payload = {
         "sourceId": "manual",
-        "fields": {"measuredAtLocal": "2030-01-01T08:00:00+00:00", "timezone": "UTC", "weightLb": "160"},
+        "fields": {
+            "measuredAtLocal": "2030-01-01T08:00:00+00:00",
+            "timezone": "UTC",
+            "weightLb": "160",
+        },
     }
     execute = runtime.operations.execute
     sent = []
@@ -209,7 +237,9 @@ def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(tmp_pat
     with monkeypatch.context() as patch:
         patch.setattr(runtime.operations, "execute", lost)
         with pytest.raises(ServiceError, match="outcome_unknown"):
-            client.write("logs.write", lambda: payload, intent=payload, resource_id="measurement")
+            client.write(
+                "logs.write", lambda: payload, intent=payload, resource_id="measurement"
+            )
     pending = state_path(root).read_bytes()
     rotated = action(runtime, owner, "grants.rotate", resource=grant.data["id"])
     with pytest.raises(ServiceError) as denied:
@@ -221,5 +251,7 @@ def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(tmp_pat
     complete = json.loads(state_path(root).read_bytes())
     assert complete["envelope"] == json.loads(pending)["envelope"]
     assert result == json.loads(sent[0][1].body)
-    assert reopened.operations.journal.state().revision == result["meta"]["dataRevision"]
+    assert (
+        reopened.operations.journal.state().revision == result["meta"]["dataRevision"]
+    )
     assert set(path.name for path in root.root.iterdir()) == {"profiles", "state.lock"}

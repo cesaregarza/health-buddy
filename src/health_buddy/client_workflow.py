@@ -127,7 +127,8 @@ class ClientWorkflow:
         self.namespace = namespace
         if isinstance(namespace, McpWorkflowNamespace):
             if (
-                not isinstance(config, RetryRoot) or client_identity is None
+                not isinstance(config, RetryRoot)
+                or client_identity is None
                 or not isinstance(namespace.client_id, str)
                 or not re.fullmatch(r"[a-z][a-z0-9-]{0,39}", namespace.client_id)
                 or not isinstance(namespace.intent_id, str)
@@ -159,13 +160,17 @@ class ClientWorkflow:
         if not isinstance(self.namespace, McpWorkflowNamespace):
             return None
         return {
-            "schemaVersion": 1, "kind": "mcp", "clientId": self.namespace.client_id,
+            "schemaVersion": 1,
+            "kind": "mcp",
+            "clientId": self.namespace.client_id,
             "intentId": self.namespace.intent_id,
         }
 
     def _conflict(self) -> ServiceError:
         return ServiceError(
-            409, "mcp_intent_conflict" if isinstance(self.namespace, McpWorkflowNamespace)
+            409,
+            "mcp_intent_conflict"
+            if isinstance(self.namespace, McpWorkflowNamespace)
             else "source_event_conflict",
         )
 
@@ -198,7 +203,9 @@ class ClientWorkflow:
         # Reserve the slot while holding state.lock; parallel distinct intents
         # cannot both consume the last available slot before their intent locks.
         if not lock.exists():
-            descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            descriptor = os.open(
+                lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+            )
             os.close(descriptor)
         fsync_path(lock)
         fsync_path(directory)
@@ -256,12 +263,12 @@ class ClientWorkflow:
         private_file(path, missing=True)
         if not path.exists():
             return None
-        limit = 1_048_576 if isinstance(self.namespace, McpWorkflowNamespace) else MAX_STATE
+        limit = (
+            1_048_576 if isinstance(self.namespace, McpWorkflowNamespace) else MAX_STATE
+        )
         try:
             with path.open("rb") as handle:
-                value = decode(
-                    handle.read(limit + 1), limit=limit, trusted=True
-                )
+                value = decode(handle.read(limit + 1), limit=limit, trusted=True)
         except ServiceError as exc:
             raise ServiceError(503, "client_state_unavailable") from exc
         if (
@@ -305,8 +312,11 @@ class ClientWorkflow:
     def _save(self, path: Path, state: dict[str, Any]) -> None:
         raw = encode(state)
         limit = (
-            1_048_576 if isinstance(self.namespace, McpWorkflowNamespace)
-            else 262_144 if self.namespace is not None else MAX_STATE
+            1_048_576
+            if isinstance(self.namespace, McpWorkflowNamespace)
+            else 262_144
+            if self.namespace is not None
+            else MAX_STATE
         )
         if len(raw) > limit:
             raise ServiceError(503, "client_state_unavailable")
@@ -626,7 +636,8 @@ class ClientWorkflow:
             # A source event may already exist in the canonical ledger. Recovery
             # must replay it; do not erase its permanent conflict discriminator.
             raise ServiceError(
-                409, "mcp_intent_requires_reconciliation"
+                409,
+                "mcp_intent_requires_reconciliation"
                 if isinstance(self.namespace, McpWorkflowNamespace)
                 else "source_event_requires_reconciliation",
             )

@@ -71,9 +71,12 @@ class RetryRoot:
     def path(self, value: str) -> Path:
         relative = Path(value)
         if (
-            not value or len(value) > 300 or relative.is_absolute()
+            not value
+            or len(value) > 300
+            or relative.is_absolute()
             or any(part in {"", ".", ".."} for part in value.split("/"))
-            or "\\" in value or ":" in value
+            or "\\" in value
+            or ":" in value
             or any(ord(char) < 32 or ord(char) == 127 for char in value)
         ):
             raise ServiceError(422, "invalid_client_state_path")
