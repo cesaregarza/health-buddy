@@ -107,7 +107,7 @@ def test_unified_canary_canonical_reads_repeat_pairing_and_backup_guard(
     receiver = receiver_inputs[1]
     target = tmp_path / "canary"
     options = arguments(manual, receiver, nightly)
-    paths = list(inputs.values()) + [manual, receiver_inputs[0], receiver, nightly]
+    paths = [*inputs.values(), manual, receiver_inputs[0], receiver, nightly]
     before = {str(path): (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
     cli = [
         "--workspace",

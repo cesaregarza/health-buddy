@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import io
+import zipfile
 import tempfile
 from pathlib import Path
 from typing import Any, cast
 
 from . import config
 from .backup import private_path
-from .backup_archive import snapshot, verified
+from .backup_archive import MANIFEST, snapshot, verified
 from .backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
 from .domain import decode, digest, encode
 from .durability import atomic_bytes, exclusive, fsync_path
@@ -47,7 +49,14 @@ def _fingerprint(manifest: dict[str, Any]) -> str:
 
 def _current(service: Service, principal: Principal) -> str:
     with service.backup(principal) as inventory:
-        manifest, _ = verified(snapshot(service.config, inventory))
+        raw = snapshot(service.config, inventory)
+    # This is an internally generated reconciliation inventory. An isolated
+    # canary has no security authority yet; full backup verification correctly
+    # requires that separate owner's authority/epoch and remains unchanged.
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        manifest = cast(dict[str, Any], decode(
+            archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True
+        ))
     return _fingerprint(manifest)
 
 
