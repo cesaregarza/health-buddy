@@ -181,7 +181,7 @@ canonical journal entries, canonical revisions or unavailable original payloads.
 
 A native bearer owner can now explicitly admit one reviewed imported device into
 current security authority. Set up the new workspace owner separately using the
-supported `security setup --owner-token-file PATH` command and keep its credential file
+supported `security bootstrap --owner-token-file PATH` command and keep its credential file
 private. Admission validates the private import receipt and database adoption
 marker against the selected snapshot, current installation/dataset/restore epoch,
 and the exact canonical journal/receiver stream. It creates an inactive upload-only
