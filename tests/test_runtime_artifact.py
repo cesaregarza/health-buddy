@@ -409,13 +409,20 @@ def test_layer_sources_must_reference_declared_diff_ids(
 
 @pytest.mark.parametrize(
     "change,accepted",
-    [({}, True), ({"rootfs": {"type": "layers"}}, False), ({"id": "invalid"}, False),
-     ({"architecture": "arm64"}, False)],
+    [
+        ({}, True),
+        ({"rootfs": {"type": "layers"}}, False),
+        ({"id": "invalid"}, False),
+        ({"architecture": "arm64"}, False),
+    ],
 )
 def test_moby_legacy_config_blobs_are_bounded_metadata_only(tmp_path, change, accepted):
     legacy = {
-        "id": "d" * 64, "created": "1970-01-01T00:00:00Z",
-        "container_config": {}, "os": "linux", **change,
+        "id": "d" * 64,
+        "created": "1970-01-01T00:00:00Z",
+        "container_config": {},
+        "os": "linux",
+        **change,
     }
     raw = json.dumps(legacy).encode()
     name = "blobs/sha256/" + hashlib.sha256(raw).hexdigest()
@@ -429,13 +436,19 @@ def test_moby_legacy_config_blobs_are_bounded_metadata_only(tmp_path, change, ac
 
 
 def test_unreferenced_legacy_blob_digest_must_match_bytes(tmp_path):
-    raw = json.dumps({
-        "id": "d" * 64, "created": "1970-01-01T00:00:00Z",
-        "container_config": {}, "os": "linux",
-    }).encode()
+    raw = json.dumps(
+        {
+            "id": "d" * 64,
+            "created": "1970-01-01T00:00:00Z",
+            "container_config": {},
+            "os": "linux",
+        }
+    ).encode()
     path = tmp_path / "moby-save.tar"
-    make_archive(path, modern_blobs=True, extra_entries=(
-        ("blobs/sha256/" + "e" * 64, raw, tarfile.REGTYPE),
-    ))
+    make_archive(
+        path,
+        modern_blobs=True,
+        extra_entries=(("blobs/sha256/" + "e" * 64, raw, tarfile.REGTYPE),),
+    )
     with pytest.raises(ManifestError, match="unreferenced_artifact_content"):
         inspect(path)
