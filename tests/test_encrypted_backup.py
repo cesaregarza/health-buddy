@@ -524,8 +524,8 @@ def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
 
 
 def test_snapshot_effective_privacy_normalizes_git_and_readable_modes(tmp_path):
-    from health_buddy.backup_crypto import read_key, unseal
     from health_buddy.backup_archive import verified
+    from health_buddy.backup_crypto import read_key, unseal
 
     runtime, owner, _token = secured(tmp_path / "source")
     root = runtime.operations.config.root
@@ -542,6 +542,7 @@ def test_snapshot_effective_privacy_normalizes_git_and_readable_modes(tmp_path):
     create(runtime, owner.principal, archive, key, confirm_quiesced=True)
     manifest, _files = verified(unseal(archive.read_bytes(), read_key(key)))
     modes = {entry["path"]: entry["mode"] for entry in manifest["files"]}
+    assert all(isinstance(entry["mtimeNs"], str) for entry in manifest["files"])
     assert modes["personal/readable-note"] == 0o600
     assert modes[str(object_file.relative_to(root))] == 0o400
     assert readable.stat().st_mode & 0o7777 == 0o640

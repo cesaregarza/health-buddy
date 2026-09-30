@@ -131,7 +131,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
                         "path": relative,
                         "bytes": len(raw),
                         "sha256": hashlib.sha256(raw).hexdigest(),
-                        "mtimeNs": info.st_mtime_ns,
+                        "mtimeNs": str(info.st_mtime_ns),
                         "mode": stat.S_IMODE(info.st_mode) & 0o700,
                     }
                 )
@@ -167,7 +167,7 @@ def snapshot(config: Config, inventory: BackupInventory) -> bytes:
             path = config.path(entry["path"])
             info = path.lstat()
             if (
-                info.st_mtime_ns != entry["mtimeNs"]
+                str(info.st_mtime_ns) != entry["mtimeNs"]
                 or stat.S_IMODE(info.st_mode) != source_modes[entry["path"]]
                 or hashlib.sha256(
                     read_snapshot_file(root, path, MAX_ARCHIVE_BYTES)
@@ -231,6 +231,14 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
                     "mode",
                 }:
                     raise ValueError("file")
+                stamp = entry["mtimeNs"]
+                if (
+                    not isinstance(stamp, str)
+                    or not 1 <= len(stamp) <= 24
+                    or not stamp.isascii()
+                    or not stamp.removeprefix("-").isdecimal()
+                ):
+                    raise ValueError("invalid_file_timestamp")
                 if (
                     type(entry["mode"]) is not int
                     or not 0 <= entry["mode"] <= 0o700
