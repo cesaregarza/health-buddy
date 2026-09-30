@@ -20,6 +20,7 @@ browser = ["playwright>=1.51,<2"]
 
 [project.scripts]
 health-buddy = "health_buddy.cli:main"
+health-buddy-mcp = "health_buddy.mcp_server:main"
 health-ingest = "health_ingest.cli:main"
 sleepiq-exporter = "sleepiq_exporter.cli:main"
 
