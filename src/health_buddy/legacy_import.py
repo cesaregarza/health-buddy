@@ -183,6 +183,7 @@ def adopt_snapshot(
     provenance: dict[str, JSON],
     seeded_files: dict[str, str],
     identities: dict[str, tuple[str, dict[str, str]]],
+    *, preferences: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The shared create-only journal path for explicitly validated CSV families."""
     target = _path(target)
@@ -196,6 +197,8 @@ def adopt_snapshot(
             if not receipt.exists() or decode(read_file(receipt, 4096)) != provenance:
                 raise ServiceError(409, "import_destination_occupied")
             settings = config.load(target)
+            if preferences is not None and settings.values != preferences:
+                raise ServiceError(409, "import_destination_preferences_changed")
             manual = ManualStore(
                 Store(settings.storage("manual"), settings.path("operations"))
             )
@@ -223,6 +226,9 @@ def adopt_snapshot(
         ) as folder:
             staged = Path(folder) / "workspace"
             settings = initialize(staged)
+            if preferences is not None:
+                atomic_bytes(staged / "config.json", encode(preferences))
+                settings = config.load(staged)
             manual = ManualStore(
                 Store(settings.storage("manual"), settings.path("operations"))
             )

@@ -146,6 +146,23 @@ def import_workouts(
     target: Path, snapshot: Path, *, expected_snapshot_sha256: str
 ) -> dict[str, Any]:
     raw = _read(snapshot, expected_snapshot_sha256)
+    value, selected, identities = _snapshot(raw)
+    source_id = str(value["sourceId"])
+    hashes = value["sourceHashes"]
+    provenance: dict[str, JSON] = {
+        "schemaVersion": 1,
+        "family": FAMILY,
+        "sourceId": source_id,
+        "sourceHashes": hashes,
+        "snapshotSha256": expected_snapshot_sha256,
+        "records": len(identities),
+    }
+    return adopt_snapshot(target, raw, provenance, selected, identities)
+
+
+def _snapshot(raw: bytes) -> tuple[
+    dict[str, JSON], dict[str, str], dict[str, tuple[str, dict[str, str]]]
+]:
     value = decode(raw, limit=MAX_BYTES)
     if (
         not isinstance(value, dict)
@@ -180,12 +197,4 @@ def import_workouts(
     identities = _rows(selected, source_id)
     if value["recordIds"] != sorted(identities):
         raise ServiceError(422, "import_invalid_record_ids")
-    provenance: dict[str, JSON] = {
-        "schemaVersion": 1,
-        "family": FAMILY,
-        "sourceId": source_id,
-        "sourceHashes": hashes,
-        "snapshotSha256": expected_snapshot_sha256,
-        "records": len(identities),
-    }
-    return adopt_snapshot(target, raw, provenance, selected, identities)
+    return value, selected, identities
