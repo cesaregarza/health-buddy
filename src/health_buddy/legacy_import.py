@@ -74,8 +74,15 @@ def export_measurements(
     except UnicodeError:
         raise ServiceError(422, "import_invalid_csv_encoding") from None
     ids = [
-        str(uuid5(NAMESPACE_URL, "health-buddy:legacy:" + source_id + ":" +
-                  digest(records.natural_key(MEASUREMENTS, row))))
+        str(
+            uuid5(
+                NAMESPACE_URL,
+                "health-buddy:legacy:"
+                + source_id
+                + ":"
+                + digest(records.natural_key(MEASUREMENTS, row)),
+            )
+        )
         for row in rows
     ]
     document: dict[str, JSON] = {
@@ -98,26 +105,43 @@ def export_measurements(
         atomic_bytes(staged, content)
         os.link(staged, output, follow_symlinks=False)
         fsync_path(output.parent)
-    return {"exported": True, "records": len(rows),
-            "snapshotSha256": hashlib.sha256(content).hexdigest()}
+    return {
+        "exported": True,
+        "records": len(rows),
+        "snapshotSha256": hashlib.sha256(content).hexdigest(),
+    }
 
 
 def _snapshot(raw: bytes) -> tuple[dict[str, JSON], list[dict[str, str]], list[str]]:
     value = decode(raw, limit=MAX_BYTES)
-    if (not isinstance(value, dict) or set(value) != {
-        "schemaVersion", "family", "sourceId", "sourceSha256", "csv", "recordIds"
-    } or type(value["schemaVersion"]) is not int
-        or value["schemaVersion"] != 1 or value["family"] != "measurement"
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {"schemaVersion", "family", "sourceId", "sourceSha256", "csv", "recordIds"}
+        or type(value["schemaVersion"]) is not int
+        or value["schemaVersion"] != 1
+        or value["family"] != "measurement"
         or not isinstance(value["csv"], str)
         or not isinstance(value["sourceSha256"], str)
-        or not SHA256.fullmatch(value["sourceSha256"])):
+        or not SHA256.fullmatch(value["sourceSha256"])
+    ):
         raise ServiceError(422, "import_invalid_snapshot")
     source_id = identifier(value["sourceId"])
     if hashlib.sha256(value["csv"].encode()).hexdigest() != value["sourceSha256"]:
         raise ServiceError(409, "import_input_changed")
     rows = _rows(value["csv"])
-    ids = [str(uuid5(NAMESPACE_URL, "health-buddy:legacy:" + source_id + ":" +
-                    digest(records.natural_key(MEASUREMENTS, row)))) for row in rows]
+    ids = [
+        str(
+            uuid5(
+                NAMESPACE_URL,
+                "health-buddy:legacy:"
+                + source_id
+                + ":"
+                + digest(records.natural_key(MEASUREMENTS, row)),
+            )
+        )
+        for row in rows
+    ]
     if value["recordIds"] != ids:
         raise ServiceError(422, "import_invalid_record_ids")
     return value, rows, ids
@@ -135,9 +159,12 @@ def import_measurements(
     value, rows, ids = _snapshot(raw)
     target = _path(target)
     provenance: dict[str, JSON] = {
-        "schemaVersion": 1, "family": "measurement",
-        "sourceId": value["sourceId"], "sourceSha256": value["sourceSha256"],
-        "snapshotSha256": expected_snapshot_sha256, "records": len(rows),
+        "schemaVersion": 1,
+        "family": "measurement",
+        "sourceId": value["sourceId"],
+        "sourceSha256": value["sourceSha256"],
+        "snapshotSha256": expected_snapshot_sha256,
+        "records": len(rows),
     }
     with exclusive(target.parent / ("." + target.name + ".import.lock")):
         if target.exists():
@@ -148,25 +175,36 @@ def import_measurements(
             if not receipt.exists() or decode(read_file(receipt, 4096)) != provenance:
                 raise ServiceError(409, "import_destination_occupied")
             settings = config.load(target)
-            manual = ManualStore(Store(settings.storage("manual"),
-                                       settings.path("operations")))
+            manual = ManualStore(
+                Store(settings.storage("manual"), settings.path("operations"))
+            )
             journal = Journal(target, manual, _no_health)
             with exclusive(settings.path("operations/manual.lock")):
                 state = journal.verify()
                 _head, files = manual.snapshot()
                 index = records.load_object(files, RECORD_INDEX)
-                if (state.revision != 0 or files.get(MEASUREMENTS) != value["csv"]
+                if (
+                    state.revision != 0
+                    or files.get(MEASUREMENTS) != value["csv"]
                     or set(index) != set(ids)
-                    or files.get(RECEIPT) != encode(provenance).decode() + "\n"):
+                    or files.get(RECEIPT) != encode(provenance).decode() + "\n"
+                ):
                     raise ServiceError(409, "import_destination_changed")
-            return {"imported": True, "duplicate": True, "records": len(rows),
-                    "dataRevision": state.revision}
+            return {
+                "imported": True,
+                "duplicate": True,
+                "records": len(rows),
+                "dataRevision": state.revision,
+            }
         disk_required(target.parent, len(raw) * 4)
-        with tempfile.TemporaryDirectory(prefix=".import-", dir=target.parent) as folder:
+        with tempfile.TemporaryDirectory(
+            prefix=".import-", dir=target.parent
+        ) as folder:
             staged = Path(folder) / "workspace"
             settings = initialize(staged)
-            manual = ManualStore(Store(settings.storage("manual"),
-                                       settings.path("operations")))
+            manual = ManualStore(
+                Store(settings.storage("manual"), settings.path("operations"))
+            )
 
             journal = Journal(staged, manual, _no_health)
             received = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -175,15 +213,20 @@ def import_measurements(
                 seeded = files | {MEASUREMENTS: str(value["csv"])}
                 changes = records.adopt(seeded, received)
                 index = records.load_object(changes, RECORD_INDEX)
-                by_locator = {str(entry["locator"]): entry for entry in index.values()
-                              if isinstance(entry, dict)}
+                by_locator = {
+                    str(entry["locator"]): entry
+                    for entry in index.values()
+                    if isinstance(entry, dict)
+                }
                 stable: dict[str, JSON] = {
                     record_id: by_locator[digest(row)]
                     for record_id, row in zip(ids, rows, strict=True)
                 }
-                return changes | {MEASUREMENTS: str(value["csv"]),
-                                  RECORD_INDEX: encode(stable).decode() + "\n",
-                                  RECEIPT: encode(provenance).decode() + "\n"}
+                return changes | {
+                    MEASUREMENTS: str(value["csv"]),
+                    RECORD_INDEX: encode(stable).decode() + "\n",
+                    RECEIPT: encode(provenance).decode() + "\n",
+                }
 
             with exclusive(settings.path("operations/manual.lock")):
                 journal.bootstrap(adopt)
@@ -195,5 +238,9 @@ def import_measurements(
                 raise ServiceError(409, "import_destination_occupied")
             staged.rename(target)
             fsync_path(target.parent)
-    return {"imported": True, "duplicate": False, "records": len(rows),
-            "dataRevision": state.revision}
+    return {
+        "imported": True,
+        "duplicate": False,
+        "records": len(rows),
+        "dataRevision": state.revision,
+    }

@@ -29,12 +29,15 @@ def handle(args: argparse.Namespace) -> int:
         raise ServiceError(422, "import_requires_native_owner_maintenance")
     if args.import_action == "export-measurements":
         result = export_measurements(
-            args.source_csv, args.snapshot, source_id=args.source_id,
+            args.source_csv,
+            args.snapshot,
+            source_id=args.source_id,
             expected_source_sha256=args.expected_source_sha256,
         )
     else:
         result = import_measurements(
-            args.workspace, args.snapshot,
+            args.workspace,
+            args.snapshot,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
     print(json.dumps(result, indent=2))

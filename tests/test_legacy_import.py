@@ -26,9 +26,13 @@ def fixture(tmp_path):
     root.mkdir(mode=0o700)
     fields = headers()["data/measurements.csv"]
     row = dict.fromkeys(fields, "")
-    row.update(measured_at_local="2030-01-03T09:00:00+00:00", timezone="UTC",
-               weight_lb="150.0", source="synthetic_scale",
-               notes="SYNTHETIC_PERSONAL_NOTE_NEVER_IN_RECEIPTS")
+    row.update(
+        measured_at_local="2030-01-03T09:00:00+00:00",
+        timezone="UTC",
+        weight_lb="150.0",
+        source="synthetic_scale",
+        notes="SYNTHETIC_PERSONAL_NOTE_NEVER_IN_RECEIPTS",
+    )
     source = root / "measurements.csv"
     atomic_bytes(source, csv_text(fields, [row]).encode())
     # These inputs must remain untouched and cannot enter the exported snapshot.
@@ -39,20 +43,36 @@ def fixture(tmp_path):
     hooks.mkdir(mode=0o700)
     atomic_bytes(hooks / "post-checkout", b"PRIVATE_HOOK_SENTINEL")
     snapshot = tmp_path / "measurements.json"
-    before = {p.relative_to(root): (p.read_bytes(), p.stat().st_mtime_ns)
-              for p in root.rglob("*") if p.is_file()}
-    result = export_measurements(source, snapshot, source_id="synthetic-legacy",
-                                 expected_source_sha256=sha(source))
+    before = {
+        p.relative_to(root): (p.read_bytes(), p.stat().st_mtime_ns)
+        for p in root.rglob("*")
+        if p.is_file()
+    }
+    result = export_measurements(
+        source,
+        snapshot,
+        source_id="synthetic-legacy",
+        expected_source_sha256=sha(source),
+    )
     return root, source, snapshot, before, result
 
 
 def test_measurement_export_import_repeat_preserves_ids_provenance_and_source(
-    tmp_path, capsys,
+    tmp_path,
+    capsys,
 ):
     root, source, snapshot, before, exported = fixture(tmp_path)
     target = tmp_path / "isolated-canary"
-    args = ["--workspace", str(target), "legacy-import", "adopt-measurements",
-            "--snapshot", str(snapshot), "--expected-snapshot-sha256", sha(snapshot)]
+    args = [
+        "--workspace",
+        str(target),
+        "legacy-import",
+        "adopt-measurements",
+        "--snapshot",
+        str(snapshot),
+        "--expected-snapshot-sha256",
+        sha(snapshot),
+    ]
     assert main(args) == 0
     first_receipt = json.loads(capsys.readouterr().out)
     service = Service(target, DevelopmentPolicy())
@@ -62,8 +82,13 @@ def test_measurement_export_import_repeat_preserves_ids_provenance_and_source(
     document = json.loads(snapshot.read_bytes())
     assert list(index) == document["recordIds"]
     assert files["data/measurements.csv"].encode() == source.read_bytes()
-    response = service.execute(DEVELOPMENT_PRINCIPAL, Request("records.list",
-        query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"}))
+    response = service.execute(
+        DEVELOPMENT_PRINCIPAL,
+        Request(
+            "records.list",
+            query={"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"},
+        ),
+    )
     assert response.status == 200, response.body
     observations = json.loads(response.body)["data"]["records"]
     assert len(observations) == 1
@@ -82,8 +107,11 @@ def test_measurement_export_import_repeat_preserves_ids_provenance_and_source(
     assert "synthetic_scale" not in receipts
     assert "PRIVATE_REMOTE_SENTINEL" not in snapshot.read_text()
     assert "PRIVATE_HOOK_SENTINEL" not in snapshot.read_text()
-    assert before == {p.relative_to(root): (p.read_bytes(), p.stat().st_mtime_ns)
-                      for p in root.rglob("*") if p.is_file()}
+    assert before == {
+        p.relative_to(root): (p.read_bytes(), p.stat().st_mtime_ns)
+        for p in root.rglob("*")
+        if p.is_file()
+    }
     assert not list((target / "stores/manual.git/hooks").glob("*"))
     assert "remote" not in (target / "stores/manual.git/config").read_text()
 
@@ -93,8 +121,12 @@ def test_changed_snapshot_or_source_is_refused_without_adoption(tmp_path):
     reviewed_source = sha(source)
     atomic_bytes(source, source.read_bytes().replace(b"150.0", b"160.0"))
     with pytest.raises(ServiceError, match="import_input_changed"):
-        export_measurements(source, tmp_path / "changed.json",
-            source_id="synthetic-legacy", expected_source_sha256=reviewed_source)
+        export_measurements(
+            source,
+            tmp_path / "changed.json",
+            source_id="synthetic-legacy",
+            expected_source_sha256=reviewed_source,
+        )
     target = tmp_path / "target"
     reviewed = sha(snapshot)
     atomic_bytes(snapshot, snapshot.read_bytes() + b" ")
@@ -129,11 +161,16 @@ def test_native_path_and_symlink_inputs_refused_without_following(tmp_path):
     linked = tmp_path / "link.csv"
     linked.symlink_to(source)
     with pytest.raises(ServiceError):
-        export_measurements(linked, tmp_path / "bad.json", source_id="synthetic",
-                            expected_source_sha256=sha(source))
+        export_measurements(
+            linked,
+            tmp_path / "bad.json",
+            source_id="synthetic",
+            expected_source_sha256=sha(source),
+        )
     with pytest.raises(ServiceError, match="import_requires_explicit_native_paths"):
-        import_measurements(Path("relative"), snapshot,
-                            expected_snapshot_sha256=sha(snapshot))
+        import_measurements(
+            Path("relative"), snapshot, expected_snapshot_sha256=sha(snapshot)
+        )
 
 
 def test_different_reviewed_snapshot_does_not_reseed_owned_destination(tmp_path):
