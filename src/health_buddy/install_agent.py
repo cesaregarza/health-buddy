@@ -137,7 +137,9 @@ def setup(
             raise ServiceError(409, "install_agent_requires_prepared_installation")
         record: dict[str, Any] = dict(retained)
         if record.get("removal") is not None:
-            raise ServiceError(409, "install_agent_removal_requires_owner_lifecycle_review")
+            raise ServiceError(
+                409, "install_agent_removal_requires_owner_lifecycle_review"
+            )
         if (
             record.get("activation", {}).get("phase") != "active"
             or record.get("privateHttps", {}).get("phase") != "enabled"
@@ -183,7 +185,9 @@ def setup(
         progress = record.get("agentSetup")
         if progress is None:
             if rotate_pending_missing_secret:
-                raise ServiceError(409, "install_agent_rotation_requires_pending_missing_secret")
+                raise ServiceError(
+                    409, "install_agent_rotation_requires_pending_missing_secret"
+                )
             if (
                 agent_token.exists()
                 or settings.exists()
@@ -226,7 +230,9 @@ def setup(
                 atomic_bytes(journal, encode(record))
             else:
                 if rotate_pending_missing_secret:
-                    raise ServiceError(409, "install_agent_rotation_requires_pending_missing_secret")
+                    raise ServiceError(
+                        409, "install_agent_rotation_requires_pending_missing_secret"
+                    )
                 if agent_token.exists():
                     raise ServiceError(409, "install_agent_unowned_handoff_or_grant")
                 reply = runtime.security.execute(
@@ -254,11 +260,18 @@ def setup(
             if settings.exists():
                 raise ServiceError(409, "install_agent_settings_locally_changed")
             if progress["phase"] != "handoff_pending":
-                raise ServiceError(409, "install_agent_rotation_requires_pending_missing_secret")
+                raise ServiceError(
+                    409, "install_agent_rotation_requires_pending_missing_secret"
+                )
             # Explicit owner action only: retry never rotates a retained credential.
-            reply = runtime.security.execute(admitted.principal, SecurityRequest(
-                "grants.rotate", resource_id=actor_id, identity=admitted.client.identity,
-            ))
+            reply = runtime.security.execute(
+                admitted.principal,
+                SecurityRequest(
+                    "grants.rotate",
+                    resource_id=actor_id,
+                    identity=admitted.client.identity,
+                ),
+            )
             fault("rotation_committed")
             if reply.secret is None or reply.secret.kind != "agent-token":
                 raise ServiceError(503, "install_agent_private_handoff_incomplete")

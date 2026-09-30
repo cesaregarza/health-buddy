@@ -53,17 +53,29 @@ def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def finish_removal(config: Path, skill: Path, *, client: str,
-                   raw: bytes, previous: str, intent: dict[str, object],
-                   check_only: bool) -> None:
+def finish_removal(
+    config: Path,
+    skill: Path,
+    *,
+    client: str,
+    raw: bytes,
+    previous: str,
+    intent: dict[str, object],
+    check_only: bool,
+) -> None:
     """An existing private intent admits only original or absent owned entries."""
     manifest = skill / ".health-buddy-install.json"
     intent_path = skill / ".health-buddy-remove.json"
     hashes = intent.get("files")
-    if (intent.get("schemaVersion") != 1 or intent.get("config") != str(config)
-        or intent.get("client") != client or not isinstance(hashes, dict)
+    if (
+        intent.get("schemaVersion") != 1
+        or intent.get("config") != str(config)
+        or intent.get("client") != client
+        or not isinstance(hashes, dict)
         or set(hashes) != set(MANAGED)
-        or checksum(raw) not in (intent.get("originalSha256"), intent.get("remainingSha256"))):
+        or checksum(raw)
+        not in (intent.get("originalSha256"), intent.get("remainingSha256"))
+    ):
         raise ServiceError(409, "codex_removal_requires_original_intent")
     if checksum(raw) == intent.get("originalSha256"):
         if checksum(previous.encode()) != intent.get("configBlockSha256"):
@@ -74,7 +86,9 @@ def finish_removal(config: Path, skill: Path, *, client: str,
         path = skill / name
         if path.exists() and checksum(optional(path)) != hashes[name]:
             raise ServiceError(409, "codex_integration_locally_changed")
-    if manifest.exists() and checksum(optional(manifest)) != intent.get("manifestSha256"):
+    if manifest.exists() and checksum(optional(manifest)) != intent.get(
+        "manifestSha256"
+    ):
         raise ServiceError(409, "codex_integration_locally_changed")
     if check_only:
         return
@@ -168,8 +182,15 @@ def connect(
             intent = json.loads(pending)
             if not isinstance(intent, dict):
                 raise ServiceError(409, "codex_removal_requires_original_intent")
-            finish_removal(config, skill, client=client, raw=raw, previous=previous,
-                           intent=intent, check_only=check_only)
+            finish_removal(
+                config,
+                skill,
+                client=client,
+                raw=raw,
+                previous=previous,
+                intent=intent,
+                check_only=check_only,
+            )
             return
         if old:
             owned = json.loads(old)
@@ -194,15 +215,25 @@ def connect(
                 parsed["mcpServers"] = servers
                 remaining = json.dumps(parsed, indent=2).encode() + b"\n"
             intent = {
-                "schemaVersion": 1, "config": str(config), "client": client,
-                "originalSha256": checksum(raw), "remainingSha256": checksum(remaining),
+                "schemaVersion": 1,
+                "config": str(config),
+                "client": client,
+                "originalSha256": checksum(raw),
+                "remainingSha256": checksum(remaining),
                 "configBlockSha256": checksum(previous.encode()),
                 "manifestSha256": checksum(old),
                 "files": {name: checksum(optional(skill / name)) for name in MANAGED},
             }
             atomic_bytes(intent_path, json.dumps(intent, sort_keys=True).encode())
-            finish_removal(config, skill, client=client, raw=raw, previous=previous,
-                           intent=intent, check_only=False)
+            finish_removal(
+                config,
+                skill,
+                client=client,
+                raw=raw,
+                previous=previous,
+                intent=intent,
+                check_only=False,
+            )
             return
         if settings is None or python is None or source is None or workspace is None:
             raise ServiceError(422, "codex_setup_arguments_required")

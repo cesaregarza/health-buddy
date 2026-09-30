@@ -75,7 +75,9 @@ def activate(
             raise ServiceError(409, "install_activation_requires_prepared_workspace")
         prepared: dict[str, Any] = dict(retained)
         if prepared.get("removal") is not None:
-            raise ServiceError(409, "install_activation_removal_requires_owner_lifecycle_review")
+            raise ServiceError(
+                409, "install_activation_removal_requires_owner_lifecycle_review"
+            )
         original = prepared["binding"]
         workspace, bundle = Path(original["workspace"]), Path(original["bundle"])
         manifest, docker = Path(original["manifest"]), Path(original["docker"])

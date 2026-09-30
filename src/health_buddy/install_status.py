@@ -88,11 +88,11 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
             "prepared": True,
             "ownerAuthenticated": True,
             "runtimeLastActive": activation.get("phase") == "active",
-            "privateHttpsLastConfigured": https.get("phase")
-            == "enabled",
+            "privateHttpsLastConfigured": https.get("phase") == "enabled",
             "agentGrantRetained": retained,
             "clientConfigurationLastPrepared": agent.get("phase") == "configured"
-            and removal.get("phase") not in ("grant_pending", "container_pending", "removed"),
+            and removal.get("phase")
+            not in ("grant_pending", "container_pending", "removed"),
             "removalLastCompleted": removal.get("phase") == "removed",
             "healthkitReceiverEnabled": receiver_enabled,
             "healthkitMode": receiver_mode,
