@@ -17,6 +17,7 @@ immutable input locks, a Docker archive/Compose runtime and controlled native
 architecture qualification commands. Actual image/build receipts and operator
 release qualification remain separate; installer and live-agent qualification remain later tickets. Passing source checks does not establish release qualification.
 
+- [Codex local integration and qualification boundaries](docs/codex-integration.md)
 - [Codex and Claude Code maintenance guide](docs/agent-guide.md)
 - [Product, API, identity, and security contract](docs/v1-contract.md)
 - [Personal workspace and extension contract](docs/extensions.md)
