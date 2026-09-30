@@ -29,13 +29,20 @@ ORIGINAL = "stores/imported-sleepiq-nightly.csv"
 
 
 def _fingerprint(manifest: dict[str, Any]) -> str:
-    return digest({
-        "identity": manifest["identity"], "dataRevision": manifest["dataRevision"],
-        "files": sorted((
-            {key: entry[key] for key in ("path", "bytes", "sha256", "mode")}
-            for entry in manifest["files"] if entry["path"] != RECEIPT
-        ), key=lambda entry: entry["path"]),
-    })
+    return digest(
+        {
+            "identity": manifest["identity"],
+            "dataRevision": manifest["dataRevision"],
+            "files": sorted(
+                (
+                    {key: entry[key] for key in ("path", "bytes", "sha256", "mode")}
+                    for entry in manifest["files"]
+                    if entry["path"] != RECEIPT
+                ),
+                key=lambda entry: entry["path"],
+            ),
+        }
+    )
 
 
 def _current(service: Service, principal: Principal) -> str:
@@ -45,8 +52,14 @@ def _current(service: Service, principal: Principal) -> str:
 
 
 def import_canary(
-    target: Path, manual: Path, receiver: Path, sleepiq: Path, *,
-    reviewed_hashes: dict[str, str], sleeper_id: str, timezone: str,
+    target: Path,
+    manual: Path,
+    receiver: Path,
+    sleepiq: Path,
+    *,
+    reviewed_hashes: dict[str, str],
+    sleeper_id: str,
+    timezone: str,
 ) -> dict[str, Any]:
     if set(reviewed_hashes) != {"manual", "receiver", "sleepiq"}:
         raise ServiceError(422, "import_requires_explicit_canary_inputs")
@@ -55,14 +68,23 @@ def import_canary(
     if sum(map(len, raw.values())) > MAX_BYTES:
         raise ServiceError(413, "import_snapshot_too_large")
     try:
-        receiver_value = cast(dict[str, Any], _checked(decode(raw["receiver"], limit=MAX_BYTES)))
-        daily, sleep_count = daily_export(raw["sleepiq"].decode(), sleeper_id=sleeper_id, timezone=timezone)
+        receiver_value = cast(
+            dict[str, Any], _checked(decode(raw["receiver"], limit=MAX_BYTES))
+        )
+        daily, sleep_count = daily_export(
+            raw["sleepiq"].decode(), sleeper_id=sleeper_id, timezone=timezone
+        )
     except (UnicodeError, ValueError, TypeError, KeyError):
         raise ServiceError(422, "import_invalid_snapshot") from None
     selection: dict[str, Any] = {
-        "schemaVersion": 1, "family": "unified-canary", "sourceHashes": reviewed_hashes,
-        "sleepiqMapping": {"sleeperId": sleeper_id, "timezone": timezone,
-                           "datePolicy": "aware-session-end-local-wake-date"},
+        "schemaVersion": 1,
+        "family": "unified-canary",
+        "sourceHashes": reviewed_hashes,
+        "sleepiqMapping": {
+            "sleeperId": sleeper_id,
+            "timezone": timezone,
+            "datePolicy": "aware-session-end-local-wake-date",
+        },
     }
     target = _path(target)
     with exclusive(target.parent / ("." + target.name + ".import.lock")):
@@ -71,16 +93,22 @@ def import_canary(
             private_directory(target)
             try:
                 native_directory(target / "operations")
-                receipt = cast(dict[str, Any], decode(read_file(target / RECEIPT, 16384)))
+                receipt = cast(
+                    dict[str, Any], decode(read_file(target / RECEIPT, 16384))
+                )
             except FileNotFoundError:
                 raise ServiceError(409, "import_destination_occupied") from None
             if not isinstance(receipt, dict) or receipt.get("selection") != selection:
                 raise ServiceError(409, "import_destination_occupied")
             service = Service(target, DevelopmentPolicy())
-            if _current(service, DEVELOPMENT_PRINCIPAL) != receipt.get("workspaceDigest"):
+            if _current(service, DEVELOPMENT_PRINCIPAL) != receipt.get(
+                "workspaceDigest"
+            ):
                 raise ServiceError(409, "import_destination_changed")
             return dict(receipt["reconciliation"], duplicate=True)
-        with tempfile.TemporaryDirectory(prefix=".unified-import-", dir=target.parent) as folder:
+        with tempfile.TemporaryDirectory(
+            prefix=".unified-import-", dir=target.parent
+        ) as folder:
             staged = Path(folder) / "workspace"
             manual_result = import_manual_canary(
                 staged, manual, expected_snapshot_sha256=reviewed_hashes["manual"]
@@ -91,26 +119,44 @@ def import_canary(
             settings = config.load(staged).values
             if settings["timezone"] != timezone:
                 raise ServiceError(409, "import_sleepiq_timezone_conflict")
-            settings["integrations"]["healthkit"] = {"enabled": True, "mode": "receiver"}
+            settings["integrations"]["healthkit"] = {
+                "enabled": True,
+                "mode": "receiver",
+            }
             settings["integrations"]["sleepiq"]["enabled"] = True
             atomic_bytes(staged / "config.json", encode(settings))
-            atomic_bytes(staged / settings["integrations"]["sleepiq"]["exportFile"], daily.encode())
+            atomic_bytes(
+                staged / settings["integrations"]["sleepiq"]["exportFile"],
+                daily.encode(),
+            )
             atomic_bytes(staged / ORIGINAL, raw["sleepiq"])
             service = Service(staged, DevelopmentPolicy())
             seed_adopted_receiver(service, receiver_value, reviewed_hashes["receiver"])
             state = service.journal.verify()
             reconciliation = {
-                "imported": True, "duplicate": False, "manualRecords": manual_result["records"],
-                "receiverRecords": receiver_count, "receiverTombstones": len(receiver_value["tombstones"]),
-                "receiverBatches": len(receiver_value["batches"]), "sleepiqRecords": sleep_count,
-                "sourceHashes": reviewed_hashes, "dataRevision": state.revision,
-                "cutoverReady": False, "backup": "separate_owner_guard_required",
+                "imported": True,
+                "duplicate": False,
+                "manualRecords": manual_result["records"],
+                "receiverRecords": receiver_count,
+                "receiverTombstones": len(receiver_value["tombstones"]),
+                "receiverBatches": len(receiver_value["batches"]),
+                "sleepiqRecords": sleep_count,
+                "sourceHashes": reviewed_hashes,
+                "dataRevision": state.revision,
+                "cutoverReady": False,
+                "backup": "separate_owner_guard_required",
             }
             workspace_digest = _current(service, DEVELOPMENT_PRINCIPAL)
-            atomic_bytes(staged / RECEIPT, encode({
-                "selection": selection, "workspaceDigest": workspace_digest,
-                "reconciliation": reconciliation,
-            }))
+            atomic_bytes(
+                staged / RECEIPT,
+                encode(
+                    {
+                        "selection": selection,
+                        "workspaceDigest": workspace_digest,
+                        "reconciliation": reconciliation,
+                    }
+                ),
+            )
             # Every explicitly selected input is still exactly the reviewed bytes.
             for name, path in inputs.items():
                 _read(path, reviewed_hashes[name])
@@ -123,7 +169,11 @@ def import_canary(
 
 
 def backup_readiness(
-    runtime: Runtime, principal: Principal, archive: Path, key_file: Path, *,
+    runtime: Runtime,
+    principal: Principal,
+    archive: Path,
+    key_file: Path,
+    *,
     expected_archive_sha256: str,
 ) -> dict[str, Any]:
     """Separate owner guard; never performs or authorizes deployment/cutover."""
@@ -138,9 +188,18 @@ def backup_readiness(
         receipt = read_file(runtime.operations.config.root / RECEIPT, 16384)
         if files.get(RECEIPT) != receipt:
             raise ServiceError(409, "import_backup_canary_conflict")
-        current_manifest, current_files = verified(snapshot(runtime.operations.config, inventory))
-        if _fingerprint(manifest) != _fingerprint(current_manifest) or files != current_files:
+        current_manifest, current_files = verified(
+            snapshot(runtime.operations.config, inventory)
+        )
+        if (
+            _fingerprint(manifest) != _fingerprint(current_manifest)
+            or files != current_files
+        ):
             raise ServiceError(409, "import_backup_stale")
-    return {"backupVerified": True, "archiveSha256": expected_archive_sha256,
-            "dataRevision": manifest["dataRevision"], "cutoverPerformed": False,
-            "realPhoneQualification": "pending"}
+    return {
+        "backupVerified": True,
+        "archiveSha256": expected_archive_sha256,
+        "dataRevision": manifest["dataRevision"],
+        "cutoverPerformed": False,
+        "realPhoneQualification": "pending",
+    }

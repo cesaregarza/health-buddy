@@ -48,8 +48,13 @@ def daily_export(raw: str, *, sleeper_id: str, timezone: str) -> tuple[str, int]
             if isinstance(start, datetime) and start > end:
                 raise ValueError
             for key in (
-                "duration_seconds", "session_count", "sleep_score", "restful_seconds",
-                "restless_seconds", "out_of_bed_seconds", "fall_asleep_seconds",
+                "duration_seconds",
+                "session_count",
+                "sleep_score",
+                "restful_seconds",
+                "restless_seconds",
+                "out_of_bed_seconds",
+                "fall_asleep_seconds",
             ):
                 number = int(row[key]) if row[key] else None
                 if number is not None and number < 0:
@@ -57,7 +62,9 @@ def daily_export(raw: str, *, sleeper_id: str, timezone: str) -> tuple[str, int]
                 values[key] = number
             for key in ("heart_rate_bpm", "respiratory_rate_bpm", "hrv_ms"):
                 floating = float(row[key]) if row[key] else None
-                if floating is not None and (not math.isfinite(floating) or floating <= 0):
+                if floating is not None and (
+                    not math.isfinite(floating) or floating <= 0
+                ):
                     raise ValueError
                 values[key] = floating
             if values["sleep_score"] is not None and int(row["sleep_score"]) > 100:
@@ -69,17 +76,26 @@ def daily_export(raw: str, *, sleeper_id: str, timezone: str) -> tuple[str, int]
                 values[key] = row[key] or None
             if any(len(value) > 255 for value in row.values()):
                 raise ValueError
-            if any(not row[key] for key in (
-                "bed_id", "side", "source_library", "source_library_version", "extractor_version"
-            )):
+            if any(
+                not row[key]
+                for key in (
+                    "bed_id",
+                    "side",
+                    "source_library",
+                    "source_library_version",
+                    "extractor_version",
+                )
+            ):
                 raise ValueError
             night = values["night_date"]
             assert isinstance(night, date)
             if row["record_key"] != _record_key(sleeper_id, night):
                 raise ValueError
-            payload = {key: value for key, value in values.items() if key not in {
-                "query_date", "fetched_at", "record_hash"
-            }}
+            payload = {
+                key: value
+                for key, value in values.items()
+                if key not in {"query_date", "fetched_at", "record_hash"}
+            }
             if row["record_hash"] != _record_hash(payload):
                 raise ValueError
             day = end.astimezone(zone).date().isoformat()
