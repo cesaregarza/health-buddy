@@ -36,3 +36,10 @@ build/
 .ruff_cache/
 health-runner/dashboard/design/
 health-runner/dashboard/web/
+# Reference-package documentation only; runtime state remains excluded.
+!src/health_buddy/reference_extensions/local.weekly-mass/state/
+src/health_buddy/reference_extensions/local.weekly-mass/state/*
+!src/health_buddy/reference_extensions/local.weekly-mass/state/README.md
+!src/health_buddy/reference_extensions/local.water-import/state/
+src/health_buddy/reference_extensions/local.water-import/state/*
+!src/health_buddy/reference_extensions/local.water-import/state/README.md
