@@ -9,8 +9,8 @@ from . import snapshots
 from .domain import encode, envelope, identifier, number, object_value, text
 from .durability import check_deadline
 from .extension_api import MAX_METRIC_ROWS
+from .extension_diagnostics import observed_call
 from .extension_registry import Registry, ReviewedExtension, status_json
-from .extension_runner import call
 from .journal import State
 from .service_api import JSON, Authority, Request, Response, ServiceError
 
@@ -151,7 +151,13 @@ def _metric(
         "config": reviewed.config,
     }
     check_deadline(request.deadline)
-    raw = call(reviewed.manifest.entrypoints["metric"], reviewed.root, payload)
+    raw = observed_call(
+        service.config,
+        reviewed.manifest.id,
+        reviewed.manifest.entrypoints["metric"],
+        reviewed.root,
+        payload,
+    )
     check_deadline(request.deadline)
     result = object_value(raw, {"value", "unit", "count", "recordIds", "missingness"})
     ids = result["recordIds"]
