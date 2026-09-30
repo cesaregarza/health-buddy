@@ -398,7 +398,9 @@ def test_layer_sources_cannot_redirect_or_disagree_with_verified_local_layer(
 
 
 @pytest.mark.parametrize("sources", [[], {"sha256:" + "0" * 64: {}}])
-def test_layer_sources_must_reference_declared_diff_ids(tmp_path: Path, sources) -> None:
+def test_layer_sources_must_reference_declared_diff_ids(
+    tmp_path: Path, sources
+) -> None:
     path = tmp_path / "sources.tar"
     make_archive(path, modern_blobs=True, layer_sources_override=sources)
     with pytest.raises(ManifestError, match="invalid_artifact_layer_sources"):
