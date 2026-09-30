@@ -19,6 +19,28 @@ class WorkflowPaths(Protocol):
     def path(self, value: str) -> Path: ...
 
 
+def native_path(path: Path) -> None:
+    """Reject lexical escapes, then examine parents before any descendant.
+
+    The local adapter is a native Linux process. A link at an ancestor must be
+    refused before even lstat'ing a leaf through that ancestor. Same-UID/root
+    concurrent filesystem replacement remains a trusted maintenance boundary.
+    """
+    if (
+        not path.is_absolute()
+        or str(path).startswith("//")
+        or ".." in path.parts
+        or path == Path("/mnt")
+        or Path("/mnt") in path.parents
+    ):
+        raise ServiceError(422, "invalid_client_state_root")
+    for parent in reversed(path.parents):
+        if parent.is_symlink():
+            raise ServiceError(422, "invalid_client_state_root")
+    if path.is_symlink():
+        raise ServiceError(422, "invalid_client_state_root")
+
+
 def _private_directory(path: Path) -> None:
     info = path.lstat()
     if (
@@ -42,10 +64,7 @@ class RetryRoot:
 
     def __post_init__(self) -> None:
         path = self.root
-        if not path.is_absolute() or ".." in path.parts:
-            raise ServiceError(422, "invalid_client_state_root")
-        if any(item.is_symlink() for item in (path, *path.parents)):
-            raise ServiceError(422, "invalid_client_state_root")
+        native_path(path)
         try:
             _private_directory(path.parent)
             _private_directory(path)
@@ -57,10 +76,7 @@ class RetryRoot:
     @classmethod
     def create(cls, root: Path) -> RetryRoot:
         # Explicit setup, not an implicit fallback on a health request.
-        if not root.is_absolute() or ".." in root.parts:
-            raise ServiceError(422, "invalid_client_state_root")
-        if any(item.is_symlink() for item in (root, *root.parents)):
-            raise ServiceError(422, "invalid_client_state_root")
+        native_path(root)
         try:
             _private_directory(root.parent)
             root.mkdir(mode=0o700, exist_ok=True)
@@ -80,6 +96,7 @@ class RetryRoot:
             or any(ord(char) < 32 or ord(char) == 127 for char in value)
         ):
             raise ServiceError(422, "invalid_client_state_path")
+        native_path(self.root)
         _private_directory(self.root)
         current = self.root
         for component in relative.parts:

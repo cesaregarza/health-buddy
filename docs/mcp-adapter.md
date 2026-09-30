@@ -64,6 +64,8 @@ boundary. Restored pending state replays its original request; it does not
 infer that restored client state undoes a committed server mutation.
 
 Input lines are at most 384 KiB/depth 32 with eight outstanding protocol IDs.
+Once a partial line begins, it has a two-second idle and ten-second total input
+deadline. An otherwise idle connection with no partial frame may stay open.
 Only one service job runs at a time. Its waiter has a 35-second deadline; an
 already admitted job is not abandoned when the caller disconnects or cancels.
 Shutdown allows 50 seconds for retained jobs; a forced process termination can
@@ -81,7 +83,10 @@ identity or bind it to the running process.
 
 At this source checkpoint, authored tests cover model API retry/proposals,
 actual private-state backup locking, strict settings, SDK model framing and
-safe error projection. Actual SDK wire/HTTPS-authority integration, cancellation,
-stdout/no-egress/telemetry behavior and full dependency component notices remain
-pending queue verification. Neither direct model tests nor wheel metadata are
-substitutes for those gates.
+safe error projection. Additional authored fixtures use the actual SDK process,
+synthetic HTTPS proxy, Granian UDS, security authority and canonical service for
+lost acknowledgements/rotation, redirects, cancellation and telemetry/output
+canaries. All new tests and full dependency component notices remain pending
+queue verification. The synthetic proxy does not qualify a Tailscale deployment
+or either AI host. Neither model tests nor wheel metadata substitute for those
+remaining gates.

@@ -77,7 +77,7 @@ class Handler:
         return types.ReadResourceResult(contents=[types.TextResourceContents(uri=REFERENCE_URI, mime_type="text/plain", text=REFERENCE)])
 
     def server(self) -> Server[Any]:
-        server: Server[Any] = Server("health-buddy", version="0.1.0", instructions="Read the adapter reference. Select narrow context; preserve intent IDs after ambiguous writes.",
+        server: Server[Any] = Server("health-buddy", version="0.1.0.dev0", instructions="Read the adapter reference. Select narrow context; preserve intent IDs after ambiguous writes.",
             on_list_tools=self.list_tools, on_call_tool=self.call_tool,
             on_list_resources=self.list_resources, on_read_resource=self.read_resource)
         # MCP 2.2.0 defaults to OTel middleware even with no exporter installed.

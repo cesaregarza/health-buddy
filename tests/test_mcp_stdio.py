@@ -48,6 +48,35 @@ async def test_idle_pipe_reader_is_cancelled_without_blocked_worker():
             os.close(descriptor)
 
 
+@pytest.mark.parametrize("slow_drip", [False, True])
+async def test_partial_frame_idle_and_total_deadlines_close(slow_drip, monkeypatch):
+    monkeypatch.setattr("health_buddy.mcp_stdio.PARTIAL_IDLE_SECONDS", 0.08)
+    monkeypatch.setattr("health_buddy.mcp_stdio.PARTIAL_TOTAL_SECONDS", 0.2)
+    read_fd, source = os.pipe()
+    sink, write_fd = os.pipe()
+
+    async def drip():
+        for _ in range(20):
+            os.write(source, b" ")
+            await anyio.sleep(0.02)
+
+    try:
+        with anyio.fail_after(1):
+            async with streams(read_fd, write_fd) as (incoming, _):
+                # Idle before the first byte is not a partial-frame timeout.
+                await anyio.sleep(0.1)
+                os.write(source, b"{")
+                async with anyio.create_task_group() as group:
+                    if slow_drip:
+                        group.start_soon(drip)
+                    with pytest.raises(anyio.EndOfStream):
+                        await incoming.receive()
+                    group.cancel_scope.cancel()
+    finally:
+        for descriptor in (read_fd, source, sink, write_fd):
+            os.close(descriptor)
+
+
 async def test_public_sdk_middleware_explicitly_disabled(tmp_path, monkeypatch):
     tools, _, _ = setup(tmp_path)
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://synthetic-telemetry.example.invalid")

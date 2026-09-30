@@ -11,7 +11,7 @@ from typing import cast
 from .config import ConfigError, _canonical_origin
 from .domain import check_identity, decode, object_value
 from .extension_files import private_directory, read_file
-from .retry_paths import RetryRoot
+from .retry_paths import RetryRoot, native_path
 from .security_store import valid_secret
 from .service_api import Identity, ServiceError
 
@@ -20,10 +20,7 @@ def private_path(value: object) -> Path:
     if not isinstance(value, str) or not 1 <= len(value) <= 2048:
         raise ServiceError(422, "invalid_adapter_settings")
     path = Path(value)
-    if not path.is_absolute() or ".." in path.parts:
-        raise ServiceError(422, "invalid_adapter_settings")
-    if any(item.is_symlink() for item in (path, *path.parents)):
-        raise ServiceError(422, "invalid_adapter_settings")
+    native_path(path)
     private_directory(path.parent)
     return path
 

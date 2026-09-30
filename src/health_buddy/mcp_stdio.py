@@ -7,6 +7,7 @@ limits resource use, and keeps unrelated stdout writes off the protocol wire.
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, cast
@@ -20,6 +21,8 @@ from .transport_limits import Limits, json_object
 
 MAX_FRAME = 384 * 1024
 MAX_OUTPUT = 160 * 1024
+PARTIAL_IDLE_SECONDS = 2.0
+PARTIAL_TOTAL_SECONDS = 10.0
 
 
 class Framing:
@@ -86,10 +89,20 @@ async def streams(read_fd: int, write_fd: int) -> AsyncIterator[tuple[Any, Any]]
 
     async def read() -> None:
         pending = bytearray()
+        started: float | None = None
+        last_read = time.monotonic()
         async with incoming_send:
             try:
                 while True:
-                    await anyio.wait_readable(read_fd)
+                    if started is None:
+                        # A fully framed, idle AI host may remain connected.
+                        await anyio.wait_readable(read_fd)
+                    else:
+                        remaining = min(started + PARTIAL_TOTAL_SECONDS, last_read + PARTIAL_IDLE_SECONDS) - time.monotonic()
+                        if remaining <= 0:
+                            return
+                        with anyio.fail_after(remaining):
+                            await anyio.wait_readable(read_fd)
                     try:
                         chunk = os.read(read_fd, 8192)
                     except BlockingIOError:
@@ -97,14 +110,18 @@ async def streams(read_fd: int, write_fd: int) -> AsyncIterator[tuple[Any, Any]]
                     if not chunk:
                         # A partial final line is not a complete request.
                         return
+                    last_read = time.monotonic()
                     pending.extend(chunk)
                     while b"\n" in pending:
                         raw, _, rest = pending.partition(b"\n")
                         pending = bytearray(rest)
+                        started = None
                         await incoming_send.send(framing.parse(bytes(raw)))
                     if len(pending) > MAX_FRAME:
                         raise ValueError("invalid_frame")
-            except (ValueError, OSError):
+                    if pending and started is None:
+                        started = last_read
+            except (ValueError, OSError, TimeoutError):
                 # Close the malformed stream; no exception detail is reflected.
                 return
 

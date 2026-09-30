@@ -21,6 +21,23 @@ def main() -> int:
         if len(sys.argv) != 3 or sys.argv[1] != "--settings":
             return 2
         logging.disable(sys.maxsize)
+        # The pinned SDK obtains a tracer during import, before middleware can
+        # be cleared. Never load an inherited provider/exporter entrypoint.
+        for key in tuple(os.environ):
+            if key.startswith("OTEL_"):
+                os.environ.pop(key)
+        from opentelemetry.trace import (
+            NoOpTracerProvider,
+            get_tracer_provider,
+            set_tracer_provider,
+        )
+
+        provider = NoOpTracerProvider()
+        set_tracer_provider(provider)
+        if get_tracer_provider() is not provider:
+            # A process preloaded with another provider is not this isolated
+            # adapter environment; do not run and hope that it stays dormant.
+            return 1
         import anyio
 
         from .mcp_runtime import run

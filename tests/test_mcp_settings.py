@@ -1,11 +1,13 @@
 """Explicit operator configuration has no backend initialization side effects."""
 
 import json
+from pathlib import Path
 
 import pytest
 
 from health_buddy.domain import identity_value
-from health_buddy.mcp_settings import Settings
+from health_buddy.mcp_settings import Settings, private_path
+from health_buddy.retry_paths import RetryRoot
 from health_buddy.service_api import ServiceError
 from tests.test_extension_workflow import IDENTITY
 
@@ -66,3 +68,35 @@ def test_broad_credential_and_duplicate_config_keys_refuse(tmp_path):
     path.write_text(json.dumps(value)[:-1] + ',"schemaVersion":1}')
     with pytest.raises(ServiceError, match="invalid_adapter_settings"):
         Settings.read(path)
+
+
+@pytest.mark.parametrize("name", ["/mnt/forbidden/credential", "//mnt/forbidden/credential"])
+def test_forbidden_native_boundary_rejected_without_filesystem_probe(monkeypatch, name):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("forbidden target must never be probed")
+
+    monkeypatch.setattr(Path, "lstat", forbidden)
+    with pytest.raises(ServiceError):
+        private_path(name)
+    with pytest.raises(ServiceError):
+        RetryRoot.create(Path(name))
+
+
+def test_ancestor_link_rejected_before_any_target_or_leaf_probe(tmp_path, monkeypatch):
+    link = tmp_path / "alias"
+    link.symlink_to("/never-opened-synthetic-target", target_is_directory=True)
+    original = Path.lstat
+    probes = []
+
+    def tracked(path, *args, **kwargs):
+        probes.append(path)
+        if path != link and link in path.parents:
+            raise AssertionError("descendant was probed through forbidden ancestor")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", tracked)
+    with pytest.raises(ServiceError):
+        private_path(str(link / "private" / "credential"))
+    with pytest.raises(ServiceError):
+        RetryRoot.create(link / "private" / "state")
+    assert link in probes

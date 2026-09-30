@@ -5,7 +5,7 @@ from __future__ import annotations
 from .service_api import JSON, ServiceError
 
 SAFE_CODES = frozenset({
-    "invalid_request", "unsupported_version", "unauthorized", "forbidden",
+    "invalid_request", "unsupported_version", "unauthorized", "unauthenticated", "forbidden",
     "invalid_response", "invalid_receipt", "receipt_changed", "outcome_unknown",
     "revision_conflict", "record_conflict", "idempotency_conflict",
     "source_unavailable", "source_error", "source_conflict", "source_not_owned",
@@ -32,8 +32,8 @@ def error_fields(value: object) -> dict[str, JSON] | None:
 
 
 def failure(error: Exception) -> dict[str, JSON]:
-    code = error.code if isinstance(error, ServiceError) and error.code in SAFE_CODES else "request_failed"
-    status = error.status if isinstance(error, ServiceError) and 400 <= error.status <= 599 else 503
+    code = error.code if isinstance(error, ServiceError) and isinstance(error.code, str) and error.code in SAFE_CODES else "request_failed"
+    status = error.status if isinstance(error, ServiceError) and type(error.status) is int and 400 <= error.status <= 599 else 503
     return {"schemaVersion": 1, "ok": False, "error": {"code": code, "status": status}}
 
 
