@@ -129,9 +129,8 @@ def reindex(
     return raw.decode() + "\n"
 
 
-def adopt(files: dict[str, str], received_at: str) -> dict[str, str]:
-    if RECORD_INDEX in files or OBSERVATIONS in files:
-        raise ServiceError(409, "reconciliation_required")
+def normalize_intake(files: dict[str, str]) -> dict[str, str]:
+    """Normalize only the retained pre-sodium header; unknown stays empty."""
     changes = {}
     path = "data/intake.csv"
     fields = headers()[path]
@@ -142,6 +141,13 @@ def adopt(files: dict[str, str], received_at: str) -> dict[str, str]:
             for row in parse_csv(files[path])
         ]
         changes[path] = csv_text(fields, rows)
+    return changes
+
+
+def adopt(files: dict[str, str], received_at: str) -> dict[str, str]:
+    if RECORD_INDEX in files or OBSERVATIONS in files:
+        raise ServiceError(409, "reconciliation_required")
+    changes = normalize_intake(files)
     changes[RECORD_INDEX] = reindex(files | changes, received_at=received_at)
     changes[OBSERVATIONS] = "{}\n"
     return changes

@@ -9,6 +9,7 @@ from typing import Any
 
 from .legacy_import import export_measurements, import_measurements
 from .legacy_manual_canary import INPUTS, export_manual_canary, import_manual_canary
+from .legacy_unified_canary import backup_readiness, import_canary
 from .legacy_receiver_import import export_receiver, import_receiver
 from .legacy_workout_import import export_workouts, import_workouts
 from .runtime_manifest import native_directory
@@ -73,9 +74,20 @@ def add_commands(commands: Any) -> None:
     admit.add_argument("--expected-snapshot-sha256", required=True)
     admit.add_argument("--name", required=True)
 
+    unified = sub.add_parser("adopt-canary")
+    for name in ("manual", "receiver", "sleepiq"):
+        unified.add_argument("--" + name + "-input", type=Path, required=True)
+        unified.add_argument("--expected-" + name + "-sha256", required=True)
+    unified.add_argument("--sleeper-id", required=True)
+    unified.add_argument("--timezone", required=True)
+    readiness = sub.add_parser("canary-backup-readiness")
+    readiness.add_argument("--archive", type=Path, required=True)
+    readiness.add_argument("--key-file", type=Path, required=True)
+    readiness.add_argument("--expected-archive-sha256", required=True)
+
 
 def handle(args: argparse.Namespace) -> int:
-    if args.import_action == "admit-device":
+    if args.import_action in {"admit-device", "canary-backup-readiness"}:
         if args.development or args.credential_file is None:
             raise ServiceError(422, "import_admission_requires_owner_credential_file")
         native_directory(args.workspace)
@@ -86,6 +98,13 @@ def handle(args: argparse.Namespace) -> int:
         owner = runtime.security.authenticate(
             BearerProof(read_credential(args.credential_file))
         )
+        if args.import_action == "canary-backup-readiness":
+            result = backup_readiness(
+                runtime, owner.principal, args.archive, args.key_file,
+                expected_archive_sha256=args.expected_archive_sha256,
+            )
+            print(json.dumps(result, indent=2))
+            return 0
         reply = runtime.security.admit_imported_device(
             owner.principal,
             identity=runtime.security.describe(owner.principal).identity,
@@ -97,7 +116,14 @@ def handle(args: argparse.Namespace) -> int:
         return 0
     if args.development or args.credential_file is not None:
         raise ServiceError(422, "import_requires_native_owner_maintenance")
-    if args.import_action == "export-receiver":
+    if args.import_action == "adopt-canary":
+        result = import_canary(
+            args.workspace, args.manual_input, args.receiver_input, args.sleepiq_input,
+            reviewed_hashes={name: getattr(args, "expected_" + name + "_sha256")
+                             for name in ("manual", "receiver", "sleepiq")},
+            sleeper_id=args.sleeper_id, timezone=args.timezone,
+        )
+    elif args.import_action == "export-receiver":
         result = export_receiver(
             args.source_db,
             args.mapping_file,

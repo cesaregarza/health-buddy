@@ -413,6 +413,37 @@ def _seed(service: Service, value: dict[str, JSON], snapshot_sha256: str) -> Non
     service.health._sync()
 
 
+def seed_adopted_receiver(
+    service: Service, value: dict[str, JSON], snapshot_sha256: str
+) -> None:
+    """Compose the validated receiver adapter inside an unpublished workspace."""
+    staged = service.config.root
+    for row in cast(list[dict[str, JSON]], value["mapping"]):
+        service.register_source(
+            DEVELOPMENT_PRINCIPAL,
+            str(row["sourceId"]),
+            "healthkit",
+            device_id=str(row["deviceId"]),
+            stream_id=str(row["streamId"]),
+        )
+    with exclusive(service.lock):
+        _seed(service, value, snapshot_sha256)
+        service.check_receiver(service.journal.verify().identity)
+    # Reopen through ordinary receiver admission, with default-deny auth.
+    checked = Service(staged)
+    if checked.receiver_error is not None:
+        raise checked.receiver_error
+    provenance = {
+        "schemaVersion": 1,
+        "family": FAMILY,
+        "sourceSha256": value["sourceSha256"],
+        "snapshotSha256": snapshot_sha256,
+        "mapping": value["mapping"],
+        "realPairingBridge": "unimplemented",
+    }
+    atomic_bytes(staged / "operations/receiver-import.json", encode(provenance))
+
+
 def import_receiver(
     target: Path, snapshot: Path, *, expected_snapshot_sha256: str
 ) -> dict[str, Any]:
@@ -439,30 +470,7 @@ def import_receiver(
             }
             atomic_bytes(staged / "config.json", encode(settings))
             service = Service(staged, DevelopmentPolicy())
-            for row in cast(list[dict[str, JSON]], value["mapping"]):
-                service.register_source(
-                    DEVELOPMENT_PRINCIPAL,
-                    str(row["sourceId"]),
-                    "healthkit",
-                    device_id=str(row["deviceId"]),
-                    stream_id=str(row["streamId"]),
-                )
-            with exclusive(service.lock):
-                _seed(service, value, expected_snapshot_sha256)
-                service.check_receiver(service.journal.verify().identity)
-            # Reopen through ordinary receiver admission, with default-deny auth.
-            checked = Service(staged)
-            if checked.receiver_error is not None:
-                raise checked.receiver_error
-            provenance = {
-                "schemaVersion": 1,
-                "family": FAMILY,
-                "sourceSha256": value["sourceSha256"],
-                "snapshotSha256": expected_snapshot_sha256,
-                "mapping": value["mapping"],
-                "realPairingBridge": "unimplemented",
-            }
-            atomic_bytes(staged / "operations/receiver-import.json", encode(provenance))
+            seed_adopted_receiver(service, value, expected_snapshot_sha256)
             fsync_path(staged)
             if target.exists():
                 raise ServiceError(409, "import_destination_occupied")

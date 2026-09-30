@@ -91,7 +91,10 @@ def _contents(
         if record_id in identities:
             raise ServiceError(409, "import_record_id_collision")
         identities[record_id] = (MEASUREMENTS, row)
-    intake_rows = parse_csv(text["intake"], headers()[INTAKE])
+    normalized_intake = records.normalize_intake({INTAKE: text["intake"]}).get(
+        INTAKE, text["intake"]
+    )
+    intake_rows = parse_csv(normalized_intake, headers()[INTAKE])
     if not intake_rows:
         raise ServiceError(422, "import_requires_nonempty_intake")
     if len(intake_rows) + len(identities) > MAX_RECORDS:
@@ -116,7 +119,7 @@ def _contents(
         identities[record_id] = (INTAKE, row)
     if len(identities) > MAX_RECORDS:
         raise ServiceError(413, "import_snapshot_too_large")
-    selected[INTAKE] = text["intake"]
+    selected[INTAKE] = normalized_intake
     try:
         retained = decode(text["plan"], limit=MAX_PLAN_BODY)
         program = plans.validate_plan(plans.to_wire(retained))

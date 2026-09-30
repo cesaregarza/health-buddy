@@ -206,3 +206,72 @@ The actual SecurityStore synthetic fixture proves replacement pairing, old-token
 refusal, exact acknowledged replay and a genuinely new batch. Real phone identity,
 checkpoint/epoch reconciliation and cutover still require separate device evidence.
 This checkpoint does not complete CES-1081 or authorize a personal/deployed receiver.
+
+## One unified synthetic canary
+
+`adopt-canary` composes a reviewed manual-canary snapshot, reviewed receiver
+snapshot and exact retained SleepIQ nightly CSV in one new private workspace.
+The accepted manual bootstrap and receiver adapter remain the storage owners.
+Known historical intake headers without `sodium_mg` normalize through the existing
+adoption helper; added sodium values remain empty/unknown, never zero. Manual
+stable IDs, workout parent links, plan and explicitly reviewed preferences survive.
+Original snapshot/revision provenance remains distinct from the new canonical
+revision. Inputs share a 4 MiB total limit and at most 1,000 combined record rows.
+Receiver mappings and acknowledgements retain their existing bounded contracts.
+
+Select exactly one reviewed sleeper ID and an explicit IANA timezone matching
+the reviewed workspace timezone. The finite SleepIQ mapping accepts the shipped
+`NightlyRecord` CSV columns and verifies stable record keys and normalized hashes.
+It requires an aware session end, an aware fetched timestamp, and integer duration
+seconds from 0 through 86,400. The local date of session end becomes the existing
+canonical `date,sleep_hours` export; duration seconds divided by 3,600 becomes
+hours. `night_date` is the start-of-night identity and is **not** reused as wake
+date. Missing/naive timestamps, foreign sleepers, invalid durations, duplicate
+keys or conflicting wake dates are refused. A retained export that lost timezone
+information cannot pass this mapping; no offset or missing date is inferred.
+
+The exact reviewed nightly file, including original keys, source versions and
+metadata, remains private at `stores/imported-sleepiq-nightly.csv`. The two-column
+canonical view intentionally exposes only daily duration. This enables a local
+read-only connector export; it does not configure upstream login, networking,
+scheduled synchronization, credentials or optional AI. Core CLI loading requires
+no optional connector dependencies. Reconciliation replies contain counts,
+digests and revision only, never sleeper IDs/names, notes or health values.
+
+```sh
+health-buddy --workspace /native/private/unified-canary legacy-import adopt-canary \
+  --manual-input /native/private/manual.json --expected-manual-sha256 MANUAL_SHA256 \
+  --receiver-input /native/private/receiver.json --expected-receiver-sha256 RECEIVER_SHA256 \
+  --sleepiq-input /native/private/nightly.csv --expected-sleepiq-sha256 NIGHTLY_SHA256 \
+  --sleeper-id REVIEWED_SLEEPER_ID --timezone America/Chicago
+```
+
+Publication is a create-only rename of the verified staged workspace. Exact
+repeat against the same unchanged workspace is inert; changed inputs, different
+selection, occupied/unowned destinations or changed canonical/config/personal
+files are refused. Regenerable cache is excluded from this comparison. Review
+ordinary canonical reads, plan/preferences and reconciliation before accepting
+this isolated result. Original exports stay unchanged, so abandoning the canary
+never requires restoring over the old deployment.
+
+Encrypted backup is a **separate explicit owner readiness guard**, not a
+prerequisite for exporting legacy data or creating an isolated canary. After
+owner setup and any deliberate pairing/customization, use the existing backup
+key generation and quiesced backup commands documented in [backup and restore](backup-restore.md).
+Then verify the reviewed encrypted archive against the current canary:
+
+```sh
+health-buddy --workspace /native/private/unified-canary \
+  --credential-file /native/private/unified-canary/secrets/owner.token \
+  legacy-import canary-backup-readiness \
+  --archive /native/private/canary.hbb --key-file /native/private/backup.key \
+  --expected-archive-sha256 REVIEWED_ARCHIVE_SHA256
+```
+
+The guard fully authenticates the existing encrypted archive, compares its
+identity/revision and complete non-cache files with the current workspace, and
+refuses stale or changed backups. A successful reply performs no cutover and
+still reports real phone qualification pending. Required backup of an actual
+legacy deployment before live cutover, actual phone checkpoint/epoch handling,
+connector synchronization and private deployment qualification are separate
+remaining gates. These synthetic commands do not authorize live migration.
