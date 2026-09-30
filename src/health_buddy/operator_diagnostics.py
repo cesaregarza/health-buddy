@@ -15,9 +15,9 @@ from typing import Any
 from . import legacy
 from .app import App
 from .config import ConfigError, load
+from .discovery import source_identity
 from .extension_diagnostics import recent_failure
 from .extension_registry import Registry, status_json
-from .discovery import source_identity
 from .runtime_manifest import read_source_identity
 from .service_api import ServiceError
 
@@ -59,15 +59,24 @@ def source_findings(projection: dict[str, Any]) -> list[dict[str, str]]:
     return result
 
 
-def report(root: Path, *, app: App | None = None, port: int | None = None) -> dict[str, Any]:
+def report(
+    root: Path, *, app: App | None = None, port: int | None = None
+) -> dict[str, Any]:
     result: dict[str, Any] = {
         "schemaVersion": 1,
         "checkedAt": datetime.now(UTC).isoformat(),
-        "installation": {"packageVersion": None, "apiVersion": 1, "extensionApiVersion": 1,
-                         "releaseArtifact": None},
+        "installation": {
+            "packageVersion": None,
+            "apiVersion": 1,
+            "extensionApiVersion": 1,
+            "releaseArtifact": None,
+        },
         "sources": None,
         "queue": {"state": "unknown", "scope": "current_cli_actor_only"},
-        "extensions": {"items": [], "recentFailures": "latest_safe_worker_failure_only"},
+        "extensions": {
+            "items": [],
+            "recentFailures": "latest_safe_worker_failure_only",
+        },
         "storage": [],
         "connectivity": {"phone": "unknown", "privateRoute": "not_probed"},
         "diagnostics": [],
@@ -101,7 +110,9 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
     except ConfigError:
         diagnostics.append(finding("config_invalid", "error"))
         return result
-    diagnostics.extend([finding("phone_unknown", "info"), finding("connectivity_unknown", "info")])
+    diagnostics.extend(
+        [finding("phone_unknown", "info"), finding("connectivity_unknown", "info")]
+    )
     for name in ("manual", "healthkit", "cache"):
         path = config.storage(name)
         entry: dict[str, Any] = {"store": name, "state": "unknown", "freeBytes": None}
@@ -110,7 +121,9 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
             info = existing.lstat()
             if not path.exists():
                 entry["state"] = "missing"
-                if name != "cache" and (name != "healthkit" or config.enabled("healthkit")):
+                if name != "cache" and (
+                    name != "healthkit" or config.enabled("healthkit")
+                ):
                     diagnostics.append(finding("storage_unavailable", "error"))
             else:
                 entry["state"] = "present_not_integrity_verified"
@@ -124,12 +137,17 @@ def report(root: Path, *, app: App | None = None, port: int | None = None) -> di
             diagnostics.append(finding("storage_unavailable", "error"))
         result["storage"].append(entry)
     try:
-        result["extensions"]["items"] = [status_json(item) for item in Registry(config).inspect()]
+        result["extensions"]["items"] = [
+            status_json(item) for item in Registry(config).inspect()
+        ]
         for item in result["extensions"]["items"]:
             item["recentFailure"] = recent_failure(config, item["id"])
             if item["recentFailure"].get("state") == "recorded":
                 diagnostics.append(finding("extension_unavailable"))
-        if any(item["state"] not in {"ready", "disabled"} for item in result["extensions"]["items"]):
+        if any(
+            item["state"] not in {"ready", "disabled"}
+            for item in result["extensions"]["items"]
+        ):
             diagnostics.append(finding("extension_unavailable"))
     except (OSError, ValueError, ServiceError):
         diagnostics.append(finding("extension_unavailable", "error"))
@@ -171,39 +189,83 @@ def runtime_details(result: dict[str, Any], app: App) -> None:
         if result["queue"]["state"] == "pending":
             diagnostics.append(finding("pending_write"))
     except ServiceError as exc:
-        diagnostics.append(finding("authorization_partial" if exc.status in {401, 403} else "runtime_unavailable", "error"))
+        diagnostics.append(
+            finding(
+                "authorization_partial"
+                if exc.status in {401, 403}
+                else "runtime_unavailable",
+                "error",
+            )
+        )
 
 
 def support_summary(value: dict[str, Any]) -> dict[str, Any]:
     """Allowlist fixed enums/counts only; never copy raw logs or arbitrary text."""
-    known_states = {"ready", "disabled", "needs_review", "invalid_manifest", "incompatible_api",
-                    "dependency_unavailable", "dependency_cycle", "config_invalid",
-                    "state_migration_required", "execution_failed", "inventory_incomplete"}
-    states = [item.get("state") for item in value.get("extensions", {}).get("items", [])]
+    known_states = {
+        "ready",
+        "disabled",
+        "needs_review",
+        "invalid_manifest",
+        "incompatible_api",
+        "dependency_unavailable",
+        "dependency_cycle",
+        "config_invalid",
+        "state_migration_required",
+        "execution_failed",
+        "inventory_incomplete",
+    }
+    states = [
+        item.get("state") for item in value.get("extensions", {}).get("items", [])
+    ]
     return {
         "schemaVersion": 1,
         "kind": "redacted_support_summary",
-        "diagnosticCodes": sorted({item["code"] for item in value.get("diagnostics", []) if item.get("code") in GUIDANCE}),
-        "extensionStates": {state: states.count(state) for state in sorted(known_states) if state in states},
-        "excluded": ["credentials", "identity", "paths", "config", "health_records", "source_ids", "personal_files", "logs"],
+        "diagnosticCodes": sorted(
+            {
+                item["code"]
+                for item in value.get("diagnostics", [])
+                if item.get("code") in GUIDANCE
+            }
+        ),
+        "extensionStates": {
+            state: states.count(state)
+            for state in sorted(known_states)
+            if state in states
+        },
+        "excluded": [
+            "credentials",
+            "identity",
+            "paths",
+            "config",
+            "health_records",
+            "source_ids",
+            "personal_files",
+            "logs",
+        ],
     }
 
 
 def human(value: dict[str, Any]) -> str:
     lines = [
         "Health Buddy operator status (local check)",
-        f'Installed package: {value["installation"]["packageVersion"] or "unknown"}; API 1; extension API 1',
-        f'Phone: {value["connectivity"]["phone"]}; private route: {value["connectivity"]["privateRoute"]}',
-        f'Pending writes: {value["queue"]["state"]} (current CLI actor only)',
+        f"Installed package: {value['installation']['packageVersion'] or 'unknown'}; API 1; extension API 1",
+        f"Phone: {value['connectivity']['phone']}; private route: {value['connectivity']['privateRoute']}",
+        f"Pending writes: {value['queue']['state']} (current CLI actor only)",
     ]
     projection = value.get("sources")
     if isinstance(projection, dict):
-        lines.append(f'Projection: {projection.get("state", "unknown")}')
+        lines.append(f"Projection: {projection.get('state', 'unknown')}")
         for name, source in projection.get("sources", {}).items():
-            lines.append(f'{name}: {source.get("availability", "unknown")}; {source.get("freshness", "unknown")}; last success {source.get("lastSuccessAt") or "unknown"}')
+            lines.append(
+                f"{name}: {source.get('availability', 'unknown')}; {source.get('freshness', 'unknown')}; last success {source.get('lastSuccessAt') or 'unknown'}"
+            )
     for item in value["extensions"]["items"]:
-        lines.append(f'Extension {item["id"]}: {item["state"]}; version {item["version"] or "unknown"}')
+        lines.append(
+            f"Extension {item['id']}: {item['state']}; version {item['version'] or 'unknown'}"
+        )
     for item in value["diagnostics"]:
-        lines.append(f'{item["severity"]}: {item["code"]}: {item["recovery"]}')
-    lines.append("Use --json for measured timestamps, scoped source and extension states.")
+        lines.append(f"{item['severity']}: {item['code']}: {item['recovery']}")
+    lines.append(
+        "Use --json for measured timestamps, scoped source and extension states."
+    )
     return "\n".join(lines)

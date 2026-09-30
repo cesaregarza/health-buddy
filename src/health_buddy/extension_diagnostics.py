@@ -12,10 +12,14 @@ from .extension_files import extension_id, private_directory, read_json
 from .extension_runner import call
 from .service_api import JSON, ServiceError
 
-FAILURES = frozenset({
-    "extension_execution_failed", "extension_timeout", "extension_output_invalid",
-    "extension_input_too_large",
-})
+FAILURES = frozenset(
+    {
+        "extension_execution_failed",
+        "extension_timeout",
+        "extension_output_invalid",
+        "extension_input_too_large",
+    }
+)
 
 
 def failure_path(config: Config, name: str) -> Path:
@@ -32,10 +36,16 @@ def observed_call(
             try:
                 path = failure_path(config, name)
                 private_directory(path.parent, create=True)
-                atomic_bytes(path, encode({
-                    "schemaVersion": 1, "code": exc.code,
-                    "observedAt": datetime.now(UTC).isoformat(),
-                }))
+                atomic_bytes(
+                    path,
+                    encode(
+                        {
+                            "schemaVersion": 1,
+                            "code": exc.code,
+                            "observedAt": datetime.now(UTC).isoformat(),
+                        }
+                    ),
+                )
             except (OSError, ValueError, ServiceError):
                 # Diagnostic retention must never replace the original error.
                 pass
@@ -58,7 +68,11 @@ def recent_failure(config: Config, name: str) -> JSON:
         stamp = datetime.fromisoformat(value["observedAt"])
         if stamp.tzinfo is None:
             return {"state": "unavailable"}
-        return {"state": "recorded", "code": value["code"], "observedAt": stamp.isoformat()}
+        return {
+            "state": "recorded",
+            "code": value["code"],
+            "observedAt": stamp.isoformat(),
+        }
     except FileNotFoundError:
         return {"state": "unknown", "history": "not_proof_of_success"}
     except (OSError, ValueError, TypeError, ServiceError):

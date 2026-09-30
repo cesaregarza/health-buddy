@@ -90,7 +90,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ServiceError(422, "development_cannot_use_credentials")
         if args.command in {"status", "doctor", "support-bundle"}:
             from .operator_diagnostics import (
-                finding, human, report, runtime_details, support_summary,
+                finding,
+                human,
+                report,
+                runtime_details,
+                support_summary,
             )
 
             if args.command == "status" and not (
@@ -99,8 +103,13 @@ def main(argv: list[str] | None = None) -> int:
                 raise ServiceError(401, "explicit_credential_file_required")
             # Inspect local facts before opening canonical runtime. A broken
             # config must still produce an actionable JSON diagnostic.
-            result = report(args.workspace.expanduser().resolve(), port=getattr(args, "port", None))
-            if result["diagnostics"] and result["diagnostics"][0]["code"] == "config_invalid":
+            result = report(
+                args.workspace.expanduser().resolve(), port=getattr(args, "port", None)
+            )
+            if (
+                result["diagnostics"]
+                and result["diagnostics"][0]["code"] == "config_invalid"
+            ):
                 pass
             elif args.development or args.credential_file is not None:
                 try:
@@ -113,8 +122,19 @@ def main(argv: list[str] | None = None) -> int:
                         )
                     )
                     runtime_details(result, app)
-                except (ConfigError, StoreError, OSError, ValueError, RuntimeError, ServiceError) as exc:
-                    code = "authorization_partial" if isinstance(exc, ServiceError) and exc.status in {401, 403} else "runtime_unavailable"
+                except (
+                    ConfigError,
+                    StoreError,
+                    OSError,
+                    ValueError,
+                    RuntimeError,
+                    ServiceError,
+                ) as exc:
+                    code = (
+                        "authorization_partial"
+                        if isinstance(exc, ServiceError) and exc.status in {401, 403}
+                        else "runtime_unavailable"
+                    )
                     result["diagnostics"].append(finding(code, "error"))
             if args.command == "support-bundle":
                 print(json.dumps(support_summary(result), indent=2))
@@ -122,7 +142,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(result, indent=2))
             else:
                 print(human(result))
-            return 2 if any(item["severity"] == "error" for item in result["diagnostics"]) else 0
+            return (
+                2
+                if any(item["severity"] == "error" for item in result["diagnostics"])
+                else 0
+            )
         if args.command in {"workspace", "extension"}:
             from .extension_cli import handle
 

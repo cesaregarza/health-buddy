@@ -10,9 +10,9 @@ from .client_workflow import ClientWorkflow, WorkflowNamespace
 from .config import Config
 from .domain import digest, instant, number, object_value, text
 from .durability import check_deadline, exclusive
+from .extension_diagnostics import observed_call
 from .extension_files import extension_id, private_directory
 from .extension_registry import Registry
-from .extension_diagnostics import observed_call
 from .security_api import BearerProof, Runtime, SecurityRequest
 from .service_api import JSON, ServiceError
 
@@ -68,7 +68,8 @@ def run_event(
             check_deadline(deadline)
             normalized = object_value(
                 observed_call(
-                    config, name,
+                    config,
+                    name,
                     reviewed.manifest.entrypoints["connector"],
                     reviewed.root,
                     {"schemaVersion": 1, "event": original, "config": reviewed.config},
@@ -88,7 +89,8 @@ def run_event(
             # event identity. It never receives authority or a raw store.
             plan = object_value(
                 observed_call(
-                    config, name,
+                    config,
+                    name,
                     reviewed.manifest.entrypoints["workflow"],
                     reviewed.root,
                     {"schemaVersion": 1, "eventId": event_id, "record": normalized},
