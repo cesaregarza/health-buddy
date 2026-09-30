@@ -17,8 +17,11 @@ MAX_PROPOSAL = 384 * 1024
 
 
 def binding(client: ClientIdentity) -> dict[str, JSON]:
-    return {"actorBinding": client.actor_binding, "securityEpoch": client.security_epoch,
-            "identity": identity_value(client.identity)}
+    return {
+        "actorBinding": client.actor_binding,
+        "securityEpoch": client.security_epoch,
+        "identity": identity_value(client.identity),
+    }
 
 
 class Proposals:
@@ -50,12 +53,24 @@ class Proposals:
         path = self._path(intent)
         try:
             value = decode(read_file(path, MAX_PROPOSAL), limit=MAX_PROPOSAL)
-            if not isinstance(value, dict) or set(value) != {"schemaVersion", "clientId", "binding", "arguments", "reviewDigest"}:
+            if not isinstance(value, dict) or set(value) != {
+                "schemaVersion",
+                "clientId",
+                "binding",
+                "arguments",
+                "reviewDigest",
+            }:
                 raise ValueError
-            if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1 or value["clientId"] != self.client_id:
+            if (
+                type(value["schemaVersion"]) is not int
+                or value["schemaVersion"] != 1
+                or value["clientId"] != self.client_id
+            ):
                 raise ValueError
             arguments = validate("propose_plan", value["arguments"])
-            if arguments["intentId"] != intent or value["reviewDigest"] != digest(arguments):
+            if arguments["intentId"] != intent or value["reviewDigest"] != digest(
+                arguments
+            ):
                 raise ValueError
             if value["binding"] != binding(client):
                 raise ServiceError(409, "client_identity_changed")
@@ -63,12 +78,19 @@ class Proposals:
         except (OSError, ValueError):
             raise ServiceError(503, "proposal_unavailable") from None
 
-    def prepare(self, arguments: dict[str, Any], client: ClientIdentity) -> dict[str, JSON]:
+    def prepare(
+        self, arguments: dict[str, Any], client: ClientIdentity
+    ) -> dict[str, JSON]:
         arguments = validate("propose_plan", arguments)
         if arguments["identity"] != identity_value(client.identity):
             raise ServiceError(409, "client_identity_changed")
-        value = {"schemaVersion": 1, "clientId": self.client_id, "binding": binding(client),
-                 "arguments": arguments, "reviewDigest": digest(arguments)}
+        value = {
+            "schemaVersion": 1,
+            "clientId": self.client_id,
+            "binding": binding(client),
+            "arguments": arguments,
+            "reviewDigest": digest(arguments),
+        }
         raw = encode(value)
         if len(raw) > MAX_PROPOSAL or len(encode(arguments["plan"])) > 262144:
             raise ServiceError(413, "invalid_request")
@@ -80,13 +102,22 @@ class Proposals:
             else:
                 atomic_bytes(path, raw)
         # Health content was supplied by this caller; no automatic plan/context fetch.
-        return {"proposalId": arguments["intentId"], "reviewDigest": value["reviewDigest"],
-                "expectedRevision": arguments["expectedRevision"], "identity": arguments["identity"],
-                "planId": arguments["plan"]["programId"], "title": arguments["plan"]["title"],
-                "planSha256": digest(arguments["plan"]), "state": "proposed",
-                "semanticValidation": "pending_server_apply", "applied": False}
+        return {
+            "proposalId": arguments["intentId"],
+            "reviewDigest": value["reviewDigest"],
+            "expectedRevision": arguments["expectedRevision"],
+            "identity": arguments["identity"],
+            "planId": arguments["plan"]["programId"],
+            "title": arguments["plan"]["title"],
+            "planSha256": digest(arguments["plan"]),
+            "state": "proposed",
+            "semanticValidation": "pending_server_apply",
+            "applied": False,
+        }
 
-    def selected(self, intent: str, review_digest: str, client: ClientIdentity) -> dict[str, Any]:
+    def selected(
+        self, intent: str, review_digest: str, client: ClientIdentity
+    ) -> dict[str, Any]:
         with exclusive(self.root.path("state.lock")):
             value = self._read(intent, client)
             if value["reviewDigest"] != review_digest:

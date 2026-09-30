@@ -24,7 +24,9 @@ from tests.test_mcp_settings import settings_file
 
 class ModelApi:
     def __init__(self):
-        self.client = ClientIdentity("synthetic-actor", "synthetic-security-epoch", IDENTITY)
+        self.client = ClientIdentity(
+            "synthetic-actor", "synthetic-security-epoch", IDENTITY
+        )
         self.available = {spec.operation for spec in SPECS}
         self.receipts = {}
         self.requests = []
@@ -47,11 +49,17 @@ class ModelApi:
     def execute(self, principal, request):
         self.describe()
         if request.operation == "capabilities":
-            return envelope({"availableOperations": sorted(self.available)}, self.client.identity, self.revision)
+            return envelope(
+                {"availableOperations": sorted(self.available)},
+                self.client.identity,
+                self.revision,
+            )
         assert request.operation in self.available
         self.requests.append(replace(request, deadline=None))
         if request.operation == "context.read":
-            return envelope({"missing": None, "zero": 0, "truncated": True}, IDENTITY, self.revision)
+            return envelope(
+                {"missing": None, "zero": 0, "truncated": True}, IDENTITY, self.revision
+            )
         if request.idempotency_key in self.receipts:
             return self.receipts[request.idempotency_key]
         if request.if_match != f'"rev-{self.revision}"':
@@ -76,9 +84,18 @@ def setup(tmp_path):
 
 
 def intent():
-    return {"intentId": "synthetic-observation", "identity": identity_value(IDENTITY),
-            "expectedRevision": 0, "kind": "measurement", "sourceId": "manual",
-            "fields": {"measuredAtLocal": "2026-09-01T10:00:00+00:00", "timezone": "UTC", "weightLb": 180}}
+    return {
+        "intentId": "synthetic-observation",
+        "identity": identity_value(IDENTITY),
+        "expectedRevision": 0,
+        "kind": "measurement",
+        "sourceId": "manual",
+        "fields": {
+            "measuredAtLocal": "2026-09-01T10:00:00+00:00",
+            "timezone": "UTC",
+            "weightLb": 180,
+        },
+    }
 
 
 def test_lost_ack_restart_preserves_body_key_revision_and_rechecks_actor(tmp_path):
@@ -96,8 +113,18 @@ def test_lost_ack_restart_preserves_body_key_revision_and_rechecks_actor(tmp_pat
     assert after["envelope"] == pending["envelope"] and after["cursor"] == 1
     assert api.requests[0] == api.requests[1]
     api.client = replace(api.client, actor_binding="different-actor")
-    assert reopened.call("write_status", {"intentId": intent()["intentId"]})["error"]["code"] == "client_identity_changed"
-    assert reopened.call("retry_write", {"intentId": intent()["intentId"]})["error"]["code"] == "client_identity_changed"
+    assert (
+        reopened.call("write_status", {"intentId": intent()["intentId"]})["error"][
+            "code"
+        ]
+        == "client_identity_changed"
+    )
+    assert (
+        reopened.call("retry_write", {"intentId": intent()["intentId"]})["error"][
+            "code"
+        ]
+        == "client_identity_changed"
+    )
     assert len(api.requests) == 2
 
 
@@ -115,13 +142,25 @@ def test_changed_intent_cannot_replace_original_or_refresh_revision(tmp_path):
 
 def test_proposal_requires_exact_review_body_original_cas_and_actor(tmp_path):
     tools, _, api = setup(tmp_path)
-    args = {"intentId": "plan-review-1", "identity": identity_value(IDENTITY), "expectedRevision": 0, "plan": to_wire(program())}
+    args = {
+        "intentId": "plan-review-1",
+        "identity": identity_value(IDENTITY),
+        "expectedRevision": 0,
+        "plan": to_wire(program()),
+    }
     prepared = tools.call("propose_plan", args)
     assert prepared["ok"] is True and prepared["result"]["applied"] is False
     assert api.requests == [] and api.revision == 0
     review = prepared["result"]
-    apply = {"proposalId": review["proposalId"], "reviewDigest": review["reviewDigest"], "confirm": True}
-    assert tools.call("apply_plan", {**apply, "reviewDigest": "0" * 64})["error"]["code"] == "proposal_review_required"
+    apply = {
+        "proposalId": review["proposalId"],
+        "reviewDigest": review["reviewDigest"],
+        "confirm": True,
+    }
+    assert (
+        tools.call("apply_plan", {**apply, "reviewDigest": "0" * 64})["error"]["code"]
+        == "proposal_review_required"
+    )
     changed = {**args, "plan": {**args["plan"], "title": "Edited synthetic plan"}}
     assert tools.call("propose_plan", changed)["error"]["code"] == "proposal_conflict"
     assert tools.call("apply_plan", apply)["ok"] is True
@@ -130,23 +169,47 @@ def test_proposal_requires_exact_review_body_original_cas_and_actor(tmp_path):
     assert api.requests[0] == api.requests[1]
     stale = {**args, "intentId": "another-plan"}
     second = tools.call("propose_plan", stale)["result"]
-    assert tools.call("apply_plan", {"proposalId": second["proposalId"], "reviewDigest": second["reviewDigest"], "confirm": True})["error"]["code"] == "revision_conflict"
+    assert (
+        tools.call(
+            "apply_plan",
+            {
+                "proposalId": second["proposalId"],
+                "reviewDigest": second["reviewDigest"],
+                "confirm": True,
+            },
+        )["error"]["code"]
+        == "revision_conflict"
+    )
     assert api.revision == 1
 
 
 def test_catalog_current_capabilities_and_no_implicit_context(tmp_path):
     tools, _, api = setup(tmp_path)
     api.available = {"capabilities", "context.read"}
-    assert {spec.name for spec in tools.catalog()} == {"get_context", "write_status", "retry_write"}
+    assert {spec.name for spec in tools.catalog()} == {
+        "get_context",
+        "write_status",
+        "retry_write",
+    }
     assert api.requests == []
     result = tools.call("get_context", {"scopes": ["weight"]})
     assert result["result"]["data"] == {"missing": None, "zero": 0, "truncated": True}
     assert api.requests[-1].query == {"scopes": "weight", "days": "7", "limit": "100"}
-    assert tools.call("log_health", intent())["error"]["code"] == "capability_unavailable"
+    assert (
+        tools.call("log_health", intent())["error"]["code"] == "capability_unavailable"
+    )
     assert len(api.requests) == 1
 
 
-@pytest.mark.parametrize("name,args", [("shell", {"command": "ignored"}), ("get_context", {"scopes": ["secrets"]}), ("log_health", {**intent(), "url": "https://invalid.example"}), ("log_health", {**intent(), "expectedRevision": True})])
+@pytest.mark.parametrize(
+    "name,args",
+    [
+        ("shell", {"command": "ignored"}),
+        ("get_context", {"scopes": ["secrets"]}),
+        ("log_health", {**intent(), "url": "https://invalid.example"}),
+        ("log_health", {**intent(), "expectedRevision": True}),
+    ],
+)
 def test_strict_finite_schemas(name, args):
     with pytest.raises(ServiceError, match="invalid_request"):
         validate(name, args)
@@ -154,7 +217,12 @@ def test_strict_finite_schemas(name, args):
 
 def test_corrupt_proposal_retained_and_unreadable(tmp_path):
     tools, _, api = setup(tmp_path)
-    args = {"intentId": "plan-review-1", "identity": identity_value(IDENTITY), "expectedRevision": 0, "plan": to_wire(program())}
+    args = {
+        "intentId": "plan-review-1",
+        "identity": identity_value(IDENTITY),
+        "expectedRevision": 0,
+        "plan": to_wire(program()),
+    }
     assert tools.call("propose_plan", args)["ok"] is True
     path = next(tools.root.root.glob("proposals/*/*.json"))
     raw = json.loads(path.read_bytes())
@@ -162,5 +230,7 @@ def test_corrupt_proposal_retained_and_unreadable(tmp_path):
     contents = encode(raw)
     path.write_bytes(contents)
     with pytest.raises(ServiceError, match="proposal_unavailable"):
-        Proposals(tools.root, tools.settings.client_id).selected(args["intentId"], "0" * 64, api.client)
+        Proposals(tools.root, tools.settings.client_id).selected(
+            args["intentId"], "0" * 64, api.client
+        )
     assert path.read_bytes() == contents and api.requests == []

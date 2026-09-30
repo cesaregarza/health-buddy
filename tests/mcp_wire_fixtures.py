@@ -35,15 +35,32 @@ def certificate(folder):
     key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "synthetic-test")])
     now = datetime.now(UTC)
-    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
-            .public_key(key.public_key()).serial_number(x509.random_serial_number())
-            .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(hours=1))
-            .add_extension(x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]), critical=False)
-            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-            .sign(key, hashes.SHA256()))
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(hours=1))
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]
+            ),
+            critical=False,
+        )
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
     cert_path, key_path = folder / "synthetic-ca.pem", folder / "synthetic-key.pem"
     cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
     cert_path.chmod(0o600)
     key_path.chmod(0o600)
     return cert_path, key_path
@@ -89,16 +106,30 @@ class Proxy(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
-        values = {key: value for key, value in self.headers.items()
-                  if key.lower() not in {"host", "connection", "content-length", "x-forwarded-host", "x-forwarded-proto"}}
+        values = {
+            key: value
+            for key, value in self.headers.items()
+            if key.lower()
+            not in {
+                "host",
+                "connection",
+                "content-length",
+                "x-forwarded-host",
+                "x-forwarded-proto",
+            }
+        }
         values["X-Forwarded-Host"] = bridge.origin.removeprefix("https://")
-        status, raw, headers = request(bridge.uds, self.command, self.path, headers=values, body=body)
+        status, raw, headers = request(
+            bridge.uds, self.command, self.path, headers=values, body=body
+        )
         if self.command in {"PUT", "POST"}:
             bridge.responses.append((status, raw))
             if bridge.hold_next:
                 bridge.hold_next = False
                 bridge.held.set()
-                assert bridge.release.wait(5), "Synthetic reply hold exceeded fixture bound"
+                assert bridge.release.wait(5), (
+                    "Synthetic reply hold exceeded fixture bound"
+                )
             if bridge.lose_next:
                 bridge.lose_next = False
                 self.close_connection = True
@@ -132,17 +163,32 @@ def actual_backend(folder, client_folder):
     config = json.loads(config_path.read_bytes())
     config["security"]["externalOrigin"] = bridge.origin
     config_path.write_text(json.dumps(config))
-    grant = action(runtime, owner, "grants.create", payload=AgentGrant(
-        "Synthetic MCP agent", ("records:read", "records:write"),
-        source_ids=("manual",), read_sources=("manual",), read_kinds=None, read_fields=None))
+    grant = action(
+        runtime,
+        owner,
+        "grants.create",
+        payload=AgentGrant(
+            "Synthetic MCP agent",
+            ("records:read", "records:write"),
+            source_ids=("manual",),
+            read_sources=("manual",),
+            read_kinds=None,
+            read_fields=None,
+        ),
+    )
     token_path = client_folder / "agent-token"
     token_path.write_text(grant.secret.value)
     token_path.chmod(0o600)
     identity = runtime.operations.journal.state().identity
     settings = {
-        "schemaVersion": 1, "origin": bridge.origin, "identity": identity_value(identity),
-        "credentialFile": str(token_path), "retryRoot": str(client_folder / "retry"),
-        "clientId": "synthetic-mcp", "writeSources": ["manual"], "acknowledgeAiEgress": True,
+        "schemaVersion": 1,
+        "origin": bridge.origin,
+        "identity": identity_value(identity),
+        "credentialFile": str(token_path),
+        "retryRoot": str(client_folder / "retry"),
+        "clientId": "synthetic-mcp",
+        "writeSources": ["manual"],
+        "acknowledgeAiEgress": True,
         "caFile": str(cert),
     }
     settings_path = client_folder / "adapter.json"
@@ -152,7 +198,9 @@ def actual_backend(folder, client_folder):
     try:
         with server(folder, workspace=root) as (_, uds):
             bridge.uds = uds
-            thread = threading.Thread(target=bridge.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
+            thread = threading.Thread(
+                target=bridge.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+            )
             thread.start()
             yield bridge, settings_path, runtime, owner, grant
     finally:
@@ -192,10 +240,17 @@ class Wire:
         self.next_id += 1
         value = dict(params or {})
         if self.modern:
-            value["_meta"] = {"io.modelcontextprotocol/protocolVersion": "2026-07-28",
-                              "io.modelcontextprotocol/clientInfo": {"name": "synthetic-test", "version": "1"},
-                              "io.modelcontextprotocol/clientCapabilities": {}}
-        self.send({"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": value})
+            value["_meta"] = {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientInfo": {
+                    "name": "synthetic-test",
+                    "version": "1",
+                },
+                "io.modelcontextprotocol/clientCapabilities": {},
+            }
+        self.send(
+            {"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": value}
+        )
         reply = self.receive()
         assert reply["id"] == self.next_id
         return reply
@@ -210,19 +265,39 @@ class Wire:
 
 @contextmanager
 def client(settings, folder, *, modern=False, instrumented=False):
-    environment = {**os.environ, "PYTHONPATH": str(ROOT / "src") + os.pathsep + str(ROOT),
-                   "HTTP_PROXY": "http://127.0.0.1:1", "HTTPS_PROXY": "http://127.0.0.1:1", "ALL_PROXY": "http://127.0.0.1:1",
-                   "OTEL_PYTHON_TRACER_PROVIDER": "synthetic-must-not-load", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:1"}
+    environment = {
+        **os.environ,
+        "PYTHONPATH": str(ROOT / "src") + os.pathsep + str(ROOT),
+        "HTTP_PROXY": "http://127.0.0.1:1",
+        "HTTPS_PROXY": "http://127.0.0.1:1",
+        "ALL_PROXY": "http://127.0.0.1:1",
+        "OTEL_PYTHON_TRACER_PROVIDER": "synthetic-must-not-load",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:1",
+    }
     module = "tests.mcp_process_runner" if instrumented else "health_buddy.mcp_server"
     stderr = folder / "mcp-stderr.log"
     with stderr.open("ab") as log:
         # Fixed module and exclusively owned synthetic paths, bounded by queue cgroup.
-        process = subprocess.Popen([sys.executable, "-m", module, "--settings", str(settings)], cwd=ROOT, env=environment,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, start_new_session=True)
+        process = subprocess.Popen(
+            [sys.executable, "-m", module, "--settings", str(settings)],
+            cwd=ROOT,
+            env=environment,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=log,
+            start_new_session=True,
+        )
         wire = Wire(process, modern)
         try:
             if not modern:
-                reply = wire.call("initialize", {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "synthetic-test", "version": "1"}})
+                reply = wire.call(
+                    "initialize",
+                    {
+                        "protocolVersion": "2025-11-25",
+                        "capabilities": {},
+                        "clientInfo": {"name": "synthetic-test", "version": "1"},
+                    },
+                )
                 assert reply["result"]["protocolVersion"] == "2025-11-25"
                 wire.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             yield wire

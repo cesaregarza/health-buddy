@@ -66,7 +66,9 @@ def test_backup_during_inflight_request_retains_pending_original_envelope(tmp_pa
 
 
 @pytest.mark.parametrize("corruption", ["extra", "unknown", "nested", "boolean"])
-def test_status_never_exports_corrupt_error_fields_or_unknown_state_fields(tmp_path, corruption):
+def test_status_never_exports_corrupt_error_fields_or_unknown_state_fields(
+    tmp_path, corruption
+):
     root = RetryRoot.create(tmp_path / "client")
     operations = SyntheticOperations()
     client = workflow(root, operations)

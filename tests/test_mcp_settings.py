@@ -17,10 +17,14 @@ def settings_file(tmp_path):
     token.write_text("a" * 43)
     token.chmod(0o600)
     value = {
-        "schemaVersion": 1, "origin": "https://synthetic.example.invalid",
-        "identity": identity_value(IDENTITY), "credentialFile": str(token),
-        "retryRoot": str(tmp_path / "client-state"), "clientId": "synthetic-client",
-        "writeSources": ["manual"], "acknowledgeAiEgress": True,
+        "schemaVersion": 1,
+        "origin": "https://synthetic.example.invalid",
+        "identity": identity_value(IDENTITY),
+        "credentialFile": str(token),
+        "retryRoot": str(tmp_path / "client-state"),
+        "clientId": "synthetic-client",
+        "writeSources": ["manual"],
+        "acknowledgeAiEgress": True,
     }
     path = tmp_path / "adapter.json"
     path.write_text(json.dumps(value))
@@ -46,12 +50,19 @@ def test_explicit_state_is_not_a_local_backend(tmp_path, monkeypatch):
     assert settings.origin == value["origin"] and settings.tls() is True
 
 
-@pytest.mark.parametrize("change", [
-    {"schemaVersion": True}, {"acknowledgeAiEgress": False},
-    {"origin": "http://127.0.0.1:8791"}, {"origin": "https://user@synthetic.example.invalid"},
-    {"origin": "https://synthetic.example.invalid/private"}, {"extra": "private"},
-    {"writeSources": [True]}, {"clientId": "../escape"},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"schemaVersion": True},
+        {"acknowledgeAiEgress": False},
+        {"origin": "http://127.0.0.1:8791"},
+        {"origin": "https://user@synthetic.example.invalid"},
+        {"origin": "https://synthetic.example.invalid/private"},
+        {"extra": "private"},
+        {"writeSources": [True]},
+        {"clientId": "../escape"},
+    ],
+)
 def test_config_refuses_ambient_or_ambiguous_shapes(tmp_path, change):
     path, value = settings_file(tmp_path)
     path.write_text(json.dumps({**value, **change}))
@@ -70,7 +81,9 @@ def test_broad_credential_and_duplicate_config_keys_refuse(tmp_path):
         Settings.read(path)
 
 
-@pytest.mark.parametrize("name", ["/mnt/forbidden/credential", "//mnt/forbidden/credential"])
+@pytest.mark.parametrize(
+    "name", ["/mnt/forbidden/credential", "//mnt/forbidden/credential"]
+)
 def test_forbidden_native_boundary_rejected_without_filesystem_probe(monkeypatch, name):
     def forbidden(*args, **kwargs):
         raise AssertionError("forbidden target must never be probed")

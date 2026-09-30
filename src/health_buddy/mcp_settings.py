@@ -39,10 +39,20 @@ class Settings:
     def read(cls, path: Path) -> Settings:
         try:
             raw = read_file(private_path(str(path)), 16_384)
-            value = object_value(decode(raw), {
-                "schemaVersion", "origin", "identity", "credentialFile",
-                "retryRoot", "clientId", "writeSources", "acknowledgeAiEgress",
-            }, {"caFile"})
+            value = object_value(
+                decode(raw),
+                {
+                    "schemaVersion",
+                    "origin",
+                    "identity",
+                    "credentialFile",
+                    "retryRoot",
+                    "clientId",
+                    "writeSources",
+                    "acknowledgeAiEgress",
+                },
+                {"caFile"},
+            )
             if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
                 raise ValueError("version")
             if value["acknowledgeAiEgress"] is not True:
@@ -51,21 +61,40 @@ class Settings:
             if not isinstance(origin, str):
                 raise ValueError("origin")
             _canonical_origin(origin)
-            item = object_value(value["identity"], {"installationId", "datasetId", "restoreEpoch"})
-            identity = Identity(*(cast(str, item[key]) for key in ("installationId", "datasetId", "restoreEpoch")))
+            item = object_value(
+                value["identity"], {"installationId", "datasetId", "restoreEpoch"}
+            )
+            identity = Identity(
+                *(
+                    cast(str, item[key])
+                    for key in ("installationId", "datasetId", "restoreEpoch")
+                )
+            )
             check_identity(identity, identity)
             client = value["clientId"]
-            if not isinstance(client, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,39}", client):
+            if not isinstance(client, str) or not re.fullmatch(
+                r"[a-z][a-z0-9-]{0,39}", client
+            ):
                 raise ValueError("profile")
             sources = value["writeSources"]
-            if not isinstance(sources, list) or len(sources) > 32 or any(
-                not isinstance(source, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", source)
-                for source in sources
-            ) or len(set(cast(list[str], sources))) != len(sources):
+            if (
+                not isinstance(sources, list)
+                or len(sources) > 32
+                or any(
+                    not isinstance(source, str)
+                    or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", source)
+                    for source in sources
+                )
+                or len(set(cast(list[str], sources))) != len(sources)
+            ):
                 raise ValueError("sources")
             return cls(
-                origin, identity, private_path(value["credentialFile"]),
-                private_path(value["retryRoot"]), client, tuple(cast(list[str], sources)),
+                origin,
+                identity,
+                private_path(value["credentialFile"]),
+                private_path(value["retryRoot"]),
+                client,
+                tuple(cast(list[str], sources)),
                 private_path(value["caFile"]) if "caFile" in value else None,
             )
         except (ServiceError, ConfigError, OSError, ValueError, TypeError):

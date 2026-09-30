@@ -36,10 +36,15 @@ class Framing:
         # IDs and methods are echoed by protocol machinery, so bound them too.
         if "id" in value:
             item = value["id"]
-            if not ((type(item) is int and abs(item) < 2**53) or (isinstance(item, str) and 1 <= len(item) <= 128)):
+            if not (
+                (type(item) is int and abs(item) < 2**53)
+                or (isinstance(item, str) and 1 <= len(item) <= 128)
+            ):
                 raise ValueError("invalid_frame")
         method = value.get("method")
-        if method is not None and (not isinstance(method, str) or not 1 <= len(method) <= 128):
+        if method is not None and (
+            not isinstance(method, str) or not 1 <= len(method) <= 128
+        ):
             raise ValueError("invalid_frame")
         message = jsonrpc_message_adapter.validate_python(value)
         if method is not None and "id" in value:
@@ -55,8 +60,14 @@ class Framing:
         if isinstance(message, JSONRPCError):
             # SDK/Pydantic exceptions may contain request values. Preserve the
             # standard code/id, never arbitrary validation messages or data.
-            value = {"jsonrpc": "2.0", "id": message.id,
-                     "error": {"code": message.error.code, "message": "Protocol request failed"}}
+            value = {
+                "jsonrpc": "2.0",
+                "id": message.id,
+                "error": {
+                    "code": message.error.code,
+                    "message": "Protocol request failed",
+                },
+            }
         raw = encode(value) + b"\n"
         if len(raw) > MAX_OUTPUT:
             raise ValueError("response_too_large")
@@ -84,7 +95,9 @@ async def streams(read_fd: int, write_fd: int) -> AsyncIterator[tuple[Any, Any]]
     os.set_blocking(read_fd, False)
     os.set_blocking(write_fd, False)
     framing = Framing()
-    incoming_send, incoming = anyio.create_memory_object_stream[SessionMessage | Exception](1)
+    incoming_send, incoming = anyio.create_memory_object_stream[
+        SessionMessage | Exception
+    ](1)
     outgoing, outgoing_receive = anyio.create_memory_object_stream[SessionMessage](1)
 
     async def read() -> None:
@@ -98,7 +111,13 @@ async def streams(read_fd: int, write_fd: int) -> AsyncIterator[tuple[Any, Any]]
                         # A fully framed, idle AI host may remain connected.
                         await anyio.wait_readable(read_fd)
                     else:
-                        remaining = min(started + PARTIAL_TOTAL_SECONDS, last_read + PARTIAL_IDLE_SECONDS) - time.monotonic()
+                        remaining = (
+                            min(
+                                started + PARTIAL_TOTAL_SECONDS,
+                                last_read + PARTIAL_IDLE_SECONDS,
+                            )
+                            - time.monotonic()
+                        )
                         if remaining <= 0:
                             return
                         with anyio.fail_after(remaining):
