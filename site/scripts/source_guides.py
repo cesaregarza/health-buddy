@@ -30,7 +30,7 @@ PINNED_REFERENCES.update({
 })
 SNIPPETS = {
     "discover": 'health-buddy --workspace "$WORKSPACE" workspace describe --json\nhealth-buddy --workspace "$WORKSPACE" extension inspect\nhealth-buddy --workspace "$WORKSPACE" extension compatibility --extension-api 1',
-    "install-example": 'health-buddy --workspace "$WORKSPACE" extension install --example local.weekly-mass',
+    "install-example": 'health-buddy --workspace "$WORKSPACE" extension install --example local.weekly-mass\nhealth-buddy --workspace "$WORKSPACE" extension enable --id local.weekly-mass --source-id manual\nhealth-buddy --workspace "$WORKSPACE" extension inspect',
     "unit-config": '{"title":"My weekly mass","displayUnit":"lb"}',
     "test-example": 'PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider "$EXTENSION/tests" tests/test_extension_runtime.py tests/test_extension_preservation.py',
     "preview": 'health-buddy --workspace "$WORKSPACE" extension enable --id local.weekly-mass --source-id manual\nhealth-buddy --workspace "$WORKSPACE" --credential-file "$OWNER_FILE" extension preview --id local.weekly-mass --source-id manual --from 2030-01-01T00:00:00Z --to 2030-01-07T23:59:59Z',
