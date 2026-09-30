@@ -6,7 +6,11 @@ import zipfile
 
 import pytest
 
-from scripts.audit_distribution import inspect, inspect_archive
+from scripts.audit_distribution import (
+    REQUIRED_AGENT_REFERENCES,
+    inspect,
+    inspect_archive,
+)
 
 
 @pytest.mark.parametrize("name", [
@@ -102,3 +106,19 @@ def test_sdist_allows_expected_package_root_without_directory_entry(tmp_path):
         entry.size = 1
         handle.addfile(entry, io.BytesIO(b"x"))
     assert inspect_archive(archive) == ([], 1)
+
+
+@pytest.mark.parametrize("missing", [None, "CLAUDE.md"])
+def test_sdist_maintenance_references_are_required_when_auditing_release(tmp_path, missing):
+    archive = tmp_path / "fabricated.tar.gz"
+    with tarfile.open(archive, "w:gz") as handle:
+        for relative in REQUIRED_AGENT_REFERENCES:
+            if relative == missing:
+                continue
+            entry = tarfile.TarInfo("fabricated/" + relative)
+            entry.size = 1
+            handle.addfile(entry, io.BytesIO(b"x"))
+    errors, _ = inspect_archive(archive, required_source=REQUIRED_AGENT_REFERENCES)
+    assert errors == (
+        ["fabricated.tar.gz: missing maintenance source CLAUDE.md"] if missing else []
+    )
