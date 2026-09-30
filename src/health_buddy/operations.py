@@ -672,5 +672,14 @@ class Service:
         )
 
 
-def open_service(workspace: Path, *, development: bool = False) -> Service:
-    return Service(workspace, DevelopmentPolicy() if development else None)
+def open_service(
+    workspace: Path,
+    *,
+    development: bool = False,
+    release_identity: ReleaseIdentity | None = None,
+) -> Service:
+    return Service(
+        workspace,
+        DevelopmentPolicy() if development else None,
+        release_identity=release_identity,
+    )
