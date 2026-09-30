@@ -284,11 +284,21 @@ class ClientWorkflow:
         ):
             raise ServiceError(503, "client_state_unavailable")
         state = cast(dict[str, Any], value)
-        if isinstance(self.namespace, McpWorkflowNamespace) and (
-            state.get("intentNamespace") != self._mcp_namespace()
-            or state["state"] == "discarded"
-        ):
-            raise ServiceError(503, "client_state_unavailable")
+        if isinstance(self.namespace, McpWorkflowNamespace):
+            namespace = state.get("intentNamespace")
+            if (
+                not isinstance(namespace, dict)
+                or set(namespace) != {"schemaVersion", "kind", "clientId", "intentId"}
+                or type(namespace["schemaVersion"]) is not int
+                or namespace["schemaVersion"] != 1
+                or any(
+                    not isinstance(namespace[key], str)
+                    for key in ("kind", "clientId", "intentId")
+                )
+                or namespace != self._mcp_namespace()
+                or state["state"] == "discarded"
+            ):
+                raise ServiceError(503, "client_state_unavailable")
         self._request(state["envelope"])
         return state
 

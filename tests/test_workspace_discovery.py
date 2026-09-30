@@ -75,6 +75,36 @@ def test_write_only_can_negotiate_but_cannot_discover_and_revocation_is_current(
     assert discover(runtime, None).status == 401
 
 
+def test_mixed_binding_discovery_does_not_disclose_hidden_sources_or_grant_reads(tmp_path):
+    runtime, owner, _ = secured(tmp_path / "owner")
+    config = runtime.operations.config
+    name = "local.weekly-mass"
+    example(config, name)
+    registry = Registry(config)
+    registry.enable(name, source_ids=("manual",))
+    principal, _ = grant(runtime, owner, sources=("manual",))
+    before = discover(runtime, principal)
+    assert before.status == 200
+    registry.enable(name, source_ids=("manual", "fabricated-hidden-source"))
+    after = discover(runtime, principal)
+    # Source selection is per metric invocation. The same visible descriptor
+    # is useful for manual, without disclosing the other binding or its count.
+    assert after.status == 200 and after.body == before.body
+    assert json.loads(after.body)["data"]["extensions"][0]["id"] == name
+    assert b"fabricated-hidden-source" not in after.body
+    query = {"from": "2030-01-01T00:00:00Z", "to": "2030-01-07T23:59:59Z"}
+    allowed = runtime.operations.execute(principal, Request(
+        "extensions.read", resource_id=name, query={**query, "sourceId": "manual"},
+    ))
+    denied = runtime.operations.execute(principal, Request(
+        "extensions.read", resource_id=name,
+        query={**query, "sourceId": "fabricated-hidden-source"},
+    ))
+    assert allowed.status == 200
+    assert json.loads(allowed.body)["data"]["metric"]["sourceId"] == "manual"
+    assert denied.status == 403
+
+
 def test_optional_invalid_disabled_metadata_and_extra_query_are_safe(tmp_path):
     runtime, owner, _ = secured(tmp_path / "owner")
     config = runtime.operations.config

@@ -118,6 +118,25 @@ def test_private_paths_reject_symlinks_hardlinks_and_broad_permissions(tmp_path)
             root.path(relative)
 
 
+def test_boolean_namespace_version_is_retained_and_refused_without_send(tmp_path):
+    root = RetryRoot.create(tmp_path / "adapter")
+    operations = SyntheticOperations()
+    client = workflow(root, operations)
+    emit(client)
+    state = json.loads(state_path(root).read_bytes())
+    assert type(state["intentNamespace"]["schemaVersion"]) is int
+    # Every other persisted field is the valid, already completed action.
+    # Python dictionary equality alone considers this True equal to integer 1.
+    state["intentNamespace"]["schemaVersion"] = True
+    corrupted = json.dumps(state).encode()
+    state_path(root).write_bytes(corrupted)
+    for command in (client.inspect, client.retry, lambda: emit(client)):
+        with pytest.raises(ServiceError, match="client_state_unavailable"):
+            command()
+        assert state_path(root).read_bytes() == corrupted
+    assert len(operations.requests) == 1
+
+
 def test_capacity_refuses_new_intents_without_evicting_completed_receipts(tmp_path):
     root = RetryRoot.create(tmp_path / "adapter")
     operations = SyntheticOperations()

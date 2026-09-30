@@ -11,6 +11,9 @@ interface versions, permitted operation names, fixed relative documentation
 references and currently ready extension descriptors admitted by read sources,
 kinds and fields. Symbolic notes/test references do not assert those personal
 files exist or disclose their contents. No extension code is imported or run.
+An extension with multiple source bindings may be visible when one binding is
+currently admitted. Discovery exposes neither those bindings nor their count;
+each later metric invocation independently authorizes its selected source.
 Disabled, invalid, unreviewed or non-admitted entries are omitted without hidden
 counts. This is explicitly not the complete owner inventory. Built-in discovery
 survives optional registry failure; it never calls native workspace inventory or
