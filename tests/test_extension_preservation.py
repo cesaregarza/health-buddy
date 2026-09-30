@@ -110,6 +110,8 @@ def test_describe_inventories_all_personal_files_and_reports_fork_provenance(
     )
 
     explicit = personal_workspace.describe(config, upstream_base=upstream_a)
+    assert "docs/agent-guide.md" in explicit["documentation"]
+    assert "tests/test_extension_runtime.py" in explicit["tests"]
     by_path = {item["path"]: item for item in explicit["personalInventory"]["entries"]}
     assert explicit["personalInventory"]["complete"] is True
     assert "WORKSPACE.md" in by_path
