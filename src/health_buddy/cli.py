@@ -9,17 +9,24 @@ from functools import partial
 from pathlib import Path
 
 from .app import App
-from .config import ConfigError
+from .config import ConfigError, load
 from .domain import decode
 from .legacy_store import StoreError
 from .loggers import FIELDS
 from .operations import open_service
+from .security_api import BearerProof
+from .security_runtime import open_runtime, read_credential, setup_security
 from .service_api import ServiceError
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument(
+        "--credential-file",
+        type=Path,
+        help="Explicit private owner/agent bearer file; never a token argument",
+    )
     parser.add_argument(
         "--development",
         action="store_true",
@@ -37,6 +44,15 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("init")
     commands.add_parser("render")
     commands.add_parser("status")
+    security = commands.add_parser("security")
+    security_commands = security.add_subparsers(dest="security_command", required=True)
+    bootstrap = security_commands.add_parser("bootstrap")
+    handoff = bootstrap.add_mutually_exclusive_group(required=True)
+    handoff.add_argument("--proof-file", type=Path)
+    handoff.add_argument("--owner-token-file", type=Path)
+    recovery = security_commands.add_parser("recover")
+    recovery.add_argument("--owner-token-file", type=Path, required=True)
+    recovery.add_argument("--confirm-revoke-all", action="store_true")
     plan = commands.add_parser("plan")
     plan.add_argument("--file", type=Path, required=True)
     context = commands.add_parser("context")
@@ -62,13 +78,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
+        if args.development and args.credential_file is not None:
+            raise ServiceError(422, "development_cannot_use_credentials")
+        if args.command == "security":
+            if args.development or args.credential_file is not None:
+                raise ServiceError(422, "security_setup_requires_os_owner")
+            recover = args.security_command == "recover"
+            native_owner = not recover and args.owner_token_file is not None
+            setup_security(
+                args.workspace,
+                args.owner_token_file if recover or native_owner else args.proof_file,
+                recover=recover,
+                confirm_revoke_all=recover and args.confirm_revoke_all,
+                owner_token=native_owner,
+            )
+            print(
+                "Private security handoff created. Keep the file private; "
+                "its contents are not recoverable from HTTP replies."
+            )
+            return 0
         if args.command == "serve":
             from .production_server import serve
 
             # Construct the service inside Granian's child, never in this
             # supervisor before the factory crosses its process boundary.
             serve(
-                partial(open_service, args.workspace, development=args.development),
+                partial(open_runtime, args.workspace, development=args.development),
+                ingress=load(args.workspace.expanduser().resolve()).ingress(),
                 port=args.port,
                 development=args.development,
             )
@@ -80,9 +116,14 @@ def main(argv: list[str] | None = None) -> int:
                 "Optional sources stay explicitly configured."
             )
             return 0
-        app = (
-            App.development(args.workspace) if args.development else App(args.workspace)
-        )
+        if args.development:
+            app = App.development(args.workspace)
+        elif args.credential_file is not None:
+            app = App.authenticated(
+                args.workspace, proof=BearerProof(read_credential(args.credential_file))
+            )
+        else:
+            raise ServiceError(401, "explicit_credential_file_required")
         if args.command == "render":
             output = app.config.storage("cache") / "index.html"
             app.write_html(output)

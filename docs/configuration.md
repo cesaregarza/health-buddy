@@ -16,7 +16,9 @@ Open `http://127.0.0.1:8791`. This is a **local development
 entrypoint**, without production authentication. It binds only loopback, checks
 the exact Host and same-origin mutation requests, and denies cross-origin
 preflight. Do not expose it through a proxy, tunnel or public interface. The
-production runtime/installer is CES-1068; production authorization is CES-1067.
+production runtime/installer is CES-1068. [Authorization setup](authorization.md)
+provides explicit native credentials and protected browser sessions; browser
+login also needs deliberately configured HTTPS ingress.
 The wheel still targets library/ingest use: this dashboard entrypoint requires
 the source bundle's templates, calculations and scripts. An editable source
 install also provides the `health-buddy` command.
@@ -146,8 +148,9 @@ answers never become invented confidence percentages.
 
 The source-only legacy `context_service.py`, old pipeline and host-oriented
 command wrappers are not this entrypoint. Do not start those to bypass config.
-All supported health writes now use canonical operations. CES-1067 will supply
-the production identity policy. Without explicit development selection or an
-injected authenticated policy, native and HTTP operations deny protected access.
+All supported health writes now use canonical operations. The durable security
+authority supplies current owner/agent/device admission. Without explicit
+development selection or a currently authenticated credential/session, native
+and HTTP operations deny protected access.
 See [canonical-clients.md](canonical-clients.md) for pending retries and the
 full current command syntax.

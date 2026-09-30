@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Never, cast
 
 from . import legacy, loggers
+from .client_auth import AuthenticatedOperations
 from .client_workflow import ClientWorkflow, decoded
 from .config import Config
 from .domain import decode, digest, normalize
@@ -15,6 +17,7 @@ from .durability import atomic_bytes
 from .operations import open_service
 from .plans import to_wire
 from .policy import DEVELOPMENT_PRINCIPAL
+from .security_api import BearerProof, ClientIdentity, Runtime
 from .service_api import (
     JSON,
     Identity,
@@ -35,6 +38,7 @@ class App:
         operations: Operations | None = None,
         principal: Principal | None = None,
         configuration: Config | None = None,
+        client_identity: Callable[[], ClientIdentity] | None = None,
     ) -> None:
         if operations is None:
             service = open_service(root)
@@ -42,7 +46,27 @@ class App:
         self.config = configuration or initialize(root)
         self.operations = operations
         self.principal = principal
-        self.workflow = ClientWorkflow(self.config, operations, principal)
+        self.workflow = ClientWorkflow(
+            self.config, operations, principal, client_identity=client_identity
+        )
+
+    @classmethod
+    def authenticated(
+        cls, root: Path, *, proof: BearerProof, runtime: Runtime | None = None
+    ) -> App:
+        if runtime is None:
+            from .security_runtime import open_runtime
+
+            runtime = open_runtime(root)
+        admitted = runtime.security.authenticate(proof)
+        operations = AuthenticatedOperations(runtime, proof)
+        return cls(
+            root,
+            operations=operations,
+            principal=admitted.principal,
+            configuration=initialize(root),
+            client_identity=operations.describe,
+        )
 
     @classmethod
     def development(cls, root: Path) -> App:

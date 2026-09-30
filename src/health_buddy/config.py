@@ -7,10 +7,13 @@ import math
 import re
 from copy import deepcopy
 from dataclasses import dataclass
+from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from .security_api import IngressConfig
 
 
 class ConfigError(ValueError):
@@ -28,6 +31,13 @@ def defaults() -> dict[str, Any]:
             "manual": "stores/manual.git",
             "healthkit": "stores/healthkit.db",
             "cache": "cache",
+        },
+        "security": {
+            "ingress": "loopback",
+            "externalOrigin": None,
+            "ownerSubject": None,
+            "socketPath": "security/http.sock",
+            "sessionSeconds": 3600,
         },
         "integrations": {
             "healthkit": {"enabled": False, "mode": "read-only"},
@@ -126,6 +136,16 @@ class Config:
     def storage(self, name: str) -> Path:
         return self.path(str(self.values["storage"][name]))
 
+    def ingress(self) -> IngressConfig:
+        security = self.values["security"]
+        return IngressConfig(
+            security["ingress"],
+            security["externalOrigin"],
+            security["ownerSubject"],
+            str(self.path(security["socketPath"])),
+            security["sessionSeconds"],
+        )
+
     def public(self) -> dict[str, Any]:
         """Non-secret display settings only: no host paths or secret references."""
         return {
@@ -150,7 +170,12 @@ class Config:
 
 
 def validate(values: Any, root: Path) -> Config:
-    value = deepcopy(_object(values, set(defaults()), "configuration"))
+    # Existing v1 owner files keep explicit development/default-deny behavior;
+    # adding security settings here never rewrites their configuration file.
+    value = deepcopy(values)
+    if isinstance(value, dict) and set(value) == set(defaults()) - {"security"}:
+        value["security"] = defaults()["security"]
+    value = _object(value, set(defaults()), "configuration")
     if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
         raise ConfigError("Unsupported configuration schemaVersion")
     identity = _object(value["identity"], {"displayName"}, "identity")
@@ -246,6 +271,7 @@ def validate(values: Any, root: Path) -> Config:
     if not valid_endpoint:
         raise ConfigError("Jev endpoint must be HTTPS without embedded credentials")
     config = Config(root.resolve(), value)
+    _security(config)
     paths = [config.storage(name) for name in storage]
     paths.append(config.path(integrations["sleepiq"]["exportFile"]))
     reserved = [
@@ -263,6 +289,87 @@ def validate(values: Any, root: Path) -> Config:
     ):
         raise ConfigError("Jev apiKeyFile must be a file within secrets/")
     return config
+
+
+def _canonical_origin(value: Any) -> None:
+    """Require browser-serialized HTTPS origins; never silently rewrite config."""
+    error = ConfigError(
+        "security.externalOrigin requires a canonical HTTPS origin: "
+        "lowercase ASCII host, no default port, credentials, path or whitespace"
+    )
+    origin = _text(value, "security.externalOrigin", 500)
+    if (
+        any(ord(char) <= 32 or ord(char) >= 127 for char in origin)
+        or "\\" in origin
+        or "%" in origin
+    ):
+        raise error
+    try:
+        parsed = urlsplit(origin)
+        host = parsed.hostname
+        port = parsed.port
+        if (
+            parsed.scheme != "https"
+            or not host
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or port == 443
+            or (port is not None and not 1 <= port <= 65535)
+        ):
+            raise error
+        if ":" in host:
+            canonical_host = "[" + str(IPv6Address(host)) + "]"
+        elif re.fullmatch(r"[0-9.]+", host):
+            canonical_host = str(IPv4Address(host))
+        else:
+            if len(host) > 253 or not all(
+                re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+                for label in host.split(".")
+            ):
+                raise error
+            # WHATWG interprets numeric final labels as IPv4 forms. Avoid
+            # accepting a DNS spelling whose browser origin changes meaning.
+            if re.fullmatch(r"(?:[0-9]+|0x[0-9a-f]+)", host.split(".")[-1]):
+                raise error
+            canonical_host = host
+        authority = canonical_host + (f":{port}" if port is not None else "")
+        if origin != "https://" + authority:
+            raise error
+    except ValueError:
+        raise error from None
+
+
+def _security(config: Config) -> None:
+    settings = _object(
+        config.values["security"], set(defaults()["security"]), "security"
+    )
+    if settings["ingress"] not in ("loopback", "tailscale-uds"):
+        raise ConfigError("security.ingress must be loopback or tailscale-uds")
+    seconds = settings["sessionSeconds"]
+    if type(seconds) is not int or not 300 <= seconds <= 86400:
+        raise ConfigError("security.sessionSeconds must be between 300 and 86400")
+    origin = settings["externalOrigin"]
+    if origin is not None:
+        _canonical_origin(origin)
+    subject = settings["ownerSubject"]
+    if subject is not None:
+        _text(subject, "security.ownerSubject", 254)
+        if (
+            not subject.isascii()
+            or any(ord(char) <= 32 or ord(char) >= 127 for char in subject)
+            or "=?" in subject
+        ):
+            raise ConfigError("security.ownerSubject must be an exact ASCII subject")
+    path = config.path(relative_path(settings["socketPath"], "security.socketPath"))
+    if path.parent != config.root / "security" or not path.name.endswith(".sock"):
+        raise ConfigError("security.socketPath must name a .sock file in security/")
+    if settings["ingress"] == "tailscale-uds" and (origin is None or subject is None):
+        raise ConfigError(
+            "Trusted UDS ingress requires externalOrigin and ownerSubject"
+        )
 
 
 def load(root: Path) -> Config:

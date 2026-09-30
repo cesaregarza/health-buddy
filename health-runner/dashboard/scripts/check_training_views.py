@@ -218,6 +218,9 @@ def main():
             page.on('pageerror', lambda error: errors.append(str(error)))
 
             def offline_route(route):
+                if route.request.url.endswith('/v1/session'):
+                    route.fulfill(status=200,json={'data':{'development':True},'meta':{}})
+                    return
                 if route.request.resource_type != 'document':
                     raise AssertionError(f'Unexpected external request: {route.request.url}')
                 route.fulfill(status=200, content_type='text/html', body=html)

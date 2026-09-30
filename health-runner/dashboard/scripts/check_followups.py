@@ -33,6 +33,8 @@ def main():
                 calls=[]
                 def route(req):
                     if req.request.resource_type=='document':req.fulfill(status=200,content_type='text/html',body=render(data,AS_OF))
+                    elif req.request.url.endswith('/v1/session'):
+                        req.fulfill(status=200,json={'data':{'development':True},'meta':{}})
                     elif req.request.url.endswith('/v1/capabilities'):
                         req.fulfill(status=200,json=envelope({'writable':True}))
                     elif req.request.url.endswith('/v1/workouts'):

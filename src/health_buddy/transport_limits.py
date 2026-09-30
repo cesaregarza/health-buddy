@@ -57,6 +57,12 @@ _SINGLETONS = frozenset(
         "if-match",
         "x-api-version",
         "sec-fetch-site",
+        "x-csrf-token",
+        "x-health-buddy-browser",
+        "x-forwarded-host",
+        "x-forwarded-proto",
+        "tailscale-user-login",
+        "tailscale-funnel-request",
     }
 )
 

@@ -31,7 +31,31 @@ const HealthAPI = (() => {
     }
     return body;
   }
-  return {metadata, sameIdentity, pendingRequest, envelope};
+  function authenticationNotice() {
+    let notice=document.getElementById('authentication-notice');
+    if(!notice){notice=document.createElement('aside');notice.id='authentication-notice';notice.setAttribute('role','status');notice.className='training-card';document.body.prepend(notice);}
+    notice.textContent='Sign-in or permission needs attention. Your original draft and pending request are retained. ';
+    const link=document.createElement('a');link.href='/login';link.target='_blank';link.rel='noopener';link.textContent='Open sign-in in another tab';notice.append(link);
+  }
+  async function request(url, options={}) {
+    const target=new URL(url,location.href);
+    if(target.origin!==location.origin) throw new Error('Cross-origin health request refused.');
+    const method=(options.method||'GET').toUpperCase();
+    const headers=new Headers(options.headers||{});
+    if(!['GET','HEAD'].includes(method)) {
+      const response=await fetch('/v1/session',{cache:'no-store',credentials:'same-origin',redirect:'error',signal:options.signal});
+      const session=await response.json().catch(()=>null);
+      if(!response.ok){authenticationNotice();throw new Error('Sign in before retrying the original request.');}
+      if(session?.data?.development!==true) {
+        if(session?.secret?.kind!=='csrf'||typeof session.secret.value!=='string') throw new Error('A protected browser session is required.');
+        headers.set('X-CSRF-Token',session.secret.value);
+      }
+    }
+    const response=await fetch(target.href,{...options,headers,credentials:'same-origin',redirect:'error'});
+    if(response.status===401||response.status===403) authenticationNotice();
+    return response;
+  }
+  return {metadata, sameIdentity, pendingRequest, envelope, request};
 })();
 
 /* Browser-only drafts and change history. Bundled into the static page. */
@@ -172,7 +196,7 @@ const HealthFeatures = (() => {
       const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
       try{
         if(!draft.pending){
-          const capabilities=await HealthAPI.envelope(await fetch('/v1/capabilities',{cache:'no-store',signal:controller.signal}),data.meta);
+          const capabilities=await HealthAPI.envelope(await HealthAPI.request('/v1/capabilities',{cache:'no-store',signal:controller.signal}),data.meta);
           if(capabilities.data.writable!==true)throw new Error('This client cannot save health records.');
           const meta=capabilities.meta;
           draft.pending={version:1,method:'POST',path:'/v1/workouts',body:JSON.stringify(reviewed),identity:meta,headers:{
@@ -190,7 +214,7 @@ const HealthFeatures = (() => {
         // identity, revision and key survive reload, timeout and manual retry.
         if(!HealthAPI.sameIdentity(data.meta,pending.identity))throw new Error('This saved request belongs to a different workspace identity. Resolve it explicitly.');
         if(!persist())throw new Error('Saving is paused until this browser can retain the original retry request.');
-        const response=await fetch(pending.path,{method:pending.method,signal:controller.signal,headers:pending.headers,body:pending.body});
+        const response=await HealthAPI.request(pending.path,{method:pending.method,signal:controller.signal,headers:pending.headers,body:pending.body});
         const result=await HealthAPI.envelope(response,pending.identity);
         const intent=JSON.parse(pending.body);
         if(result.data.saved!==true||result.data.sessionId!==intent.session_id||result.meta.dataRevision!==pending.identity.dataRevision+1||response.headers.get('etag')!==`"rev-${result.meta.dataRevision}"`){

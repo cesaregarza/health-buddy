@@ -21,8 +21,9 @@ stores/manual.git is the local CSV/JSON backend of the canonical operations API.
 It has no remote and does not inherit Git hooks, identity or signing settings.
 Use the health-buddy entrypoint to write records; never edit this store directly
 or copy a private Git repository into it. The operations journal owns revisions
-and recoverable writes. Production auth and restore qualification follow in
-CES-1067 and CES-1070/1083. Do not expose this development service on a network.
+and recoverable writes. Security setup is explicit: retain private owner/agent
+credentials in secrets/, never in browser storage or source. Restore qualification
+remains CES-1070/1083. Do not expose the --development service on a network.
 """
 
 

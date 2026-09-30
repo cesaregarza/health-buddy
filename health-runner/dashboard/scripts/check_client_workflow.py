@@ -47,6 +47,8 @@ def main():
         url = request.request.url
         if request.request.resource_type == "document":
             request.fulfill(status=200, content_type="text/html", body=render(data, AS_OF))
+        elif url.endswith("/v1/session"):
+            request.fulfill(status=200, json={"data":{"development":True},"meta":{}})
         elif url.endswith("/v1/capabilities"):
             request.fulfill(status=200, json={"data": {"writable": True}, "meta": data["meta"]})
         elif url.endswith("/v1/workouts"):

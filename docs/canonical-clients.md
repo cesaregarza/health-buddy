@@ -5,6 +5,10 @@ The native App, CLI and dashboard call the same admitted operations as HTTP.
 or the explicit global `--development` flag selects the local development
 owner policy. This is not production authentication or a remotely accessible
 mode. The HTTP launcher constructs its service inside its one serving process.
+`App.authenticated(root, proof=BearerProof(...))` instead uses the durable
+authority and reauthenticates before each operation. The CLI accepts only an
+explicit private `--credential-file`, never token argv or ambient credentials.
+See [private owner setup](authorization.md).
 
 The historical `scripts/log_*.py` command names now require `--workspace` and
 delegate to that same CLI; `log_workout.py` retains its start/set/cardio/finish
@@ -93,15 +97,15 @@ JSON or unsupported draft shapes are also preserved, with no claim that an
 earlier request was never submitted. Resolution asks the owner to acknowledge
 the possible earlier save before clearing or rebinding local retry state.
 
-## Remaining authentication integration
+## Authenticated retry ownership
 
-Native retry ownership currently hashes the fixed opaque authenticated handle
-used by development/test policy. `Principal.credential_id` is **not** inherently
-a durable actor identity. CES-1067 must provide a stable authenticated actor
-binding or an explicit authorized reauthentication workflow across resolver
-restart/credential rotation, and test pending replay plus revocation. Clients
-must not infer actor IDs from bearer tokens or manufacture authority. Changed
-handles fail closed in this slice.
+Production native retry format2 stores the Security authority's authenticated
+actor binding, security epoch and receiver tuple. `Principal.credential_id` is
+still only an opaque process-local handle. Same-actor credential rotation can
+retry the exact original request after deliberate reauthentication; another
+actor/epoch is rejected. Legacy format1 handle hashes remain preserved and
+blocked until explicit acknowledged resolution. Development/test compatibility
+is separate. Clients never infer actor IDs from token text or mint authority.
 
 ## Verification scope
 

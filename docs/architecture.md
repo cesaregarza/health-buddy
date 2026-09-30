@@ -11,6 +11,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Manual values and stable IDs | `records.py`, `loggers.py`, `plans.py`; canonical logger/source ownership tests; retained pure validator tests |
 | Source capture and scoped projections | `snapshots.py`, `views.py`, `projection.py`; canonical reads/extensions and portable workspace tests |
 | Maintained HTTP | `transport*.py`, `production_server.py`, `server.py`; transport, wire and portable HTTP tests |
+| Security authority and native setup | `security_api.py`, `security.py`, `security_store.py`, `security_actions.py`, `security_runtime.py`; security authority/pairing/recovery/setup tests |
 | UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and six browser suites |
 | Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
 | Owner configuration/first run | `config.py`, `workspace.py`, `legacy_store.py`; portable workspace/config tests |
@@ -34,8 +35,8 @@ in [canonical-clients.md](canonical-clients.md) before adding a command.
 
 The source-bundle development entrypoint uses explicit `--development`, binds
 loopback, and applies the development policy. Default policy denies protected
-operations. Production authentication/pairing is CES-1067, packaged runtime is
-CES-1068. The prior extraction preview and CES-1065 HTTPServer were historical
+operations. Production sessions, grants and pairing use the [security authority](authorization.md);
+packaged runtime is CES-1068. The prior extraction preview and CES-1065 HTTPServer were historical
 stages; they are not parallel supported runtime paths.
 
 Owner records, personal source/assets/config/tests/notes/migrations/state and

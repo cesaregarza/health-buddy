@@ -27,7 +27,8 @@ from .domain import (
     object_value,
     revision,
 )
-from .durability import atomic_bytes, exclusive, private_file
+from .durability import atomic_bytes, exclusive, fsync_path, private_file
+from .security_api import ClientIdentity
 from .service_api import (
     JSON,
     Identity,
@@ -92,11 +93,17 @@ def response_identity(value: dict[str, JSON]) -> tuple[Identity, int]:
 
 class ClientWorkflow:
     def __init__(
-        self, config: Config, operations: Operations, principal: Principal | None
+        self,
+        config: Config,
+        operations: Operations,
+        principal: Principal | None,
+        *,
+        client_identity: Callable[[], ClientIdentity] | None = None,
     ) -> None:
         self.config = config
         self.operations = operations
         self.principal = principal
+        self.client_identity = client_identity
 
     def _paths(self) -> tuple[Path, Path]:
         directory = self.config.path("personal/state")
@@ -122,13 +129,20 @@ class ClientWorkflow:
         if (
             not isinstance(value, dict)
             or type(value.get("schemaVersion")) is not int
-            or value["schemaVersion"] != 1
+            or value["schemaVersion"] not in (1, 2)
             or value.get("state") not in ("pending", "complete", "discarded")
             or type(value.get("cursor")) is not int
             or cast(int, value["cursor"]) < 0
             or not isinstance(value.get("envelope"), dict)
             or not isinstance(value.get("intentDigest"), str)
-            or not isinstance(value.get("principalBinding"), str)
+            or (
+                value["schemaVersion"] == 1
+                and not isinstance(value.get("principalBinding"), str)
+            )
+            or (
+                value["schemaVersion"] == 2
+                and not isinstance(value.get("clientIdentity"), dict)
+            )
         ):
             raise ServiceError(503, "client_state_unavailable")
         state = cast(dict[str, Any], value)
@@ -208,10 +222,39 @@ class ClientWorkflow:
             api_version="1",
         )
 
-    def _execute(self, path: Path, state: dict[str, Any]) -> dict[str, JSON]:
-        binding = digest(self.principal.credential_id if self.principal else None)
-        if state["principalBinding"] != binding:
+    def _binding(self) -> dict[str, JSON] | None:
+        if self.client_identity is None:
+            return None
+        value = self.client_identity()
+        if (
+            not isinstance(value, ClientIdentity)
+            or not isinstance(value.actor_binding, str)
+            or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value.actor_binding)
+            or not isinstance(value.security_epoch, str)
+            or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value.security_epoch)
+        ):
+            raise ServiceError(503, "client_identity_unavailable")
+        check_identity(value.identity, value.identity)
+        return {
+            "actorBinding": value.actor_binding,
+            "securityEpoch": value.security_epoch,
+            "identity": identity_value(value.identity),
+        }
+
+    def _check_binding(self, state: dict[str, Any]) -> None:
+        binding = self._binding()
+        if binding is not None:
+            if state["schemaVersion"] != 2:
+                raise ServiceError(409, "legacy_client_state_requires_resolution")
+            if state["clientIdentity"] != binding:
+                raise ServiceError(409, "client_identity_changed")
+        elif state["schemaVersion"] != 1 or state["principalBinding"] != digest(
+            self.principal.credential_id if self.principal else None
+        ):
             raise ServiceError(409, "client_identity_changed")
+
+    def _execute(self, path: Path, state: dict[str, Any]) -> dict[str, JSON]:
+        self._check_binding(state)
         request = self._request(state["envelope"])
         try:
             result = self.operations.execute(
@@ -344,8 +387,11 @@ class ClientWorkflow:
                 "apiVersion": "1",
             }
             self._request(envelope)
+            binding = self._binding()
+            if binding is not None and binding["identity"] != envelope["identity"]:
+                raise ServiceError(409, "client_identity_changed")
             state = {
-                "schemaVersion": 1,
+                "schemaVersion": 2 if binding is not None else 1,
                 "state": "pending",
                 "cursor": state["cursor"] if state else 0,
                 "intentDigest": intent_digest,
@@ -356,18 +402,26 @@ class ClientWorkflow:
                     self.principal.credential_id if self.principal else None
                 ),
             }
+            if binding is not None:
+                state.pop("principalBinding", None)
+                state["clientIdentity"] = binding
             self._save(path, state)
             return self._execute(path, state)
 
     def inspect(self) -> dict[str, JSON]:
-        decoded(self.operations.execute(self.principal, Request("capabilities")))
+        if self.client_identity is not None:
+            self._binding()
+        else:
+            decoded(self.operations.execute(self.principal, Request("capabilities")))
         path, lock = self._paths()
         with exclusive(lock):
             state = self._load(path)
             if state is None:
                 return {"state": "empty", "cursor": 0}
             return {
-                "state": state["state"],
+                "state": "legacy_requires_resolution"
+                if self.client_identity is not None and state["schemaVersion"] == 1
+                else state["state"],
                 "cursor": state["cursor"],
                 "operation": state["envelope"]["operation"],
                 "lastError": state.get("lastError"),
@@ -381,15 +435,40 @@ class ClientWorkflow:
                 raise ServiceError(409, "no_pending_write")
             return self._execute(path, state)
 
+    def _archive_resolution(self, path: Path) -> dict[str, JSON]:
+        private_file(path)
+        archives = list(path.parent.glob("native-client.resolved-*.json"))
+        if len(archives) >= 64:
+            raise ServiceError(503, "client_resolution_archive_full")
+        try:
+            path.rename(path.with_name(f"native-client.resolved-{uuid4()}.json"))
+            fsync_path(path.parent)
+        except OSError as exc:
+            raise ServiceError(503, "client_resolution_outcome_unknown") from exc
+        return {"state": "discarded", "retained": True, "outcome": "unknown"}
+
     def discard(self, *, acknowledge_possible_save: bool = False) -> dict[str, JSON]:
         if not acknowledge_possible_save:
             raise ServiceError(409, "acknowledgement_required")
-        decoded(self.operations.execute(self.principal, Request("capabilities")))
+        if self.client_identity is not None:
+            self._binding()
+        else:
+            decoded(self.operations.execute(self.principal, Request("capabilities")))
         path, lock = self._paths()
         with exclusive(lock):
-            state = self._load(path)
+            try:
+                state = self._load(path)
+            except ServiceError as exc:
+                if exc.code != "client_state_unavailable":
+                    raise
+                # Preserve undecodable bytes under the same private directory.
+                # This is a deliberate local resolution, never an automatic
+                # retry rewrite or an assertion the earlier action did not save.
+                return self._archive_resolution(path)
             if state is None:
                 return {"state": "empty", "cursor": 0}
+            if self.client_identity is not None and state["schemaVersion"] == 1:
+                return self._archive_resolution(path)
             state["state"] = "discarded"
             state["resolution"] = "explicit_discard_possible_save_acknowledged"
             self._save(path, state)
