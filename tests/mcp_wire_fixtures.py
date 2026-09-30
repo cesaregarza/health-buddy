@@ -429,7 +429,7 @@ def client(
         # Only the integration test supplies its owned helper-generated config.
         command = [launch["command"], *launch["args"]]
         environment.update(launch["env"])
-        cwd = launch["cwd"]
+        cwd = launch.get("cwd", ROOT)
     stderr = folder / "mcp-stderr.log"
     with stderr.open("ab") as log:
         # Fixed module and exclusively owned synthetic paths, bounded by queue cgroup.
