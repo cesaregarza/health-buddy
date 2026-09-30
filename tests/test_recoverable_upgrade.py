@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -176,6 +177,9 @@ def release_fixture(
     return create_release(bundle, artifacts)
 
 
+_real_compose = upgrade_activation.compose
+
+
 def activation_fixture(tmp_path, monkeypatch):
     runtime, owner, token, grant, _setup = prepared(tmp_path / "original")
     metric = example(runtime.operations.config, "local.weekly-mass")
@@ -222,7 +226,9 @@ def activation_fixture(tmp_path, monkeypatch):
         calls.append(arguments)
         return b""
 
-    def running(docker, env, project, manifest, architecture):
+    def running(docker, env, project, manifest, architecture, workspace, uid, gid):
+        assert workspace == runtime.operations.config.root
+        assert uid == gid == 1000
         calls.append(("observed-running", manifest))
         if manifest == target:
             assert env.read_bytes() == target_hash.encode()
@@ -453,3 +459,70 @@ def test_interrupted_activation_can_explicitly_recover_recorded_previous_binary(
         arguments[0].operations.journal.state().revision
         == receipt["activationRevision"]
     )
+
+
+@pytest.mark.parametrize("mismatch", ["workspace", "user"])
+def test_real_running_guard_refuses_other_installation_before_stop_or_load(tmp_path, monkeypatch, mismatch):
+    real_running = upgrade_activation.running
+    arguments, calls, _token, _grant, _notes = activation_fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(upgrade_activation, "running", real_running)
+    artifact = upgrade_activation.selected_artifact(arguments[6], "amd64")
+    workspace = arguments[0].operations.config.root
+    source = str(tmp_path / "another-owner") if mismatch == "workspace" else str(workspace)
+    user = "1001:1001" if mismatch == "user" else "1000:1000"
+    responses = iter([
+        b"a" * 64 + b"\n",
+        (artifact.loader_ids[0] + "\ntrue\n" + user + "\n"
+         + json.dumps(source) + "\nbind\ntrue\n").encode(),
+    ])
+    commands = []
+    monkeypatch.setattr(upgrade_activation, "compose", _real_compose)
+    monkeypatch.setattr(upgrade_activation, "docker_command", lambda _docker: ["synthetic-docker"])
+
+    original_run = upgrade_activation.subprocess.run
+
+    def response(command, **kwargs):
+        if command[0] != "synthetic-docker":
+            return original_run(command, **kwargs)
+        commands.append(command)
+        assert kwargs["stdout"] == upgrade_activation.subprocess.PIPE
+        assert "stop" not in command and "load" not in command and "up" not in command
+        return SimpleNamespace(stdout=next(responses))
+
+    monkeypatch.setattr(upgrade_activation.subprocess, "run", response)
+    with pytest.raises(ServiceError, match="upgrade_running_installation_mismatch"):
+        activate(*arguments, confirm_quiesced=True)
+    assert len(commands) == 2
+    assert commands[0][-3:] == ["ps", "--quiet", "api"]
+    assert ".Config.User" in commands[1][-2]
+    assert ".Mounts" in commands[1][-2]
+    assert ".Config.Env" not in commands[1][-2]
+    assert calls == []
+
+
+@pytest.mark.parametrize("field", ["project", "environment", "uid", "gid"])
+def test_terminal_repeat_binds_saved_installation_before_any_host_action(tmp_path, monkeypatch, field):
+    real_running = upgrade_activation.running
+    arguments, calls, _token, _grant, _notes = activation_fixture(tmp_path, monkeypatch)
+    activate(*arguments, confirm_quiesced=True)
+    calls.clear()
+    monkeypatch.setattr(upgrade_activation, "running", real_running)
+    changed = list(arguments)
+    index, value = {
+        "project": (10, "health-buddy-another"),
+        "environment": (8, tmp_path / "other-runtime.env"),
+        "uid": (11, 1001), "gid": (12, 1001),
+    }[field]
+    changed[index] = value
+
+    original_run = upgrade_activation.subprocess.run
+
+    def unexpected(command, **kwargs):
+        if command[0] != "synthetic-docker":
+            return original_run(command, **kwargs)
+        raise AssertionError("receipt mismatch must not invoke a host subprocess")
+
+    monkeypatch.setattr(upgrade_activation.subprocess, "run", unexpected)
+    with pytest.raises(ServiceError, match="upgrade_installation_binding_mismatch"):
+        activate(*changed, confirm_quiesced=True)
+    assert calls == []

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -51,7 +52,8 @@ def compose(docker: Path, environment: Path, project: str, *arguments: str) -> b
 
 
 def running(
-    docker: Path, environment: Path, project: str, manifest: Path, architecture: str
+    docker: Path, environment: Path, project: str, manifest: Path, architecture: str,
+    workspace: Path, uid: int, gid: int,
 ) -> str:
     ids = (
         compose(docker, environment, project, "ps", "--quiet", "api")
@@ -66,7 +68,9 @@ def running(
                 *docker_command(docker),
                 "inspect",
                 "--format",
-                "{{.Image}} {{.State.Running}}",
+                "{{.Image}}\n{{.State.Running}}\n{{.Config.User}}\n"
+                '{{range .Mounts}}{{if eq .Destination "/workspace"}}'
+                "{{json .Source}}\n{{.Type}}\n{{.RW}}\n{{end}}{{end}}",
                 ids[0],
             ],
             env={"PATH": os.defpath, "DOCKER_CONFIG": folder},
@@ -76,12 +80,15 @@ def running(
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
-    if len(result.stdout) > 256:
+    if len(result.stdout) > 4096:
         raise ServiceError(502, "upgrade_runtime_response_limit")
-    rows = result.stdout.decode("ascii").strip().split()
+    rows = result.stdout.decode("utf-8").splitlines()
     artifact = selected_artifact(manifest, architecture)
-    if len(rows) != 2 or rows[1] != "true" or rows[0] not in artifact.loader_ids:
+    if len(rows) != 6 or rows[1] != "true" or rows[0] not in artifact.loader_ids:
         raise ServiceError(409, "upgrade_running_image_mismatch")
+    if (rows[2] != f"{uid}:{gid}" or json.loads(rows[3]) != str(workspace)
+            or rows[4:] != ["bind", "true"]):
+        raise ServiceError(409, "upgrade_running_installation_mismatch")
     return rows[0]
 
 
@@ -150,6 +157,10 @@ def activate(
             if identity_value(state.identity) != staged["identity"]:
                 raise ServiceError(409, "upgrade_identity_changed_requires_restage")
         existing = record(path) if path.exists() else None
+        if existing and (existing["project"] != project
+                         or existing["environment"] != str(environment)
+                         or existing["uid"] != uid or existing["gid"] != gid):
+            raise ServiceError(409, "upgrade_installation_binding_mismatch")
         action = "rollback" if rollback else "upgrade"
         if recover:
             if (
@@ -187,7 +198,8 @@ def activate(
                 raise ServiceError(409, "upgrade_pending_resume_same_target")
             progress = existing
         elif existing and existing["target"] == target and existing["action"] == action:
-            running(docker, environment, project, manifest, architecture)
+            running(docker, environment, project, manifest, architecture,
+                    service.config.root, uid, gid)
             return existing
         else:
             if rollback:
@@ -217,7 +229,8 @@ def activate(
                         raise ServiceError(
                             409, "upgrade_snapshot_stale_requires_restage"
                         )
-            running(docker, environment, project, previous_manifest, architecture)
+            running(docker, environment, project, previous_manifest, architecture,
+                    service.config.root, uid, gid)
             progress = {
                 "schemaVersion": 1,
                 "phase": "prepared",
@@ -278,7 +291,8 @@ def activate(
                     "api",
                 )
                 progress["runningImageId"] = running(
-                    docker, environment, project, manifest, architecture
+                    docker, environment, project, manifest, architecture,
+                    service.config.root, uid, gid,
                 )
                 progress["phase"] = "rolled_back" if rollback else "active"
                 progress.pop("failureCode", None)
