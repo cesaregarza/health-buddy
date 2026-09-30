@@ -158,7 +158,7 @@ def test_sdk_phase_deadline_enters_cleanup_and_sanitizes_failure(monkeypatch):
         ],
     )
     started = time.monotonic()
-    with pytest.raises(SystemExit, match="^packaged_sdk_qualification_failed$"):
+    with pytest.raises(SystemExit, match=r"^packaged_sdk_qualification_failed$"):
         helper.main()
     assert cleaned == [True] and time.monotonic() - started < 1
 
@@ -317,7 +317,7 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
         ],
     )
     try:
-        with pytest.raises(SystemExit, match="^packaged_sdk_qualification_failed$"):
+        with pytest.raises(SystemExit, match=r"^packaged_sdk_qualification_failed$"):
             helper.main()
         assert observed == ["live-child-cleanup-entered", (-signal.SIGKILL, True, True)]
         assert len(owned) == 1 and owned[0].wait(timeout=0) == -signal.SIGKILL

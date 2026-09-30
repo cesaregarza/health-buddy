@@ -16,8 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from health_buddy.runtime_inputs import (
     InputFile,
@@ -26,6 +25,8 @@ from health_buddy.runtime_inputs import (
     load_inputs,
 )
 from health_buddy.runtime_manifest import ManifestError, canonical, native_directory
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def selected_inputs():
@@ -113,7 +114,7 @@ def setup(output: Path) -> None:
     ]
     for command, timeout in commands:
         # Fixed modules, native owned paths, offline installation of verified wheels.
-        subprocess.run(
+        subprocess.run(  # noqa: S603 - Fixed offline commands and owned paths.
             command,
             env=environment,
             check=True,

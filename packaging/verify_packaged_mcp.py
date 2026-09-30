@@ -19,8 +19,8 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from health_buddy.runtime_manifest import (
     canonical,
@@ -28,6 +28,8 @@ from health_buddy.runtime_manifest import (
     verify_source_identity,
 )
 from tests.mcp_wire_fixtures import certificate, client, existing_backend
+
+ROOT = Path(__file__).resolve().parents[1]
 
 INTENT = "packaged-sdk-measurement"
 PHASE_SECONDS = 180
