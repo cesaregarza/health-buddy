@@ -12,6 +12,10 @@ from .legacy_manual_canary import INPUTS, export_manual_canary, import_manual_ca
 from .legacy_receiver_import import export_receiver, import_receiver
 from .legacy_workout_import import export_workouts, import_workouts
 from .service_api import ServiceError
+from .security import SecurityAuthority
+from .security_api import BearerProof
+from .security_runtime import open_runtime, read_credential
+from .runtime_manifest import native_directory
 
 
 def add_commands(commands: Any) -> None:
@@ -64,8 +68,29 @@ def add_commands(commands: Any) -> None:
     adopt_receiver.add_argument("--snapshot", type=Path, required=True)
     adopt_receiver.add_argument("--expected-snapshot-sha256", required=True)
 
+    admit = sub.add_parser("admit-device")
+    admit.add_argument("--device-id", required=True)
+    admit.add_argument("--expected-snapshot-sha256", required=True)
+    admit.add_argument("--name", required=True)
+
 
 def handle(args: argparse.Namespace) -> int:
+    if args.import_action == "admit-device":
+        if args.development or args.credential_file is None:
+            raise ServiceError(422, "import_admission_requires_owner_credential_file")
+        native_directory(args.workspace)
+        native_directory(args.credential_file.parent)
+        runtime = open_runtime(args.workspace)
+        if not isinstance(runtime.security, SecurityAuthority):
+            raise ServiceError(503, "import_admission_unavailable")
+        owner = runtime.security.authenticate(BearerProof(read_credential(args.credential_file)))
+        reply = runtime.security.admit_imported_device(
+            owner.principal, identity=runtime.operations.journal.state().identity,
+            device_id=args.device_id,
+            expected_snapshot_sha256=args.expected_snapshot_sha256, name=args.name,
+        )
+        print(json.dumps(reply.data, indent=2))
+        return 0
     if args.development or args.credential_file is not None:
         raise ServiceError(422, "import_requires_native_owner_maintenance")
     if args.import_action == "export-receiver":

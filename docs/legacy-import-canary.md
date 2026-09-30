@@ -179,9 +179,30 @@ normally. The legacy schema stores hashes rather than original batch payloads:
 the replay fixture supplies known fabricated payloads. It does not invent old
 canonical journal entries, canonical revisions or unavailable original payloads.
 
-The real pairing bridge remains **unimplemented**. Existing production pairing
-chooses new source/stream IDs, so an explicit import mapping cannot silently
-become a production device grant. Receiver identity, actual phone re-pairing,
-checkpoint reconciliation/replay, credentials and cutover need the next explicit
-bridge and device qualification. This data-only checkpoint does not complete
-CES-1081 or authorize use against a personal/deployed receiver.
+A native bearer owner can now explicitly admit one reviewed imported device into
+current security authority. Set up the new workspace owner separately using the
+supported `security setup --owner-token` command and keep its credential file
+private. Admission validates the private import receipt and database adoption
+marker against the selected snapshot, current installation/dataset/restore epoch,
+and the exact canonical journal/receiver stream. It creates an inactive upload-only
+actor with no credential. Exact repeats preserve the actor and credentials;
+changed selections, foreign bindings and non-owner callers are refused.
+
+```sh
+health-buddy --workspace /native/private/receiver-canary \
+  --credential-file /native/private/receiver-canary/secrets/owner.token \
+  legacy-import admit-device --device-id RETAINED_DEVICE_UUID \
+  --expected-snapshot-sha256 REVIEWED_RECEIVER_SNAPSHOT_SHA256 \
+  --name "Reviewed imported phone"
+```
+
+Use the returned actor `id` as the explicitly selected predecessor in ordinary
+replacement pairing, retaining the device UUID. Existing pairing provisions the
+already matching source/stream and issues a fresh credential; old credentials are
+never copied or admitted. This native operation is not a public transport action.
+The data-adoption receipt's `realPairingBridge: unimplemented` describes its initial
+data-only phase; admission does not rewrite that source receipt or health records.
+The actual SecurityStore synthetic fixture proves replacement pairing, old-token
+refusal, exact acknowledged replay and a genuinely new batch. Real phone identity,
+checkpoint/epoch reconciliation and cutover still require separate device evidence.
+This checkpoint does not complete CES-1081 or authorize a personal/deployed receiver.
