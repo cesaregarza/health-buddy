@@ -167,13 +167,15 @@ EOF
 ```
 
 `PYTHONPATH` makes Python import the installer from the bundle, and
-`PYTHONDONTWRITEBYTECODE=1` stops it writing `__pycache__` files into it.
-Done: the first check prints `runtime packaging operation completed;
-publication and qualification remain separate` and the second a usage line
-starting `usage: acquire.py`. A `ModuleNotFoundError` means step 6 did not
-finish: run it again. If the first check prints `runtime_packaging_failed`, the
-bundle has changed since extraction: move it aside as in step 4, then repeat
-steps 4 and 7.
+`PYTHONDONTWRITEBYTECODE=1` stops it writing `__pycache__` files into it, which
+keeps the extracted bundle byte-identical. The stages also turn bytecode
+writing off themselves, and the source identity check ignores interpreter
+bytecode (`__pycache__`, `*.pyc`, `*.pyo`) either way. Done: the first check
+prints `runtime packaging operation completed; publication and qualification
+remain separate` and the second a usage line starting `usage: acquire.py`. A
+`ModuleNotFoundError` means step 6 did not finish: run it again. If the first
+check prints `runtime_packaging_failed`, the bundle has changed since
+extraction: move it aside as in step 4, then repeat steps 4 and 7.
 
 Start every later command block with `. "$HOME/health-buddy/env.sh"`. Later
 stages name further values the owner chooses, such as `INSPECTED_NATIVE_DOCKER`;
@@ -181,8 +183,9 @@ add each to `env.sh` as one more `export` line once you have it.
 
 Keep the bundle byte-exact. Never run `pip install -e`; never install into,
 edit, format, test or build inside `$BUNDLE`; never run Python against it
-without `env.sh` loaded. Acquire, preflight and prepare verify the bundle and
-refuse a changed one.
+without `env.sh` loaded. Acquire, preflight and prepare verify the bundle
+before they act and refuse one that differs from its manifest; the cure is to
+re-extract it from the checked archive (steps 4 and 7).
 
 ### 8. Create the staging, journal and workspace directories
 
@@ -195,9 +198,10 @@ printf '%s\n' "$OWNER_WORKSPACE" | grep -Ex '/[A-Za-z0-9_./-]+'
 
 Done: three lines starting with `700` and your user name, then the workspace
 path once more. Create them only with this command: plain `mkdir` or
-`mkdir -p` leaves a mode the stages refuse, reported as
-`credential_file_requires_private_owner_path` for the staging and journal
-directories and `permissions_partial` for the workspace. `File exists` on a
+`mkdir -p` leaves a mode the stages refuse, reported by acquire as
+`install_acquire_staging_unavailable` for the staging directory, by preflight
+as `permissions_partial` for the workspace and by prepare as
+`install_preparation_refused` for the journal directory. `File exists` on a
 rerun is fine when all three lines still show `700` and your user; otherwise
 stop and ask the owner, and never change the mode, owner or contents of an
 existing directory. If the last command prints nothing, the path holds
@@ -237,9 +241,12 @@ imply a publisher signature or qualified deployment.
 ```
 
 Done: it prints `"artifactsVerified": true`. Do not download the manifest or the
-image archives yourself; this command fetches them. Refusals that point back to
-the bootstrap: `credential_file_requires_private_owner_path` means `$ARTIFACTS`
-is not a mode-0700 directory you own (step 8);
+image archives yourself; this command fetches them. These refusals come before
+any network activity and point back to the bootstrap:
+`install_acquire_staging_unavailable` means `$ARTIFACTS` is missing or is not
+a mode-0700 directory you own (step 8);
+`install_acquire_source_identity_mismatch` means the bundle no longer matches
+its manifest, so re-extract it from the checked archive (steps 4 and 7);
 `install_acquire_unowned_staging_entries` means something other than acquire
 put files into `$ARTIFACTS`, so move them out;
 `install_acquire_https_url_required` and
@@ -327,7 +334,11 @@ started or reconfigured automatically.
 
 JSON schema 1 returns fixed actionable diagnostic codes, architecture/resource
 facts, archive/source verification state and future requirements. It emits no
-selected private paths, config values, identities, records or credential bytes.
+selected private paths, config values, identities, records or credential bytes;
+the one file it can name is relative to the bundle's source tree. A source tree
+that differs from its manifest reports `release_invalid` together with
+`source_inventory_mismatch`, whose recovery names the first differing file;
+re-extract the bundle from its checked archive (bootstrap steps 4 and 7).
 Exit 0 means the measured preflight checks passed; exit 2 means a refusal.
 `installed` and `readyForActivation` remain false even on success. An optional
 loopback port check reuses doctor's temporary bind probe and releases it; this
@@ -348,6 +359,10 @@ journal and the originally pinned bundle/artifacts across restarts.
 . "$HOME/health-buddy/env.sh"
 "$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER"
 ```
+
+A source tree that no longer matches its manifest refuses as
+`install_preparation_source_identity_mismatch` before the first write; every
+other refusal is `install_preparation_refused`.
 
 The first write durably binds the original workspace, source bundle, release pin
 and inspected Docker path before invoking the existing create-only initializer.

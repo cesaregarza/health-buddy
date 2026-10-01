@@ -51,8 +51,13 @@ shared discovery is integrated and verified before final combined artifacts.
 source archive binding, package/interface versions and canonical docs hash.
 Limits are 4,096 files, 8,192 entries, 64 MiB source content, 16 path components
 and 2 MiB metadata. It rejects links, traversal, duplicate/unknown fields and
-changed inputs. Runtime construction verifies the immutable bundle once and
-injects `ReleaseIdentity`; ordinary discovery consumes that frozen value.
+changed inputs. The inventory ignores interpreter bytecode (`__pycache__`
+directories, `*.pyc` and `*.pyo` files) because the installer imports the
+extracted bundle in place; a link with one of those names still fails. Bundle
+creation refuses a commit that tracks bytecode (`bytecode_source_entry`), and a
+mismatch reports the first differing path relative to the bundle. Runtime
+construction verifies the immutable bundle once and injects `ReleaseIdentity`;
+ordinary discovery consumes that frozen value.
 This proves a startup snapshot, not continuous mutable-checkout attestation.
 The controlled Git build receipt proves commit association. A user configuration
 value, image label or version string alone is not independent publisher proof.
