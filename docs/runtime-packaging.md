@@ -135,9 +135,9 @@ accepted manifest/archive/receipt set in the private release inventory before
 expiry. Failing diagnostic artifacts expire after seven days.
 
 Each build requires six GiB free initially and preserves a one-GiB reserve.
-The installer checks actual cgroup-v2 memory (at most 2 GiB) and CPU quota
-(at most one CPU) before installing inputs. These are Docker RUN limits, not
-a claim to constrain the Docker daemon, export buffers or BuildKit cache.
+The installer checks actual cgroup-v1 or cgroup-v2 memory (at most 2 GiB) and
+CPU quota (at most one CPU) before installing inputs. These are Docker RUN limits,
+not a claim to constrain the Docker daemon, export buffers or BuildKit cache.
 The isolated runner VM and job timeout bound that wider workload. No local
 Docker build is admitted merely because its CLI runs in a cgroup.
 
