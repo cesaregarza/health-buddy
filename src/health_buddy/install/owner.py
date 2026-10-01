@@ -20,7 +20,7 @@ from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core import config
 from health_buddy.core.domain import encode, identity_value
-from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_file, read_json
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import BearerProof
@@ -33,6 +33,12 @@ RECOVERY = (
     "Retain the journal, config and credential output. Inspect partial authority; "
     "explicit existing security recover revokes all credentials. Never edit the "
     "checkpoint or overwrite a token to adopt another authority."
+)
+NOT_READY_RECOVERY = (
+    "The owner credential authenticates, but the workspace readiness check "
+    "failed. Make the workspace private (no group or other write access) and "
+    "stop other writers, then re-run this owner stage. Security recover is "
+    "not the remedy: it revokes the retained credential."
 )
 PENDING = (
     "runtime_activation",
@@ -268,10 +274,11 @@ def _ready_authority(
     ):
         raise ServiceError(409, "install_owner_authority_changed")
     if runtime.readiness is None or not runtime.readiness(time.monotonic() + 1.0):
-        raise ServiceError(409, "install_owner_partial_requires_explicit_recovery")
+        raise ServiceError(409, "install_owner_workspace_not_ready")
     return authority
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("journal", "owner-token"):
@@ -282,13 +289,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         value = setup(**vars(parser.parse_args(argv)))
     except ServiceError as error:
+        not_ready = error.code == "install_owner_workspace_not_ready"
         print(
             json.dumps(
                 {
                     "schemaVersion": 1,
                     "code": error.code,
                     "ownerSetupReady": False,
-                    "recovery": RECOVERY,
+                    "recovery": NOT_READY_RECOVERY if not_ready else RECOVERY,
                 }
             )
         )

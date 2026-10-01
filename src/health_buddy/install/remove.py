@@ -20,7 +20,7 @@ from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.connect_agent import connect
 from health_buddy.core.domain import digest, encode
-from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_file, read_json
 from health_buddy.core.security_api import Authenticated, Runtime, SecurityRequest
 from health_buddy.core.service_api import ServiceError
@@ -348,6 +348,7 @@ def _remove_container(
         raise ServiceError(503, "install_remove_api_still_present")
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--journal", type=Path, required=True)

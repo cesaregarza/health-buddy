@@ -25,7 +25,12 @@ sys.dont_write_bytecode = True
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import encode
-from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.core.durability import (
+    atomic_bytes,
+    exclusive,
+    fsync_path,
+    private_umask,
+)
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.service_api import ServiceError
@@ -467,6 +472,7 @@ def _release_downloads(
     return downloads
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest-url", required=True)

@@ -8,7 +8,7 @@ import stat
 from pathlib import Path
 
 from health_buddy.core import config, source_bundle
-from health_buddy.core.durability import fsync_path
+from health_buddy.core.durability import fsync_path, private_umask
 from health_buddy.core.git_store import Store
 
 OWNER_NOTE = """# Personal Health Buddy workspace
@@ -73,9 +73,6 @@ def initialize(root: Path) -> config.Config:
 
     # The temporary umask covers Git-created object/ref files as well as Python.
     # Startup happens before the development server accepts requests.
-    previous = os.umask(0o077)
-    try:
+    with private_umask():
         Store(settings.storage("manual"), settings.path("operations")).initialize()
-    finally:
-        os.umask(previous)
     return settings

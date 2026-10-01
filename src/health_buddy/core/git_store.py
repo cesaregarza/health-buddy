@@ -64,7 +64,8 @@ def git(
         *args,
     ]
     try:
-        # Internal plumbing arguments only, no shell, clean environment.
+        # Internal plumbing arguments only, no shell, clean environment. Git
+        # creates refs and objects with the umask: the child's is set to 077.
         result = subprocess.run(  # noqa: S603
             command,
             input=data,
@@ -74,6 +75,7 @@ def git(
             cwd=repo.parent,
             timeout=30,
             check=False,
+            umask=0o077,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise StoreError(

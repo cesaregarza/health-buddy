@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.core.config import load
-from health_buddy.core.durability import exclusive
+from health_buddy.core.durability import exclusive, private_umask
 from health_buddy.core.files import read_json
 from health_buddy.core.security_api import BearerProof, SecurityRequest
 from health_buddy.core.service_api import ServiceError
@@ -122,6 +122,7 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
         }
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--journal", type=Path, required=True)

@@ -22,7 +22,7 @@ from health_buddy.connect_agent import (
     unique_object,
 )
 from health_buddy.core.domain import digest, encode
-from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, matches, owner, read_policy
@@ -243,6 +243,7 @@ def _validate_client_removed(old: dict[str, Any]) -> None:
         raise ServiceError(409, "install_rearm_owned_client_still_present")
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in (

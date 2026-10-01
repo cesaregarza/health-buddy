@@ -16,6 +16,7 @@ from typing import Any
 # Imported in place from the source bundle: never write bytecode into its tree.
 sys.dont_write_bytecode = True
 
+from health_buddy.core.durability import private_umask
 from health_buddy.operator_diagnostics import port_state
 from health_buddy.runtime.manifest import (
     SHA256,
@@ -288,6 +289,7 @@ def _inspect_docker(docker: Path) -> tuple[dict[str, str], list[str]]:
     return state, refusals
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", type=Path, required=True)

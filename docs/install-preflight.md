@@ -149,6 +149,7 @@ manifest URL and SHA-256, then run:
 
 ```sh
 cat > "$HOME/health-buddy/env.sh" <<'EOF'
+umask 077
 export HB_HOME="$(realpath "$HOME")/health-buddy"
 export BUNDLE="$HB_HOME/bundle"
 export SOURCE="$BUNDLE/source"
@@ -165,6 +166,10 @@ EOF
 "$PYTHON" "$SOURCE/scripts/package_runtime.py" verify-source --source "$SOURCE" --manifest "$BUNDLE/release/source-manifest.json"
 "$PYTHON" -m health_buddy.install.acquire --help
 ```
+
+`umask 077` keeps every file the installer and Git create private to you:
+Ubuntu's default `002` would leave Git refs group-writable, which the runtime's
+readiness check refuses.
 
 `PYTHONPATH` makes Python import the installer from the bundle, and
 `PYTHONDONTWRITEBYTECODE=1` stops it writing `__pycache__` files into it, which
@@ -457,6 +462,11 @@ bytes stay in the private output file; they never appear in summaries, logs or t
 installation journal. This is a native owner token, not an expiring browser
 bootstrap proof; keep it private and use credential-file arguments rather than
 pasting it into commands or chat.
+
+An authority that authenticates while the workspace fails the local readiness
+check refuses with `install_owner_workspace_not_ready`. The authority is intact:
+make the workspace private (no group or other write access) and quiescent, then
+run the same owner command again. `security recover` is not the remedy.
 
 An empty output or incomplete/mismatched authority refuses with
 `install_owner_partial_requires_explicit_recovery`. Keep the checkpoint and
