@@ -9,17 +9,18 @@ built for Codex or Claude Code to install, maintain and extend.
 
 Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
 Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
-every command. Step zero, its first section, gets the source bundle from URLs
-and SHA-256s the owner supplies; never take a hash from downloaded files. Then
-each step is done when this field is `true`: acquire (`artifactsVerified`),
-preflight (`preflightPassed`), prepare (`workspacePrepared`), owner setup
-(`ownerSetupReady`), activate (`runtimeActivated`), private HTTPS
-(`privateRouteConfigured`), agent setup (`clientConfigurationPrepared`).
-Installed means activation reported `runtimeActivated: true` and
-`install.status` confirms `runtimeLastActive: true`; `connected: false` is
-expected throughout. On a refusal, keep the journal and inputs, then follow the
-printed `recovery` and the doc's notes on that `code`. Rerunning the identical
-command resumes an interrupted step.
+every command. Step zero, its "Before the first stage" section, gets the source
+bundle from URLs and SHA-256s the owner supplies; never take a hash from
+downloaded files. Then each step is done when this field is `true`: acquire
+(`artifactsVerified`), preflight (`preflightPassed`), prepare
+(`workspacePrepared`), owner setup (`ownerSetupReady`), activate
+(`runtimeActivated`), private HTTPS (`privateRouteConfigured`), agent setup
+(`clientConfigurationPrepared`). Installed means activation reported
+`runtimeActivated: true` and `install.status` confirms
+`runtimeLastActive: true`; `connected: false` is expected throughout. On a
+refusal, keep the journal and inputs, then follow the printed `recovery` and
+the doc's notes on that `code`. Rerunning the identical command resumes an
+interrupted step.
 
 ## Status
 
