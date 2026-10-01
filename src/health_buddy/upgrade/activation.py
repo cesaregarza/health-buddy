@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,8 @@ from health_buddy.backup.lifecycle import private_path
 from health_buddy.core.domain import encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import read_file, read_json
-from health_buddy.core.operations import Service
+from health_buddy.core.journal import State
+from health_buddy.core.operations import BackupInventory, Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.runtime.release import docker_command, load_release, selected_artifact
@@ -139,6 +141,22 @@ def record(path: Path) -> dict[str, Any]:
     return value
 
 
+@dataclass(frozen=True)
+class _Switch:
+    """One binary switch as the owner selected it, and the API it acts on."""
+
+    manifest: Path
+    previous_manifest: Path
+    architecture: str
+    docker: Path
+    environment: Path
+    project: str
+    workspace: Path
+    uid: int
+    gid: int
+    rollback: bool
+
+
 def activate(
     runtime: Runtime,
     principal: Principal,
@@ -158,18 +176,25 @@ def activate(
     rollback: bool = False,
     recover: bool = False,
 ) -> dict[str, Any]:
-    if not confirm_quiesced:
-        raise ServiceError(422, "upgrade_requires_quiesced_writers_and_editors")
-    if not 0 < uid < 2**31 or not 0 < gid < 2**31:
-        raise ServiceError(422, "upgrade_requires_nonroot_runtime_identity")
-    if not re.fullmatch(r"health-buddy(?:-[a-z0-9-]{1,48})?", project):
-        raise ServiceError(422, "upgrade_requires_explicit_health_buddy_project")
+    _validate_request(confirm_quiesced, uid, gid, project)
     if not isinstance(runtime.operations, Service):
         raise ServiceError(503, "native_coordinator_required")
     service = runtime.operations
     environment = private_path(environment)
     if environment.is_relative_to(service.config.root):
         raise ServiceError(422, "upgrade_environment_must_be_external")
+    switch = _Switch(
+        manifest=manifest,
+        previous_manifest=previous_manifest,
+        architecture=architecture,
+        docker=docker,
+        environment=environment,
+        project=project,
+        workspace=service.config.root,
+        uid=uid,
+        gid=gid,
+        rollback=rollback,
+    )
     staged = record(private_path(candidate) / "operations/upgrade-receipt.json")
     target = preflight(runtime, manifest, manifest_sha256, architecture)
     previous = preflight(
@@ -177,193 +202,239 @@ def activate(
     )
     path = service.config.path("operations/upgrade-activation.json")
     with exclusive(service.config.path("operations/upgrade.lock")):
-        # This also enforces current, unrevoked operations:admin authority.
-        with service.backup(principal):
-            state = service.journal.verify()
-            if identity_value(state.identity) != staged["identity"]:
-                raise ServiceError(409, "upgrade_identity_changed_requires_restage")
+        state = _verified_state(service, principal, staged)
         existing = record(path) if path.exists() else None
-        if existing and (
-            existing["project"] != project
-            or existing["environment"] != str(environment)
-            or existing["uid"] != uid
-            or existing["gid"] != gid
-        ):
+        if existing and _installation_differs(existing, switch):
             raise ServiceError(409, "upgrade_installation_binding_mismatch")
         action = "rollback" if rollback else "upgrade"
         if recover:
-            if (
-                not rollback
-                or not existing
-                or existing["phase"] in ("active", "rolled_back")
-                or existing["previous"] != target
-                or existing["target"] != previous
-                or existing["project"] != project
-                or existing["environment"] != str(environment)
-            ):
-                raise ServiceError(
-                    409, "upgrade_recovery_requires_recorded_previous_release"
-                )
-            # A stopped/interrupted API may have no running image to inspect.
-            # Only the recorded previous compatible binary is admitted here;
-            # the live workspace remains mounted unchanged.
-            existing = {
-                **existing,
-                "target": target,
-                "previous": previous,
-                "action": "rollback",
-                "phase": "prepared",
-            }
+            existing = _recovery(existing, target, previous, switch)
             atomic_bytes(path, encode(existing))
         if existing and existing["phase"] not in ("active", "rolled_back"):
             if (
                 existing["target"] != target
                 or existing["action"] != action
-                or existing["project"] != project
-                or existing["environment"] != str(environment)
-                or existing["uid"] != uid
-                or existing["gid"] != gid
+                or _installation_differs(existing, switch)
             ):
                 raise ServiceError(409, "upgrade_pending_resume_same_target")
             progress = existing
         elif existing and existing["target"] == target and existing["action"] == action:
-            running(
-                docker,
-                environment,
-                project,
-                manifest,
-                architecture,
-                service.config.root,
-                uid,
-                gid,
-            )
+            _running_image(switch, manifest)
             return existing
         else:
             if rollback:
-                if (
-                    not existing
-                    or existing["phase"] != "active"
-                    or existing["previous"] != target
-                ):
-                    raise ServiceError(
-                        409,
-                        "upgrade_rollback_requires_recorded_compatible_previous_release",
-                    )
-                if existing["target"] != previous:
-                    raise ServiceError(409, "upgrade_rollback_current_release_mismatch")
+                _validate_rollback(existing, target, previous)
             else:
-                if staged["target"] != target:
-                    raise ServiceError(409, "upgrade_target_requires_restage")
-                if version(target["packageVersion"]) < version(
-                    previous["packageVersion"]
-                ):
-                    raise ServiceError(
-                        409, "upgrade_downgrade_requires_explicit_recorded_rollback"
-                    )
-                with service.backup(principal) as inventory:
-                    current, _files = verified(snapshot(service.config, inventory))
-                    if freshness(current) != staged["freshness"]:
-                        raise ServiceError(
-                            409, "upgrade_snapshot_stale_requires_restage"
-                        )
-            running(
-                docker,
-                environment,
-                project,
-                previous_manifest,
-                architecture,
-                service.config.root,
-                uid,
-                gid,
-            )
-            progress = {
-                "schemaVersion": 1,
-                "phase": "prepared",
-                "action": action,
-                "target": target,
-                "previous": previous,
-                "project": project,
-                "environment": str(environment),
-                "uid": uid,
-                "gid": gid,
-                "identity": identity_value(state.identity),
-                "activationRevision": state.revision,
-                "workspacePolicy": "current_workspace_never_replaced",
-            }
+                _validate_upgrade(service, principal, staged, target, previous)
+            _running_image(switch, previous_manifest)
+            progress = _prepared(action, target, previous, switch, state)
             atomic_bytes(path, encode(progress))
-        if progress["phase"] in ("prepared", "stopping"):
-            # Resume can observe an absent/stopped API, but an active one must
-            # still be this installation before any stop command is sent.
-            running(
-                docker,
-                environment,
-                project,
-                previous_manifest,
-                architecture,
-                service.config.root,
-                uid,
-                gid,
-                allow_inactive=True,
-            )
-        try:
-            if progress["phase"] in ("prepared", "stopping"):
-                progress["phase"] = "stopping"
-                atomic_bytes(path, encode(progress))
-                with service.backup(principal) as inventory:
-                    if not rollback:
-                        current, _files = verified(snapshot(service.config, inventory))
-                        if freshness(current) != staged["freshness"]:
-                            raise ServiceError(
-                                409, "upgrade_snapshot_stale_requires_restage"
-                            )
-                    compose(docker, environment, project, "stop", "api")
-                progress["phase"] = "loading"
-                atomic_bytes(path, encode(progress))
-            if progress["phase"] == "loading":
-                with tempfile.TemporaryDirectory(
-                    prefix=".upgrade-env-", dir=environment.parent
-                ) as folder:
-                    loaded = Path(folder) / "runtime.env"
-                    load_release(
-                        manifest,
-                        architecture,
-                        service.config.root,
-                        loaded,
-                        docker=docker,
-                        uid=uid,
-                        gid=gid,
-                    )
-                    # load_release only writes a new file. Publish it atomically
-                    # after verified engine identity, before starting the API.
-                    atomic_bytes(environment, read_file(loaded, 4096))
-                progress["phase"] = "starting"
-                atomic_bytes(path, encode(progress))
-            if progress["phase"] == "starting":
-                compose(
-                    docker,
-                    environment,
-                    project,
-                    "up",
-                    "--detach",
-                    "--wait",
-                    "--no-deps",
-                    "api",
-                )
-                progress["runningImageId"] = running(
-                    docker,
-                    environment,
-                    project,
-                    manifest,
-                    architecture,
-                    service.config.root,
-                    uid,
-                    gid,
-                )
-                progress["phase"] = "rolled_back" if rollback else "active"
-                progress.pop("failureCode", None)
-                atomic_bytes(path, encode(progress))
-        except (OSError, ValueError, subprocess.SubprocessError, ServiceError):
-            progress["failureCode"] = "upgrade_interrupted_resume_same_command"
-            atomic_bytes(path, encode(progress))
-            raise ServiceError(503, "upgrade_interrupted_resume_same_command") from None
+        _resume_switch(service, principal, path, progress, staged, switch)
         return progress
+
+
+def _validate_request(confirm_quiesced: bool, uid: int, gid: int, project: str) -> None:
+    if not confirm_quiesced:
+        raise ServiceError(422, "upgrade_requires_quiesced_writers_and_editors")
+    if not 0 < uid < 2**31 or not 0 < gid < 2**31:
+        raise ServiceError(422, "upgrade_requires_nonroot_runtime_identity")
+    if not re.fullmatch(r"health-buddy(?:-[a-z0-9-]{1,48})?", project):
+        raise ServiceError(422, "upgrade_requires_explicit_health_buddy_project")
+
+
+def _verified_state(
+    service: Service, principal: Principal, staged: dict[str, Any]
+) -> State:
+    # This also enforces current, unrevoked operations:admin authority.
+    with service.backup(principal):
+        state = service.journal.verify()
+        if identity_value(state.identity) != staged["identity"]:
+            raise ServiceError(409, "upgrade_identity_changed_requires_restage")
+    return state
+
+
+def _installation_differs(existing: dict[str, object], switch: _Switch) -> bool:
+    return (
+        existing["project"] != switch.project
+        or existing["environment"] != str(switch.environment)
+        or existing["uid"] != switch.uid
+        or existing["gid"] != switch.gid
+    )
+
+
+def _recovery(
+    existing: dict[str, Any] | None,
+    target: dict[str, Any],
+    previous: dict[str, Any],
+    switch: _Switch,
+) -> dict[str, Any]:
+    """An interrupted switch, re-recorded as a rollback to its previous release."""
+    if (
+        not switch.rollback
+        or not existing
+        or existing["phase"] in ("active", "rolled_back")
+        or existing["previous"] != target
+        or existing["target"] != previous
+        or existing["project"] != switch.project
+        or existing["environment"] != str(switch.environment)
+    ):
+        raise ServiceError(409, "upgrade_recovery_requires_recorded_previous_release")
+    # A stopped/interrupted API may have no running image to inspect.
+    # Only the recorded previous compatible binary is admitted here;
+    # the live workspace remains mounted unchanged.
+    return {
+        **existing,
+        "target": target,
+        "previous": previous,
+        "action": "rollback",
+        "phase": "prepared",
+    }
+
+
+def _validate_rollback(
+    existing: dict[str, Any] | None, target: dict[str, Any], previous: dict[str, Any]
+) -> None:
+    if not existing or existing["phase"] != "active" or existing["previous"] != target:
+        raise ServiceError(
+            409, "upgrade_rollback_requires_recorded_compatible_previous_release"
+        )
+    if existing["target"] != previous:
+        raise ServiceError(409, "upgrade_rollback_current_release_mismatch")
+
+
+def _validate_upgrade(
+    service: Service,
+    principal: Principal,
+    staged: dict[str, Any],
+    target: dict[str, Any],
+    previous: dict[str, Any],
+) -> None:
+    if staged["target"] != target:
+        raise ServiceError(409, "upgrade_target_requires_restage")
+    if version(target["packageVersion"]) < version(previous["packageVersion"]):
+        raise ServiceError(409, "upgrade_downgrade_requires_explicit_recorded_rollback")
+    with service.backup(principal) as inventory:
+        _validate_freshness(service, inventory, staged)
+
+
+def _validate_freshness(
+    service: Service, inventory: BackupInventory, staged: dict[str, Any]
+) -> None:
+    current, _files = verified(snapshot(service.config, inventory))
+    if freshness(current) != staged["freshness"]:
+        raise ServiceError(409, "upgrade_snapshot_stale_requires_restage")
+
+
+def _prepared(
+    action: str,
+    target: dict[str, Any],
+    previous: dict[str, Any],
+    switch: _Switch,
+    state: State,
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "phase": "prepared",
+        "action": action,
+        "target": target,
+        "previous": previous,
+        "project": switch.project,
+        "environment": str(switch.environment),
+        "uid": switch.uid,
+        "gid": switch.gid,
+        "identity": identity_value(state.identity),
+        "activationRevision": state.revision,
+        "workspacePolicy": "current_workspace_never_replaced",
+    }
+
+
+def _running_image(switch: _Switch, manifest: Path) -> str:
+    return running(
+        switch.docker,
+        switch.environment,
+        switch.project,
+        manifest,
+        switch.architecture,
+        switch.workspace,
+        switch.uid,
+        switch.gid,
+    )
+
+
+def _resume_switch(
+    service: Service,
+    principal: Principal,
+    path: Path,
+    progress: dict[str, Any],
+    staged: dict[str, Any],
+    switch: _Switch,
+) -> None:
+    """Stop the previous API, load the target image, then start and observe it."""
+    if progress["phase"] in ("prepared", "stopping"):
+        # Resume can observe an absent/stopped API, but an active one must
+        # still be this installation before any stop command is sent.
+        running(
+            switch.docker,
+            switch.environment,
+            switch.project,
+            switch.previous_manifest,
+            switch.architecture,
+            switch.workspace,
+            switch.uid,
+            switch.gid,
+            allow_inactive=True,
+        )
+    try:
+        if progress["phase"] in ("prepared", "stopping"):
+            progress["phase"] = "stopping"
+            atomic_bytes(path, encode(progress))
+            with service.backup(principal) as inventory:
+                if not switch.rollback:
+                    _validate_freshness(service, inventory, staged)
+                compose(
+                    switch.docker, switch.environment, switch.project, "stop", "api"
+                )
+            progress["phase"] = "loading"
+            atomic_bytes(path, encode(progress))
+        if progress["phase"] == "loading":
+            _publish_environment(switch)
+            progress["phase"] = "starting"
+            atomic_bytes(path, encode(progress))
+        if progress["phase"] == "starting":
+            compose(
+                switch.docker,
+                switch.environment,
+                switch.project,
+                "up",
+                "--detach",
+                "--wait",
+                "--no-deps",
+                "api",
+            )
+            progress["runningImageId"] = _running_image(switch, switch.manifest)
+            progress["phase"] = "rolled_back" if switch.rollback else "active"
+            progress.pop("failureCode", None)
+            atomic_bytes(path, encode(progress))
+    except (OSError, ValueError, subprocess.SubprocessError, ServiceError):
+        progress["failureCode"] = "upgrade_interrupted_resume_same_command"
+        atomic_bytes(path, encode(progress))
+        raise ServiceError(503, "upgrade_interrupted_resume_same_command") from None
+
+
+def _publish_environment(switch: _Switch) -> None:
+    with tempfile.TemporaryDirectory(
+        prefix=".upgrade-env-", dir=switch.environment.parent
+    ) as folder:
+        loaded = Path(folder) / "runtime.env"
+        load_release(
+            switch.manifest,
+            switch.architecture,
+            switch.workspace,
+            loaded,
+            docker=switch.docker,
+            uid=switch.uid,
+            gid=switch.gid,
+        )
+        # load_release only writes a new file. Publish it atomically
+        # after verified engine identity, before starting the API.
+        atomic_bytes(switch.environment, read_file(loaded, 4096))
