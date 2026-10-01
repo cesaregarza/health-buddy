@@ -206,7 +206,7 @@ def remove(
                 progress["phase"] = "grant_pending"
                 atomic_bytes(journal, encode(retained))
             if progress["phase"] == "grant_pending":
-                _revoke_grant(runtime, admitted, progress["actorId"])
+                _revoke_grant(runtime, admitted, progress)
                 progress["phase"] = "container_pending"
                 atomic_bytes(journal, encode(retained))
             cid, live = container(retained, progress["containerId"])
@@ -307,15 +307,20 @@ def _validate_resume(
         raise ServiceError(409, "install_remove_resume_requires_original_binding")
 
 
-def _revoke_grant(runtime: Runtime, admitted: Authenticated, actor_id: Any) -> None:
-    found = [item for item in actors(runtime, admitted) if item["id"] == actor_id]
+def _revoke_grant(
+    runtime: Runtime, admitted: Authenticated, progress: dict[str, Any]
+) -> None:
+    inventory = actors(runtime, admitted)
+    found = [item for item in inventory if item["id"] == progress["actorId"]]
     if len(found) != 1:
         raise ServiceError(409, "install_remove_agent_ownership_changed")
     if found[0].get("active") is True:
         runtime.security.execute(
             admitted.principal,
             SecurityRequest(
-                "grants.revoke", resource_id=actor_id, identity=admitted.client.identity
+                "grants.revoke",
+                resource_id=progress["actorId"],
+                identity=admitted.client.identity,
             ),
         )
 

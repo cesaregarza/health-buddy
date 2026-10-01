@@ -155,9 +155,11 @@ def setup(
         # The actor is journaled before its one-time secret is written, so a
         # lost secret is recovered by explicit rotation, never a second grant.
         if actor_id is None:
-            actor_id = _interrupted_grant(inventory, progress, grant, value)
+            adopted = _interrupted_grant(inventory, progress, grant, value)
             secret: str | None = None
-            if actor_id is None:
+            if adopted is not None:
+                actor_id = adopted["id"]
+            else:
                 _validate_new_grant(agent_token, rotate_pending_missing_secret)
                 actor_id, secret = _create_grant(runtime, admitted, grant, fault)
             progress["actorId"] = actor_id
@@ -326,9 +328,9 @@ def _interrupted_grant(
     progress: dict[str, Any],
     grant: AgentGrant,
     policy: dict[str, Any],
-) -> Any:
+) -> dict[str, Any] | None:
     """The grant a run created before journaling its actor, adopted not duplicated."""
-    candidates = [
+    candidates: list[dict[str, Any]] = [
         actor
         for actor in inventory
         if actor["id"] not in progress["priorActorIds"]
@@ -336,7 +338,7 @@ def _interrupted_grant(
     ]
     if len(candidates) > 1 or any(not matches(actor, policy) for actor in candidates):
         raise ServiceError(409, "install_agent_grant_requires_owner_reconciliation")
-    return candidates[0]["id"] if candidates else None
+    return candidates[0] if candidates else None
 
 
 def _validate_new_grant(agent_token: Path, rotate: bool) -> None:
