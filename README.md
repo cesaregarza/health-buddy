@@ -40,7 +40,9 @@ python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --devel
 ```
 
 Open http://127.0.0.1:8791. Development mode has no authentication and binds
-only to loopback; never expose it.
+only to loopback; never expose it. It refuses a workspace an installation has
+prepared (`development_mode_refused_on_installed_workspace`); there, run
+commands with the owner's `--credential-file` instead of `--development`.
 
 ## Documentation
 

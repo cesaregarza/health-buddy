@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from health_buddy import cli
 from health_buddy.install import prepare as install_prepare
 from health_buddy.core.domain import identity_value
 from health_buddy.security.runtime import open_runtime
@@ -204,3 +205,31 @@ def test_client_config_repeats_without_live_connection(tmp_path, monkeypatch, na
     with pytest.raises(ServiceError, match="matching_owner_authority"):
         install_prepare.prepare(**selected)
     assert client_config.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "log measurement --measured-at-local 2030-01-01T08:00:00 --weight-lb 150",
+        "context",
+        "serve",
+    ],
+)
+def test_development_mode_refuses_the_prepared_workspace(
+    tmp_path, monkeypatch, capsys, command
+):
+    selected = inputs(tmp_path, monkeypatch)
+    install_prepare.prepare(**selected)
+    workspace = selected["workspace"]
+    monkeypatch.setattr(
+        "health_buddy.transport.server.serve",
+        lambda *_args, **_kwargs: pytest.fail("development server started"),
+    )
+    argv = ["--workspace", str(workspace), "--development", *command.split()]
+    assert cli.main(argv) == 2
+    code, recovery = capsys.readouterr().err.splitlines()
+    assert code == (
+        "Health Buddy: development_mode_refused_on_installed_workspace (HTTP 409)."
+    )
+    assert recovery.endswith(" --credential-file <owner token> log ...")
+    assert open_runtime(workspace).operations.journal.verify().revision == 0
