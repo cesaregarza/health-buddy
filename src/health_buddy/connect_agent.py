@@ -10,6 +10,7 @@ import re
 import tomllib
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core.durability import (
@@ -172,43 +173,16 @@ def connect(
     client: str = "codex",
 ) -> None:
     """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
-    if client not in {"codex", "claude"}:
-        raise ServiceError(422, "unsupported_agent_client")
-    if client == "claude" and config.name != ".mcp.json":
-        raise ServiceError(422, "claude_project_config_required")
-    for path in (config, skill):
-        native_path(path)
-        private_directory(path.parent)
-    if skill.name != "health-buddy":
-        raise ServiceError(422, "invalid_codex_skill_directory")
+    _validate_targets(config, skill, client)
     lock = config.parent / ".health-buddy-connect.lock"
     native_path(lock)
     with exclusive(lock):
         raw = optional(config)
+        document: dict[str, Any] = {}
         if client == "codex":
-            before, previous, after = partition(raw)
-            parsed = tomllib.loads(raw.decode("utf-8"))
-            servers = parsed.get("mcp_servers", {})
-            if not isinstance(servers, dict):
-                raise ServiceError(409, "codex_managed_config_conflict")
-            if "health_buddy" in servers and not previous:
-                raise ServiceError(409, "codex_unmanaged_server_exists")
-            if previous:
-                managed = tomllib.loads(previous)["mcp_servers"]["health_buddy"]
-                if servers.get("health_buddy") != managed:
-                    raise ServiceError(409, "codex_integration_locally_changed")
+            before, previous, after = _codex_sections(raw)
         else:
-            parsed = json.loads(raw or b"{}", object_pairs_hook=unique_object)
-            if not isinstance(parsed, dict):
-                raise ServiceError(409, "claude_managed_config_conflict")
-            servers = parsed.get("mcpServers", {})
-            if not isinstance(servers, dict):
-                raise ServiceError(409, "claude_managed_config_conflict")
-            previous = (
-                json.dumps(servers["health_buddy"], sort_keys=True)
-                if "health_buddy" in servers
-                else ""
-            )
+            document, previous = _claude_document(raw)
             before, after = "", ""
         manifest = skill / ".health-buddy-install.json"
         old = optional(manifest) if skill.exists() else b""
@@ -232,131 +206,249 @@ def connect(
                 check_only=check_only,
             )
             return
-        if old:
-            owned = json.loads(old)
-            expected = {
-                "schemaVersion": 1,
-                "configBlockSha256": checksum(previous.encode()),
-                "files": {name: checksum(optional(skill / name)) for name in MANAGED},
-            }
-            if owned != expected:
-                raise ServiceError(409, "codex_integration_locally_changed")
-        elif previous or any((skill / name).exists() for name in MANAGED):
-            raise ServiceError(409, "codex_integration_requires_reconciliation")
+        _validate_owned_files(skill, old, previous)
         if check_only:
             return
         if remove:
             if not old:
                 return
-            if client == "codex":
-                remaining = (before + after).encode()
-            else:
-                del servers["health_buddy"]
-                parsed["mcpServers"] = servers
-                remaining = json.dumps(parsed, indent=2).encode() + b"\n"
-            intent = {
-                "schemaVersion": 1,
-                "config": str(config),
-                "client": client,
-                "originalSha256": checksum(raw),
-                "remainingSha256": checksum(remaining),
-                "configBlockSha256": checksum(previous.encode()),
-                "manifestSha256": checksum(old),
-                "files": {name: checksum(optional(skill / name)) for name in MANAGED},
-            }
-            atomic_bytes(intent_path, json.dumps(intent, sort_keys=True).encode())
-            finish_removal(
+            remaining = (
+                (before + after).encode()
+                if client == "codex"
+                else _claude_without_entry(document)
+            )
+            _begin_removal(
                 config,
                 skill,
                 client=client,
                 raw=raw,
                 previous=previous,
-                intent=intent,
-                check_only=False,
+                manifest=old,
+                remaining=remaining,
             )
             return
         if settings is None or python is None or source is None or workspace is None:
             raise ServiceError(422, "codex_setup_arguments_required")
-        if client == "claude" and any(
-            "${" in str(path) for path in (settings, python, source, workspace)
-        ):
-            raise ServiceError(422, "claude_path_expansion_not_supported")
-        admitted = Settings.read(settings)
-        private_file(admitted.credential_file)
-        credential = admitted.credential_file.lstat()
-        if credential.st_uid != os.geteuid() or credential.st_nlink != 1:
-            raise ServiceError(422, "invalid_codex_credential_file")
-        for path in (source, workspace):
-            native_path(path)
-        private_directory(workspace)
-        native_interpreter(python)
-        for relative in ("pyproject.toml", "docs/agent-guide.md", "src"):
-            native_path(source / relative)
-        project = tomllib.loads((source / "pyproject.toml").read_text())
-        if project.get("project", {}).get("version") != PACKAGE_VERSION:
-            raise ServiceError(409, "codex_source_version_mismatch")
-        if not (source / "docs/agent-guide.md").is_file():
-            raise ServiceError(409, "codex_source_guide_missing")
+        _validate_setup(client, settings, python, source, workspace)
         arguments = ["-m", "health_buddy.mcp_server", "--settings", str(settings)]
         if client == "codex":
-            table = "\n".join(
-                [
-                    "[mcp_servers.health_buddy]",
-                    "command = " + json.dumps(str(python)),
-                    "args = " + json.dumps(arguments),
-                    "cwd = " + json.dumps(str(source)),
-                    "startup_timeout_sec = 15",
-                    "tool_timeout_sec = 60",
-                    "[mcp_servers.health_buddy.env]",
-                    "PYTHONPATH = " + json.dumps(str(source / "src")),
-                    "",
-                ]
-            )
-            block = BEGIN + table + END
-            separator = "\n" if before and not before.endswith("\n") else ""
-            prefix = before if previous else before + separator
-            updated = prefix + block + after
-            # Refuse conflicting dotted/inline tables before writing.
-            tomllib.loads(updated)
+            block = _codex_block(python, arguments, source)
+            updated = _codex_with_block(before, previous, after, block)
         else:
-            entry = {
-                "type": "stdio",
-                "command": str(python),
-                "args": arguments,
-                "env": {"PYTHONPATH": str(source / "src")},
-            }
+            entry = _claude_entry(python, arguments, source)
             block = json.dumps(entry, sort_keys=True)
-            servers["health_buddy"] = entry
-            parsed["mcpServers"] = servers
-            updated = json.dumps(parsed, indent=2) + "\n"
-        skill_bytes = (
-            files("health_buddy")
-            .joinpath("integrations/codex/health-buddy/SKILL.md")
-            .read_bytes()
-        )
-        content = {
-            "SKILL.md": skill_bytes,
-            "WORKSPACE.json": json.dumps(
-                {
-                    "integrationVersion": INTEGRATION_VERSION,
-                    "packageVersion": PACKAGE_VERSION,
-                    "sourceRoot": str(source),
-                    "workspace": str(workspace),
-                },
-                indent=2,
-            ).encode()
-            + b"\n",
-        }
-        private_directory(skill, create=True)
-        for name, payload in content.items():
-            atomic_bytes(skill / name, payload)
-        record = {
+            updated = _claude_with_entry(document, entry)
+        _write_install(config, skill, _skill_files(source, workspace), block, updated)
+
+
+def _begin_removal(
+    config: Path,
+    skill: Path,
+    *,
+    client: str,
+    raw: bytes,
+    previous: str,
+    manifest: bytes,
+    remaining: bytes,
+) -> None:
+    """Record a private removal intent naming every owned byte, then finish it."""
+    intent: dict[str, object] = {
+        "schemaVersion": 1,
+        "config": str(config),
+        "client": client,
+        "originalSha256": checksum(raw),
+        "remainingSha256": checksum(remaining),
+        "configBlockSha256": checksum(previous.encode()),
+        "manifestSha256": checksum(manifest),
+        "files": {name: checksum(optional(skill / name)) for name in MANAGED},
+    }
+    atomic_bytes(
+        skill / ".health-buddy-remove.json",
+        json.dumps(intent, sort_keys=True).encode(),
+    )
+    finish_removal(
+        config,
+        skill,
+        client=client,
+        raw=raw,
+        previous=previous,
+        intent=intent,
+        check_only=False,
+    )
+
+
+def _validate_targets(config: Path, skill: Path, client: str) -> None:
+    if client not in {"codex", "claude"}:
+        raise ServiceError(422, "unsupported_agent_client")
+    if client == "claude" and config.name != ".mcp.json":
+        raise ServiceError(422, "claude_project_config_required")
+    for path in (config, skill):
+        native_path(path)
+        private_directory(path.parent)
+    if skill.name != "health-buddy":
+        raise ServiceError(422, "invalid_codex_skill_directory")
+
+
+def _codex_sections(raw: bytes) -> tuple[str, str, str]:
+    """The config around and inside the managed block, if it is intact."""
+    before, previous, after = partition(raw)
+    parsed = tomllib.loads(raw.decode("utf-8"))
+    servers = parsed.get("mcp_servers", {})
+    if not isinstance(servers, dict):
+        raise ServiceError(409, "codex_managed_config_conflict")
+    if "health_buddy" in servers and not previous:
+        raise ServiceError(409, "codex_unmanaged_server_exists")
+    if previous:
+        managed = tomllib.loads(previous)["mcp_servers"]["health_buddy"]
+        if servers.get("health_buddy") != managed:
+            raise ServiceError(409, "codex_integration_locally_changed")
+    return before, previous, after
+
+
+def _claude_document(raw: bytes) -> tuple[dict[str, Any], str]:
+    """The project config and its health_buddy server entry as canonical JSON."""
+    parsed = json.loads(raw or b"{}", object_pairs_hook=unique_object)
+    if not isinstance(parsed, dict):
+        raise ServiceError(409, "claude_managed_config_conflict")
+    servers = parsed.get("mcpServers", {})
+    if not isinstance(servers, dict):
+        raise ServiceError(409, "claude_managed_config_conflict")
+    previous = (
+        json.dumps(servers["health_buddy"], sort_keys=True)
+        if "health_buddy" in servers
+        else ""
+    )
+    return parsed, previous
+
+
+def _validate_owned_files(skill: Path, old: bytes, previous: str) -> None:
+    """Managed files must match the install manifest, or not exist without one."""
+    if old:
+        owned = json.loads(old)
+        expected = {
             "schemaVersion": 1,
-            "configBlockSha256": checksum(block.encode()),
-            "files": {name: checksum(payload) for name, payload in content.items()},
+            "configBlockSha256": checksum(previous.encode()),
+            "files": {name: checksum(optional(skill / name)) for name in MANAGED},
         }
-        atomic_bytes(manifest, json.dumps(record, sort_keys=True).encode())
-        atomic_bytes(config, updated.encode())
+        if owned != expected:
+            raise ServiceError(409, "codex_integration_locally_changed")
+    elif previous or any((skill / name).exists() for name in MANAGED):
+        raise ServiceError(409, "codex_integration_requires_reconciliation")
+
+
+def _claude_without_entry(document: dict[str, Any]) -> bytes:
+    servers = document.get("mcpServers", {})
+    del servers["health_buddy"]
+    document["mcpServers"] = servers
+    return json.dumps(document, indent=2).encode() + b"\n"
+
+
+def _validate_setup(
+    client: str, settings: Path, python: Path, source: Path, workspace: Path
+) -> None:
+    """A private credential, workspace and interpreter, and the matching source."""
+    if client == "claude" and any(
+        "${" in str(path) for path in (settings, python, source, workspace)
+    ):
+        raise ServiceError(422, "claude_path_expansion_not_supported")
+    admitted = Settings.read(settings)
+    private_file(admitted.credential_file)
+    credential = admitted.credential_file.lstat()
+    if credential.st_uid != os.geteuid() or credential.st_nlink != 1:
+        raise ServiceError(422, "invalid_codex_credential_file")
+    for path in (source, workspace):
+        native_path(path)
+    private_directory(workspace)
+    native_interpreter(python)
+    for relative in ("pyproject.toml", "docs/agent-guide.md", "src"):
+        native_path(source / relative)
+    project = tomllib.loads((source / "pyproject.toml").read_text())
+    if project.get("project", {}).get("version") != PACKAGE_VERSION:
+        raise ServiceError(409, "codex_source_version_mismatch")
+    if not (source / "docs/agent-guide.md").is_file():
+        raise ServiceError(409, "codex_source_guide_missing")
+
+
+def _codex_block(python: Path, arguments: list[str], source: Path) -> str:
+    table = "\n".join(
+        [
+            "[mcp_servers.health_buddy]",
+            "command = " + json.dumps(str(python)),
+            "args = " + json.dumps(arguments),
+            "cwd = " + json.dumps(str(source)),
+            "startup_timeout_sec = 15",
+            "tool_timeout_sec = 60",
+            "[mcp_servers.health_buddy.env]",
+            "PYTHONPATH = " + json.dumps(str(source / "src")),
+            "",
+        ]
+    )
+    return BEGIN + table + END
+
+
+def _codex_with_block(before: str, previous: str, after: str, block: str) -> str:
+    separator = "\n" if before and not before.endswith("\n") else ""
+    prefix = before if previous else before + separator
+    updated = prefix + block + after
+    # Refuse conflicting dotted/inline tables before writing.
+    tomllib.loads(updated)
+    return updated
+
+
+def _claude_entry(python: Path, arguments: list[str], source: Path) -> dict[str, Any]:
+    return {
+        "type": "stdio",
+        "command": str(python),
+        "args": arguments,
+        "env": {"PYTHONPATH": str(source / "src")},
+    }
+
+
+def _claude_with_entry(document: dict[str, Any], entry: dict[str, Any]) -> str:
+    servers = document.get("mcpServers", {})
+    servers["health_buddy"] = entry
+    document["mcpServers"] = servers
+    return json.dumps(document, indent=2) + "\n"
+
+
+def _write_install(
+    config: Path, skill: Path, content: dict[str, bytes], block: str, updated: str
+) -> None:
+    """Skill files, then the manifest that owns them, then the client config."""
+    private_directory(skill, create=True)
+    for name, payload in content.items():
+        atomic_bytes(skill / name, payload)
+    record = {
+        "schemaVersion": 1,
+        "configBlockSha256": checksum(block.encode()),
+        "files": {name: checksum(payload) for name, payload in content.items()},
+    }
+    atomic_bytes(
+        skill / ".health-buddy-install.json",
+        json.dumps(record, sort_keys=True).encode(),
+    )
+    atomic_bytes(config, updated.encode())
+
+
+def _skill_files(source: Path, workspace: Path) -> dict[str, bytes]:
+    skill_bytes = (
+        files("health_buddy")
+        .joinpath("integrations/codex/health-buddy/SKILL.md")
+        .read_bytes()
+    )
+    return {
+        "SKILL.md": skill_bytes,
+        "WORKSPACE.json": json.dumps(
+            {
+                "integrationVersion": INTEGRATION_VERSION,
+                "packageVersion": PACKAGE_VERSION,
+                "sourceRoot": str(source),
+                "workspace": str(workspace),
+            },
+            indent=2,
+        ).encode()
+        + b"\n",
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
