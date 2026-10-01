@@ -52,12 +52,49 @@ from health_buddy.core.service_api import (
 )
 from health_buddy.core.stores import RECORD_INDEX, ManualStore
 from health_buddy.core.workspace import initialize
-from health_ingest.models import BatchValidationError, parse_batch
+from health_ingest.models import Batch, BatchValidationError, parse_batch
 from health_ingest.storage import BatchConflictError
 
 
 def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _ledger_key(
+    authority: Authority,
+    request: Request,
+    state: State,
+    health_batch: Batch | None,
+    method: str,
+    path: str,
+) -> str:
+    key = health_batch.batch_id if health_batch else identifier(request.idempotency_key)
+    # Schema-v1 HealthKit retries are device-scoped across credential
+    # rotation; ordinary operations retain the authenticated actor scope.
+    ledger_actor = (
+        "healthkit-device:" + health_batch.device_id
+        if health_batch
+        else authority.actor_id
+    )
+    return encode(
+        [
+            ledger_actor,
+            state.identity.dataset_id,
+            state.identity.restore_epoch,
+            method,
+            path,
+            key,
+        ]
+    ).decode()
+
+
+def _health_headers(identity: Identity) -> tuple[tuple[str, str], ...]:
+    return (
+        ("Content-Type", "application/json; charset=utf-8"),
+        ("X-Installation-ID", identity.installation_id),
+        ("X-Dataset-ID", identity.dataset_id),
+        ("X-Restore-Epoch", identity.restore_epoch),
+    )
 
 
 @dataclass(frozen=True)
@@ -313,28 +350,7 @@ class Service:
         expected_revision = None if health_batch else revision(request.if_match)
         if health_batch is None and request.idempotency_key is None:
             raise ServiceError(428, "idempotency_required")
-        key = (
-            health_batch.batch_id
-            if health_batch
-            else identifier(request.idempotency_key)
-        )
-        # Schema-v1 HealthKit retries are device-scoped across credential
-        # rotation; ordinary operations retain the authenticated actor scope.
-        ledger_actor = (
-            "healthkit-device:" + health_batch.device_id
-            if health_batch
-            else authority.actor_id
-        )
-        ledger_key = encode(
-            [
-                ledger_actor,
-                state.identity.dataset_id,
-                state.identity.restore_epoch,
-                method,
-                path,
-                key,
-            ]
-        ).decode()
+        ledger_key = _ledger_key(authority, request, state, health_batch, method, path)
         request_digest = digest(
             {
                 "payload": payload,
@@ -356,96 +372,21 @@ class Service:
                 health_batch, self._health_source(authority), authority.source_stream_id
             )
             if adopted is not None:
-                return Response(
-                    200,
-                    encode(adopted),
-                    (
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("X-Installation-ID", state.identity.installation_id),
-                        ("X-Dataset-ID", state.identity.dataset_id),
-                        ("X-Restore-Epoch", state.identity.restore_epoch),
-                    ),
-                )
+                return Response(200, encode(adopted), _health_headers(state.identity))
         if health_batch is None and expected_revision != state.revision:
             raise ServiceError(409, "revision_conflict")
         old_head, files = self.manual.snapshot()
         received_at, transaction_id = _now(), uuid4().hex
         changes: dict[str, str] = {}
         health_effect: dict[str, JSON] | None = None
-        result: dict[str, JSON]
         if health_batch is not None:
-            self.check_receiver(state.identity)
-            source_id = self._health_source(authority)
-            health_effect = {
-                "kind": "batch",
-                "identity": identity_value(state.identity),
-                "sourceId": source_id,
-                "streamId": authority.source_stream_id,
-                "deviceId": authority.device_id,
-                "receivedAt": received_at,
-                "batch": payload,
-            }
-            self.health.validate(health_effect)
-            body = {
-                "status": "accepted",
-                "batchId": health_batch.batch_id,
-                "recordsAccepted": len(health_batch.records),
-                "deletionsAccepted": len(health_batch.deletions),
-                "duplicateBatch": False,
-            }
-            receipt = Response(
-                200,
-                encode(body),
-                (
-                    ("Content-Type", "application/json; charset=utf-8"),
-                    ("X-Installation-ID", state.identity.installation_id),
-                    ("X-Dataset-ID", state.identity.dataset_id),
-                    ("X-Restore-Epoch", state.identity.restore_epoch),
-                ),
+            health_effect, receipt = self._health_receipt(
+                authority, state, health_batch, payload, received_at
             )
         else:
-            targets: set[tuple[str, str]] = set()
-            if request.operation == "records.put":
-                changes, result = records.put(
-                    files,
-                    text(request.resource_id),
-                    payload,
-                    received_at=received_at,
-                    allowed_sources=authority.source_ids,
-                    registry=self.journal.sources(),
-                )
-            elif request.operation == "logs.write":
-                self._check_parent_source(
-                    authority, files, payload, text(request.resource_id)
-                )
-                changes, result, targets = loggers.transition(
-                    text(request.resource_id), payload, files, self.config
-                )
-            elif request.operation == "workouts.write":
-                changes, result, targets = loggers.completed(
-                    files,
-                    cast(dict[str, Any], payload),
-                    self.config,
-                    datetime.now(self.config.zone).date(),
-                )
-            else:
-                from health_buddy.core.plans import validate_plan
-
-                program = validate_plan(payload)
-                changes = {
-                    "plans/current_program.json": encode(program).decode() + "\n"
-                }
-                result = {"saved": True, "planId": program["program_id"]}
-            write_source = cast(dict[str, JSON], payload).get("sourceId", "manual")
-            updated = files | changes
-            index = records.reindex(
-                updated, received_at=received_at, source_id=text(write_source)
+            changes, receipt = self._manual_receipt(
+                authority, request, payload, state, files, received_at
             )
-            self._check_changed_sources(authority, files, index)
-            self._check_target_sources(index, targets, text(write_source))
-            changes[RECORD_INDEX] = index
-            result["projection"] = {"state": "pending"}
-            receipt = envelope(result, state.identity, state.revision + 1)
         # Response is already fully serialized/bounded before staging/decision.
         check_deadline(request.deadline)
         changed = {
@@ -464,6 +405,104 @@ class Service:
             expected_revision=state.revision,
             deadline=request.deadline,
         )
+
+    def _health_receipt(
+        self,
+        authority: Authority,
+        state: State,
+        health_batch: Batch,
+        payload: JSON,
+        received_at: str,
+    ) -> tuple[dict[str, JSON], Response]:
+        """The validated batch effect and the acknowledgement it commits with."""
+        self.check_receiver(state.identity)
+        source_id = self._health_source(authority)
+        health_effect: dict[str, JSON] = {
+            "kind": "batch",
+            "identity": identity_value(state.identity),
+            "sourceId": source_id,
+            "streamId": authority.source_stream_id,
+            "deviceId": authority.device_id,
+            "receivedAt": received_at,
+            "batch": payload,
+        }
+        self.health.validate(health_effect)
+        body = {
+            "status": "accepted",
+            "batchId": health_batch.batch_id,
+            "recordsAccepted": len(health_batch.records),
+            "deletionsAccepted": len(health_batch.deletions),
+            "duplicateBatch": False,
+        }
+        return health_effect, Response(
+            200, encode(body), _health_headers(state.identity)
+        )
+
+    def _manual_receipt(
+        self,
+        authority: Authority,
+        request: Request,
+        payload: JSON,
+        state: State,
+        files: dict[str, str],
+        received_at: str,
+    ) -> tuple[dict[str, str], Response]:
+        """The manual-store file changes, reindexed, and the receipt they commit."""
+        changes, result, targets = self._manual_changes(
+            authority, request, payload, files, received_at
+        )
+        write_source = cast(dict[str, JSON], payload).get("sourceId", "manual")
+        updated = files | changes
+        index = records.reindex(
+            updated, received_at=received_at, source_id=text(write_source)
+        )
+        self._check_changed_sources(authority, files, index)
+        self._check_target_sources(index, targets, text(write_source))
+        changes[RECORD_INDEX] = index
+        result["projection"] = {"state": "pending"}
+        return changes, envelope(result, state.identity, state.revision + 1)
+
+    def _manual_changes(
+        self,
+        authority: Authority,
+        request: Request,
+        payload: JSON,
+        files: dict[str, str],
+        received_at: str,
+    ) -> loggers.Transition:
+        changes: dict[str, str]
+        result: dict[str, JSON]
+        targets: set[tuple[str, str]] = set()
+        if request.operation == "records.put":
+            changes, result = records.put(
+                files,
+                text(request.resource_id),
+                payload,
+                received_at=received_at,
+                allowed_sources=authority.source_ids,
+                registry=self.journal.sources(),
+            )
+        elif request.operation == "logs.write":
+            self._check_parent_source(
+                authority, files, payload, text(request.resource_id)
+            )
+            changes, result, targets = loggers.transition(
+                text(request.resource_id), payload, files, self.config
+            )
+        elif request.operation == "workouts.write":
+            changes, result, targets = loggers.completed(
+                files,
+                cast(dict[str, Any], payload),
+                self.config,
+                datetime.now(self.config.zone).date(),
+            )
+        else:
+            from health_buddy.core.plans import validate_plan
+
+            program = validate_plan(payload)
+            changes = {"plans/current_program.json": encode(program).decode() + "\n"}
+            result = {"saved": True, "planId": program["program_id"]}
+        return changes, result, targets
 
     def _health_source(self, authority: Authority) -> str:
         candidates = [

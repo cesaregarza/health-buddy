@@ -29,6 +29,12 @@ RECOVERY = (
     "explicit existing security recover revokes all credentials. Never edit the "
     "checkpoint or overwrite a token to adopt another authority."
 )
+PENDING = (
+    "runtime_activation",
+    "private_https_sign_in",
+    "agent_grants_and_named_client",
+    "phone_pairing",
+)
 
 
 def authority_present(store: SecurityStore) -> bool:
@@ -57,54 +63,19 @@ def setup(
     native_path(journal)
     native_path(owner_token)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
-        retained = read_json(journal, 32768)
-        if (
-            not isinstance(retained, dict)
-            or retained.get("schemaVersion") != 1
-            or retained.get("phase") not in ("prepared", "client_prepared")
-        ):
-            raise ServiceError(409, "install_owner_requires_prepared_workspace")
-        prepared: dict[str, Any] = dict(retained)
+        prepared = _prepared_installation(journal)
         workspace = Path(prepared["binding"]["workspace"])
         bundle = Path(prepared["binding"]["bundle"])
         native_path(workspace)
         native_path(bundle)
-        try:
-            private_workspace(workspace)
-            if workspace.lstat().st_gid != os.getegid():
-                raise ValueError("owner_group")
-        except (OSError, ValueError):
-            raise ServiceError(
-                409, "install_owner_requires_native_nonroot_owner"
-            ) from None
+        _validate_native_owner(workspace)
         configuration = workspace / "config.json"
         native_path(configuration)
-        if (
-            owner_token
-            in (journal, configuration, journal.parent / ".health-buddy-install.lock")
-            or owner_token.is_relative_to(bundle)
-            or any(
-                owner_token.is_relative_to(workspace / part)
-                for part in ("security", "operations", "stores")
-            )
-        ):
-            raise ServiceError(422, "install_owner_requires_private_credential_output")
+        _validate_credential_output(owner_token, journal, bundle, workspace)
         current = read_file(configuration, 16384)
-        values = json.loads(current)
-        target = deepcopy(values)
-        target["security"].update(
-            ingress="tailscale-uds",
-            externalOrigin=origin,
-            ownerSubject=owner_subject,
-            socketPath="security/runtime/http.sock",
+        values, payload = _owner_configuration(
+            current, workspace, origin, owner_subject
         )
-        try:
-            config.validate(target, workspace)
-        except ValueError:
-            raise ServiceError(
-                422, "install_owner_requires_https_and_exact_subject"
-            ) from None
-        payload = (json.dumps(target, indent=2) + "\n").encode()
         runtime = open_runtime(workspace)
         if not isinstance(runtime.operations, Service):
             raise ServiceError(503, "native_coordinator_required")
@@ -121,16 +92,7 @@ def setup(
         }
         progress = prepared.get("ownerSetup")
         if progress is None:
-            if prepared.get("activation") is not None:
-                raise ServiceError(
-                    409, "install_owner_requires_unactivated_preparation"
-                )
-            if values["security"] != config.defaults()["security"]:
-                raise ServiceError(
-                    409, "install_owner_requires_admitted_default_security"
-                )
-            if owner_token.exists() or authority_present(store):
-                raise ServiceError(409, "install_owner_foreign_or_partial_authority")
+            _validate_first_setup(prepared, values, owner_token, store)
             progress = {
                 "binding": selected,
                 "originalConfigSha256": hashlib.sha256(current).hexdigest(),
@@ -139,24 +101,13 @@ def setup(
             }
             prepared["ownerSetup"] = progress
             atomic_bytes(journal, encode(prepared))
-        elif (
-            not isinstance(progress, dict)
-            or progress.get("binding") != selected
-            or progress.get("phase")
-            not in ("configuring", "authority_preparing", "ready")
-        ):
-            raise ServiceError(409, "install_owner_resume_requires_original_binding")
-        digest = hashlib.sha256(current).hexdigest()
-        if digest not in (
-            progress["originalConfigSha256"],
-            progress["targetConfigSha256"],
-        ):
-            raise ServiceError(409, "install_owner_config_locally_changed")
-        if hashlib.sha256(payload).hexdigest() != progress["targetConfigSha256"]:
-            raise ServiceError(409, "install_owner_config_locally_changed")
+        else:
+            _validate_resume(progress, selected)
+        digest = _owned_config_digest(progress, current, payload)
         stage = "configuration"
         try:
             if progress["phase"] == "configuring":
+                # An interrupted run may already have written the target config.
                 if digest == progress["originalConfigSha256"]:
                     atomic_bytes(configuration, payload)
                 progress["phase"] = "authority_preparing"
@@ -164,40 +115,8 @@ def setup(
             elif digest != progress["targetConfigSha256"]:
                 raise ServiceError(409, "install_owner_config_locally_changed")
             stage = "authority"
-            if not owner_token.exists():
-                if progress["phase"] == "ready" or authority_present(store):
-                    raise ServiceError(
-                        409, "install_owner_partial_requires_explicit_recovery"
-                    )
-                setup_security(workspace, owner_token, owner_token=True)
-            runtime = open_runtime(workspace)
-            if not isinstance(runtime.operations, Service):
-                raise ServiceError(503, "native_coordinator_required")
-            try:
-                admitted = runtime.security.authenticate(
-                    BearerProof(read_credential(owner_token))
-                )
-                runtime.security.preflight(admitted.principal, "grants.list")
-            except (ServiceError, OSError, ValueError):
-                raise ServiceError(
-                    409, "install_owner_partial_requires_explicit_recovery"
-                ) from None
-            authority = {
-                "actor": admitted.client.actor_binding,
-                "securityEpoch": admitted.client.security_epoch,
-            }
-            if (
-                admitted.client.identity != runtime.operations.journal.verify().identity
-                or ("authority" in progress and progress["authority"] != authority)
-            ):
-                raise ServiceError(409, "install_owner_authority_changed")
-            if runtime.readiness is None or not runtime.readiness(
-                time.monotonic() + 1.0
-            ):
-                raise ServiceError(
-                    409, "install_owner_partial_requires_explicit_recovery"
-                )
-            progress["authority"] = authority
+            _create_missing_authority(workspace, owner_token, store, progress["phase"])
+            progress["authority"] = _ready_authority(workspace, owner_token, progress)
             progress["phase"] = "ready"
             atomic_bytes(journal, encode(prepared))
         except ServiceError:
@@ -209,13 +128,143 @@ def setup(
             "ownerSetupReady": True,
             "runtimeActivated": False,
             "connected": False,
-            "pending": [
-                "runtime_activation",
-                "private_https_sign_in",
-                "agent_grants_and_named_client",
-                "phone_pairing",
-            ],
+            "pending": list(PENDING),
         }
+
+
+def _prepared_installation(journal: Path) -> dict[str, Any]:
+    retained = read_json(journal, 32768)
+    if (
+        not isinstance(retained, dict)
+        or retained.get("schemaVersion") != 1
+        or retained.get("phase") not in ("prepared", "client_prepared")
+    ):
+        raise ServiceError(409, "install_owner_requires_prepared_workspace")
+    return dict(retained)
+
+
+def _validate_native_owner(workspace: Path) -> None:
+    try:
+        private_workspace(workspace)
+        if workspace.lstat().st_gid != os.getegid():
+            raise ValueError("owner_group")
+    except (OSError, ValueError):
+        raise ServiceError(409, "install_owner_requires_native_nonroot_owner") from None
+
+
+def _validate_credential_output(
+    owner_token: Path, journal: Path, bundle: Path, workspace: Path
+) -> None:
+    if (
+        owner_token
+        in (
+            journal,
+            workspace / "config.json",
+            journal.parent / ".health-buddy-install.lock",
+        )
+        or owner_token.is_relative_to(bundle)
+        or any(
+            owner_token.is_relative_to(workspace / part)
+            for part in ("security", "operations", "stores")
+        )
+    ):
+        raise ServiceError(422, "install_owner_requires_private_credential_output")
+
+
+def _owner_configuration(
+    current: bytes, workspace: Path, origin: str, owner_subject: str
+) -> tuple[Any, bytes]:
+    """The current config values and the validated managed-ingress config bytes."""
+    values = json.loads(current)
+    target = deepcopy(values)
+    target["security"].update(
+        ingress="tailscale-uds",
+        externalOrigin=origin,
+        ownerSubject=owner_subject,
+        socketPath="security/runtime/http.sock",
+    )
+    try:
+        config.validate(target, workspace)
+    except ValueError:
+        raise ServiceError(
+            422, "install_owner_requires_https_and_exact_subject"
+        ) from None
+    return values, (json.dumps(target, indent=2) + "\n").encode()
+
+
+def _validate_first_setup(
+    prepared: dict[str, Any], values: Any, owner_token: Path, store: SecurityStore
+) -> None:
+    if prepared.get("activation") is not None:
+        raise ServiceError(409, "install_owner_requires_unactivated_preparation")
+    if values["security"] != config.defaults()["security"]:
+        raise ServiceError(409, "install_owner_requires_admitted_default_security")
+    if owner_token.exists() or authority_present(store):
+        raise ServiceError(409, "install_owner_foreign_or_partial_authority")
+
+
+def _validate_resume(progress: object, selected: dict[str, Any]) -> None:
+    if (
+        not isinstance(progress, dict)
+        or progress.get("binding") != selected
+        or progress.get("phase") not in ("configuring", "authority_preparing", "ready")
+    ):
+        raise ServiceError(409, "install_owner_resume_requires_original_binding")
+
+
+def _owned_config_digest(
+    progress: dict[str, Any], current: bytes, payload: bytes
+) -> str:
+    """The config must be the original or this setup's target, nothing else."""
+    digest = hashlib.sha256(current).hexdigest()
+    if digest not in (
+        progress["originalConfigSha256"],
+        progress["targetConfigSha256"],
+    ):
+        raise ServiceError(409, "install_owner_config_locally_changed")
+    if hashlib.sha256(payload).hexdigest() != progress["targetConfigSha256"]:
+        raise ServiceError(409, "install_owner_config_locally_changed")
+    return digest
+
+
+def _create_missing_authority(
+    workspace: Path, owner_token: Path, store: SecurityStore, phase: str
+) -> None:
+    """Only a run that has not yet created any authority may create it."""
+    if owner_token.exists():
+        return
+    if phase == "ready" or authority_present(store):
+        raise ServiceError(409, "install_owner_partial_requires_explicit_recovery")
+    setup_security(workspace, owner_token, owner_token=True)
+
+
+def _ready_authority(
+    workspace: Path, owner_token: Path, progress: dict[str, Any]
+) -> dict[str, Any]:
+    """The owner credential's authority, once it is the recorded one and ready."""
+    runtime = open_runtime(workspace)
+    if not isinstance(runtime.operations, Service):
+        raise ServiceError(503, "native_coordinator_required")
+    try:
+        admitted = runtime.security.authenticate(
+            BearerProof(read_credential(owner_token))
+        )
+        runtime.security.preflight(admitted.principal, "grants.list")
+    except (ServiceError, OSError, ValueError):
+        raise ServiceError(
+            409, "install_owner_partial_requires_explicit_recovery"
+        ) from None
+    authority = {
+        "actor": admitted.client.actor_binding,
+        "securityEpoch": admitted.client.security_epoch,
+    }
+    if admitted.client.identity != runtime.operations.journal.verify().identity or (
+        "authority" in progress and progress["authority"] != authority
+    ):
+        raise ServiceError(409, "install_owner_authority_changed")
+    if runtime.readiness is None or not runtime.readiness(time.monotonic() + 1.0):
+        raise ServiceError(409, "install_owner_partial_requires_explicit_recovery")
+    return authority
 
 
 def main(argv: list[str] | None = None) -> int:

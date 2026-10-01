@@ -99,23 +99,7 @@ def import_canary(
     target = _path(target)
     with exclusive(target.parent / ("." + target.name + ".import.lock")):
         if target.exists():
-            native_directory(target)
-            private_directory(target)
-            try:
-                native_directory(target / "operations")
-                receipt = cast(
-                    dict[str, Any], decode(read_file(target / RECEIPT, 16384))
-                )
-            except FileNotFoundError:
-                raise ServiceError(409, "import_destination_occupied") from None
-            if not isinstance(receipt, dict) or receipt.get("selection") != selection:
-                raise ServiceError(409, "import_destination_occupied")
-            service = Service(target, DevelopmentPolicy())
-            if _current(service, DEVELOPMENT_PRINCIPAL) != receipt.get(
-                "workspaceDigest"
-            ):
-                raise ServiceError(409, "import_destination_changed")
-            return dict(receipt["reconciliation"], duplicate=True)
+            return _repeated_import(target, selection)
         with tempfile.TemporaryDirectory(
             prefix=".unified-import-", dir=target.parent
         ) as folder:
@@ -126,20 +110,7 @@ def import_canary(
             receiver_count = len(receiver_value["records"])
             if manual_result["records"] + receiver_count + sleep_count > MAX_RECORDS:
                 raise ServiceError(413, "import_snapshot_too_large")
-            settings = config.load(staged).values
-            if settings["timezone"] != timezone:
-                raise ServiceError(409, "import_sleepiq_timezone_conflict")
-            settings["integrations"]["healthkit"] = {
-                "enabled": True,
-                "mode": "receiver",
-            }
-            settings["integrations"]["sleepiq"]["enabled"] = True
-            atomic_bytes(staged / "config.json", encode(settings))
-            atomic_bytes(
-                staged / settings["integrations"]["sleepiq"]["exportFile"],
-                daily.encode(),
-            )
-            atomic_bytes(staged / ORIGINAL, raw["sleepiq"])
+            _enable_imported_sources(staged, timezone, daily, raw["sleepiq"])
             service = Service(staged, DevelopmentPolicy())
             seed_adopted_receiver(service, receiver_value, reviewed_hashes["receiver"])
             state = service.journal.verify()
@@ -176,6 +147,43 @@ def import_canary(
             staged.rename(target)
             fsync_path(target.parent)
             return reconciliation
+
+
+def _repeated_import(target: Path, selection: dict[str, Any]) -> dict[str, Any]:
+    """An existing destination is a duplicate only of the same, unchanged import."""
+    native_directory(target)
+    private_directory(target)
+    try:
+        native_directory(target / "operations")
+        receipt = cast(dict[str, Any], decode(read_file(target / RECEIPT, 16384)))
+    except FileNotFoundError:
+        raise ServiceError(409, "import_destination_occupied") from None
+    if not isinstance(receipt, dict) or receipt.get("selection") != selection:
+        raise ServiceError(409, "import_destination_occupied")
+    service = Service(target, DevelopmentPolicy())
+    if _current(service, DEVELOPMENT_PRINCIPAL) != receipt.get("workspaceDigest"):
+        raise ServiceError(409, "import_destination_changed")
+    return dict(receipt["reconciliation"], duplicate=True)
+
+
+def _enable_imported_sources(
+    staged: Path, timezone: str, daily: str, original: bytes
+) -> None:
+    """Enable the receiver and SleepIQ export and write the export it reads."""
+    settings = config.load(staged).values
+    if settings["timezone"] != timezone:
+        raise ServiceError(409, "import_sleepiq_timezone_conflict")
+    settings["integrations"]["healthkit"] = {
+        "enabled": True,
+        "mode": "receiver",
+    }
+    settings["integrations"]["sleepiq"]["enabled"] = True
+    atomic_bytes(staged / "config.json", encode(settings))
+    atomic_bytes(
+        staged / settings["integrations"]["sleepiq"]["exportFile"],
+        daily.encode(),
+    )
+    atomic_bytes(staged / ORIGINAL, original)
 
 
 def backup_readiness(

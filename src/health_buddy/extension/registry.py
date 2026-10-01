@@ -58,6 +58,36 @@ def _empty_entry() -> dict[str, JSON]:
     }
 
 
+def _dependency_failures(
+    ready: dict[str, ReviewedExtension],
+) -> dict[str, ExtensionState]:
+    """Ready extensions whose exact dependencies are unavailable or cyclic."""
+    memo: dict[str, ExtensionState | None] = {}
+
+    def visit(name: str, chain: tuple[str, ...]) -> ExtensionState | None:
+        if name in chain:
+            return "dependency_cycle"
+        if name in memo:
+            return memo[name]
+        for dependency, version in ready[name].manifest.dependencies.items():
+            if dependency not in ready or ready[dependency].manifest.version != version:
+                memo[name] = "dependency_unavailable"
+                return memo[name]
+            failure = visit(dependency, (*chain, name))
+            if failure is not None:
+                memo[name] = failure
+                return failure
+        memo[name] = None
+        return None
+
+    failures: dict[str, ExtensionState] = {}
+    for name in ready:
+        failure = visit(name, ())
+        if failure:
+            failures[name] = failure
+    return failures
+
+
 class Registry:
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -230,88 +260,75 @@ class Registry:
         ready: dict[str, ReviewedExtension] = {}
         for index, name in enumerate(names):
             entry = entries.get(name, _empty_entry())
-            enabled = entry["enabled"] is True
-            version = None
-            kind: ExtensionKind | None = None
-            state: ExtensionState = "disabled"
-            diagnostic: tuple[str, ...] = ()
-            safe_name = name
-            try:
-                extension_id(name)
-                current = runtime_files(self.root(name))
-                manifest = parse_manifest(current.files["extension.json"])
-                version = manifest.version
-                kind = manifest.kind
-                if manifest.id != name:
-                    raise ServiceError(422, "extension_id_mismatch")
-                if enabled:
-                    reviewed = self._reviewed(name, entry, current)
-                    ready[name] = reviewed
-                    version = reviewed.manifest.version
-                    kind = reviewed.manifest.kind
-                    state = "ready"
-                elif manifest.extension_api != EXTENSION_API:
-                    state = "incompatible_api"
-                    diagnostic = ("extension_incompatible_api",)
-            except (ServiceError, OSError, ValueError, KeyError) as exc:
-                code = (
-                    exc.code
-                    if isinstance(exc, ServiceError)
-                    else "extension_layout_invalid"
-                )
-                error_states: dict[str, ExtensionState] = {
-                    "extension_needs_review": "needs_review",
-                    "extension_incompatible_api": "incompatible_api",
-                    "extension_state_migration_required": "state_migration_required",
-                }
-                state = error_states.get(code, "invalid_manifest")
-                diagnostic = (code,)
-                if not isinstance(name, str) or len(name) > 80:
-                    safe_name = f"invalid-entry-{index}"
+            statuses[name] = self._status(index, name, entry, ready)
+        for name, failure in _dependency_failures(ready).items():
+            old = statuses[name]
             statuses[name] = ExtensionStatus(
-                safe_name,
-                state,
-                enabled,
-                version,
-                cast(str | None, entry["selected"]),
-                diagnostic,
-                kind,
+                name,
+                failure,
+                True,
+                old.version,
+                old.reviewed_digest,
+                ("extension_" + failure,),
+                old.kind,
             )
-        memo: dict[str, ExtensionState | None] = {}
-
-        def visit(name: str, chain: tuple[str, ...]) -> ExtensionState | None:
-            if name in chain:
-                return "dependency_cycle"
-            if name in memo:
-                return memo[name]
-            for dependency, version in ready[name].manifest.dependencies.items():
-                if (
-                    dependency not in ready
-                    or ready[dependency].manifest.version != version
-                ):
-                    memo[name] = "dependency_unavailable"
-                    return memo[name]
-                failure = visit(dependency, (*chain, name))
-                if failure is not None:
-                    memo[name] = failure
-                    return failure
-            memo[name] = None
-            return None
-
-        for name in ready:
-            failure = visit(name, ())
-            if failure:
-                old = statuses[name]
-                statuses[name] = ExtensionStatus(
-                    name,
-                    failure,
-                    True,
-                    old.version,
-                    old.reviewed_digest,
-                    ("extension_" + failure,),
-                    old.kind,
-                )
         return tuple(statuses[name] for name in names), ready
+
+    def _status(
+        self,
+        index: int,
+        name: str,
+        entry: dict[str, JSON],
+        ready: dict[str, ReviewedExtension],
+    ) -> ExtensionStatus:
+        """One entry's state; an enabled entry that passes review joins ready."""
+        enabled = entry["enabled"] is True
+        version = None
+        kind: ExtensionKind | None = None
+        state: ExtensionState = "disabled"
+        diagnostic: tuple[str, ...] = ()
+        safe_name = name
+        try:
+            extension_id(name)
+            current = runtime_files(self.root(name))
+            manifest = parse_manifest(current.files["extension.json"])
+            version = manifest.version
+            kind = manifest.kind
+            if manifest.id != name:
+                raise ServiceError(422, "extension_id_mismatch")
+            if enabled:
+                reviewed = self._reviewed(name, entry, current)
+                ready[name] = reviewed
+                version = reviewed.manifest.version
+                kind = reviewed.manifest.kind
+                state = "ready"
+            elif manifest.extension_api != EXTENSION_API:
+                state = "incompatible_api"
+                diagnostic = ("extension_incompatible_api",)
+        except (ServiceError, OSError, ValueError, KeyError) as exc:
+            code = (
+                exc.code
+                if isinstance(exc, ServiceError)
+                else "extension_layout_invalid"
+            )
+            error_states: dict[str, ExtensionState] = {
+                "extension_needs_review": "needs_review",
+                "extension_incompatible_api": "incompatible_api",
+                "extension_state_migration_required": "state_migration_required",
+            }
+            state = error_states.get(code, "invalid_manifest")
+            diagnostic = (code,)
+            if not isinstance(name, str) or len(name) > 80:
+                safe_name = f"invalid-entry-{index}"
+        return ExtensionStatus(
+            safe_name,
+            state,
+            enabled,
+            version,
+            cast(str | None, entry["selected"]),
+            diagnostic,
+            kind,
+        )
 
     def inspect_locked(self) -> tuple[ExtensionStatus, ...]:
         return self._inspect_locked()[0]

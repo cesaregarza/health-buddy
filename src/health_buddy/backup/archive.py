@@ -190,27 +190,7 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
                 raise ValueError("entries")
             if sum(item.file_size for item in infos) > MAX_ARCHIVE_BYTES:
                 raise ValueError("size")
-            manifest = decode(
-                archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True
-            )
-            if not isinstance(manifest, dict) or set(manifest) != {
-                "schemaVersion",
-                "identity",
-                "dataRevision",
-                "files",
-                "directories",
-                "requiredPaths",
-                "regenerableCache",
-            }:
-                raise ValueError("manifest")
-            manifest = cast(dict[str, Any], manifest)
-            if (
-                manifest["schemaVersion"] != 1
-                or type(manifest["dataRevision"]) is not int
-                or manifest["dataRevision"] < 0
-            ):
-                raise ValueError("version")
-            files: dict[str, bytes] = {}
+            manifest = _manifest(archive)
             if (
                 not isinstance(manifest["files"], list)
                 or not isinstance(manifest["directories"], list)
@@ -222,61 +202,98 @@ def verified(raw: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
             ]
             if len(directories) != len(set(directories)):
                 raise ValueError("duplicate")
-            for entry in manifest["files"]:
-                if not isinstance(entry, dict) or set(entry) != {
-                    "path",
-                    "bytes",
-                    "sha256",
-                    "mtimeNs",
-                    "mode",
-                }:
-                    raise ValueError("file")
-                stamp = entry["mtimeNs"]
-                if (
-                    not isinstance(stamp, str)
-                    or not 1 <= len(stamp) <= 24
-                    or not stamp.isascii()
-                    or not stamp.removeprefix("-").isdecimal()
-                ):
-                    raise ValueError("invalid_file_timestamp")
-                if (
-                    type(entry["mode"]) is not int
-                    or not 0 <= entry["mode"] <= 0o700
-                    or entry["mode"] & ~0o700
-                ):
-                    raise ValueError("unsafe_file_mode")
-                relative = relative_path(entry["path"], "file")
-                if relative in files or relative in directories:
-                    raise ValueError("duplicate")
-                content = archive.read("workspace/" + relative)
-                if (
-                    len(content) != entry["bytes"]
-                    or hashlib.sha256(content).hexdigest() != entry["sha256"]
-                ):
-                    raise ValueError("hash")
-                files[relative] = content
+            files = _archived_files(archive, manifest["files"], directories)
             if set(names) != {MANIFEST, *("workspace/" + path for path in files)}:
                 raise ValueError("inventory")
-            for required in manifest["requiredPaths"]:
-                path = relative_path(required, "required")
-                if path not in files and path not in directories:
-                    raise ValueError("incomplete")
-            # These are always authoritative, independent of an archive's own
-            # list of required paths. Canonical adapters verify their contents.
-            if (
-                not {
-                    "config.json",
-                    "identity.json",
-                    "operations/control.sqlite",
-                    "security/authority.sqlite",
-                    "security/epoch.json",
-                    "operations/security-binding.json",
-                }
-                <= files.keys()
-                or "personal" not in directories
-            ):
-                raise ValueError("incomplete")
+            _validate_required(manifest["requiredPaths"], files, directories)
             relative_path(manifest["regenerableCache"], "cache")
             return manifest, files
     except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile, ServiceError):
         raise ServiceError(422, "backup_inventory_invalid") from None
+
+
+def _manifest(archive: zipfile.ZipFile) -> dict[str, Any]:
+    manifest = decode(archive.read(MANIFEST), limit=2 * 1024 * 1024, trusted=True)
+    if not isinstance(manifest, dict) or set(manifest) != {
+        "schemaVersion",
+        "identity",
+        "dataRevision",
+        "files",
+        "directories",
+        "requiredPaths",
+        "regenerableCache",
+    }:
+        raise ValueError("manifest")
+    manifest = cast(dict[str, Any], manifest)
+    if (
+        manifest["schemaVersion"] != 1
+        or type(manifest["dataRevision"]) is not int
+        or manifest["dataRevision"] < 0
+    ):
+        raise ValueError("version")
+    return manifest
+
+
+def _archived_files(
+    archive: zipfile.ZipFile, entries: list[Any], directories: list[str]
+) -> dict[str, bytes]:
+    """Each listed file's bytes, matching its recorded size and digest."""
+    files: dict[str, bytes] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {
+            "path",
+            "bytes",
+            "sha256",
+            "mtimeNs",
+            "mode",
+        }:
+            raise ValueError("file")
+        stamp = entry["mtimeNs"]
+        if (
+            not isinstance(stamp, str)
+            or not 1 <= len(stamp) <= 24
+            or not stamp.isascii()
+            or not stamp.removeprefix("-").isdecimal()
+        ):
+            raise ValueError("invalid_file_timestamp")
+        if (
+            type(entry["mode"]) is not int
+            or not 0 <= entry["mode"] <= 0o700
+            or entry["mode"] & ~0o700
+        ):
+            raise ValueError("unsafe_file_mode")
+        relative = relative_path(entry["path"], "file")
+        if relative in files or relative in directories:
+            raise ValueError("duplicate")
+        content = archive.read("workspace/" + relative)
+        if (
+            len(content) != entry["bytes"]
+            or hashlib.sha256(content).hexdigest() != entry["sha256"]
+        ):
+            raise ValueError("hash")
+        files[relative] = content
+    return files
+
+
+def _validate_required(
+    required_paths: list[Any], files: dict[str, bytes], directories: list[str]
+) -> None:
+    for required in required_paths:
+        path = relative_path(required, "required")
+        if path not in files and path not in directories:
+            raise ValueError("incomplete")
+    # These are always authoritative, independent of an archive's own
+    # list of required paths. Canonical adapters verify their contents.
+    if (
+        not {
+            "config.json",
+            "identity.json",
+            "operations/control.sqlite",
+            "security/authority.sqlite",
+            "security/epoch.json",
+            "operations/security-binding.json",
+        }
+        <= files.keys()
+        or "personal" not in directories
+    ):
+        raise ValueError("incomplete")

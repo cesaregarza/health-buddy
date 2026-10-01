@@ -153,18 +153,62 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
         raise ManifestError("explicit_commit_and_new_output_required")
     if output.is_relative_to(repository) or repository.is_relative_to(output):
         raise ManifestError("source_output_overlap")
-    commit = (
-        _git(repository, ["rev-parse", "--verify", revision + "^{commit}"], 128)
-        .decode("ascii")
-        .strip()
-    )
-    tree = (
-        _git(repository, ["rev-parse", "--verify", revision + "^{tree}"], 128)
-        .decode("ascii")
-        .strip()
-    )
+    commit = _rev_parse(repository, revision + "^{commit}")
+    tree = _rev_parse(repository, revision + "^{tree}")
     if commit != revision or not GIT_SHA.fullmatch(tree):
         raise ManifestError("source_revision_mismatch")
+    selected, all_paths = _tree_inventory(repository, revision)
+    archive = _git(repository, ["archive", "--format=tar", revision], MAX_BYTES)
+    _directory(output, 0o700)
+    source = output / "source"
+    release = output / "release"
+    _directory(source, 0o755)
+    _directory(release, 0o755)
+    _sync(output.parent)
+    _write(release / "source.tar", archive)
+    _extract_archive(archive, source, selected, all_paths)
+    version = _package_version(source)
+    files = inventory(source)
+    docs = [item for item in files if str(item["path"]).startswith("docs/")]
+    manifest = {
+        "manifestVersion": 1,
+        "packageVersion": version,
+        "source": {
+            "commit": commit,
+            "tree": tree,
+            "archiveSha256": hashlib.sha256(archive).hexdigest(),
+        },
+        "archiveBytes": len(archive),
+        "files": files,
+        "docsSha256": hashlib.sha256(canonical(docs)).hexdigest(),
+        "interfaces": INTERFACES,
+    }
+    raw_manifest = canonical(manifest)
+    if len(raw_manifest) > MAX_METADATA:
+        raise ManifestError("manifest_size_exceeded")
+    target = release / "source-manifest.json"
+    _write(target, raw_manifest + b"\n")
+    # Every published source link is durable before the complete output returns.
+    for directory, _subdirs, _files in os.walk(
+        source, topdown=False, followlinks=False
+    ):
+        _sync(Path(directory))
+    _sync(release)
+    _sync(output)
+    verify_source_identity(source, target)
+    return target
+
+
+def _rev_parse(repository: Path, name: str) -> str:
+    return (
+        _git(repository, ["rev-parse", "--verify", name], 128).decode("ascii").strip()
+    )
+
+
+def _tree_inventory(
+    repository: Path, revision: str
+) -> tuple[dict[str, tuple[int, str, int]], set[str]]:
+    """Each tracked regular file's (size, blob, mode), and every path it implies."""
     raw_entries = _git(
         repository, ["ls-tree", "-r", "-l", "-z", revision], MAX_METADATA
     )
@@ -195,14 +239,16 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
             raise ManifestError("bundle_size_exceeded")
     if not selected:
         raise ManifestError("empty_source_inventory")
-    archive = _git(repository, ["archive", "--format=tar", revision], MAX_BYTES)
-    _directory(output, 0o700)
-    source = output / "source"
-    release = output / "release"
-    _directory(source, 0o755)
-    _directory(release, 0o755)
-    _sync(output.parent)
-    _write(release / "source.tar", archive)
+    return selected, all_paths
+
+
+def _extract_archive(
+    archive: bytes,
+    source: Path,
+    selected: dict[str, tuple[int, str, int]],
+    all_paths: set[str],
+) -> None:
+    """Write exactly the inventoried files, each checked against its Git blob."""
     seen: set[str] = set()
     archive_entries = 0
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as content:
@@ -246,6 +292,9 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
             _write(path, raw, expected[2])
     if seen != selected.keys():
         raise ManifestError("archive_inventory_mismatch")
+
+
+def _package_version(source: Path) -> str:
     project = tomllib.loads((source / "pyproject.toml").read_text(encoding="utf-8"))[
         "project"
     ]
@@ -256,32 +305,4 @@ def create_bundle(repository: Path, revision: str, output: Path) -> Path:
         or not VERSION.fullmatch(version)
     ):
         raise ManifestError("invalid_package_metadata")
-    files = inventory(source)
-    docs = [item for item in files if str(item["path"]).startswith("docs/")]
-    manifest = {
-        "manifestVersion": 1,
-        "packageVersion": version,
-        "source": {
-            "commit": commit,
-            "tree": tree,
-            "archiveSha256": hashlib.sha256(archive).hexdigest(),
-        },
-        "archiveBytes": len(archive),
-        "files": files,
-        "docsSha256": hashlib.sha256(canonical(docs)).hexdigest(),
-        "interfaces": INTERFACES,
-    }
-    raw_manifest = canonical(manifest)
-    if len(raw_manifest) > MAX_METADATA:
-        raise ManifestError("manifest_size_exceeded")
-    target = release / "source-manifest.json"
-    _write(target, raw_manifest + b"\n")
-    # Every published source link is durable before the complete output returns.
-    for directory, _subdirs, _files in os.walk(
-        source, topdown=False, followlinks=False
-    ):
-        _sync(Path(directory))
-    _sync(release)
-    _sync(output)
-    verify_source_identity(source, target)
-    return target
+    return version

@@ -39,6 +39,17 @@ PHASES = (
     "client_preparing",
     "client_prepared",
 )
+WORKSPACE_ENTRIES = (
+    "config.json",
+    "personal",
+    "secrets",
+    "operations",
+    "security",
+    "personal/extensions",
+    "personal/forks",
+    "stores/manual.git",
+    "cache",
+)
 
 
 def summary(progress: dict[str, Any]) -> dict[str, Any]:
@@ -89,69 +100,7 @@ def prepare(
         "docker": str(docker),
     }
     with exclusive(journal.parent / ".health-buddy-install.lock"):
-        previous = read_json(journal, 32768) if journal.exists() else None
-        if previous is not None:
-            if (
-                not isinstance(previous, dict)
-                or previous.get("schemaVersion") != 1
-                or previous.get("binding") != binding
-                or previous.get("phase") not in PHASES
-            ):
-                raise ServiceError(409, "install_resume_requires_original_binding")
-            progress: dict[str, Any] = dict(previous)
-        else:
-            progress = {}
-        checked = preflight(
-            bundle=bundle,
-            manifest=manifest,
-            trusted_manifest_sha256=trusted_manifest_sha256,
-            workspace=workspace,
-            docker=docker,
-        )
-        refusals = {item["code"] for item in checked["diagnostics"]}
-        # Only a retained original binding can distinguish an interrupted owned
-        # initialization from an unrelated existing workspace.
-        if progress:
-            refusals.discard("existing_state_requires_review")
-        if (
-            refusals
-            or checked["release"]["state"]
-            != "pinned_archives_and_matching_source_verified"
-        ):
-            raise ServiceError(409, "install_preflight_refused")
-        for name in MAINTENANCE_REFERENCES:
-            native_path(source / name)
-            if not (source / name).is_file():
-                raise ServiceError(409, "install_matching_maintenance_source_required")
-        if not progress:
-            progress = {
-                "schemaVersion": 1,
-                "binding": binding,
-                "release": checked["release"],
-                "phase": "initializing",
-                "client": None,
-            }
-            atomic_bytes(journal, encode(progress))
-        elif progress["release"] != checked["release"]:
-            raise ServiceError(409, "install_release_changed")
-        if progress["phase"] == "initializing":
-            # Existing create-only initialization preserves files if its prior
-            # invocation stopped after creating config/store but before this ACK.
-            for relative in (
-                "config.json",
-                "personal",
-                "secrets",
-                "operations",
-                "security",
-                "personal/extensions",
-                "personal/forks",
-                "stores/manual.git",
-                "cache",
-            ):
-                native_path(workspace / relative)
-            initialize(workspace)
-            progress["phase"] = "source_preparing"
-            atomic_bytes(journal, encode(progress))
+        progress, checked = _initialize_workspace(journal, binding)
         runtime = open_runtime(workspace)
         if not isinstance(runtime.operations, Service):
             raise ServiceError(503, "native_coordinator_required")
@@ -160,28 +109,9 @@ def prepare(
         )
         if target["sourceCommit"] != progress["release"]["sourceCommit"]:
             raise ServiceError(409, "install_release_changed")
-        profile = {
-            "schemaVersion": 1,
-            "sourceRoot": str(source),
-            "sourceCommit": target["sourceCommit"],
-            "workspace": str(workspace),
-            "guide": "docs/agent-guide.md",
-            "developmentLock": "packaging/dev-cp312-linux-x86_64.lock",
-            "extensionCatalog": "src/health_buddy/reference_extensions",
-            "tests": "tests/test_extension_runtime.py",
-            "previewAndReview": "docs/agent-guide.md",
-            "runtimeActivated": False,
-        }
-        profile_path = workspace / "personal/INSTALLATION.json"
-        native_path(profile_path)
-        payload = encode(profile)
-        if profile_path.exists():
-            if read_file(profile_path, 16384) != payload:
-                raise ServiceError(409, "install_source_profile_locally_changed")
-        elif progress["phase"] == "source_preparing":
-            atomic_bytes(profile_path, payload)
-        else:
-            raise ServiceError(409, "install_source_profile_missing")
+        _write_source_profile(
+            workspace, source, target["sourceCommit"], progress["phase"]
+        )
         if progress["phase"] == "source_preparing":
             progress["phase"] = "prepared"
             atomic_bytes(journal, encode(progress))
@@ -203,12 +133,9 @@ def prepare(
         }
         if progress["client"] is not None and progress["client"] != selected_client:
             raise ServiceError(409, "install_client_resume_requires_original_binding")
-        admitted = Settings.read(settings)
-        if (
-            admitted.identity != runtime.operations.journal.state().identity
-            or admitted.origin != runtime.ingress.external_origin
-        ):
-            raise ServiceError(409, "install_client_requires_matching_owner_authority")
+        _validate_client_settings(
+            settings, runtime.operations, runtime.ingress.external_origin
+        )
         if progress["phase"] != "client_prepared":
             progress["client"] = selected_client
             progress["phase"] = "client_preparing"
@@ -225,6 +152,116 @@ def prepare(
         progress["phase"] = "client_prepared"
         atomic_bytes(journal, encode(progress))
         return summary(progress)
+
+
+def _initialize_workspace(
+    journal: Path, binding: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Journal the binding before the first write, then create the workspace.
+
+    Returns the journal progress and this run's preflight result.
+    """
+    bundle, workspace = Path(binding["bundle"]), Path(binding["workspace"])
+    progress = _resumed_progress(journal, binding)
+    checked = preflight(
+        bundle=bundle,
+        manifest=Path(binding["manifest"]),
+        trusted_manifest_sha256=binding["manifestSha256"],
+        workspace=workspace,
+        docker=Path(binding["docker"]),
+    )
+    refusals = {item["code"] for item in checked["diagnostics"]}
+    # Only a retained original binding can distinguish an interrupted owned
+    # initialization from an unrelated existing workspace.
+    if progress:
+        refusals.discard("existing_state_requires_review")
+    if (
+        refusals
+        or checked["release"]["state"] != "pinned_archives_and_matching_source_verified"
+    ):
+        raise ServiceError(409, "install_preflight_refused")
+    _validate_maintenance_source(bundle / "source")
+    if not progress:
+        progress = {
+            "schemaVersion": 1,
+            "binding": binding,
+            "release": checked["release"],
+            "phase": "initializing",
+            "client": None,
+        }
+        atomic_bytes(journal, encode(progress))
+    elif progress["release"] != checked["release"]:
+        raise ServiceError(409, "install_release_changed")
+    if progress["phase"] == "initializing":
+        # Existing create-only initialization preserves files if its prior
+        # invocation stopped after creating config/store but before this ACK.
+        for relative in WORKSPACE_ENTRIES:
+            native_path(workspace / relative)
+        initialize(workspace)
+        progress["phase"] = "source_preparing"
+        atomic_bytes(journal, encode(progress))
+    return progress, checked
+
+
+def _resumed_progress(journal: Path, binding: dict[str, Any]) -> dict[str, Any]:
+    """The journal of an interrupted run with this binding, or empty if none."""
+    previous = read_json(journal, 32768) if journal.exists() else None
+    if previous is None:
+        return {}
+    if (
+        not isinstance(previous, dict)
+        or previous.get("schemaVersion") != 1
+        or previous.get("binding") != binding
+        or previous.get("phase") not in PHASES
+    ):
+        raise ServiceError(409, "install_resume_requires_original_binding")
+    return dict(previous)
+
+
+def _validate_maintenance_source(source: Path) -> None:
+    for name in MAINTENANCE_REFERENCES:
+        native_path(source / name)
+        if not (source / name).is_file():
+            raise ServiceError(409, "install_matching_maintenance_source_required")
+
+
+def _write_source_profile(
+    workspace: Path, source: Path, source_commit: str, phase: str
+) -> None:
+    """Written once while source_preparing; afterwards it must be unchanged."""
+    profile = {
+        "schemaVersion": 1,
+        "sourceRoot": str(source),
+        "sourceCommit": source_commit,
+        "workspace": str(workspace),
+        "guide": "docs/agent-guide.md",
+        "developmentLock": "packaging/dev-cp312-linux-x86_64.lock",
+        "extensionCatalog": "src/health_buddy/reference_extensions",
+        "tests": "tests/test_extension_runtime.py",
+        "previewAndReview": "docs/agent-guide.md",
+        "runtimeActivated": False,
+    }
+    profile_path = workspace / "personal/INSTALLATION.json"
+    native_path(profile_path)
+    payload = encode(profile)
+    if profile_path.exists():
+        if read_file(profile_path, 16384) != payload:
+            raise ServiceError(409, "install_source_profile_locally_changed")
+    elif phase == "source_preparing":
+        atomic_bytes(profile_path, payload)
+    else:
+        raise ServiceError(409, "install_source_profile_missing")
+
+
+def _validate_client_settings(
+    settings: Path, service: Service, origin: str | None
+) -> None:
+    admitted = Settings.read(settings)
+    if (
+        admitted.identity != service.journal.state().identity
+        or admitted.origin != origin
+    ):
+        raise ServiceError(409, "install_client_requires_matching_owner_authority")
 
 
 def main(argv: list[str] | None = None) -> int:

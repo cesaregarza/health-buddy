@@ -254,6 +254,83 @@ def live_prescription(
             )
 
 
+def _manual_state(files: dict[str, str], stamp: str, now: datetime) -> dict[str, Any]:
+    records = sum(
+        len(parse_csv(text)) for name, text in files.items() if name.endswith(".csv")
+    )
+    return source_state(
+        "available" if records else "empty",
+        "none" if records else "no_records",
+        stamp if records else None,
+        now=now,
+    )
+
+
+def _visit(reader: Reader, now: datetime) -> dict[str, Any]:
+    """Clinician questions and the last and next appointments, as recorded."""
+    questions = [
+        {**row, "prov": False, "origin": "canonical"}
+        for row in reader.rows("data/clinician_questions.csv")
+    ]
+    appointments = reader.rows("data/appointments.csv")
+    completed = sorted(
+        (r for r in appointments if r.get("status") == "completed"),
+        key=lambda r: r.get("appointment_date", ""),
+    )
+    upcoming = sorted(
+        (
+            r
+            for r in appointments
+            if r.get("status") in ("scheduled", "upcoming", "planned")
+        ),
+        key=lambda r: r.get("appointment_date", ""),
+    )
+    return {
+        "questions": questions,
+        "prepared_questions": [],
+        "last_visit": completed[-1] if completed else None,
+        "next_visit": upcoming[0] if upcoming else None,
+        "note_markdown": None,
+        "note_error": None,
+        "note_generated_on": None,
+        "note_through": now.date().isoformat(),
+    }
+
+
+def _meta(
+    config: Config, revision: str, stamp: str, health: dict[str, Any], now: datetime
+) -> dict[str, Any]:
+    return {
+        "origin_full_sha": revision,
+        "origin_sha": revision[:7],
+        "origin_committed": stamp,
+        "built_at": now.astimezone(UTC).isoformat(),
+        "built_at_ct": now.strftime("%Y-%m-%d %H:%M %Z"),
+        "tz": config.zone.key,
+        "healthkit_last_batch": health["last_batch"],
+        "healthkit_available": health["available"],
+        "healthkit_types": health["type_freshness"],
+        "runtime": "local-development",
+        "revision_kind": "legacy-local-git",
+    }
+
+
+def _weight_goals(config: Config) -> dict[str, Any]:
+    """Configured goals in pounds, the unit the weight chart draws."""
+    return {
+        "configured": [
+            {
+                "value": goal["target"] * (2.2046226218 if goal["unit"] == "kg" else 1),
+                "label": (
+                    f"{goal['label']}: {goal['direction']} "
+                    f"{goal['target']} {goal['unit']}"
+                ),
+            }
+            for goal in config.values["goals"]
+        ]
+    }
+
+
 def project_files(
     config: Config,
     files: dict[str, str],
@@ -267,18 +344,11 @@ def project_files(
     """Render only the caller's immutable, already scoped source snapshot."""
     reader = Reader(files, config)
     build = source_bundle.module("build_dashboard")
-    records = sum(
-        len(parse_csv(text)) for name, text in files.items() if name.endswith(".csv")
-    )
+    manual = _manual_state(files, stamp, now)
     # The caller retains its admitted component map for grouping and error
     # state. Own the rendered map before adding the built-in manual status.
     sources = dict(sources)
-    sources["manual"] = source_state(
-        "available" if records else "empty",
-        "none" if records else "no_records",
-        stamp if records else None,
-        now=now,
-    )
+    sources["manual"] = manual
     with build.read_context(reader, config.zone):
         try:
             weight, weight7 = build.weight_series(health["bodymass"])
@@ -289,64 +359,14 @@ def project_files(
             prescriptions = build.training_prescriptions(as_of=now.date())
             live_prescription(reader, config, now, prescriptions)
             # History is explicit. An empty store never invents a plan.
-            questions = [
-                {**row, "prov": False, "origin": "canonical"}
-                for row in reader.rows("data/clinician_questions.csv")
-            ]
-            appointments = reader.rows("data/appointments.csv")
-            completed = sorted(
-                (r for r in appointments if r.get("status") == "completed"),
-                key=lambda r: r.get("appointment_date", ""),
-            )
-            upcoming = sorted(
-                (
-                    r
-                    for r in appointments
-                    if r.get("status") in ("scheduled", "upcoming", "planned")
-                ),
-                key=lambda r: r.get("appointment_date", ""),
-            )
-            visit = {
-                "questions": questions,
-                "prepared_questions": [],
-                "last_visit": completed[-1] if completed else None,
-                "next_visit": upcoming[0] if upcoming else None,
-                "note_markdown": None,
-                "note_error": None,
-                "note_generated_on": None,
-                "note_through": now.date().isoformat(),
-            }
+            visit = _visit(reader, now)
             data = {
                 "config": config.public(),
                 "sources": sources,
-                "meta": {
-                    "origin_full_sha": revision,
-                    "origin_sha": revision[:7],
-                    "origin_committed": stamp,
-                    "built_at": now.astimezone(UTC).isoformat(),
-                    "built_at_ct": now.strftime("%Y-%m-%d %H:%M %Z"),
-                    "tz": config.zone.key,
-                    "healthkit_last_batch": health["last_batch"],
-                    "healthkit_available": health["available"],
-                    "healthkit_types": health["type_freshness"],
-                    "runtime": "local-development",
-                    "revision_kind": "legacy-local-git",
-                },
+                "meta": _meta(config, revision, stamp, health, now),
                 "weight": weight,
                 "weight7": weight7,
-                "weight_goals": {
-                    "configured": [
-                        {
-                            "value": goal["target"]
-                            * (2.2046226218 if goal["unit"] == "kg" else 1),
-                            "label": (
-                                f"{goal['label']}: {goal['direction']} "
-                                f"{goal['target']} {goal['unit']}"
-                            ),
-                        }
-                        for goal in config.values["goals"]
-                    ]
-                },
+                "weight_goals": _weight_goals(config),
                 "bp": bp,
                 "injections": [],
                 "tracking_schedule": [],

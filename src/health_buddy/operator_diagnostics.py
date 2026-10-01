@@ -14,7 +14,7 @@ from typing import Any
 
 from health_buddy.client.app import App
 from health_buddy.core import source_bundle
-from health_buddy.core.config import ConfigError, load
+from health_buddy.core.config import Config, ConfigError, load
 from health_buddy.core.service_api import ServiceError
 from health_buddy.extension.diagnostics import recent_failure
 from health_buddy.extension.discovery import source_identity
@@ -124,30 +124,7 @@ def report(
         "diagnostics": [],
     }
     diagnostics = result["diagnostics"]
-    try:
-        result["installation"]["packageVersion"] = version("health-buddy")
-        result["installation"]["versionEvidence"] = "package_metadata"
-    except PackageNotFoundError:
-        identity = read_source_identity(
-            source_bundle.RELEASE,
-            source_bundle.RELEASE.parent / "release/source-manifest.json",
-        )
-        result["installation"]["source"] = source_identity(identity)
-        result["installation"]["packageVersion"] = identity.package_version
-        result["installation"]["versionEvidence"] = identity.source_evidence
-        if identity.package_version is None:
-            # The maintained source declaration supplies version only, not
-            # proof of a release artifact or a clean working tree.
-            try:
-                path = source_bundle.RELEASE / "pyproject.toml"
-                if path.stat().st_size <= 100_000:
-                    with path.open("rb") as stream:
-                        declared = tomllib.load(stream)["project"]["version"]
-                    if isinstance(declared, str) and len(declared) <= 64:
-                        result["installation"]["packageVersion"] = declared
-                        result["installation"]["versionEvidence"] = "source_declaration"
-            except (OSError, ValueError, KeyError, TypeError):
-                pass
+    _record_version(result["installation"])
     try:
         config = load(root)
     except ConfigError:
@@ -157,43 +134,8 @@ def report(
         [finding("phone_unknown", "info"), finding("connectivity_unknown", "info")]
     )
     for name in ("manual", "healthkit", "cache"):
-        path = config.storage(name)
-        entry: dict[str, Any] = {"store": name, "state": "unknown", "freeBytes": None}
-        try:
-            existing = path if path.exists() else path.parent
-            info = existing.lstat()
-            if not path.exists():
-                entry["state"] = "missing"
-                if name != "cache" and (
-                    name != "healthkit" or config.enabled("healthkit")
-                ):
-                    diagnostics.append(finding("storage_unavailable", "error"))
-            else:
-                entry["state"] = "present_not_integrity_verified"
-            if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077:
-                diagnostics.append(finding("permissions_partial", "error"))
-            entry["freeBytes"] = shutil.disk_usage(existing).free
-            if entry["freeBytes"] < 256 * 1024 * 1024:
-                diagnostics.append(finding("disk_low", "error"))
-        except OSError:
-            entry["state"] = "unavailable"
-            diagnostics.append(finding("storage_unavailable", "error"))
-        result["storage"].append(entry)
-    try:
-        result["extensions"]["items"] = [
-            status_json(item) for item in Registry(config).inspect()
-        ]
-        for item in result["extensions"]["items"]:
-            item["recentFailure"] = recent_failure(config, item["id"])
-            if item["recentFailure"].get("state") == "recorded":
-                diagnostics.append(finding("extension_unavailable"))
-        if any(
-            item["state"] not in {"ready", "disabled"}
-            for item in result["extensions"]["items"]
-        ):
-            diagnostics.append(finding("extension_unavailable"))
-    except (OSError, ValueError, ServiceError):
-        diagnostics.append(finding("extension_unavailable", "error"))
+        result["storage"].append(_storage_entry(config, name, diagnostics))
+    _inspect_extensions(config, result["extensions"], diagnostics)
     if config.ingress().mode == "tailscale-uds":
         probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         probe.settimeout(1)
@@ -212,6 +154,77 @@ def report(
     if app is not None:
         runtime_details(result, app)
     return result
+
+
+def _record_version(installation: dict[str, Any]) -> None:
+    """Package metadata, else the release identity, else the source declaration."""
+    try:
+        installation["packageVersion"] = version("health-buddy")
+        installation["versionEvidence"] = "package_metadata"
+    except PackageNotFoundError:
+        identity = read_source_identity(
+            source_bundle.RELEASE,
+            source_bundle.RELEASE.parent / "release/source-manifest.json",
+        )
+        installation["source"] = source_identity(identity)
+        installation["packageVersion"] = identity.package_version
+        installation["versionEvidence"] = identity.source_evidence
+        if identity.package_version is None:
+            # The maintained source declaration supplies version only, not
+            # proof of a release artifact or a clean working tree.
+            try:
+                path = source_bundle.RELEASE / "pyproject.toml"
+                if path.stat().st_size <= 100_000:
+                    with path.open("rb") as stream:
+                        declared = tomllib.load(stream)["project"]["version"]
+                    if isinstance(declared, str) and len(declared) <= 64:
+                        installation["packageVersion"] = declared
+                        installation["versionEvidence"] = "source_declaration"
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+
+
+def _storage_entry(
+    config: Config, name: str, diagnostics: list[dict[str, str]]
+) -> dict[str, Any]:
+    """One store's presence, ownership and free space; problems join diagnostics."""
+    path = config.storage(name)
+    entry: dict[str, Any] = {"store": name, "state": "unknown", "freeBytes": None}
+    try:
+        existing = path if path.exists() else path.parent
+        info = existing.lstat()
+        if not path.exists():
+            entry["state"] = "missing"
+            if name != "cache" and (name != "healthkit" or config.enabled("healthkit")):
+                diagnostics.append(finding("storage_unavailable", "error"))
+        else:
+            entry["state"] = "present_not_integrity_verified"
+        if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077:
+            diagnostics.append(finding("permissions_partial", "error"))
+        entry["freeBytes"] = shutil.disk_usage(existing).free
+        if entry["freeBytes"] < 256 * 1024 * 1024:
+            diagnostics.append(finding("disk_low", "error"))
+    except OSError:
+        entry["state"] = "unavailable"
+        diagnostics.append(finding("storage_unavailable", "error"))
+    return entry
+
+
+def _inspect_extensions(
+    config: Config, extensions: dict[str, Any], diagnostics: list[dict[str, str]]
+) -> None:
+    try:
+        extensions["items"] = [status_json(item) for item in Registry(config).inspect()]
+        for item in extensions["items"]:
+            item["recentFailure"] = recent_failure(config, item["id"])
+            if item["recentFailure"].get("state") == "recorded":
+                diagnostics.append(finding("extension_unavailable"))
+        if any(
+            item["state"] not in {"ready", "disabled"} for item in extensions["items"]
+        ):
+            diagnostics.append(finding("extension_unavailable"))
+    except (OSError, ValueError, ServiceError):
+        diagnostics.append(finding("extension_unavailable", "error"))
 
 
 def port_state(port: int) -> str:

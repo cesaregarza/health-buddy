@@ -62,6 +62,44 @@ LOGGER_KINDS = frozenset(
 MAX_RESPONSE = 4 * 1024 * 1024
 
 
+def _checked_headers(
+    response: httpx2.Response, pairs: list[tuple[str, str]]
+) -> str | None:
+    """Bounded, unambiguous plain-JSON headers; returns any declared length."""
+    if len(pairs) > 64 or sum(len(key) + len(value) for key, value in pairs) > 16_384:
+        raise ServiceError(503, "invalid_response")
+    names = [key.lower() for key, _ in pairs]
+    if any(
+        names.count(key) > 1
+        for key in ("content-type", "content-length", "etag", "content-encoding")
+    ):
+        raise ServiceError(503, "invalid_response")
+    if (
+        "set-cookie" in names
+        or response.headers.get("content-encoding", "identity") != "identity"
+    ):
+        raise ServiceError(503, "invalid_response")
+    if response.headers.get("content-type", "").split(";", 1)[0] != "application/json":
+        raise ServiceError(503, "invalid_response")
+    length = response.headers.get("content-length")
+    if length is not None and (
+        not re.fullmatch(r"[0-9]{1,10}", length) or int(length) > MAX_RESPONSE
+    ):
+        raise ServiceError(503, "result_too_large")
+    return length
+
+
+async def _bounded_body(response: httpx2.Response, length: str | None) -> bytearray:
+    raw = bytearray()
+    async for chunk in response.aiter_raw():
+        if len(raw) + len(chunk) > MAX_RESPONSE:
+            raise ServiceError(503, "result_too_large")
+        raw.extend(chunk)
+    if length is not None and len(raw) != int(length):
+        raise ServiceError(503, "invalid_response")
+    return raw
+
+
 class HttpOperations:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -90,33 +128,12 @@ class HttpOperations:
             remaining = min(remaining, request.deadline - time.monotonic())
         if remaining <= 0:
             raise ServiceError(503, "outcome_unknown")
-        identity = self.settings.identity
-        headers = {
-            "Authorization": "Bearer " + self._token,
-            "Accept": "application/json",
-            "Accept-Encoding": "identity",
-            "Connection": "close",
-            "X-API-Version": "1",
-            "X-Installation-Id": identity.installation_id,
-            "X-Dataset-Id": identity.dataset_id,
-            "X-Restore-Epoch": identity.restore_epoch,
-        }
         body = (
             None
             if request is None or request.payload is None
             else encode(request.payload)
         )
-        if body is not None:
-            if len(body) > maximum:
-                raise ServiceError(413, "invalid_request")
-            headers["Content-Type"] = "application/json"
-        if request is not None:
-            if request.identity is not None:
-                check_identity(request.identity, identity)
-            if request.if_match is not None:
-                headers["If-Match"] = request.if_match
-            if request.idempotency_key is not None:
-                headers["Idempotency-Key"] = request.idempotency_key
+        headers = self._headers(request, body, maximum)
         try:
             with anyio.fail_after(remaining):
                 async with httpx2.AsyncClient(
@@ -139,47 +156,8 @@ class HttpOperations:
                         if 300 <= response.status_code < 400:
                             raise ServiceError(503, "redirect_refused")
                         pairs = list(response.headers.multi_items())
-                        if (
-                            len(pairs) > 64
-                            or sum(len(key) + len(value) for key, value in pairs)
-                            > 16_384
-                        ):
-                            raise ServiceError(503, "invalid_response")
-                        names = [key.lower() for key, _ in pairs]
-                        if any(
-                            names.count(key) > 1
-                            for key in (
-                                "content-type",
-                                "content-length",
-                                "etag",
-                                "content-encoding",
-                            )
-                        ):
-                            raise ServiceError(503, "invalid_response")
-                        if (
-                            "set-cookie" in names
-                            or response.headers.get("content-encoding", "identity")
-                            != "identity"
-                        ):
-                            raise ServiceError(503, "invalid_response")
-                        if (
-                            response.headers.get("content-type", "").split(";", 1)[0]
-                            != "application/json"
-                        ):
-                            raise ServiceError(503, "invalid_response")
-                        length = response.headers.get("content-length")
-                        if length is not None and (
-                            not re.fullmatch(r"[0-9]{1,10}", length)
-                            or int(length) > MAX_RESPONSE
-                        ):
-                            raise ServiceError(503, "result_too_large")
-                        raw = bytearray()
-                        async for chunk in response.aiter_raw():
-                            if len(raw) + len(chunk) > MAX_RESPONSE:
-                                raise ServiceError(503, "result_too_large")
-                            raw.extend(chunk)
-                        if length is not None and len(raw) != int(length):
-                            raise ServiceError(503, "invalid_response")
+                        length = _checked_headers(response, pairs)
+                        raw = await _bounded_body(response, length)
                         json_object(
                             bytes(raw), Limits(json_nodes=100_000, json_depth=32)
                         )
@@ -188,6 +166,33 @@ class HttpOperations:
             raise
         except (httpx2.HTTPError, TimeoutError, OSError, EnvelopeError, ValueError):
             raise ServiceError(503, "transport_unavailable") from None
+
+    def _headers(
+        self, request: Request | None, body: bytes | None, maximum: int
+    ) -> dict[str, str]:
+        identity = self.settings.identity
+        headers = {
+            "Authorization": "Bearer " + self._token,
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+            "Connection": "close",
+            "X-API-Version": "1",
+            "X-Installation-Id": identity.installation_id,
+            "X-Dataset-Id": identity.dataset_id,
+            "X-Restore-Epoch": identity.restore_epoch,
+        }
+        if body is not None:
+            if len(body) > maximum:
+                raise ServiceError(413, "invalid_request")
+            headers["Content-Type"] = "application/json"
+        if request is not None:
+            if request.identity is not None:
+                check_identity(request.identity, identity)
+            if request.if_match is not None:
+                headers["If-Match"] = request.if_match
+            if request.idempotency_key is not None:
+                headers["Idempotency-Key"] = request.idempotency_key
+        return headers
 
     def _send(
         self,

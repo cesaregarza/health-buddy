@@ -95,39 +95,49 @@ def add_commands(commands: Any) -> None:
 
 def handle(args: argparse.Namespace) -> int:
     if args.import_action in {"admit-device", "canary-backup-readiness"}:
-        if args.development or args.credential_file is None:
-            raise ServiceError(422, "import_admission_requires_owner_credential_file")
-        native_directory(args.workspace)
-        native_directory(args.credential_file.parent)
-        runtime = open_runtime(args.workspace)
-        if not isinstance(runtime.security, SecurityAuthority):
-            raise ServiceError(503, "import_admission_unavailable")
-        owner = runtime.security.authenticate(
-            BearerProof(read_credential(args.credential_file))
-        )
-        if args.import_action == "canary-backup-readiness":
-            result = backup_readiness(
-                runtime,
-                owner.principal,
-                args.archive,
-                args.key_file,
-                expected_archive_sha256=args.expected_archive_sha256,
-            )
-            print(json.dumps(result, indent=2))
-            return 0
-        reply = runtime.security.admit_imported_device(
-            owner.principal,
-            identity=runtime.security.describe(owner.principal).identity,
-            device_id=args.device_id,
-            expected_snapshot_sha256=args.expected_snapshot_sha256,
-            name=args.name,
-        )
-        print(json.dumps(reply.data, indent=2))
-        return 0
+        return _owner_action(args)
     if args.development or args.credential_file is not None:
         raise ServiceError(422, "import_requires_native_owner_maintenance")
+    print(json.dumps(_maintenance_result(args), indent=2))
+    return 0
+
+
+def _owner_action(args: argparse.Namespace) -> int:
+    """Device admission and backup readiness need the owner's credential."""
+    if args.development or args.credential_file is None:
+        raise ServiceError(422, "import_admission_requires_owner_credential_file")
+    native_directory(args.workspace)
+    native_directory(args.credential_file.parent)
+    runtime = open_runtime(args.workspace)
+    if not isinstance(runtime.security, SecurityAuthority):
+        raise ServiceError(503, "import_admission_unavailable")
+    owner = runtime.security.authenticate(
+        BearerProof(read_credential(args.credential_file))
+    )
+    if args.import_action == "canary-backup-readiness":
+        result = backup_readiness(
+            runtime,
+            owner.principal,
+            args.archive,
+            args.key_file,
+            expected_archive_sha256=args.expected_archive_sha256,
+        )
+        print(json.dumps(result, indent=2))
+        return 0
+    reply = runtime.security.admit_imported_device(
+        owner.principal,
+        identity=runtime.security.describe(owner.principal).identity,
+        device_id=args.device_id,
+        expected_snapshot_sha256=args.expected_snapshot_sha256,
+        name=args.name,
+    )
+    print(json.dumps(reply.data, indent=2))
+    return 0
+
+
+def _maintenance_result(args: argparse.Namespace) -> dict[str, Any]:
     if args.import_action == "adopt-canary":
-        result = import_canary(
+        return import_canary(
             args.workspace,
             args.manual_input,
             args.receiver_input,
@@ -139,8 +149,8 @@ def handle(args: argparse.Namespace) -> int:
             sleeper_id=args.sleeper_id,
             timezone=args.timezone,
         )
-    elif args.import_action == "export-receiver":
-        result = export_receiver(
+    if args.import_action == "export-receiver":
+        return export_receiver(
             args.source_db,
             args.mapping_file,
             args.snapshot,
@@ -148,13 +158,13 @@ def handle(args: argparse.Namespace) -> int:
             expected_mapping_sha256=args.expected_mapping_sha256,
             confirm_quiesced=args.confirm_quiesced,
         )
-    elif args.import_action == "adopt-receiver":
-        result = import_receiver(
+    if args.import_action == "adopt-receiver":
+        return import_receiver(
             args.workspace,
             args.snapshot,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
-    elif args.import_action == "export-manual-canary":
+    if args.import_action == "export-manual-canary":
         selected = {
             "measurements": args.measurements_snapshot,
             "workouts": args.workouts_snapshot,
@@ -165,27 +175,27 @@ def handle(args: argparse.Namespace) -> int:
         hashes = {
             name: getattr(args, "expected_" + name + "_sha256") for name in INPUTS
         }
-        result = export_manual_canary(
+        return export_manual_canary(
             selected,
             args.snapshot,
             reviewed_hashes=hashes,
             source_revision=args.source_revision,
         )
-    elif args.import_action == "adopt-manual-canary":
-        result = import_manual_canary(
+    if args.import_action == "adopt-manual-canary":
+        return import_manual_canary(
             args.workspace,
             args.snapshot,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
-    elif args.import_action == "export-measurements":
-        result = export_measurements(
+    if args.import_action == "export-measurements":
+        return export_measurements(
             args.source_csv,
             args.snapshot,
             source_id=args.source_id,
             expected_source_sha256=args.expected_source_sha256,
         )
-    elif args.import_action == "export-workouts":
-        result = export_workouts(
+    if args.import_action == "export-workouts":
+        return export_workouts(
             args.sessions_csv,
             args.sets_csv,
             args.snapshot,
@@ -193,17 +203,14 @@ def handle(args: argparse.Namespace) -> int:
             expected_sessions_sha256=args.expected_sessions_sha256,
             expected_sets_sha256=args.expected_sets_sha256,
         )
-    elif args.import_action == "adopt-workouts":
-        result = import_workouts(
+    if args.import_action == "adopt-workouts":
+        return import_workouts(
             args.workspace,
             args.snapshot,
             expected_snapshot_sha256=args.expected_snapshot_sha256,
         )
-    else:
-        result = import_measurements(
-            args.workspace,
-            args.snapshot,
-            expected_snapshot_sha256=args.expected_snapshot_sha256,
-        )
-    print(json.dumps(result, indent=2))
-    return 0
+    return import_measurements(
+        args.workspace,
+        args.snapshot,
+        expected_snapshot_sha256=args.expected_snapshot_sha256,
+    )

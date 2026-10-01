@@ -287,34 +287,13 @@ def capture(
     now = datetime.now(UTC)
     start, end = window or (now - timedelta(days=366), now)
     previous = cached(service, state)
-    components: dict[str, Any] = {}
-    # Validate canonical manual data before preserving it as a last-good input.
-    try:
-        records.csv_observations(files, service.config.zone.key, registry)
-        records.json_observations(files, service.config.zone.key, registry)
-    except (ServiceError, ValueError, KeyError, TypeError) as exc:
-        raise unavailable() from exc
+    _validate_manual(service, files, registry)
     selected_coverage = coverage(start, end, kinds)
     receiver_binding = service.journal.receiver_binding()
-    wants_health = sources is None or any(
-        name not in {"manual", "sleepiq-export"}
-        and (
-            (name in registry and registry[name]["source_kind"] == "healthkit")
-            or name in {"healthkit", "healthkit-import"}
-        )
-        for name in sources
-    )
+    wants_health = _wants_health(registry, sources)
+    components: dict[str, Any] = {}
     if service.config.enabled("healthkit") and wants_health:
-        names = (
-            [
-                key
-                for key, value in registry.items()
-                if value["source_kind"] == "healthkit"
-            ]
-            if service.health.receiver
-            else ["healthkit-import"]
-        )
-        names = [name for name in names if sources is None or name in sources]
+        names = _healthkit_names(service, registry, sources)
         try:
             if service.health.receiver:
                 service.check_receiver(state.identity)
@@ -322,37 +301,18 @@ def capture(
                 # An adopted receiver cannot become an overlapping raw import.
                 raise unavailable()
             if not names and sources is None:
-                components["healthkit"] = {
-                    "health": empty_health(),
-                    "records": [],
-                    "revision": state.revision,
-                    "coverage": selected_coverage,
-                    "state": projection.source_state(
+                components["healthkit"] = _empty_component(
+                    state.revision,
+                    selected_coverage,
+                    projection.source_state(
                         "available", "no_data_or_denied_read", now=now
                     ),
-                }
+                )
             for name in names:
                 raw, truncated = _raw_health(service, name, start, end, kinds, deadline)
-                health = source_bundle.module("healthkit_source").read_healthkit(
-                    service.config.storage("healthkit"), service.config.zone, rows=raw
+                components[name] = _healthkit_component(
+                    service, name, raw, state.revision, selected_coverage, now
                 )
-                encode(health)  # Non-finite optional values cannot enter the cache.
-                count = sum(item["records"] for item in health["type_freshness"])
-                components[name] = {
-                    "health": health,
-                    "records": _health_observations(
-                        [row for row in raw if row["source_id"] == name],
-                        service.config.zone.key,
-                    ),
-                    "state": projection.source_state(
-                        "available",
-                        "none" if count else "no_data_or_denied_read",
-                        health["last_batch"],
-                        now=now,
-                    ),
-                    "revision": state.revision,
-                    "coverage": selected_coverage,
-                }
                 components[name]["state"]["truncatedKinds"] = truncated
         except (
             OSError,
@@ -365,98 +325,24 @@ def capture(
         ):
             for name in names or ["healthkit"]:
                 old = (previous or {}).get("components", {}).get(name)
-                component = (
-                    deepcopy(old)
-                    if old
-                    else {
-                        "health": empty_health(),
-                        "records": [],
-                        "revision": None,
-                        "coverage": selected_coverage,
-                    }
+                components[name] = _unavailable_healthkit(
+                    service, old, receiver_binding, selected_coverage, now
                 )
-                missing = (
-                    "not_configured"
-                    if not service.health.receiver
-                    and receiver_binding is None
-                    and not service.config.storage("healthkit").exists()
-                    else "source_error"
-                )
-                component["state"] = projection.source_state(
-                    "unavailable", missing, now=now
-                )
-                component["state"]["freshness"] = "stale" if old else "unknown"
-                component["state"]["cachedAtRevision"] = component["revision"]
-                component["state"]["coverage"] = component["coverage"]
-                components[name] = component
     elif wants_health:
-        components["healthkit"] = {
-            "health": empty_health(),
-            "records": [],
-            "revision": state.revision,
-            "coverage": selected_coverage,
-            "state": projection.source_state("disabled", "not_configured", now=now),
-        }
-    # The file export is explicitly read-only; it is not receiver ingestion.
-    config_values = deepcopy(service.config.values)
-    config_values["integrations"]["healthkit"]["enabled"] = False
+        components["healthkit"] = _empty_component(
+            state.revision,
+            selected_coverage,
+            projection.source_state("disabled", "not_configured", now=now),
+        )
     wants_sleep = (sources is None or "sleepiq-export" in sources) and (
         kinds is None or "sleep-duration" in kinds
     )
-    if not wants_sleep:
-        config_values["integrations"]["sleepiq"]["enabled"] = False
-    health, statuses = projection.optional_sources(
-        Config(service.config.root, config_values), now
+    sleep = _sleep_component(
+        service, wants_sleep, previous, state.revision, selected_coverage, now
     )
-    sleep_state = statuses["sleepiq"]
-    sleep_records: list[dict[str, JSON]] = []
-    for row in health["sleep"]:
-        observed = (
-            datetime.fromisoformat(row["d"])
-            .replace(tzinfo=service.config.zone)
-            .astimezone(UTC)
-            .isoformat()
-        )
-        record_id = "sleep:" + str(
-            uuid5(NAMESPACE_URL, "health-buddy:sleepiq-export:" + row["d"])
-        )
-        sleep_records.append(
-            Observation(
-                record_id,
-                "sleep-duration",
-                row["hours"],
-                "h",
-                observed,
-                sleep_state["lastSuccessAt"],
-                "sleepiq-export",
-                "file-export",
-                service.config.zone.key,
-            ).wire()
-        )
-    if not wants_sleep:
-        pass
-    elif (
-        sleep_state["missingness"] == "source_error"
-        and previous
-        and "sleepiq-export" in previous["components"]
-    ):
-        components["sleepiq-export"] = deepcopy(
-            previous["components"]["sleepiq-export"]
-        )
-        components["sleepiq-export"]["state"] = {
-            **sleep_state,
-            "freshness": "stale",
-            "cachedAtRevision": components["sleepiq-export"]["revision"],
-        }
-    else:
-        components["sleepiq-export"] = {
-            "health": health,
-            "records": sleep_records,
-            "state": sleep_state,
-            "revision": state.revision,
-            "coverage": selected_coverage,
-        }
-    captured = {
+    if sleep is not None:
+        components["sleepiq-export"] = sleep
+    return {
         "schemaVersion": 1,
         "identity": identity_value(state.identity),
         "revision": state.revision,
@@ -469,7 +355,186 @@ def capture(
         **selected_coverage,
         "sources": sorted(sources) if sources is not None else None,
     }
-    return captured
+
+
+def _validate_manual(
+    service: Service, files: dict[str, str], registry: dict[str, dict[str, JSON]]
+) -> None:
+    # Validate canonical manual data before preserving it as a last-good input.
+    try:
+        records.csv_observations(files, service.config.zone.key, registry)
+        records.json_observations(files, service.config.zone.key, registry)
+    except (ServiceError, ValueError, KeyError, TypeError) as exc:
+        raise unavailable() from exc
+
+
+def _wants_health(
+    registry: dict[str, dict[str, JSON]], sources: set[str] | None
+) -> bool:
+    return sources is None or any(
+        name not in {"manual", "sleepiq-export"}
+        and (
+            (name in registry and registry[name]["source_kind"] == "healthkit")
+            or name in {"healthkit", "healthkit-import"}
+        )
+        for name in sources
+    )
+
+
+def _healthkit_names(
+    service: Service, registry: dict[str, dict[str, JSON]], sources: set[str] | None
+) -> list[str]:
+    names = (
+        [key for key, value in registry.items() if value["source_kind"] == "healthkit"]
+        if service.health.receiver
+        else ["healthkit-import"]
+    )
+    return [name for name in names if sources is None or name in sources]
+
+
+def _empty_component(
+    revision: int, selected_coverage: dict[str, Any], state: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "health": empty_health(),
+        "records": [],
+        "revision": revision,
+        "coverage": selected_coverage,
+        "state": state,
+    }
+
+
+def _healthkit_component(
+    service: Service,
+    name: str,
+    raw: list[dict[str, JSON]],
+    revision: int,
+    selected_coverage: dict[str, Any],
+    now: datetime,
+) -> dict[str, Any]:
+    health = source_bundle.module("healthkit_source").read_healthkit(
+        service.config.storage("healthkit"), service.config.zone, rows=raw
+    )
+    encode(health)  # Non-finite optional values cannot enter the cache.
+    count = sum(item["records"] for item in health["type_freshness"])
+    return {
+        "health": health,
+        "records": _health_observations(
+            [row for row in raw if row["source_id"] == name],
+            service.config.zone.key,
+        ),
+        "state": projection.source_state(
+            "available",
+            "none" if count else "no_data_or_denied_read",
+            health["last_batch"],
+            now=now,
+        ),
+        "revision": revision,
+        "coverage": selected_coverage,
+    }
+
+
+def _unavailable_healthkit(
+    service: Service,
+    old: dict[str, Any] | None,
+    receiver_binding: dict[str, JSON] | None,
+    selected_coverage: dict[str, Any],
+    now: datetime,
+) -> dict[str, Any]:
+    """The last good component marked stale, or an empty unknown one."""
+    component = (
+        deepcopy(old)
+        if old
+        else {
+            "health": empty_health(),
+            "records": [],
+            "revision": None,
+            "coverage": selected_coverage,
+        }
+    )
+    missing = (
+        "not_configured"
+        if not service.health.receiver
+        and receiver_binding is None
+        and not service.config.storage("healthkit").exists()
+        else "source_error"
+    )
+    component["state"] = projection.source_state("unavailable", missing, now=now)
+    component["state"]["freshness"] = "stale" if old else "unknown"
+    component["state"]["cachedAtRevision"] = component["revision"]
+    component["state"]["coverage"] = component["coverage"]
+    return component
+
+
+def _sleep_component(
+    service: Service,
+    wanted: bool,
+    previous: dict[str, Any] | None,
+    revision: int,
+    selected_coverage: dict[str, Any],
+    now: datetime,
+) -> dict[str, Any] | None:
+    # The file export is explicitly read-only; it is not receiver ingestion.
+    config_values = deepcopy(service.config.values)
+    config_values["integrations"]["healthkit"]["enabled"] = False
+    if not wanted:
+        config_values["integrations"]["sleepiq"]["enabled"] = False
+    health, statuses = projection.optional_sources(
+        Config(service.config.root, config_values), now
+    )
+    sleep_state = statuses["sleepiq"]
+    sleep_records = _sleep_records(health["sleep"], sleep_state, service.config)
+    if not wanted:
+        return None
+    if (
+        sleep_state["missingness"] == "source_error"
+        and previous
+        and "sleepiq-export" in previous["components"]
+    ):
+        component: dict[str, Any] = deepcopy(previous["components"]["sleepiq-export"])
+        component["state"] = {
+            **sleep_state,
+            "freshness": "stale",
+            "cachedAtRevision": component["revision"],
+        }
+        return component
+    return {
+        "health": health,
+        "records": sleep_records,
+        "state": sleep_state,
+        "revision": revision,
+        "coverage": selected_coverage,
+    }
+
+
+def _sleep_records(
+    rows: list[dict[str, Any]], sleep_state: dict[str, Any], config: Config
+) -> list[dict[str, JSON]]:
+    result: list[dict[str, JSON]] = []
+    for row in rows:
+        observed = (
+            datetime.fromisoformat(row["d"])
+            .replace(tzinfo=config.zone)
+            .astimezone(UTC)
+            .isoformat()
+        )
+        record_id = "sleep:" + str(
+            uuid5(NAMESPACE_URL, "health-buddy:sleepiq-export:" + row["d"])
+        )
+        result.append(
+            Observation(
+                record_id,
+                "sleep-duration",
+                row["hours"],
+                "h",
+                observed,
+                sleep_state["lastSuccessAt"],
+                "sleepiq-export",
+                "file-export",
+                config.zone.key,
+            ).wire()
+        )
+    return result
 
 
 def direct_health(
@@ -607,11 +672,10 @@ def dashboard(
         raise ServiceError(403, "insufficient_read_fields")
     now = datetime.now(UTC).astimezone(service.config.zone)
     floor = now - timedelta(days=days)
+    timezone = service.config.zone.key
     values = [
         item
-        for item in observations(
-            captured, authority, service.config.zone.key, stale=stale
-        )
+        for item in observations(captured, authority, timezone, stale=stale)
         if floor
         <= datetime.fromisoformat(text(item["observedAt"]).replace("Z", "+00:00"))
         <= now
@@ -619,12 +683,75 @@ def dashboard(
     values.sort(
         key=lambda item: (text(item["observedAt"]), text(item["id"])), reverse=True
     )
+    values, truncated = _limit_per_kind(values, limit)
+    locators = _admitted_locators(captured, authority, timezone, stale, values)
+    files = _admitted_files(captured["files"], locators, authority)
+    health = empty_health()
+    sources: dict[str, Any] = {}
+    days_shown = (floor.date().isoformat(), now.date().isoformat())
+    for name, component in captured["components"].items():
+        if authority.read_sources is not None and name not in authority.read_sources:
+            continue
+        sources[name] = _source_status(name, component["state"], authority, stale)
+        truncated = truncated or bool(sources[name]["truncatedKinds"])
+        _merge_health(health, name, component["health"], authority, days_shown, limit)
+    # Generic observations stay JSON-authoritative. This in-memory view is the
+    # same data used by metric clients, never a persisted duplicate CSV.
+    health["bodymass"].extend(
+        _generic_body_mass(captured["files"], values, service.config)
+    )
+    result = projection.project_files(
+        _visible_config(service.config, authority, sources),
+        files,
+        captured["head"],
+        captured["stamp"],
+        health,
+        sources,
+        now=now,
+    )
+    _label_sources(result["sources"], sources, captured["registry"], authority, stale)
+    result["observations"] = values
+    result["water_intake"] = [item for item in values if item["kind"] == "water-intake"]
+    partial = stale or any(
+        state["missingness"] == "source_error" for state in sources.values()
+    )
+    result["meta"].update(
+        {
+            **captured["identity"],
+            "dataRevision": captured["revision"],
+            "apiVersion": 1,
+            "revision_kind": "canonical-journal",
+            "projectionState": (
+                "stale" if partial else "partial" if truncated else "current"
+            ),
+            "truncated": truncated,
+            "windowDays": days,
+            "runtime": "canonical-local",
+        }
+    )
+    return result
+
+
+def _limit_per_kind(
+    values: list[dict[str, JSON]], limit: int
+) -> tuple[list[dict[str, JSON]], bool]:
+    """Keep the newest per kind; returns them and whether any kind was cut."""
     # One dense domain must not erase unrelated measurements or parent sessions.
     domains: dict[str, list[dict[str, JSON]]] = {}
     for item in values:
         domains.setdefault(text(item["kind"]), []).append(item)
     truncated = any(len(items) > limit for items in domains.values())
-    values = [item for items in domains.values() for item in items[:limit]]
+    return [item for items in domains.values() for item in items[:limit]], truncated
+
+
+def _admitted_locators(
+    captured: dict[str, Any],
+    authority: Authority,
+    timezone: str,
+    stale: bool,
+    values: list[dict[str, JSON]],
+) -> set[tuple[str, str]]:
+    """CSV rows behind the admitted records, plus their permitted parent sessions."""
     admitted_ids = {text(item["id"]) for item in values}
     raw_files = captured["files"]
     index = records.load_object(raw_files, RECORD_INDEX)
@@ -643,9 +770,7 @@ def dashboard(
     # Parent inclusion still obeys current source and kind grants.
     permitted_parents = {
         text(item["id"])
-        for item in observations(
-            captured, authority, service.config.zone.key, stale=stale
-        )
+        for item in observations(captured, authority, timezone, stale=stale)
         if item["kind"] == "workout-session"
     }
     for key, entry in index.items():
@@ -661,6 +786,12 @@ def dashboard(
                 and text(natural[0]) in parent_ids
             ):
                 locators.add(("data/sessions.csv", text(entry["locator"])))
+    return locators
+
+
+def _admitted_files(
+    raw_files: dict[str, str], locators: set[tuple[str, str]], authority: Authority
+) -> dict[str, str]:
     files = {name: csv_text(fields, []) for name, fields in headers().items()}
     for name in records.KINDS:
         if name in raw_files:
@@ -691,67 +822,77 @@ def dashboard(
                 and name != OBSERVATIONS
             }
         )
-    health = empty_health()
-    sources: dict[str, Any] = {}
-    for name, component in captured["components"].items():
-        if authority.read_sources is not None and name not in authority.read_sources:
-            continue
-        sources[name] = {
-            **component["state"],
-            **({"freshness": "stale"} if stale else {}),
-        }
-        truncated_kinds = [
-            kind
-            for kind in component["state"].get("truncatedKinds", [])
-            if allowed(
-                authority,
-                name,
-                "body-mass" if kind == "HKQuantityTypeIdentifierBodyMass" else kind,
-            )
-        ]
-        sources[name]["truncatedKinds"] = truncated_kinds
-        truncated = truncated or bool(truncated_kinds)
-        data = component["health"]
-        health["available"] = health["available"] or data["available"]
-        stamps = [
-            stamp for stamp in (health["last_batch"], data["last_batch"]) if stamp
-        ]
-        health["last_batch"] = max(stamps) if stamps else None
-        health["type_freshness"].extend(
-            [
-                row
-                for row in data["type_freshness"]
-                if authority.read_kinds is None
-                or row["type"] in authority.read_kinds
-                or (
-                    row["type"] == "HKQuantityTypeIdentifierBodyMass"
-                    and "body-mass" in authority.read_kinds
-                )
-            ]
+    return files
+
+
+def _source_status(
+    name: str, state: dict[str, Any], authority: Authority, stale: bool
+) -> dict[str, Any]:
+    status = {**state, **({"freshness": "stale"} if stale else {})}
+    status["truncatedKinds"] = [
+        kind
+        for kind in state.get("truncatedKinds", [])
+        if allowed(
+            authority,
+            name,
+            "body-mass" if kind == "HKQuantityTypeIdentifierBodyMass" else kind,
         )
-        for key in HEALTH_FIELDS:
-            if authority.read_kinds is not None:
-                required = HEALTH_KINDS[key]
-                if not required & authority.read_kinds or (
-                    key == "workouts" and not required <= authority.read_kinds
-                ):
-                    continue
-            health[key].extend(
-                [
-                    {**row, "sourceId": name}
-                    for row in data[key]
-                    if floor.date().isoformat() <= row["d"] <= now.date().isoformat()
-                ][:limit]
+    ]
+    return status
+
+
+def _merge_health(
+    health: dict[str, Any],
+    name: str,
+    data: dict[str, Any],
+    authority: Authority,
+    days_shown: tuple[str, str],
+    limit: int,
+) -> None:
+    """Add one source's granted health series to the dashboard aggregate."""
+    health["available"] = health["available"] or data["available"]
+    stamps = [stamp for stamp in (health["last_batch"], data["last_batch"]) if stamp]
+    health["last_batch"] = max(stamps) if stamps else None
+    health["type_freshness"].extend(
+        [
+            row
+            for row in data["type_freshness"]
+            if authority.read_kinds is None
+            or row["type"] in authority.read_kinds
+            or (
+                row["type"] == "HKQuantityTypeIdentifierBodyMass"
+                and "body-mass" in authority.read_kinds
             )
-    # Generic observations stay JSON-authoritative. This in-memory view is the
-    # same data used by metric clients, never a persisted duplicate CSV.
+        ]
+    )
+    first, last = days_shown
+    for key in HEALTH_FIELDS:
+        if authority.read_kinds is not None:
+            required = HEALTH_KINDS[key]
+            if not required & authority.read_kinds or (
+                key == "workouts" and not required <= authority.read_kinds
+            ):
+                continue
+        health[key].extend(
+            [
+                {**row, "sourceId": name}
+                for row in data[key]
+                if first <= row["d"] <= last
+            ][:limit]
+        )
+
+
+def _generic_body_mass(
+    raw_files: dict[str, str], values: list[dict[str, JSON]], config: Config
+) -> list[dict[str, Any]]:
     generic_ids = set(records.load_object(raw_files, OBSERVATIONS))
+    rows: list[dict[str, Any]] = []
     for item in values:
         if item["id"] in generic_ids and item["kind"] == "body-mass":
             stamp = datetime.fromisoformat(
                 text(item["observedAt"]).replace("Z", "+00:00")
-            ).astimezone(service.config.zone)
-            health["bodymass"].append(
+            ).astimezone(config.zone)
+            rows.append(
                 {
                     "d": stamp.date().isoformat(),
                     "lb": float(cast(float, item["value"]))
@@ -759,38 +900,44 @@ def dashboard(
                     "sourceId": item["sourceId"],
                 }
             )
-    values_config = deepcopy(service.config.values)
+    return rows
+
+
+def _visible_config(
+    config: Config, authority: Authority, sources: dict[str, Any]
+) -> Config:
+    """Configuration with ungranted sources disabled and ungranted fields reset."""
+    values = deepcopy(config.values)
     if authority.read_sources is not None:
-        values_config["integrations"]["healthkit"]["enabled"] = any(
+        values["integrations"]["healthkit"]["enabled"] = any(
             name not in {"manual", "sleepiq-export"} for name in sources
         )
-        values_config["integrations"]["sleepiq"]["enabled"] = (
-            "sleepiq-export" in sources
-        )
+        values["integrations"]["sleepiq"]["enabled"] = "sleepiq-export" in sources
     if not allowed(authority, "manual", "profile"):
-        values_config["identity"]["displayName"] = "Health Buddy"
+        values["identity"]["displayName"] = "Health Buddy"
     if not allowed(authority, "manual", "body-mass"):
-        values_config["goals"] = []
+        values["goals"] = []
     if not allowed(authority, "manual", "workout-set"):
-        values_config["equipment"] = []
-    result = projection.project_files(
-        Config(service.config.root, values_config),
-        files,
-        captured["head"],
-        captured["stamp"],
-        health,
-        sources,
-        now=now,
-    )
+        values["equipment"] = []
+    return Config(config.root, values)
+
+
+def _label_sources(
+    labels: dict[str, Any],
+    sources: dict[str, Any],
+    registry: dict[str, Any],
+    authority: Authority,
+    stale: bool,
+) -> None:
+    """Familiar UI group labels summarize only admitted source components."""
     health_statuses = [
         value
         for key, value in sources.items()
         if key in {"healthkit", "healthkit-import"}
-        or captured["registry"].get(key, {}).get("source_kind") == "healthkit"
+        or registry.get(key, {}).get("source_kind") == "healthkit"
     ]
     if health_statuses:
-        # Familiar UI group labels summarize only admitted source components.
-        result["sources"]["healthkit"] = next(
+        labels["healthkit"] = next(
             (
                 value
                 for value in health_statuses
@@ -799,28 +946,8 @@ def dashboard(
             health_statuses[0],
         )
     if "sleepiq-export" in sources:
-        result["sources"]["sleepiq"] = sources["sleepiq-export"]
+        labels["sleepiq"] = sources["sleepiq-export"]
     if authority.read_sources is not None and "manual" not in authority.read_sources:
-        result["sources"].pop("manual", None)
+        labels.pop("manual", None)
     elif stale:
-        result["sources"]["manual"]["freshness"] = "stale"
-    result["observations"] = values
-    result["water_intake"] = [item for item in values if item["kind"] == "water-intake"]
-    partial = stale or any(
-        state["missingness"] == "source_error" for state in sources.values()
-    )
-    result["meta"].update(
-        {
-            **captured["identity"],
-            "dataRevision": captured["revision"],
-            "apiVersion": 1,
-            "revision_kind": "canonical-journal",
-            "projectionState": (
-                "stale" if partial else "partial" if truncated else "current"
-            ),
-            "truncated": truncated,
-            "windowDays": days,
-            "runtime": "canonical-local",
-        }
-    )
-    return result
+        labels["manual"]["freshness"] = "stale"

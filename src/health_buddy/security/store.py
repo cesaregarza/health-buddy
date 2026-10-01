@@ -213,36 +213,47 @@ class SecurityStore:
         if recover:
             old = [path for path in (self.path, *sidecars) if path.exists()]
             if old:
-                quarantine = self.directory / ("retired-" + uuid4().hex)
-                quarantine.mkdir(mode=0o700)
-                fsync_path(self.directory)
-                # Fixed known basenames only. Preserve old DB and all owned
-                # recognized sidecars; never attach an old hot journal to the
-                # replacement DB or silently discard crash evidence.
-                atomic_bytes(
-                    quarantine / "inventory.json",
-                    encode(
-                        {
-                            "files": [path.name for path in old],
-                            "complete": False,
-                        }
-                    ),
-                )
-                for path in old:
-                    os.replace(path, quarantine / path.name)
-                    fsync_path(quarantine)
-                    fsync_path(self.directory)
-                    boundary("security_quarantine_file")
-                atomic_bytes(
-                    quarantine / "inventory.json",
-                    encode(
-                        {
-                            "files": [path.name for path in old],
-                            "complete": True,
-                        }
-                    ),
-                )
+                self._quarantine(old, boundary)
         boundary("security_quarantined")
+        temporary, token = self._new_authority(
+            raw, epoch, owner_credential=recover or owner_token
+        )
+        fsync_path(temporary)
+        os.replace(temporary, self.path)
+        fsync_path(self.directory)
+        boundary("security_db_installed")
+        atomic_bytes(self.epoch_path, raw)
+        boundary("security_epoch_installed")
+        return token
+
+    def _quarantine(self, old: list[Path], boundary: Callable[[str], None]) -> None:
+        quarantine = self.directory / ("retired-" + uuid4().hex)
+        quarantine.mkdir(mode=0o700)
+        fsync_path(self.directory)
+        # Fixed known basenames only. Preserve old DB and all owned
+        # recognized sidecars; never attach an old hot journal to the
+        # replacement DB or silently discard crash evidence.
+        atomic_bytes(
+            quarantine / "inventory.json",
+            encode({"files": [path.name for path in old], "complete": False}),
+        )
+        for path in old:
+            os.replace(path, quarantine / path.name)
+            fsync_path(quarantine)
+            fsync_path(self.directory)
+            boundary("security_quarantine_file")
+        atomic_bytes(
+            quarantine / "inventory.json",
+            encode({"files": [path.name for path in old], "complete": True}),
+        )
+
+    def _new_authority(
+        self, raw: bytes, epoch: str, *, owner_credential: bool
+    ) -> tuple[Path, str]:
+        """A fresh authority DB beside the live path, and its one credential.
+
+        The credential is the owner token, or else a five-minute bootstrap proof.
+        """
         temporary = self.directory / (".authority-" + uuid4().hex + ".sqlite")
         descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.close(descriptor)
@@ -260,21 +271,15 @@ class SecurityStore:
             self.add_credential(
                 connection,
                 actor,
-                "owner" if recover or owner_token else "bootstrap",
+                "owner" if owner_credential else "bootstrap",
                 token,
                 epoch,
-                expires=None if recover or owner_token else time.time() + 300,
+                expires=None if owner_credential else time.time() + 300,
             )
             connection.commit()
         finally:
             connection.close()
-        fsync_path(temporary)
-        os.replace(temporary, self.path)
-        fsync_path(self.directory)
-        boundary("security_db_installed")
-        atomic_bytes(self.epoch_path, raw)
-        boundary("security_epoch_installed")
-        return token
+        return temporary, token
 
     def rekey_staged_restore(self, previous: Identity, current: Identity) -> str:
         """Offline restore: retain actor lineage, never old credentials/proofs.

@@ -228,6 +228,44 @@ async def not_found(scope: Scope, receive: Receive, send: Send) -> None:
     await error(404, "not_found")(scope, receive, send)
 
 
+def _validate_target(scope: Scope, limits: Limits) -> None:
+    raw_path = scope.get("raw_path", b"")
+    raw_query = scope.get("query_string", b"")
+    if len(raw_path) + len(raw_query) > limits.target_bytes:
+        raise EnvelopeError(414, "target_too_large")
+    if (
+        scope.get("root_path")
+        or not raw_path.startswith(b"/")
+        or b"%" in raw_path
+        or b"\\" in raw_path
+        or b"//" in raw_path
+        or any(part in (b".", b"..") for part in raw_path.split(b"/"))
+        or any(byte < 33 or byte > 126 for byte in raw_path)
+        or re.search(rb"%(?![0-9a-fA-F]{2})", raw_query)
+    ):
+        raise EnvelopeError(400, "invalid_target")
+
+
+def _invalid_pairing(arguments: Mapping[str, str]) -> bool:
+    return "pairing" in arguments and not re.fullmatch(
+        r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"]
+    )
+
+
+def _sign_in_page(
+    method: str, raw_path: bytes, raw_query: bytes, values: Mapping[str, str]
+) -> HTTPResponse:
+    if method != "GET":
+        raise EnvelopeError(405, "method_not_allowed")
+    arguments = query(
+        raw_query,
+        frozenset({"pairing"}) if raw_path == b"/login" else frozenset(),
+    )
+    if _invalid_pairing(arguments) or values.get("content-length", "0") != "0":
+        raise EnvelopeError(422, "invalid_request")
+    return auth_shell() if raw_path == b"/login" else auth_script()
+
+
 class SafeRoute(Route):
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.methods and scope["method"] not in self.methods:
@@ -373,127 +411,16 @@ class Transport:
         began = time.monotonic()
         try:
             values = headers(scope.get("headers", []), self.limits)
-            raw_path = scope.get("raw_path", b"")
-            raw_query = scope.get("query_string", b"")
-            if len(raw_path) + len(raw_query) > self.limits.target_bytes:
-                raise EnvelopeError(414, "target_too_large")
-            if (
-                scope.get("root_path")
-                or not raw_path.startswith(b"/")
-                or b"%" in raw_path
-                or b"\\" in raw_path
-                or b"//" in raw_path
-                or any(part in (b".", b"..") for part in raw_path.split(b"/"))
-                or any(byte < 33 or byte > 126 for byte in raw_path)
-                or re.search(rb"%(?![0-9a-fA-F]{2})", raw_query)
-            ):
-                raise EnvelopeError(400, "invalid_target")
+            _validate_target(scope, self.limits)
             connection = self.connection(scope, values)
             if self.active >= self.limits.active_requests or self.jobs.closed:
                 raise EnvelopeError(503, "service_busy")
             self.active += 1
             counted = True
-            if raw_path == b"/livez" and scope["method"] == "GET" and not raw_query:
-                await response(Response(200, b'{"status":"ok"}'), 64)(
-                    scope, receive, bounded_send
-                )
-                return
-            if raw_path == b"/readyz" and scope["method"] == "GET" and not raw_query:
-                probe = self.runtime.readiness if self.runtime is not None else None
-                ready = False
-                if probe is not None and values.get("content-length", "0") == "0":
-                    deadline = min(
-                        began + self.limits.admission_seconds, time.monotonic() + 1.0
-                    )
-                    try:
-                        ready = await self.jobs.call(
-                            partial(probe, deadline), deadline=deadline
-                        )
-                    except (EnvelopeError, ServiceError, OSError, ValueError):
-                        ready = False
-                body = (
-                    b'{"status":"ready"}'
-                    if ready is True
-                    else b'{"status":"not_ready"}'
-                )
-                await response(Response(200 if ready is True else 503, body), 64)(
-                    scope, receive, bounded_send
-                )
-                return
-            if self.security is not None:
-                if raw_path in (b"/login", b"/auth.js"):
-                    if scope["method"] != "GET":
-                        raise EnvelopeError(405, "method_not_allowed")
-                    arguments = query(
-                        raw_query,
-                        frozenset({"pairing"})
-                        if raw_path == b"/login"
-                        else frozenset(),
-                    )
-                    if (
-                        "pairing" in arguments
-                        and not re.fullmatch(
-                            r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"]
-                        )
-                    ) or values.get("content-length", "0") != "0":
-                        raise EnvelopeError(422, "invalid_request")
-                    await (auth_shell() if raw_path == b"/login" else auth_script())(
-                        scope, receive, bounded_send
-                    )
-                    return
-                selected = security_route(raw_path.decode("ascii"), scope["method"])
-                if selected is not None:
-                    endpoint, resource = selected
-                    result = await self.security.handle(
-                        HTTPRequest(scope, receive), values, endpoint, resource, began
-                    )
-                    await result(scope, receive, bounded_send)
-                    return
-                admitted = await self.security.authenticate(values, scope["method"])
-                principal = admitted.principal if admitted is not None else None
-            elif (
-                self.development
-                and raw_path == b"/v1/session"
-                and scope["method"] == "GET"
-                and not raw_query
-            ):
-                await response(
-                    Response(200, b'{"data":{"development":true},"meta":{}}'), 128
-                )(scope, receive, bounded_send)
-                return
-            elif self.authenticate is not None:
-                principal = await self.jobs.call(
-                    partial(self.authenticate, connection, values),
-                    deadline=began + self.limits.admission_seconds,
-                )
-            elif self.development:
-                principal = Principal("local-development-owner")
-            else:
-                principal = None
-            if not isinstance(principal, Principal):
-                raise EnvelopeError(401, "unauthenticated")
-            if self.security is not None and raw_path == b"/security":
-                arguments = query(raw_query, frozenset({"pairing"}))
-                if (
-                    (
-                        "pairing" in arguments
-                        and not re.fullmatch(
-                            r"[A-Za-z0-9_.:-]{1,128}", arguments["pairing"]
-                        )
-                    )
-                    or scope["method"] != "GET"
-                    or values.get("content-length", "0") != "0"
-                ):
-                    raise EnvelopeError(422, "invalid_request")
-                await self.jobs.call(
-                    partial(
-                        self.security.runtime.security.preflight,
-                        principal,
-                        "grants.list",
-                    ),
-                    deadline=began + self.limits.admission_seconds,
-                )
-                await auth_shell(owner=True)(scope, receive, bounded_send)
+            principal = await self._answer_or_admit(
+                scope, receive, bounded_send, values, connection, began
+            )
+            if principal is None:
                 return
             scope = dict(scope)
             scope["state"] = dict(scope.get("state", {}))
@@ -520,6 +447,101 @@ class Transport:
         finally:
             if counted:
                 self.active -= 1
+
+    async def _answer_or_admit(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        values: dict[str, str],
+        connection: Connection,
+        began: float,
+    ) -> Principal | None:
+        """Answer probes, sign-in and security routes; else admit the caller.
+
+        Returns the caller's principal for the router, or None once answered.
+        """
+        raw_path = scope.get("raw_path", b"")
+        raw_query = scope.get("query_string", b"")
+        if raw_path == b"/livez" and scope["method"] == "GET" and not raw_query:
+            await response(Response(200, b'{"status":"ok"}'), 64)(scope, receive, send)
+            return None
+        if raw_path == b"/readyz" and scope["method"] == "GET" and not raw_query:
+            readiness = await self._readiness(values, began)
+            await readiness(scope, receive, send)
+            return None
+        if self.security is not None:
+            if raw_path in (b"/login", b"/auth.js"):
+                await _sign_in_page(scope["method"], raw_path, raw_query, values)(
+                    scope, receive, send
+                )
+                return None
+            selected = security_route(raw_path.decode("ascii"), scope["method"])
+            if selected is not None:
+                endpoint, resource = selected
+                result = await self.security.handle(
+                    HTTPRequest(scope, receive), values, endpoint, resource, began
+                )
+                await result(scope, receive, send)
+                return None
+            admitted = await self.security.authenticate(values, scope["method"])
+            principal = admitted.principal if admitted is not None else None
+        elif (
+            self.development
+            and raw_path == b"/v1/session"
+            and scope["method"] == "GET"
+            and not raw_query
+        ):
+            await response(
+                Response(200, b'{"data":{"development":true},"meta":{}}'), 128
+            )(scope, receive, send)
+            return None
+        elif self.authenticate is not None:
+            principal = await self.jobs.call(
+                partial(self.authenticate, connection, values),
+                deadline=began + self.limits.admission_seconds,
+            )
+        elif self.development:
+            principal = Principal("local-development-owner")
+        else:
+            principal = None
+        if not isinstance(principal, Principal):
+            raise EnvelopeError(401, "unauthenticated")
+        if self.security is not None and raw_path == b"/security":
+            arguments = query(raw_query, frozenset({"pairing"}))
+            if (
+                _invalid_pairing(arguments)
+                or scope["method"] != "GET"
+                or values.get("content-length", "0") != "0"
+            ):
+                raise EnvelopeError(422, "invalid_request")
+            await self.jobs.call(
+                partial(
+                    self.security.runtime.security.preflight,
+                    principal,
+                    "grants.list",
+                ),
+                deadline=began + self.limits.admission_seconds,
+            )
+            await auth_shell(owner=True)(scope, receive, send)
+            return None
+        return principal
+
+    async def _readiness(self, values: Mapping[str, str], began: float) -> HTTPResponse:
+        probe = self.runtime.readiness if self.runtime is not None else None
+        ready = False
+        if probe is not None and values.get("content-length", "0") == "0":
+            deadline = min(
+                began + self.limits.admission_seconds, time.monotonic() + 1.0
+            )
+            try:
+                ready = await self.jobs.call(
+                    partial(probe, deadline), deadline=deadline
+                )
+            except (EnvelopeError, ServiceError, OSError, ValueError):
+                ready = False
+        body = b'{"status":"ready"}' if ready is True else b'{"status":"not_ready"}'
+        return response(Response(200 if ready is True else 503, body), 64)
 
     def endpoint(
         self, item: Endpoint

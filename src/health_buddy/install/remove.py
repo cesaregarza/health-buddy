@@ -17,15 +17,15 @@ from health_buddy.connect_agent import connect
 from health_buddy.core.domain import digest, encode
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import read_file, read_json
-from health_buddy.core.security_api import SecurityRequest
+from health_buddy.core.security_api import Authenticated, Runtime, SecurityRequest
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, matches, owner
-from health_buddy.install.https import (
+from health_buddy.install.https import route
+from health_buddy.install.serve import (
     check_routes,
     eligible,
     handler,
     observe,
-    route,
     unrelated,
 )
 from health_buddy.runtime.manifest import file_digest
@@ -173,80 +173,8 @@ def remove(
     # also use the existing installation lock, including route's own admission.
     with exclusive(journal.parent / ".health-buddy-remove.lock"):
         with exclusive(journal.parent / ".health-buddy-install.lock"):
-            record = read_json(journal, 32768)
-            if not isinstance(record, dict) or record.get("schemaVersion") != 1:
-                raise ServiceError(409, "install_remove_requires_owned_installation")
-            retained: dict[str, Any] = dict(record)
-            runtime, admitted = owner(retained)
-            agent = retained.get("agentSetup")
-            if not isinstance(agent, dict) or agent.get("phase") != "configured":
-                raise ServiceError(
-                    409, "install_remove_requires_configured_owned_agent"
-                )
-            selected_policy = read_json(policy, 16384)
-            if (
-                not isinstance(selected_policy, dict)
-                or digest(selected_policy) != agent["binding"]["policySha256"]
-            ):
-                raise ServiceError(409, "install_remove_agent_policy_changed")
-            selected = [
-                item
-                for item in actors(runtime, admitted)
-                if item["id"] == agent["actorId"]
-            ]
-            progress = retained.get("removal")
-            if len(selected) != 1 or selected[0].get("role") != "agent":
-                raise ServiceError(409, "install_remove_agent_ownership_changed")
-            if selected[0].get("active") is True and not matches(
-                selected[0], selected_policy
-            ):
-                raise ServiceError(409, "install_remove_agent_ownership_changed")
-            if progress is None and selected[0].get("active") is not True:
-                raise ServiceError(409, "install_remove_unowned_grant_revocation")
-            config, skill = (
-                Path(agent["binding"]["config"]),
-                Path(agent["binding"]["skill"]),
-            )
-            connect(
-                config,
-                skill,
-                client=agent["binding"]["client"],
-                remove=True,
-                check_only=True,
-            )
-            serve_state(retained)
-            expected = progress["containerId"] if isinstance(progress, dict) else None
-            cid, _running = container(retained, expected)
-            if progress is None:
-                progress = {
-                    "phase": "serve_pending",
-                    "containerId": cid,
-                    "actorId": agent["actorId"],
-                    "activation": retained["activation"]["binding"],
-                    "agent": agent["binding"],
-                    "https": retained["privateHttps"]["binding"],
-                }
-                retained["removal"] = progress
-                atomic_bytes(journal, encode(retained))
-            elif (
-                not isinstance(progress, dict)
-                or progress.get("phase")
-                not in (
-                    "serve_pending",
-                    "client_pending",
-                    "grant_pending",
-                    "container_pending",
-                    "removed",
-                )
-                or progress.get("actorId") != agent["actorId"]
-                or progress.get("agent") != agent["binding"]
-                or progress.get("activation") != retained["activation"]["binding"]
-                or progress.get("https") != retained["privateHttps"]["binding"]
-            ):
-                raise ServiceError(
-                    409, "install_remove_resume_requires_original_binding"
-                )
-        if progress["phase"] == "serve_pending":
+            retained, agent = _admit_removal(journal, policy)
+        if retained["removal"]["phase"] == "serve_pending":
             binding = retained["privateHttps"]["binding"]
             route(
                 journal=journal,
@@ -268,44 +196,22 @@ def remove(
                 progress["phase"] = "client_pending"
                 atomic_bytes(journal, encode(retained))
             if progress["phase"] == "client_pending":
-                connect(config, skill, client=agent["binding"]["client"], remove=True)
+                owned = agent["binding"]
+                connect(
+                    Path(owned["config"]),
+                    Path(owned["skill"]),
+                    client=owned["client"],
+                    remove=True,
+                )
                 progress["phase"] = "grant_pending"
                 atomic_bytes(journal, encode(retained))
             if progress["phase"] == "grant_pending":
-                inventory = actors(runtime, admitted)
-                found = [
-                    item for item in inventory if item["id"] == progress["actorId"]
-                ]
-                if len(found) != 1:
-                    raise ServiceError(409, "install_remove_agent_ownership_changed")
-                if found[0].get("active") is True:
-                    runtime.security.execute(
-                        admitted.principal,
-                        SecurityRequest(
-                            "grants.revoke",
-                            resource_id=progress["actorId"],
-                            identity=admitted.client.identity,
-                        ),
-                    )
+                _revoke_grant(runtime, admitted, progress)
                 progress["phase"] = "container_pending"
                 atomic_bytes(journal, encode(retained))
             cid, live = container(retained, progress["containerId"])
             if progress["phase"] == "container_pending":
-                active = progress["activation"]
-                docker, environment = (
-                    Path(active["docker"]),
-                    Path(active["environment"]),
-                )
-                if cid and live:
-                    docker_call(docker, environment, "stop", "--time", "30", cid)
-                    cid, live = container(retained, progress["containerId"])
-                if cid and live:
-                    raise ServiceError(503, "install_remove_api_still_running")
-                if cid:
-                    docker_call(docker, environment, "rm", cid)
-                remaining, _live = container(retained, progress["containerId"])
-                if remaining:
-                    raise ServiceError(503, "install_remove_api_still_present")
+                _remove_container(retained, progress, cid, live)
                 progress["phase"] = "removed"
                 retained["activation"]["phase"] = "removed"
                 atomic_bytes(journal, encode(retained))
@@ -318,6 +224,123 @@ def remove(
                 "recoveryFilesRetained": True,
                 "connected": False,
             }
+
+
+def _admit_removal(
+    journal: Path, policy: Path
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Check every owned component, then journal the removal intent once.
+
+    Returns the journal record and its agentSetup section.
+    """
+    record = read_json(journal, 32768)
+    if not isinstance(record, dict) or record.get("schemaVersion") != 1:
+        raise ServiceError(409, "install_remove_requires_owned_installation")
+    retained: dict[str, Any] = dict(record)
+    runtime, admitted = owner(retained)
+    agent = retained.get("agentSetup")
+    if not isinstance(agent, dict) or agent.get("phase") != "configured":
+        raise ServiceError(409, "install_remove_requires_configured_owned_agent")
+    selected_policy = read_json(policy, 16384)
+    if (
+        not isinstance(selected_policy, dict)
+        or digest(selected_policy) != agent["binding"]["policySha256"]
+    ):
+        raise ServiceError(409, "install_remove_agent_policy_changed")
+    selected = [
+        item for item in actors(runtime, admitted) if item["id"] == agent["actorId"]
+    ]
+    progress = retained.get("removal")
+    _validate_owned_grant(selected, selected_policy, progress)
+    config, skill = Path(agent["binding"]["config"]), Path(agent["binding"]["skill"])
+    connect(
+        config, skill, client=agent["binding"]["client"], remove=True, check_only=True
+    )
+    serve_state(retained)
+    expected = progress["containerId"] if isinstance(progress, dict) else None
+    cid, _running = container(retained, expected)
+    if progress is None:
+        retained["removal"] = {
+            "phase": "serve_pending",
+            "containerId": cid,
+            "actorId": agent["actorId"],
+            "activation": retained["activation"]["binding"],
+            "agent": agent["binding"],
+            "https": retained["privateHttps"]["binding"],
+        }
+        atomic_bytes(journal, encode(retained))
+    else:
+        _validate_resume(progress, agent, retained)
+    return retained, agent
+
+
+def _validate_owned_grant(
+    selected: list[Any], policy: dict[str, Any], progress: object
+) -> None:
+    """Only a grant this installation created, still as admitted, is removed."""
+    if len(selected) != 1 or selected[0].get("role") != "agent":
+        raise ServiceError(409, "install_remove_agent_ownership_changed")
+    if selected[0].get("active") is True and not matches(selected[0], policy):
+        raise ServiceError(409, "install_remove_agent_ownership_changed")
+    if progress is None and selected[0].get("active") is not True:
+        raise ServiceError(409, "install_remove_unowned_grant_revocation")
+
+
+def _validate_resume(
+    progress: object, agent: dict[str, Any], retained: dict[str, Any]
+) -> None:
+    if (
+        not isinstance(progress, dict)
+        or progress.get("phase")
+        not in (
+            "serve_pending",
+            "client_pending",
+            "grant_pending",
+            "container_pending",
+            "removed",
+        )
+        or progress.get("actorId") != agent["actorId"]
+        or progress.get("agent") != agent["binding"]
+        or progress.get("activation") != retained["activation"]["binding"]
+        or progress.get("https") != retained["privateHttps"]["binding"]
+    ):
+        raise ServiceError(409, "install_remove_resume_requires_original_binding")
+
+
+def _revoke_grant(
+    runtime: Runtime, admitted: Authenticated, progress: dict[str, Any]
+) -> None:
+    inventory = actors(runtime, admitted)
+    found = [item for item in inventory if item["id"] == progress["actorId"]]
+    if len(found) != 1:
+        raise ServiceError(409, "install_remove_agent_ownership_changed")
+    if found[0].get("active") is True:
+        runtime.security.execute(
+            admitted.principal,
+            SecurityRequest(
+                "grants.revoke",
+                resource_id=progress["actorId"],
+                identity=admitted.client.identity,
+            ),
+        )
+
+
+def _remove_container(
+    retained: dict[str, Any], progress: dict[str, Any], cid: str, live: bool
+) -> None:
+    """Stop and remove the recorded API container, then confirm it is gone."""
+    active = progress["activation"]
+    docker, environment = Path(active["docker"]), Path(active["environment"])
+    if cid and live:
+        docker_call(docker, environment, "stop", "--time", "30", cid)
+        cid, live = container(retained, progress["containerId"])
+    if cid and live:
+        raise ServiceError(503, "install_remove_api_still_running")
+    if cid:
+        docker_call(docker, environment, "rm", cid)
+    remaining, _live = container(retained, progress["containerId"])
+    if remaining:
+        raise ServiceError(503, "install_remove_api_still_present")
 
 
 def main(argv: list[str] | None = None) -> int:

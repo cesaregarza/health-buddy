@@ -7,6 +7,7 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 from health_buddy.client.app import App
 from health_buddy.core.config import ConfigError, load
@@ -15,11 +16,61 @@ from health_buddy.core.git_store import StoreError
 from health_buddy.core.loggers import FIELDS
 from health_buddy.core.operations import open_service
 from health_buddy.core.security_api import BearerProof
-from health_buddy.core.service_api import ServiceError
+from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.security.runtime import open_runtime, read_credential, setup_security
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    try:
+        if args.development and args.credential_file is not None:
+            raise ServiceError(422, "development_cannot_use_credentials")
+        if args.command in {"status", "doctor", "support-bundle"}:
+            return _diagnose(args)
+        if args.command == "legacy-import":
+            from health_buddy.legacy.cli import handle as handle_import
+
+            return handle_import(args)
+        if args.command == "upgrade":
+            from health_buddy.upgrade.cli import handle as handle_upgrade
+
+            return handle_upgrade(args)
+        if args.command == "backup":
+            from health_buddy.backup.cli import handle as handle_backup
+
+            return handle_backup(args)
+        if args.command in {"workspace", "extension"}:
+            from health_buddy.extension.cli import handle
+
+            return handle(args)
+        if args.command == "security":
+            return _security(args)
+        if args.command == "serve":
+            return _serve(args)
+        if args.command == "init":
+            open_service(args.workspace)
+            print(
+                "Private canonical workspace ready. "
+                "Optional sources stay explicitly configured."
+            )
+            return 0
+        _run_app_command(_app(args), args)
+    except ServiceError as exc:
+        # Safe protocol code only. Pending inspection never dumps payloads;
+        # retry success prints the ordinary verified canonical receipt.
+        print(f"Health Buddy: {exc.code} (HTTP {exc.status}).", file=sys.stderr)
+        return 2
+    except (ConfigError, StoreError, OSError, ValueError, RuntimeError):
+        print(
+            "Health Buddy could not open or update this workspace. "
+            "Existing records and retry state were preserved.",
+            file=sys.stderr,
+        )
+        return 2
+    return 0
+
+
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument(
@@ -53,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
     from health_buddy.legacy.cli import add_commands as add_import_commands
 
     add_import_commands(commands)
+    _add_canonical_commands(commands)
+    return parser
+
+
+def _add_canonical_commands(commands: Any) -> None:
     commands.add_parser("init")
     commands.add_parser("render")
     status = commands.add_parser("status")
@@ -93,176 +149,136 @@ def main(argv: list[str] | None = None) -> int:
             "this does not undo it"
         ),
     )
-    args = parser.parse_args(argv)
-    try:
-        if args.development and args.credential_file is not None:
-            raise ServiceError(422, "development_cannot_use_credentials")
-        if args.command in {"status", "doctor", "support-bundle"}:
-            from health_buddy.operator_diagnostics import (
-                finding,
-                human,
-                report,
-                runtime_details,
-                support_summary,
-            )
 
-            if args.command == "status" and not (
-                args.development or args.credential_file is not None
-            ):
-                raise ServiceError(401, "explicit_credential_file_required")
-            # Inspect local facts before opening canonical runtime. A broken
-            # config must still produce an actionable JSON diagnostic.
-            result = report(
-                args.workspace.expanduser().resolve(), port=getattr(args, "port", None)
-            )
-            if (
-                result["diagnostics"]
-                and result["diagnostics"][0]["code"] == "config_invalid"
-            ):
-                pass
-            elif args.development or args.credential_file is not None:
-                try:
-                    app = (
-                        App.development(args.workspace)
-                        if args.development
-                        else App.authenticated(
-                            args.workspace,
-                            proof=BearerProof(read_credential(args.credential_file)),
-                        )
-                    )
-                    runtime_details(result, app)
-                except (
-                    ConfigError,
-                    StoreError,
-                    OSError,
-                    ValueError,
-                    RuntimeError,
-                    ServiceError,
-                ) as exc:
-                    code = (
-                        "authorization_partial"
-                        if isinstance(exc, ServiceError) and exc.status in {401, 403}
-                        else "runtime_unavailable"
-                    )
-                    result["diagnostics"].append(finding(code, "error"))
-            if args.command == "support-bundle":
-                print(json.dumps(support_summary(result), indent=2))
-            elif args.json:
-                print(json.dumps(result, indent=2))
-            else:
-                print(human(result))
-            return (
-                2
-                if any(item["severity"] == "error" for item in result["diagnostics"])
-                else 0
-            )
-        if args.command == "legacy-import":
-            from health_buddy.legacy.cli import handle as handle_import
 
-            return handle_import(args)
-        if args.command == "upgrade":
-            from health_buddy.upgrade.cli import handle as handle_upgrade
+def _diagnose(args: argparse.Namespace) -> int:
+    from health_buddy.operator_diagnostics import (
+        finding,
+        human,
+        report,
+        runtime_details,
+        support_summary,
+    )
 
-            return handle_upgrade(args)
-        if args.command == "backup":
-            from health_buddy.backup.cli import handle as handle_backup
+    authenticated = args.development or args.credential_file is not None
+    if args.command == "status" and not authenticated:
+        raise ServiceError(401, "explicit_credential_file_required")
+    # Inspect local facts before opening canonical runtime. A broken
+    # config must still produce an actionable JSON diagnostic.
+    result = report(
+        args.workspace.expanduser().resolve(), port=getattr(args, "port", None)
+    )
+    config_invalid = (
+        result["diagnostics"] and result["diagnostics"][0]["code"] == "config_invalid"
+    )
+    if not config_invalid and authenticated:
+        try:
+            runtime_details(result, _app(args))
+        except (
+            ConfigError,
+            StoreError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            ServiceError,
+        ) as exc:
+            code = (
+                "authorization_partial"
+                if isinstance(exc, ServiceError) and exc.status in {401, 403}
+                else "runtime_unavailable"
+            )
+            result["diagnostics"].append(finding(code, "error"))
+    if args.command == "support-bundle":
+        print(json.dumps(support_summary(result), indent=2))
+    elif args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(human(result))
+    return (
+        2 if any(item["severity"] == "error" for item in result["diagnostics"]) else 0
+    )
 
-            return handle_backup(args)
-        if args.command in {"workspace", "extension"}:
-            from health_buddy.extension.cli import handle
 
-            return handle(args)
-        if args.command == "security":
-            if args.development or args.credential_file is not None:
-                raise ServiceError(422, "security_setup_requires_os_owner")
-            recover = args.security_command == "recover"
-            native_owner = not recover and args.owner_token_file is not None
-            setup_security(
-                args.workspace,
-                args.owner_token_file if recover or native_owner else args.proof_file,
-                recover=recover,
-                confirm_revoke_all=recover and args.confirm_revoke_all,
-                owner_token=native_owner,
-            )
-            print(
-                "Private security handoff created. Keep the file private; "
-                "its contents are not recoverable from HTTP replies."
-            )
-            return 0
-        if args.command == "serve":
-            from health_buddy.transport.server import serve
-
-            # Construct the service inside Granian's child, never in this
-            # supervisor before the factory crosses its process boundary.
-            serve(
-                partial(open_runtime, args.workspace, development=args.development),
-                ingress=load(args.workspace.expanduser().resolve()).ingress(),
-                port=args.port,
-                development=args.development,
-            )
-            return 0
-        if args.command == "init":
-            open_service(args.workspace)
-            print(
-                "Private canonical workspace ready. "
-                "Optional sources stay explicitly configured."
-            )
-            return 0
-        if args.development:
-            app = App.development(args.workspace)
-        elif args.credential_file is not None:
-            app = App.authenticated(
-                args.workspace, proof=BearerProof(read_credential(args.credential_file))
-            )
-        else:
-            raise ServiceError(401, "explicit_credential_file_required")
-        if args.command == "render":
-            output = app.config.storage("cache") / "index.html"
-            app.write_html(output)
-            print(output)
-        elif args.command == "context":
-            print(app.context(args.scopes, args.days, args.ask), end="")
-        elif args.command == "plan":
-            print(json.dumps(app.set_plan(args.file, new_write=args.new_write)))
-        elif args.command == "log":
-            if args.kind == "workout":
-                if args.arguments:
-                    raise ServiceError(422, "workout_requires_json_stdin")
-                raw = sys.stdin.read(65537)
-                if len(raw.encode("utf-8")) > 65536:
-                    raise ServiceError(413, "request_too_large")
-                payload = decode(raw, limit=65536)
-                if not isinstance(payload, dict):
-                    raise ServiceError(422, "invalid_request")
-                result = app.workout(payload, new_write=args.new_write)
-            else:
-                result = app.log_record(
-                    args.kind, args.arguments, new_write=args.new_write
-                )
-            print(json.dumps(result))
-        elif args.command == "pending":
-            if args.action == "retry":
-                result = app.workflow.retry()
-            elif args.action == "discard":
-                result = app.workflow.discard(
-                    acknowledge_possible_save=args.acknowledge_possible_save
-                )
-            else:
-                result = app.workflow.inspect()
-            print(json.dumps(result))
-    except ServiceError as exc:
-        # Safe protocol code only. Pending inspection never dumps payloads;
-        # retry success prints the ordinary verified canonical receipt.
-        print(f"Health Buddy: {exc.code} (HTTP {exc.status}).", file=sys.stderr)
-        return 2
-    except (ConfigError, StoreError, OSError, ValueError, RuntimeError):
-        print(
-            "Health Buddy could not open or update this workspace. "
-            "Existing records and retry state were preserved.",
-            file=sys.stderr,
-        )
-        return 2
+def _security(args: argparse.Namespace) -> int:
+    if args.development or args.credential_file is not None:
+        raise ServiceError(422, "security_setup_requires_os_owner")
+    recover = args.security_command == "recover"
+    native_owner = not recover and args.owner_token_file is not None
+    setup_security(
+        args.workspace,
+        args.owner_token_file if recover or native_owner else args.proof_file,
+        recover=recover,
+        confirm_revoke_all=recover and args.confirm_revoke_all,
+        owner_token=native_owner,
+    )
+    print(
+        "Private security handoff created. Keep the file private; "
+        "its contents are not recoverable from HTTP replies."
+    )
     return 0
+
+
+def _serve(args: argparse.Namespace) -> int:
+    from health_buddy.transport.server import serve
+
+    # Construct the service inside Granian's child, never in this
+    # supervisor before the factory crosses its process boundary.
+    serve(
+        partial(open_runtime, args.workspace, development=args.development),
+        ingress=load(args.workspace.expanduser().resolve()).ingress(),
+        port=args.port,
+        development=args.development,
+    )
+    return 0
+
+
+def _app(args: argparse.Namespace) -> App:
+    if args.development:
+        return App.development(args.workspace)
+    if args.credential_file is not None:
+        return App.authenticated(
+            args.workspace, proof=BearerProof(read_credential(args.credential_file))
+        )
+    raise ServiceError(401, "explicit_credential_file_required")
+
+
+def _run_app_command(app: App, args: argparse.Namespace) -> None:
+    if args.command == "render":
+        output = app.config.storage("cache") / "index.html"
+        app.write_html(output)
+        print(output)
+    elif args.command == "context":
+        print(app.context(args.scopes, args.days, args.ask), end="")
+    elif args.command == "plan":
+        print(json.dumps(app.set_plan(args.file, new_write=args.new_write)))
+    elif args.command == "log":
+        print(json.dumps(_log(app, args)))
+    elif args.command == "pending":
+        print(json.dumps(_pending(app, args)))
+
+
+def _log(app: App, args: argparse.Namespace) -> dict[str, JSON]:
+    if args.kind != "workout":
+        return app.log_record(args.kind, args.arguments, new_write=args.new_write)
+    if args.arguments:
+        raise ServiceError(422, "workout_requires_json_stdin")
+    raw = sys.stdin.read(65537)
+    if len(raw.encode("utf-8")) > 65536:
+        raise ServiceError(413, "request_too_large")
+    payload = decode(raw, limit=65536)
+    if not isinstance(payload, dict):
+        raise ServiceError(422, "invalid_request")
+    return app.workout(payload, new_write=args.new_write)
+
+
+def _pending(app: App, args: argparse.Namespace) -> dict[str, JSON]:
+    if args.action == "retry":
+        return app.workflow.retry()
+    if args.action == "discard":
+        return app.workflow.discard(
+            acknowledge_possible_save=args.acknowledge_possible_save
+        )
+    return app.workflow.inspect()
 
 
 if __name__ == "__main__":

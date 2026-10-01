@@ -266,6 +266,14 @@ def security_response(
     )
 
 
+def _identity(values: dict[str, str]) -> Identity | None:
+    """The identity a request names in its headers, if it names any."""
+    keys = ("x-installation-id", "x-dataset-id", "x-restore-epoch")
+    if not any(key in values for key in keys):
+        return None
+    return Identity(*(values.get(key, "") for key in keys))
+
+
 class SecurityTransport:
     def __init__(
         self, runtime: Runtime, jobs: Jobs, limits: Limits, *, proxy_verified: bool
@@ -359,37 +367,9 @@ class SecurityTransport:
             partial(self.runtime.security.preflight, principal, action),
             deadline=began + self.limits.admission_seconds,
         )
-        data: dict[str, JSON] = {}
-        if http.method == "POST":
-            if (
-                values.get("content-type", "").lower()
-                not in ("application/json", "application/json; charset=utf-8")
-                or "content-encoding" in values
-            ):
-                raise EnvelopeError(415, "unsupported_content_type")
-            length = content_length(values, 16 * 1024)
-            body = bytearray()
-            async with asyncio.timeout(
-                max(0.001, began + self.limits.body_seconds - time.monotonic())
-            ):
-                async for chunk in http.stream():
-                    if len(body) + len(chunk) > 16 * 1024:
-                        raise EnvelopeError(413, "body_too_large")
-                    body.extend(chunk)
-            if len(body) != length:
-                raise EnvelopeError(400, "length_mismatch")
-            data = json_object(
-                bytes(body), replace(self.limits, json_depth=16, json_nodes=2000)
-            )
-        elif values.get("content-length", "0") != "0" or "content-encoding" in values:
-            raise EnvelopeError(400, "unexpected_body")
+        data = await self._body(http, values, began)
         payload = request_payload(action, data)
-        keys = ("x-installation-id", "x-dataset-id", "x-restore-epoch")
-        identity = (
-            Identity(*(values.get(key, "") for key in keys))
-            if any(key in values for key in keys)
-            else None
-        )
+        identity = _identity(values)
         proof = (
             BootstrapProof(cast(str, data["proof"]))
             if action == "bootstrap.redeem"
@@ -409,3 +389,32 @@ class SecurityTransport:
             deadline=deadline,
         )
         return security_response(reply, action, admitted)
+
+    async def _body(
+        self, http: HTTPRequest, values: dict[str, str], began: float
+    ) -> dict[str, JSON]:
+        """A bounded JSON object for POST; any other method must send no body."""
+        if http.method != "POST":
+            if values.get("content-length", "0") != "0" or "content-encoding" in values:
+                raise EnvelopeError(400, "unexpected_body")
+            return {}
+        if (
+            values.get("content-type", "").lower()
+            not in ("application/json", "application/json; charset=utf-8")
+            or "content-encoding" in values
+        ):
+            raise EnvelopeError(415, "unsupported_content_type")
+        length = content_length(values, 16 * 1024)
+        body = bytearray()
+        async with asyncio.timeout(
+            max(0.001, began + self.limits.body_seconds - time.monotonic())
+        ):
+            async for chunk in http.stream():
+                if len(body) + len(chunk) > 16 * 1024:
+                    raise EnvelopeError(413, "body_too_large")
+                body.extend(chunk)
+        if len(body) != length:
+            raise EnvelopeError(400, "length_mismatch")
+        return json_object(
+            bytes(body), replace(self.limits, json_depth=16, json_nodes=2000)
+        )
