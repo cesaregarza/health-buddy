@@ -51,8 +51,13 @@ shared discovery is integrated and verified before final combined artifacts.
 source archive binding, package/interface versions and canonical docs hash.
 Limits are 4,096 files, 8,192 entries, 64 MiB source content, 16 path components
 and 2 MiB metadata. It rejects links, traversal, duplicate/unknown fields and
-changed inputs. Runtime construction verifies the immutable bundle once and
-injects `ReleaseIdentity`; ordinary discovery consumes that frozen value.
+changed inputs. The inventory ignores interpreter bytecode (`__pycache__`
+directories, `*.pyc` and `*.pyo` files) because the installer imports the
+extracted bundle in place; a link with one of those names still fails. Bundle
+creation refuses a commit that tracks bytecode (`bytecode_source_entry`), and a
+mismatch reports the first differing path relative to the bundle. Runtime
+construction verifies the immutable bundle once and injects `ReleaseIdentity`;
+ordinary discovery consumes that frozen value.
 This proves a startup snapshot, not continuous mutable-checkout attestation.
 The controlled Git build receipt proves commit association. A user configuration
 value, image label or version string alone is not independent publisher proof.
@@ -61,9 +66,16 @@ The candidate manifest is generated only after both actual
 `health-buddy-linux-amd64.docker.tar` and
 `health-buddy-linux-arm64.docker.tar` files exist and verify. It records their
 actual hashes/sizes, source commit/tree/archive, input lock and implemented
-interface versions. `SHA256SUMS` covers the actual artifacts and manifest.
-There are no placeholder digests or fabricated download URLs. This is Docker
-`image save` format, not an OCI-layout directory or published registry index.
+interface versions. `SHA256SUMS` covers the actual artifacts, the manifest
+and `health-buddy-bundle.tar`, which the same `manifest` command writes: the
+verified source bundle a fresh host installs from, one top-level `bundle/`
+directory holding `source/` and `release/{source.tar,source-manifest.json}`,
+packed with zero owner, group and mtime so the same bundle always yields the
+same bytes. The manifest does not list it; the
+[bootstrap](install-preflight.md#before-the-first-stage) checks it against an
+owner-confirmed SHA-256. There are no placeholder digests or fabricated download
+URLs. This is Docker `image save` format, not an OCI-layout directory or
+published registry index.
 
 Archive admission checks physical tar headers before parsing, bounded regular
 entries and metadata, one Docker `manifest.json` image, config filename/content

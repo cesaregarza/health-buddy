@@ -181,5 +181,6 @@ jobs:
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/runtime-manifest.json
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/SHA256SUMS
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-source.tar
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-bundle.tar
             ${{ runner.temp }}/hb-runtime-manifest/qualification-amd64.json
             ${{ runner.temp }}/hb-runtime-manifest/qualification-arm64.json

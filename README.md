@@ -9,16 +9,18 @@ built for Codex or Claude Code to install, maintain and extend.
 
 Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
 Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
-every command. In order, each step is done when this field is `true`: acquire
+every command. Step zero, its "Before the first stage" section, gets the source
+bundle from URLs and SHA-256s the owner supplies; never take a hash from
+downloaded files. Then each step is done when this field is `true`: acquire
 (`artifactsVerified`), preflight (`preflightPassed`), prepare
 (`workspacePrepared`), owner setup (`ownerSetupReady`), activate
 (`runtimeActivated`), private HTTPS (`privateRouteConfigured`), agent setup
-(`clientConfigurationPrepared`). `connected: false` is expected throughout.
-No manifest is published yet: on reaching acquire, stop and ask the owner for
-the manifest URL and SHA-256; never take the hash from downloaded files. Once
-one exists, its source is a GitHub Release. On a refusal, keep the journal and
-inputs, then follow the printed `recovery` and the doc's notes on that `code`.
-Rerunning the identical command resumes an interrupted step.
+(`clientConfigurationPrepared`). Installed means activation reported
+`runtimeActivated: true` and `install.status` confirms
+`runtimeLastActive: true`; `connected: false` is expected throughout. On a
+refusal, keep the journal and inputs, then follow the printed `recovery` and
+the doc's notes on that `code`. Rerunning the identical command resumes an
+interrupted step.
 
 ## Status
 
@@ -26,10 +28,10 @@ Private pre-release: no release or tag exists. Manually dispatched CI builds
 amd64 and arm64 images and runs them under Compose on synthetic data. Not done:
 installer distribution, a released phone companion, public site, outside pilot.
 
-## Try it locally
+## Developer loopback mode (not an installation)
 
-From the repository root, in a Python 3.12 venv after
-`python -m pip install .`:
+For developing Health Buddy itself; never use it to install for an owner.
+From a checkout, in a Python 3.12 venv after `python -m pip install .`:
 
 ```sh
 export PYTHONPATH="$PWD/src"
