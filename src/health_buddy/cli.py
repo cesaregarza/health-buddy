@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     from health_buddy.backup.cli import add_commands as add_backup_commands
 
     add_backup_commands(commands)
-    from health_buddy.upgrade_cli import add_commands as add_upgrade_commands
+    from health_buddy.upgrade.cli import add_commands as add_upgrade_commands
 
     add_upgrade_commands(commands)
     from health_buddy.import_cli import add_commands as add_import_commands
@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
 
             return handle_import(args)
         if args.command == "upgrade":
-            from health_buddy.upgrade_cli import handle as handle_upgrade
+            from health_buddy.upgrade.cli import handle as handle_upgrade
 
             return handle_upgrade(args)
         if args.command == "backup":

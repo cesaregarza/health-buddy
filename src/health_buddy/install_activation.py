@@ -23,8 +23,8 @@ from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.runtime.release import docker_command, load_release, selected_artifact
 from health_buddy.security.runtime import open_runtime
-from health_buddy.upgrade import preflight as upgrade_preflight
-from health_buddy.upgrade_activation import COMPOSE, compose, running
+from health_buddy.upgrade.activation import COMPOSE, compose, running
+from health_buddy.upgrade.staging import preflight as upgrade_preflight
 
 
 def result(progress: dict[str, Any]) -> dict[str, Any]:

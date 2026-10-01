@@ -10,8 +10,8 @@ from typing import Any
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
 from health_buddy.security.runtime import open_runtime, read_credential
-from health_buddy.upgrade import stage
-from health_buddy.upgrade_activation import activate
+from health_buddy.upgrade.activation import activate
+from health_buddy.upgrade.staging import stage
 
 
 def add_commands(commands: Any) -> None:

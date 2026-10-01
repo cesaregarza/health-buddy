@@ -19,9 +19,9 @@ from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.runtime.release import docker_command, load_release, selected_artifact
-from health_buddy.upgrade import freshness, preflight
+from health_buddy.upgrade.staging import freshness, preflight
 
-COMPOSE = Path(__file__).absolute().parents[2] / "packaging/compose.yaml"
+COMPOSE = Path(__file__).absolute().parents[3] / "packaging/compose.yaml"
 
 
 def compose(docker: Path, environment: Path, project: str, *arguments: str) -> bytes:

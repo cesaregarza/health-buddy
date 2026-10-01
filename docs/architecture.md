@@ -23,6 +23,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Immutable runtime packaging | `runtime/`, `packaged_runtime.py`, `packaging/`, `scripts/package_runtime.py`; runtime input/archive/listener/readiness/CLI tests |
 | MCP adapter | `mcp_server.py` entry point and `mcp/` (stdio framing, HTTPS operations client, tool schemas, proposals, SDK runtime); MCP wire/tools/settings tests |
 | Owner backup and restore | `backup/` (sealed envelope, workspace archive, create/materialize/restore lifecycle, CLI); encrypted backup tests |
+| Recoverable upgrade | `upgrade/` (release preflight and staging, resumable activation, CLI); recoverable upgrade tests |
 | Normative contracts | `contracts/v1`, `scripts/validate_contracts.py`, contract tests |
 
 CSV/JSON manual records and the selected HealthKit SQLite store are authoritative.

@@ -23,7 +23,7 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.security.readiness import ready
-from health_buddy.upgrade_activation import running
+from health_buddy.upgrade.activation import running
 
 VERSION = "1.102.5"
 SOURCE = "5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115"

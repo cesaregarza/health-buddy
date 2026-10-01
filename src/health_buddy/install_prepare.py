@@ -19,7 +19,7 @@ from health_buddy.core.workspace import initialize
 from health_buddy.install_preflight import preflight
 from health_buddy.mcp.settings import Settings
 from health_buddy.security.runtime import open_runtime
-from health_buddy.upgrade import preflight as upgrade_preflight
+from health_buddy.upgrade.staging import preflight as upgrade_preflight
 
 MAINTENANCE_REFERENCES = (
     "docs/agent-guide.md",

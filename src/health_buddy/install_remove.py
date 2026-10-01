@@ -30,7 +30,7 @@ from health_buddy.install_https import (
 )
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.runtime.release import docker_command, selected_artifact
-from health_buddy.upgrade_activation import COMPOSE, compose
+from health_buddy.upgrade.activation import COMPOSE, compose
 
 FORMAT = (
     "{{.Id}}\n{{.Image}}\n{{.State.Running}}\n{{.Config.User}}\n"
