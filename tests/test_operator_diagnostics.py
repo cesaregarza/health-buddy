@@ -100,8 +100,8 @@ def test_support_bundle_excludes_tokens_and_personal_records():
 
 
 def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path):
-    from health_buddy.extension_diagnostics import observed_call, recent_failure
-    from health_buddy.extension_install import install
+    from health_buddy.extension.diagnostics import observed_call, recent_failure
+    from health_buddy.extension.install import install
     from health_buddy.core.service_api import ServiceError
 
     app = App.development(tmp_path / "owner")
@@ -124,7 +124,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
         app.config.root / "personal/extensions/local.weekly-mass/src/metric.py"
     ).read_bytes()
     with patch(
-        "health_buddy.extension_diagnostics.call",
+        "health_buddy.extension.diagnostics.call",
         side_effect=ServiceError(503, "extension_timeout"),
     ):
         with pytest.raises(ServiceError, match="extension_timeout"):
@@ -143,7 +143,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
     assert (
         recent_failure(app.config, "local.weekly-mass")["code"] == "extension_timeout"
     )
-    from health_buddy.extension_registry import Registry
+    from health_buddy.extension.registry import Registry
 
     Registry(app.config).disable("local.weekly-mass")
     assert (
@@ -155,7 +155,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
 
 
 def test_missing_worker_record_is_unknown(tmp_path):
-    from health_buddy.extension_diagnostics import recent_failure
+    from health_buddy.extension.diagnostics import recent_failure
 
     app = App.development(tmp_path / "owner")
     assert recent_failure(app.config, "local.weekly-mass")["state"] == "unknown"

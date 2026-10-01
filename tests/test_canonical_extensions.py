@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from health_buddy.core import source_bundle
-from health_buddy.extensions import ScopedClient, latest_body_mass, water_connector
+from health_buddy.extension.examples import ScopedClient, latest_body_mass, water_connector
 from health_buddy.core.git_store import Store, csv_text
 from health_buddy.core.operations import Service
 from health_buddy.core.service_api import Principal, Request, ServiceError

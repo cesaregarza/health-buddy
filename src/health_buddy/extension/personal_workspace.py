@@ -16,7 +16,7 @@ from health_buddy.core.domain import digest
 from health_buddy.core.durability import exclusive
 from health_buddy.core.files import read_file, read_json
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.extension_registry import Registry, status_json
+from health_buddy.extension.registry import Registry, status_json
 
 MAX_ENTRIES = 10_000
 MAX_FILE_BYTES = 16_777_216

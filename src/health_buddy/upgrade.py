@@ -17,8 +17,8 @@ from health_buddy.core.files import read_file
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
-from health_buddy.extension_registry import Registry
-from health_buddy.personal_workspace import forks_locked
+from health_buddy.extension.personal_workspace import forks_locked
+from health_buddy.extension.registry import Registry
 from health_buddy.runtime.manifest import (
     MAX_METADATA,
     SHA256,

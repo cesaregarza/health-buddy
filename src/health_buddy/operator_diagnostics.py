@@ -16,9 +16,9 @@ from health_buddy.client.app import App
 from health_buddy.core import source_bundle
 from health_buddy.core.config import ConfigError, load
 from health_buddy.core.service_api import ServiceError
-from health_buddy.discovery import source_identity
-from health_buddy.extension_diagnostics import recent_failure
-from health_buddy.extension_registry import Registry, status_json
+from health_buddy.extension.diagnostics import recent_failure
+from health_buddy.extension.discovery import source_identity
+from health_buddy.extension.registry import Registry, status_json
 from health_buddy.runtime.manifest import read_source_identity
 
 GUIDANCE = {

@@ -14,8 +14,8 @@ from health_buddy.client.workflow import decoded
 from health_buddy.core.plans import to_wire
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import Request
-from health_buddy.extension_registry import Registry
-from health_buddy.personal_workspace import describe
+from health_buddy.extension.personal_workspace import describe
+from health_buddy.extension.registry import Registry
 from tests import test_transport_auth_wire as uds_fixtures
 from tests.canonical_fixtures import intent
 from tests.extension_fixtures import example

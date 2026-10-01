@@ -12,7 +12,7 @@ from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.extension_api import MAX_EXTENSIONS, MAX_MANIFEST_BYTES
 from health_buddy.core.files import bounded_children, private_directory
 from health_buddy.core.service_api import ServiceError
-from health_buddy.extension_manifest import parse_manifest
+from health_buddy.extension.manifest import parse_manifest
 
 MAX_INSTALL_FILES = 512
 MAX_INSTALL_BYTES = 8_388_608

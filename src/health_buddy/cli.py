@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    from health_buddy.extension_cli import add_commands
+    from health_buddy.extension.cli import add_commands
 
     add_commands(commands)
     from health_buddy.backup_cli import add_commands as add_backup_commands
@@ -169,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
 
             return handle_backup(args)
         if args.command in {"workspace", "extension"}:
-            from health_buddy.extension_cli import handle
+            from health_buddy.extension.cli import handle
 
             return handle(args)
         if args.command == "security":

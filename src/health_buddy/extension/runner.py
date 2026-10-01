@@ -18,7 +18,7 @@ def invoke(request: dict[str, JSON]) -> JSON:
     raw = encode(request)
     if len(raw) > 1_048_576:
         raise ServiceError(413, "extension_input_too_large")
-    worker = Path(__file__).with_name("extension_worker.py")
+    worker = Path(__file__).with_name("worker.py")
     # No inherited environment secrets, PYTHONPATH, user site, cwd imports,
     # shell command, or unbounded captured stderr. This is not a sandbox.
     with tempfile.TemporaryFile() as output:

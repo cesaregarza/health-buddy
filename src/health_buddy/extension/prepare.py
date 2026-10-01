@@ -30,9 +30,9 @@ from health_buddy.core.security_api import (
     SecurityRequest,
 )
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.extension_jobs import job_lock
-from health_buddy.extension_manifest import parse_manifest
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.jobs import job_lock
+from health_buddy.extension.manifest import parse_manifest
+from health_buddy.extension.registry import Registry
 from health_buddy.security.runtime import read_credential
 
 

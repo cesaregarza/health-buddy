@@ -10,7 +10,7 @@ from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.core.files import extension_id, private_directory, read_json
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.extension_runner import call
+from health_buddy.extension.runner import call
 
 FAILURES = frozenset(
     {

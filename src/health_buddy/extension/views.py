@@ -24,8 +24,8 @@ from health_buddy.core.service_api import (
     Response,
     ServiceError,
 )
-from health_buddy.extension_diagnostics import observed_call
-from health_buddy.extension_registry import Registry, ReviewedExtension, status_json
+from health_buddy.extension.diagnostics import observed_call
+from health_buddy.extension.registry import Registry, ReviewedExtension, status_json
 
 if TYPE_CHECKING:
     from health_buddy.core.operations import Service

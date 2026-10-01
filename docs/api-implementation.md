@@ -20,7 +20,7 @@ Owner-trusted Python is not a hostile-code sandbox.
 | Source filtering, projections and private last-good inputs | `core/snapshots.py`, `core/views.py`, `core/projection.py` |
 | Native/browser durable pending workflows | `client/app.py`, `cli.py`, `client/workflow.py`, dashboard template |
 | Maintained HTTP, bounded admission and child factory | `transport/asgi.py`, `transport/server.py` |
-| Scoped examples | `extensions.py` (`ScopedClient`, `latest_body_mass`, `water_connector`) |
+| Scoped examples | `extension/examples.py` (`ScopedClient`, `latest_body_mass`, `water_connector`) |
 | Executable synthetic evidence | `tests/test_canonical_*.py`, `tests/test_client_workflow.py`, transport/portable tests and six dashboard browser scripts |
 
 The fixed route table below defines the finite service route seam;
@@ -232,7 +232,7 @@ not silently interchanged by generic PUT.
 
 ```python
 from pathlib import Path
-from health_buddy.extensions import ScopedClient, latest_body_mass
+from health_buddy.extension.examples import ScopedClient, latest_body_mass
 from health_buddy.core.operations import open_service
 from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL
 

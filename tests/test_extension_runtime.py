@@ -8,8 +8,8 @@ from health_buddy.client.workflow import decoded
 from health_buddy.core.domain import digest
 from health_buddy.core.security_api import AgentGrant, BearerProof
 from health_buddy.core.service_api import Request, ServiceError
-from health_buddy.extension_jobs import run_event
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.jobs import run_event
+from health_buddy.extension.registry import Registry
 from health_buddy.security.runtime import open_runtime
 from tests.extension_fixtures import example, prepared, write_json
 from tests.security_fixtures import action, secured

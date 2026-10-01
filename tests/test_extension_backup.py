@@ -11,7 +11,7 @@ from health_buddy.client.workflow import decoded
 from health_buddy.core.domain import digest
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import Request
-from health_buddy.extension_jobs import run_event
+from health_buddy.extension.jobs import run_event
 from health_buddy.security.runtime import open_runtime, read_credential
 from tests.extension_fixtures import prepared
 

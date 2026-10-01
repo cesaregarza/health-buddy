@@ -2,15 +2,15 @@
 
 import pytest
 
-from health_buddy import extension_registry
 from health_buddy.client import workflow as client_workflow
 from health_buddy.client.workflow import ClientWorkflow, WorkflowNamespace
 from health_buddy.core import files
 from health_buddy.core.files import runtime_files
 from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.core.workspace import initialize
-from health_buddy.extension_registry import Registry
-from health_buddy.extension_views import catalog
+from health_buddy.extension import registry as extension_registry
+from health_buddy.extension.registry import Registry
+from health_buddy.extension.views import catalog
 from tests.extension_fixtures import example
 from tests.security_fixtures import secured
 from tests.test_extension_workflow import SyntheticOperations, emit

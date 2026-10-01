@@ -28,8 +28,8 @@ from health_buddy.core.files import (
     runtime_files,
 )
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.extension_manifest import configuration, parse_manifest
-from health_buddy.extension_runner import validate_config
+from health_buddy.extension.manifest import configuration, parse_manifest
+from health_buddy.extension.runner import validate_config
 
 MAX_REGISTRY = 131_072
 MAX_REVIEWS = 32

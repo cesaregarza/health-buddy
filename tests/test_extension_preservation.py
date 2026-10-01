@@ -15,15 +15,15 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy import personal_workspace
 from health_buddy.client.workflow import decoded
 from health_buddy.core import source_bundle
 from health_buddy.core.domain import digest
 from health_buddy.core.service_api import Request, ServiceError
 from health_buddy.core.workspace import initialize
-from health_buddy.extension_install import install
-from health_buddy.extension_jobs import run_event
-from health_buddy.extension_registry import Registry
+from health_buddy.extension import personal_workspace
+from health_buddy.extension.install import install
+from health_buddy.extension.jobs import run_event
+from health_buddy.extension.registry import Registry
 from tests.extension_fixtures import example, prepared
 
 
@@ -304,10 +304,10 @@ import base64, hashlib, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(sys.argv[1]) / "src"))
 import health_buddy
-from health_buddy import personal_workspace
+from health_buddy.extension import personal_workspace
 from health_buddy.client.workflow import decoded
 from health_buddy.core.domain import digest
-from health_buddy.extension_jobs import run_event
+from health_buddy.extension.jobs import run_event
 from health_buddy.core.security_api import BearerProof
 from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.core.service_api import Request
@@ -394,7 +394,7 @@ def test_backup_context_blocks_real_connector_writer_until_exit(tmp_path):
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(sys.argv[3]) / "src"))
-from health_buddy.extension_jobs import run_event
+from health_buddy.extension.jobs import run_event
 from health_buddy.core.security_api import BearerProof
 from health_buddy.security.runtime import open_runtime, read_credential
 root, credential_path = Path(sys.argv[1]), Path(sys.argv[2])

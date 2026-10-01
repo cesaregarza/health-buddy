@@ -6,13 +6,13 @@ from importlib.resources import files
 
 import pytest
 
-from health_buddy import extension_manifest
 from health_buddy.core import files as core_files
 from health_buddy.core.extension_api import EXTENSION_API, MAX_EXTENSIONS
 from health_buddy.core.files import runtime_files
 from health_buddy.core.service_api import ServiceError
-from health_buddy.extension_install import install
-from health_buddy.extension_registry import Registry
+from health_buddy.extension import manifest as extension_manifest
+from health_buddy.extension.install import install
+from health_buddy.extension.registry import Registry
 from tests.extension_fixtures import example, write_json
 from tests.security_fixtures import secured
 
@@ -159,7 +159,7 @@ def test_schema_timeout_is_reported_as_timeout(tmp_path, monkeypatch):
     runtime, _, _ = secured(tmp_path / "owner")
     example(runtime.operations.config, METRIC)
     registry = Registry(runtime.operations.config)
-    from health_buddy import extension_runner
+    from health_buddy.extension import runner as extension_runner
 
     def timeout(_request):
         raise ServiceError(503, "extension_timeout")
@@ -177,7 +177,7 @@ def test_extension_count_limit_is_bounded_at_directory_enumeration(
     config = runtime.operations.config
     root = config.path("personal/extensions")
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    monkeypatch.setattr("health_buddy.extension_registry.MAX_EXTENSIONS", 2)
+    monkeypatch.setattr("health_buddy.extension.registry.MAX_EXTENSIONS", 2)
     for name in ("local.one", "local.two", "local.three"):
         (root / name).mkdir(mode=0o700)
     (status,) = Registry(config).inspect()
@@ -195,7 +195,7 @@ def test_dense_acyclic_dependency_graph_remains_ready_at_maximum_size(
     # The descriptor/config structure is valid; schema validation is covered
     # separately. Keep this 32-node graph focused on bounded graph traversal.
     monkeypatch.setattr(
-        "health_buddy.extension_registry.validate_config", lambda _schema, _config: None
+        "health_buddy.extension.registry.validate_config", lambda _schema, _config: None
     )
     for index in reversed(range(len(names))):
         name = names[index]

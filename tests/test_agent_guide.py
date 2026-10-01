@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from health_buddy.discovery import DOCUMENTS
+from health_buddy.extension.discovery import DOCUMENTS
 from health_buddy.runtime.bundle import create_bundle
 from scripts.audit_distribution import REQUIRED_AGENT_REFERENCES
 from tests.test_runtime_bundle import git, source

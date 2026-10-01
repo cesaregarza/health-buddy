@@ -15,7 +15,7 @@ from health_buddy.core.domain import envelope
 from health_buddy.core.journal import State
 from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.service_api import JSON, Authority, Response, ServiceError
-from health_buddy.extension_registry import Registry, ReviewedExtension
+from health_buddy.extension.registry import Registry, ReviewedExtension
 
 if TYPE_CHECKING:
     from health_buddy.core.operations import Service

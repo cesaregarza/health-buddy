@@ -17,10 +17,10 @@ from health_buddy.core.durability import atomic_bytes
 from health_buddy.core.extension_api import PrepareConnector
 from health_buddy.core.security_api import AgentGrant, BearerProof, SecurityRequest
 from health_buddy.core.service_api import Request
-from health_buddy.extension_install import install
-from health_buddy.extension_jobs import run_event
-from health_buddy.extension_prepare import prepare
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.install import install
+from health_buddy.extension.jobs import run_event
+from health_buddy.extension.prepare import prepare
+from health_buddy.extension.registry import Registry
 from health_buddy.packaged_runtime import open_packaged
 from health_buddy.security.runtime import read_credential, setup_security
 

@@ -427,7 +427,7 @@ def _render(
         data: JSON = _records(service, authority, request, capture, stale)
     elif operation == "dashboard.read":
         dashboard = snapshots.dashboard(service, capture, authority, stale=stale)
-        from health_buddy.extension_views import catalog
+        from health_buddy.extension.views import catalog
 
         dashboard["extensions"] = catalog(service)
         if request.query.get("format", "html") == "html":
@@ -541,7 +541,7 @@ def read(
 ) -> Response:
     validate(request, state)
     if request.operation == "workspace.discover":
-        from health_buddy.discovery import read as discover
+        from health_buddy.extension.discovery import read as discover
 
         return discover(
             service, authority, state, _available_operations(service, authority)
@@ -591,7 +591,7 @@ def read(
     if request.operation == "context.scopes":
         return envelope(_catalog(), state.identity, state.revision)
     if request.operation in {"extensions.list", "extensions.read", "extensions.asset"}:
-        from health_buddy.extension_views import read as extension_read
+        from health_buddy.extension.views import read as extension_read
 
         return extension_read(service, authority, request, state)
     if request.operation == "asset.read":

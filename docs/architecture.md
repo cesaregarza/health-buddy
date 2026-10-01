@@ -13,9 +13,9 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Maintained HTTP | `transport/` (`asgi.py`, `server.py`, `listener.py`, `limits.py`, `ingress.py`, `jobs.py`, `security.py`, `ui.py`); transport, wire and portable HTTP tests |
 | Security authority and native setup | `core/security_api.py`, `security/authority.py`, `security/store.py`, `security/actions.py`, `security/device_admission.py`, `security/readiness.py`, `security/runtime.py`; security authority/pairing/recovery/setup tests |
 | UI/native durable client workflows | `client/app.py`, `cli.py`, `client/workflow.py`, `client/auth.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
-| Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
-| Personal registry, native jobs and reviewed views | `core/extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |
-| Private discovery and recorded core forks | `personal_workspace.py`, `extension_cli.py`; preservation and native maintenance tests |
+| Scoped metric and connector examples | `extension/examples.py`; canonical extension conformance tests |
+| Personal registry, native jobs and reviewed views | `core/extension_api.py`, `extension/registry.py`, `extension/views.py`, `extension/prepare.py`, `extension/jobs.py`; `test_extension_*` and maintained reference tests |
+| Private discovery and recorded core forks | `extension/personal_workspace.py`, `extension/discovery.py`, `extension/cli.py`; preservation and native maintenance tests |
 | Owner configuration/first run | `core/config.py`, `core/workspace.py`, `core/git_store.py` (git-backed manual store), `core/source_bundle.py` (dashboard/scripts loader, kept until the dashboard cutover); portable workspace/config tests |
 | HealthKit schema-v1 calculations | `src/health_ingest/models.py`, `storage.py`, dashboard `healthkit_source.py`; protocol/storage and receiver recovery tests |
 | Dashboard/context calculations | dashboard `build_dashboard.py`, `context_pack.py`, scripts summaries/planning/progression; retained calculation tests |

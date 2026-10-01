@@ -7,9 +7,9 @@ from pathlib import Path
 
 from health_buddy.core.extension_api import PrepareConnector
 from health_buddy.core.security_api import BearerProof
-from health_buddy.extension_install import install
-from health_buddy.extension_prepare import prepare
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.install import install
+from health_buddy.extension.prepare import prepare
+from health_buddy.extension.registry import Registry
 from health_buddy.security.runtime import read_credential
 from tests.security_fixtures import secured
 

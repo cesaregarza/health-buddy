@@ -6,8 +6,8 @@ from dataclasses import replace
 from health_buddy.core.release_identity import ArtifactIdentity, ReleaseIdentity
 from health_buddy.core.security_api import AgentGrant, BearerProof
 from health_buddy.core.service_api import Request
-from health_buddy.discovery import source_identity
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.discovery import source_identity
+from health_buddy.extension.registry import Registry
 from health_buddy.transport.asgi import ENDPOINTS
 from tests.extension_fixtures import example
 from tests.security_fixtures import action, secured
@@ -46,8 +46,8 @@ def grant(
 def test_current_policy_filters_metadata_without_history_or_native_inventory(
     tmp_path, monkeypatch
 ):
-    from health_buddy import personal_workspace
     from health_buddy.core import snapshots
+    from health_buddy.extension import personal_workspace
 
     runtime, owner, _ = secured(tmp_path / "owner")
     config = runtime.operations.config

@@ -122,8 +122,8 @@ Run this focused check set from the matching source checkout
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider "$EXTENSION/tests" tests/test_extension_runtime.py tests/test_extension_registry.py tests/test_extension_workflow.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/discovery.py src/health_buddy/core/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/discovery.py src/health_buddy/core/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/extension/discovery.py src/health_buddy/core/discovery_api.py src/health_buddy/extension/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/extension/discovery.py src/health_buddy/core/discovery_api.py src/health_buddy/extension/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 # View/config rendering only: separately admitted BROWSER_PYTHON/cache required.
 (cd health-runner/dashboard && "$BROWSER_PYTHON" scripts/check_extensions.py)
 ```

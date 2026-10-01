@@ -13,8 +13,8 @@ from health_buddy import upgrade_activation
 from health_buddy.client.app import App
 from health_buddy.backup_crypto import keygen
 from health_buddy.core.durability import atomic_bytes
-from health_buddy.extension_jobs import run_event
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.jobs import run_event
+from health_buddy.extension.registry import Registry
 from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import verify_source_identity
 from health_buddy.runtime.release import create_release

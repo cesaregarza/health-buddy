@@ -12,7 +12,7 @@ import pytest
 from health_buddy.core.extension_api import PrepareConnector
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
-from health_buddy.extension_prepare import prepare
+from health_buddy.extension.prepare import prepare
 from health_buddy.security.runtime import open_runtime, read_credential
 from tests.extension_fixtures import example, write_json
 from tests.security_fixtures import action, secured
@@ -145,7 +145,7 @@ def test_crash_then_changed_grant_never_creates_another_actor(tmp_path, change):
 def test_first_handoff_durability_error_closes_descriptor_and_preserves_intent(
     tmp_path, monkeypatch
 ):
-    from health_buddy import extension_prepare
+    from health_buddy.extension import prepare as extension_prepare
 
     runtime, _owner, token = secured(tmp_path / "owner")
     config = runtime.operations.config

@@ -8,7 +8,7 @@ from health_buddy.client.app import App
 from health_buddy.backup import create, restore
 from health_buddy.backup_crypto import keygen
 from health_buddy.core.durability import atomic_bytes
-from health_buddy.extension_registry import Registry
+from health_buddy.extension.registry import Registry
 from health_buddy.core.security_api import BearerProof
 from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.core.service_api import Request, ServiceError
@@ -293,8 +293,8 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
     import sys
 
     from health_buddy.core.extension_api import PrepareConnector
-    from health_buddy.extension_jobs import run_event
-    from health_buddy.extension_prepare import prepare
+    from health_buddy.extension.jobs import run_event
+    from health_buddy.extension.prepare import prepare
     from tests.extension_fixtures import prepared
 
     runtime, owner, _token, grant, setup = prepared(tmp_path / "source")

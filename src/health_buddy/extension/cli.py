@@ -15,11 +15,11 @@ from health_buddy.core.extension_api import PrepareConnector
 from health_buddy.core.files import read_file
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import JSON, Request, ServiceError
-from health_buddy.extension_install import install
-from health_buddy.extension_jobs import run_event
-from health_buddy.extension_prepare import prepare
-from health_buddy.extension_registry import Registry, status_json
-from health_buddy.personal_workspace import describe
+from health_buddy.extension.install import install
+from health_buddy.extension.jobs import run_event
+from health_buddy.extension.personal_workspace import describe
+from health_buddy.extension.prepare import prepare
+from health_buddy.extension.registry import Registry, status_json
 from health_buddy.security.runtime import open_runtime, read_credential
 
 
