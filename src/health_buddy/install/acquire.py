@@ -18,6 +18,10 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, Any, cast
 
+# ruff: noqa: E402
+# Imported in place from the source bundle: never write bytecode into its tree.
+sys.dont_write_bytecode = True
+
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import encode
@@ -329,11 +333,13 @@ def acquire(
     if not urllib.parse.urlsplit(manifest_url).path.endswith("/runtime-manifest.json"):
         raise ServiceError(422, "install_acquire_manifest_url_required")
     native_path(bundle)
-    staging = private_path(staging / "runtime-manifest.json").parent
-    private_directory(staging)
-    identity = verify_source_identity(
-        bundle / "source", bundle / "release/source-manifest.json"
-    )
+    staging = _private_staging(staging)
+    try:
+        identity = verify_source_identity(
+            bundle / "source", bundle / "release/source-manifest.json"
+        )
+    except ManifestError:
+        raise ServiceError(409, "install_acquire_source_identity_mismatch") from None
     if staging.is_relative_to(bundle) or bundle.is_relative_to(staging):
         raise ServiceError(422, "install_acquire_staging_overlaps_source")
     journal = staging / ".health-buddy-acquisition.json"
@@ -397,6 +403,16 @@ def acquire(
             "publisherSignatureVerified": False,
             "sourceBundleMatched": True,
         }
+
+
+def _private_staging(staging: Path) -> Path:
+    """The existing private staging directory, admitted before any network use."""
+    try:
+        admitted = private_path(staging / "runtime-manifest.json").parent
+        private_directory(admitted)
+    except (ServiceError, ManifestError, OSError):
+        raise ServiceError(422, "install_acquire_staging_unavailable") from None
+    return admitted
 
 
 def _release_downloads(

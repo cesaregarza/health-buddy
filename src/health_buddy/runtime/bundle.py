@@ -26,6 +26,7 @@ from health_buddy.runtime.manifest import (
     VERSION,
     ManifestError,
     canonical,
+    interpreter_bytecode,
     inventory,
     native_directory,
     path_value,
@@ -223,6 +224,9 @@ def _tree_inventory(
         if mode not in (b"100644", b"100755") or kind != b"blob":
             raise ManifestError("unsupported_source_entry")
         relative = path_value(name.decode("ascii"))
+        if interpreter_bytecode(relative):
+            # inventory() skips bytecode, so a tracked copy would ship unverified.
+            raise ManifestError("bytecode_source_entry")
         size = int(length)
         if relative in selected or len(selected) >= MAX_FILES or size < 0:
             raise ManifestError("invalid_source_inventory")

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from health_buddy.core.release_identity import ReleaseIdentity
@@ -19,10 +20,27 @@ SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 GIT_SHA = re.compile(r"[0-9a-f]{40}\Z")
 VERSION = re.compile(r"[0-9][A-Za-z0-9.+-]{0,63}\Z")
 INTERFACES = {"api": 1, "storage": 1, "extensions": 1, "pairing": 1, "phonePayload": 1}
+# CPython caches bytecode beside the source it imports, and the documented
+# installer commands import the extracted bundle in place (PYTHONPATH=$SOURCE/src).
+# That cache is interpreter state, never release content.
+BYTECODE_DIRECTORY = "__pycache__"
+BYTECODE_SUFFIXES = (".pyc", ".pyo")
 
 
 class ManifestError(ValueError):
-    """A fixed safe diagnostic; never includes a path or captured file value."""
+    """A fixed safe diagnostic; the message never includes a path or file value."""
+
+
+class SourceInventoryMismatch(ManifestError):
+    """The source tree differs from its manifest, first at `path`.
+
+    `path` is bundle-relative and already admitted by path_value, so an operator
+    report may name it; the message stays the fixed code for existing handlers.
+    """
+
+    def __init__(self, path: str) -> None:
+        super().__init__("source_inventory_mismatch")
+        self.path = path
 
 
 def canonical(value: object) -> bytes:
@@ -95,7 +113,24 @@ def file_digest(path: Path, limit: int) -> tuple[int, str]:
         os.close(descriptor)
 
 
+def interpreter_bytecode(relative: str) -> bool:
+    """Whether inventory() skips this bundle-relative file as interpreter bytecode."""
+    *directories, name = relative.split("/")
+    return BYTECODE_DIRECTORY in directories or name.endswith(BYTECODE_SUFFIXES)
+
+
+def _bytecode_entry(entry: os.DirEntry[str]) -> bool:
+    # Only a real cache directory or regular file is skipped; a link with such a
+    # name still reaches the ordinary checks and fails like any other link.
+    if entry.name == BYTECODE_DIRECTORY:
+        return entry.is_dir(follow_symlinks=False)
+    return entry.name.endswith(BYTECODE_SUFFIXES) and entry.is_file(
+        follow_symlinks=False
+    )
+
+
 def inventory(root: Path) -> list[dict[str, str | int]]:
+    """Every source file under root, except interpreter bytecode."""
     native_directory(root)
     result: list[dict[str, str | int]] = []
     total = 0
@@ -111,6 +146,9 @@ def inventory(root: Path) -> list[dict[str, str | int]]:
                 entries += 1
                 if entries > MAX_ENTRIES:
                     raise ManifestError("bundle_entries_exceeded")
+                # Counted before skipping, so the entry bound still bounds the scan.
+                if _bytecode_entry(entry):
+                    continue
                 path = Path(entry.path)
                 relative = path_value(path.relative_to(root).as_posix())
                 if entry.is_dir(follow_symlinks=False):
@@ -132,6 +170,18 @@ def inventory(root: Path) -> list[dict[str, str | int]]:
 
     visit(root, 0)
     return sorted(result, key=lambda item: str(item["path"]))
+
+
+def _first_difference(
+    recorded: Sequence[Mapping[str, object]], present: Sequence[Mapping[str, object]]
+) -> str | None:
+    """The first path, in sorted order, that was added, removed or changed."""
+    expected = {str(item["path"]): item for item in recorded}
+    actual = {str(item["path"]): item for item in present}
+    for path in sorted(expected.keys() | actual.keys()):
+        if expected.get(path) != actual.get(path):
+            return path
+    return None
 
 
 def _pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -173,6 +223,8 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
 
     File integrity is established locally. The commit association still depends
     on the trusted controlled builder receipt, not a publisher signature.
+    A tree that differs from the manifest raises SourceInventoryMismatch naming
+    the first differing file; interpreter bytecode is not part of the tree.
     """
     value = _json(manifest_path)
     if not isinstance(value, dict) or set(value) != {
@@ -224,8 +276,9 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
             raise ManifestError("bundle_size_exceeded")
     if paths != sorted(set(paths)):
         raise ManifestError("invalid_source_inventory")
-    if inventory(source_root) != files:
-        raise ManifestError("source_inventory_mismatch")
+    differing = _first_difference(files, inventory(source_root))
+    if differing is not None:
+        raise SourceInventoryMismatch(differing)
     docs = [item for item in files if item["path"].startswith("docs/")]
     if hashlib.sha256(canonical(docs)).hexdigest() != docs_digest:
         raise ManifestError("docs_inventory_mismatch")

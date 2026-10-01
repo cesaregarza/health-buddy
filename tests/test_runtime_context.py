@@ -10,7 +10,7 @@ import pytest
 from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.context import create_context
 from health_buddy.runtime.manifest import ManifestError, verify_source_identity
-from tests.test_runtime_bundle import git, source
+from tests.test_runtime_bundle import git, plant_bytecode, source
 from tests.test_runtime_inputs import lock
 
 
@@ -66,3 +66,13 @@ def test_context_refuses_changed_input_before_allocating_output(tmp_path: Path) 
     with pytest.raises(ManifestError, match="runtime_input_hash_mismatch"):
         create_context(bundle, downloads, "amd64", tmp_path / "context")
     assert not (tmp_path / "context").exists()
+
+
+def test_context_copies_no_bytecode_from_a_bundle_run_in_place(tmp_path: Path) -> None:
+    bundle, downloads = context_fixture(tmp_path)
+    plant_bytecode(bundle / "source")
+    output = tmp_path / "context"
+    create_context(bundle, downloads, "amd64", output)
+    copied = output / "source"
+    assert not list(copied.rglob("__pycache__"))
+    assert not [path for path in copied.rglob("*") if path.suffix in (".pyc", ".pyo")]

@@ -107,6 +107,37 @@ def test_changed_binding_and_unowned_existing_workspace_refuse(tmp_path, monkeyp
     assert selected["journal"].read_bytes() == before
 
 
+def command_line(selected):
+    return [f"--{key.replace('_', '-')}={value}" for key, value in selected.items()]
+
+
+def test_changed_bundle_source_is_named_before_the_first_write(
+    tmp_path, monkeypatch, capsys
+):
+    selected = inputs(tmp_path, monkeypatch)
+    (selected["bundle"] / "source/AGENTS.md").write_text("Synthetic later edit.\n")
+    with pytest.raises(
+        ServiceError, match="install_preparation_source_identity_mismatch"
+    ):
+        install_prepare.prepare(**selected)
+    assert not selected["journal"].exists()
+    assert not any(selected["workspace"].iterdir())
+    assert install_prepare.main(command_line(selected)) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "install_preparation_source_identity_mismatch"
+    assert output["recovery"].startswith("Re-extract the source bundle")
+
+
+def test_other_refusals_keep_the_generic_preparation_code(
+    tmp_path, monkeypatch, capsys
+):
+    selected = inputs(tmp_path, monkeypatch)
+    (selected["workspace"] / "owner-note").write_text("keep unrelated installation")
+    assert install_prepare.main(command_line(selected)) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "install_preparation_refused"
+
+
 @pytest.mark.parametrize("name", ["codex", "claude"])
 def test_client_config_repeats_without_live_connection(tmp_path, monkeypatch, name):
     selected = inputs(tmp_path, monkeypatch)

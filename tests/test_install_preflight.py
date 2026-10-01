@@ -13,7 +13,7 @@ from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import verify_source_identity
 from health_buddy.runtime.release import create_release
 from tests.test_runtime_artifact import make_archive
-from tests.test_runtime_bundle import git
+from tests.test_runtime_bundle import git, plant_bytecode
 from tests.test_runtime_context import context_fixture
 
 
@@ -127,6 +127,31 @@ def test_changed_archive_is_refused_without_loading(tmp_path, monkeypatch):
     with archive.open("ab") as output:
         output.write(b"synthetic tamper")
     assert "release_invalid" in codes(install_preflight.preflight(**inputs))
+
+
+def test_changed_source_names_the_file_to_re_extract(tmp_path, monkeypatch):
+    inputs = prepared(tmp_path, monkeypatch)
+    (inputs["bundle"] / "source/src/module.py").write_text("VALUE = 2\n")
+    result = install_preflight.preflight(**inputs)
+    assert not result["preflightPassed"]
+    assert {"release_invalid", "source_inventory_mismatch"} <= codes(result)
+    (mismatch,) = [
+        item
+        for item in result["diagnostics"]
+        if item["code"] == "source_inventory_mismatch"
+    ]
+    assert mismatch["recovery"].startswith("Re-extract the source bundle")
+    assert "src/module.py" in mismatch["recovery"]
+    assert str(inputs["bundle"]) not in json.dumps(result)
+
+
+def test_bytecode_from_running_the_bundle_in_place_still_passes(
+    tmp_path, monkeypatch
+):
+    inputs = prepared(tmp_path, monkeypatch)
+    plant_bytecode(inputs["bundle"] / "source")
+    result = install_preflight.preflight(**inputs)
+    assert result["preflightPassed"], result["diagnostics"]
 
 
 def test_existing_state_and_conflicting_port_are_preserved(tmp_path, monkeypatch):

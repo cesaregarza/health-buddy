@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+# ruff: noqa: E402
+# Imported in place from the source bundle: never write bytecode into its tree.
+sys.dont_write_bytecode = True
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
@@ -50,6 +55,18 @@ WORKSPACE_ENTRIES = (
     "stores/manual.git",
     "cache",
 )
+# Recovery for each refusal main reports. Only a cause the owner can act on
+# directly is named; every other failure stays the fixed generic refusal.
+RECOVERY = {
+    "install_preparation_refused": (
+        "Retain the journal and original inputs; "
+        "inspect private ownership and source/client checks."
+    ),
+    "install_preparation_source_identity_mismatch": (
+        "Re-extract the source bundle from its verified archive, then repeat; "
+        "preflight names the first differing file."
+    ),
+}
 
 
 def summary(progress: dict[str, Any]) -> dict[str, Any]:
@@ -175,6 +192,8 @@ def _initialize_workspace(
     # initialization from an unrelated existing workspace.
     if progress:
         refusals.discard("existing_state_requires_review")
+    if "source_inventory_mismatch" in refusals:
+        raise ServiceError(409, "install_preparation_source_identity_mismatch")
     if (
         refusals
         or checked["release"]["state"] != "pinned_archives_and_matching_source_verified"
@@ -275,18 +294,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         result = prepare(**vars(args))
-    except (ServiceError, OSError, ValueError, TypeError, KeyError):
+    except (ServiceError, OSError, ValueError, TypeError, KeyError) as error:
+        code = "install_preparation_refused"
+        if isinstance(error, ServiceError) and error.code in RECOVERY:
+            code = error.code
         print(
-            json.dumps(
-                {
-                    "schemaVersion": 1,
-                    "code": "install_preparation_refused",
-                    "recovery": (
-                        "Retain the journal and original inputs; "
-                        "inspect private ownership and source/client checks."
-                    ),
-                }
-            )
+            json.dumps({"schemaVersion": 1, "code": code, "recovery": RECOVERY[code]})
         )
         return 2
     print(json.dumps(result, sort_keys=True))

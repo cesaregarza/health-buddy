@@ -14,6 +14,10 @@ from functools import partial
 from pathlib import Path
 from urllib.parse import urlsplit
 
+# ruff: noqa: E402
+# Imported in place from the source bundle: never write bytecode into its tree.
+sys.dont_write_bytecode = True
+
 from health_buddy.cli import main as canonical_cli
 from health_buddy.core import config
 from health_buddy.core.operations import open_service
