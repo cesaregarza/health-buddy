@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import cast
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
-from health_buddy.domain import (
+from health_buddy.core.domain import (
     decode,
     digest,
     encode,
@@ -27,8 +27,8 @@ from health_buddy.domain import (
     object_value,
     text,
 )
-from health_buddy.durability import fsync_path, private_file, unavailable
-from health_buddy.service_api import JSON, Identity, ServiceError
+from health_buddy.core.durability import fsync_path, private_file, unavailable
+from health_buddy.core.service_api import JSON, Identity, ServiceError
 from health_ingest.models import Batch, parse_batch
 from health_ingest.storage import BatchConflictError, HealthRepository, _canonical_hash
 

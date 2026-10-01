@@ -2,9 +2,9 @@
 
 import json
 
-from health_buddy.security_api import BearerProof, BootstrapProof, SecurityRequest
+from health_buddy.core.security_api import BearerProof, BootstrapProof, SecurityRequest
 from health_buddy.security_runtime import open_runtime, setup_security
-from health_buddy.workspace import initialize
+from health_buddy.core.workspace import initialize
 
 
 def secured(root, *, receiver=False, proxy=False):

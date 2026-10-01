@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import cast
 from urllib.parse import parse_qsl
 
-from health_buddy.service_api import JSON
+from health_buddy.core.service_api import JSON
 
 
 @dataclass(frozen=True)

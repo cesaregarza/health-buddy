@@ -11,9 +11,9 @@ import pytest
 from health_buddy.core import source_bundle
 from health_buddy.extensions import ScopedClient, latest_body_mass, water_connector
 from health_buddy.core.git_store import Store, csv_text
-from health_buddy.operations import Service
-from health_buddy.service_api import Principal, Request, ServiceError
-from health_buddy.workspace import initialize
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import Principal, Request, ServiceError
+from health_buddy.core.workspace import initialize
 from tests.canonical_fixtures import RegisteredPolicy, decoded, intent, metadata, setup
 
 

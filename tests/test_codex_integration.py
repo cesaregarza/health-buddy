@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from health_buddy.connect_agent import connect
-from health_buddy.service_api import ServiceError
+from health_buddy.core.service_api import ServiceError
 from tests import test_transport_auth_wire as uds_fixtures
 from tests.mcp_wire_fixtures import actual_backend, client
 from tests.test_mcp_settings import settings_file

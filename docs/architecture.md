@@ -6,17 +6,17 @@ owner's private workspace; no personal profile or training plan ships as a defau
 
 | Responsibility | Current source and meaningful tests |
 | --- | --- |
-| Canonical admission/domain | `src/health_buddy/service_api.py`, `domain.py`, `policy.py`, `operations.py`; canonical operations/source ownership tests |
-| Durable stores and receipts | `journal.py`, `durability.py`, `stores.py`, `health_store.py`; canonical recovery/boundaries tests |
-| Manual values and stable IDs | `records.py`, `loggers.py`, `plans.py`; canonical logger/source ownership tests; retained pure validator tests |
-| Source capture and scoped projections | `snapshots.py`, `views.py`, `projection.py`; canonical reads/extensions and portable workspace tests |
+| Canonical admission/domain | `src/health_buddy/core/service_api.py`, `core/domain.py`, `core/policy.py`, `core/operations.py`; canonical operations/source ownership tests |
+| Durable stores and receipts | `core/journal.py`, `core/durability.py`, `core/stores.py`, `core/health_store.py`; canonical recovery/boundaries tests |
+| Manual values and stable IDs | `core/records.py`, `core/loggers.py`, `core/plans.py`; canonical logger/source ownership tests; retained pure validator tests |
+| Source capture and scoped projections | `core/snapshots.py`, `core/views.py`, `core/projection.py`; canonical reads/extensions and portable workspace tests |
 | Maintained HTTP | `transport*.py`, `production_server.py`; transport, wire and portable HTTP tests |
-| Security authority and native setup | `security_api.py`, `security.py`, `security_store.py`, `security_actions.py`, `security_runtime.py`; security authority/pairing/recovery/setup tests |
+| Security authority and native setup | `core/security_api.py`, `security.py`, `security_store.py`, `security_actions.py`, `security_runtime.py`; security authority/pairing/recovery/setup tests |
 | UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
 | Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
-| Personal registry, native jobs and reviewed views | `extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |
+| Personal registry, native jobs and reviewed views | `core/extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |
 | Private discovery and recorded core forks | `personal_workspace.py`, `extension_cli.py`; preservation and native maintenance tests |
-| Owner configuration/first run | `config.py`, `workspace.py`, `core/git_store.py` (git-backed manual store), `core/source_bundle.py` (dashboard/scripts loader, kept until the dashboard cutover); portable workspace/config tests |
+| Owner configuration/first run | `core/config.py`, `core/workspace.py`, `core/git_store.py` (git-backed manual store), `core/source_bundle.py` (dashboard/scripts loader, kept until the dashboard cutover); portable workspace/config tests |
 | HealthKit schema-v1 calculations | `src/health_ingest/models.py`, `storage.py`, dashboard `healthkit_source.py`; protocol/storage and receiver recovery tests |
 | Dashboard/context calculations | dashboard `build_dashboard.py`, `context_pack.py`, scripts summaries/planning/progression; retained calculation tests |
 | Optional SleepIQ export | `src/sleepiq_exporter`; exporter/migration tests; selected local export projection |

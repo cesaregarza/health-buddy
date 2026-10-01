@@ -9,7 +9,7 @@ import pytest
 
 from health_buddy import packaged_runtime
 from health_buddy.cli import main as canonical_cli
-from health_buddy.release_identity import ReleaseIdentity
+from health_buddy.core.release_identity import ReleaseIdentity
 
 
 @pytest.fixture

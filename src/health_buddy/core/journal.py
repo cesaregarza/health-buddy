@@ -19,22 +19,22 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
-from health_buddy.domain import (
+from health_buddy.core.domain import (
     MAX_MANIFEST,
     MAX_RESPONSE,
     decode,
     encode,
     identity_value,
 )
-from health_buddy.durability import (
+from health_buddy.core.durability import (
     atomic_bytes,
     check_deadline,
     fsync_path,
     private_file,
     unavailable,
 )
-from health_buddy.service_api import JSON, Identity, Response, ServiceError
-from health_buddy.stores import CANONICAL_MARKER, ManualStore
+from health_buddy.core.service_api import JSON, Identity, Response, ServiceError
+from health_buddy.core.stores import CANONICAL_MARKER, ManualStore
 
 SCHEMA = """
 CREATE TABLE state (

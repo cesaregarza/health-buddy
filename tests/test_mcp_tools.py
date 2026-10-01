@@ -9,14 +9,14 @@ from dataclasses import replace
 
 import pytest
 
-from health_buddy.domain import encode, envelope, identity_value
+from health_buddy.core.domain import encode, envelope, identity_value
+from health_buddy.core.plans import to_wire
+from health_buddy.core.security_api import ClientIdentity
+from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp_proposals import Proposals
 from health_buddy.mcp_schemas import SPECS, validate
 from health_buddy.mcp_settings import Settings
 from health_buddy.mcp_tools import ToolService
-from health_buddy.plans import to_wire
-from health_buddy.security_api import ClientIdentity
-from health_buddy.service_api import ServiceError
 from tests.synthetic_workspace import program
 from tests.test_extension_workflow import IDENTITY
 from tests.test_mcp_settings import settings_file

@@ -9,11 +9,12 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from health_buddy import config, loggers, plans, records
 from health_buddy.backup import disk_required
+from health_buddy.core import config, loggers, plans, records
+from health_buddy.core.domain import MAX_PLAN_BODY, decode, digest, encode, identifier
+from health_buddy.core.durability import atomic_bytes, fsync_path
 from health_buddy.core.git_store import headers, parse_csv
-from health_buddy.domain import MAX_PLAN_BODY, decode, digest, encode, identifier
-from health_buddy.durability import atomic_bytes, fsync_path
+from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.legacy_import import (
     MAX_BYTES,
     MAX_RECORDS,
@@ -27,7 +28,6 @@ from health_buddy.legacy_import import (
 )
 from health_buddy.legacy_workout_import import _snapshot as workout_snapshot
 from health_buddy.runtime_manifest import GIT_SHA, SHA256
-from health_buddy.service_api import JSON, ServiceError
 
 FAMILY = "manual-canary"
 INPUTS = ("measurements", "workouts", "intake", "plan", "preferences")

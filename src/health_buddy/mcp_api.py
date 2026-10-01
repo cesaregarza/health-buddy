@@ -12,11 +12,14 @@ import anyio
 import httpx2
 
 from health_buddy.client_workflow import decoded, response_identity
-from health_buddy.domain import check_identity, encode, error_response, object_value
-from health_buddy.mcp_errors import SAFE_CODES
-from health_buddy.mcp_settings import Settings
-from health_buddy.security_api import ClientIdentity
-from health_buddy.service_api import (
+from health_buddy.core.domain import (
+    check_identity,
+    encode,
+    error_response,
+    object_value,
+)
+from health_buddy.core.security_api import ClientIdentity
+from health_buddy.core.service_api import (
     Identity,
     Operation,
     Principal,
@@ -24,6 +27,8 @@ from health_buddy.service_api import (
     Response,
     ServiceError,
 )
+from health_buddy.mcp_errors import SAFE_CODES
+from health_buddy.mcp_settings import Settings
 from health_buddy.transport_limits import EnvelopeError, Limits, json_object
 
 ROUTES: dict[Operation, tuple[str, str, frozenset[str]]] = {

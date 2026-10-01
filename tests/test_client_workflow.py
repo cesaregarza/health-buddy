@@ -15,9 +15,9 @@ import pytest
 
 from health_buddy.app import App
 from health_buddy.client_workflow import ClientWorkflow
-from health_buddy.domain import encode, envelope
-from health_buddy.service_api import Identity, Principal, Response, ServiceError
-from health_buddy.workspace import initialize
+from health_buddy.core.domain import encode, envelope
+from health_buddy.core.service_api import Identity, Principal, Response, ServiceError
+from health_buddy.core.workspace import initialize
 from tests.synthetic_workspace import program
 
 IDENTITY = Identity(

@@ -9,14 +9,14 @@ from functools import partial
 from pathlib import Path
 
 from health_buddy.app import App
-from health_buddy.config import ConfigError, load
+from health_buddy.core.config import ConfigError, load
+from health_buddy.core.domain import decode
 from health_buddy.core.git_store import StoreError
-from health_buddy.domain import decode
-from health_buddy.loggers import FIELDS
-from health_buddy.operations import open_service
-from health_buddy.security_api import BearerProof
+from health_buddy.core.loggers import FIELDS
+from health_buddy.core.operations import open_service
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import ServiceError
 from health_buddy.security_runtime import open_runtime, read_credential, setup_security
-from health_buddy.service_api import ServiceError
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 from starlette.types import Scope
 
-from health_buddy.security_api import IngressConfig
+from health_buddy.core.security_api import IngressConfig
 from health_buddy.transport_limits import EnvelopeError
 
 

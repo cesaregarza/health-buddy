@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from health_buddy.config import Config
 from health_buddy.core import source_bundle
+from health_buddy.core.config import Config
 from health_buddy.core.git_store import Store, StoreError, csv_text, parse_csv
 
 

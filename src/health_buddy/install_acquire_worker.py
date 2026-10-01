@@ -8,8 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from health_buddy.core.service_api import ServiceError
 from health_buddy.install_acquire import download
-from health_buddy.service_api import ServiceError
 
 
 def main() -> int:

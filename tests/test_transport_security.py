@@ -6,7 +6,7 @@ import socket
 
 import pytest
 
-from health_buddy.security_api import SecretDelivery
+from health_buddy.core.security_api import SecretDelivery
 from health_buddy.transport import create_app
 from health_buddy.transport_ingress import VerifiedSocket, prepare_socket
 from health_buddy.transport_limits import EnvelopeError

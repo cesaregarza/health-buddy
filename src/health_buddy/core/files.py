@@ -9,10 +9,10 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
-from health_buddy.domain import decode, digest
-from health_buddy.durability import fsync_path
-from health_buddy.extension_api import MAX_RUNTIME_BYTES, MAX_RUNTIME_FILES
-from health_buddy.service_api import JSON, ServiceError
+from health_buddy.core.domain import decode, digest
+from health_buddy.core.durability import fsync_path
+from health_buddy.core.extension_api import MAX_RUNTIME_BYTES, MAX_RUNTIME_FILES
+from health_buddy.core.service_api import JSON, ServiceError
 
 ID = re.compile(r"[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\Z")
 RUNTIME_PARTS = frozenset({"extension.json", "src", "assets", "config"})

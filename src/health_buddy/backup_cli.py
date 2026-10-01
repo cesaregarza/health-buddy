@@ -10,10 +10,10 @@ from typing import Any
 from health_buddy.backup import create, private_path, restore
 from health_buddy.backup_archive import verified
 from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, keygen, read_key, unseal
-from health_buddy.extension_files import read_file
-from health_buddy.security_api import BearerProof
+from health_buddy.core.files import read_file
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import ServiceError
 from health_buddy.security_runtime import open_runtime, read_credential
-from health_buddy.service_api import ServiceError
 
 
 def add_commands(commands: Any) -> None:

@@ -10,7 +10,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from health_buddy.service_api import JSON, Identity, Operation, Response, ServiceError
+from health_buddy.core.service_api import (
+    JSON,
+    Identity,
+    Operation,
+    Response,
+    ServiceError,
+)
 
 API_VERSION = "1"
 MAX_BODY = 65_536

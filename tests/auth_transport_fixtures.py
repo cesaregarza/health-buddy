@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy.security_api import (
+from health_buddy.core.security_api import (
     Authenticated,
     BearerProof,
     ClientIdentity,
@@ -20,7 +20,7 @@ from health_buddy.security_api import (
     SecurityReply,
     SessionProof,
 )
-from health_buddy.service_api import Identity, Principal, Response, ServiceError
+from health_buddy.core.service_api import Identity, Principal, Response, ServiceError
 
 ORIGIN = "https://synthetic.example"
 TOKEN = "synthetic-owner-" + "a" * 32

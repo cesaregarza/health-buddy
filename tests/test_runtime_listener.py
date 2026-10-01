@@ -19,14 +19,14 @@ from pathlib import Path
 import pytest
 
 from health_buddy import runtime_listener
-from health_buddy.config import load
-from health_buddy.durability import atomic_bytes
+from health_buddy.core.config import load
+from health_buddy.core.durability import atomic_bytes
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import Request, ServiceError
+from health_buddy.core.workspace import initialize
 from health_buddy.runtime_listener import ListenerLease, listener_lease
-from health_buddy.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import Request, ServiceError
 from health_buddy.transport_ingress import VerifiedSocket
-from health_buddy.workspace import initialize
 from tests.auth_transport_fixtures import short_socket_directory
 from tests.canonical_fixtures import decoded, intent
 from tests.security_fixtures import secured
@@ -231,7 +231,7 @@ def test_second_stat_preserves_replaced_path_after_probe(listener_folder):
 def test_marker_fsync_failure_keeps_socket_and_does_not_admit_worker(
     listener_folder, monkeypatch
 ):
-    from health_buddy import durability
+    from health_buddy.core import durability
 
     root = directories(listener_folder)
     with listener_lease(root / runtime_listener.MANAGED_PATH) as lease:

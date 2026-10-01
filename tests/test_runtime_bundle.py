@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from health_buddy import runtime_manifest
-from health_buddy.release_identity import ReleaseIdentity
+from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.runtime_bundle import create_bundle
 from health_buddy.runtime_manifest import (
     ManifestError,

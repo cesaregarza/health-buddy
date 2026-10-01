@@ -7,10 +7,9 @@ import os
 import stat
 from pathlib import Path
 
-from health_buddy import config
-from health_buddy.core import source_bundle
+from health_buddy.core import config, source_bundle
+from health_buddy.core.durability import fsync_path
 from health_buddy.core.git_store import Store
-from health_buddy.durability import fsync_path
 
 OWNER_NOTE = """# Personal Health Buddy workspace
 

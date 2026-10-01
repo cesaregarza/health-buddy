@@ -179,7 +179,7 @@ or private pairing proof does not prove redemption or ingest can work. Before
 `install_owner`, explicitly edit only the intended HealthKit configuration to
 `integrations.healthkit: {enabled:true,mode:"receiver"}` using the supported
 [owner configuration](configuration.md#owner-configuration), validate it through
-`health_buddy.config.load` via the native workspace command, and review it:
+`health_buddy.core.config.load` via the native workspace command, and review it:
 `"$PYTHON" -m health_buddy.cli --workspace "$WORKSPACE" workspace describe --json`.
 Keep that owner path inventory private. Owner
 setup preserves nonsecurity configuration and binds its exact resulting bytes.

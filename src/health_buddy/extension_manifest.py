@@ -8,13 +8,13 @@ from typing import Any, cast
 from jsonschema import Draft202012Validator
 from referencing import Registry
 
-from health_buddy.domain import decode
-from health_buddy.extension_api import (
+from health_buddy.core.domain import decode
+from health_buddy.core.extension_api import (
     MAX_MANIFEST_BYTES,
     ExtensionKind,
     ExtensionManifest,
 )
-from health_buddy.service_api import JSON, ServiceError
+from health_buddy.core.service_api import JSON, ServiceError
 
 
 def parse_manifest(raw: bytes) -> ExtensionManifest:

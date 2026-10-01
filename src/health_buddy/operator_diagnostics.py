@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.app import App
-from health_buddy.config import ConfigError, load
 from health_buddy.core import source_bundle
+from health_buddy.core.config import ConfigError, load
+from health_buddy.core.service_api import ServiceError
 from health_buddy.discovery import source_identity
 from health_buddy.extension_diagnostics import recent_failure
 from health_buddy.extension_registry import Registry, status_json
 from health_buddy.runtime_manifest import read_source_identity
-from health_buddy.service_api import ServiceError
 
 GUIDANCE = {
     "config_invalid": (

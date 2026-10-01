@@ -10,8 +10,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from health_buddy.core.git_store import csv_text, headers, parse_csv
-from health_buddy.domain import (
+from health_buddy.core.domain import (
     Observation,
     decode,
     digest,
@@ -23,8 +22,9 @@ from health_buddy.domain import (
     object_value,
     text,
 )
-from health_buddy.service_api import JSON, ServiceError
-from health_buddy.stores import OBSERVATIONS, RECORD_INDEX
+from health_buddy.core.git_store import csv_text, headers, parse_csv
+from health_buddy.core.service_api import JSON, ServiceError
+from health_buddy.core.stores import OBSERVATIONS, RECORD_INDEX
 
 MAX_STORE_JSON = 67_108_864
 KINDS = {

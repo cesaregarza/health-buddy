@@ -10,18 +10,18 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from health_buddy import config, loggers, records
 from health_buddy.backup import disk_required, private_path
+from health_buddy.core import config, loggers, records
+from health_buddy.core.domain import decode, digest, encode, identifier
+from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.core.files import private_directory, read_file
 from health_buddy.core.git_store import Store, headers, parse_csv
-from health_buddy.domain import decode, digest, encode, identifier
-from health_buddy.durability import atomic_bytes, exclusive, fsync_path
-from health_buddy.extension_files import private_directory, read_file
-from health_buddy.journal import Journal
-from health_buddy.operations import Service
+from health_buddy.core.journal import Journal
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import JSON, ServiceError
+from health_buddy.core.stores import RECORD_INDEX, ManualStore
+from health_buddy.core.workspace import initialize
 from health_buddy.runtime_manifest import SHA256, native_directory
-from health_buddy.service_api import JSON, ServiceError
-from health_buddy.stores import RECORD_INDEX, ManualStore
-from health_buddy.workspace import initialize
 
 MAX_BYTES = 4 * 1024 * 1024
 MAX_RECORDS = 1000

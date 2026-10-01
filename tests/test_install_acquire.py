@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from health_buddy import install_acquire
-from health_buddy.service_api import ServiceError
+from health_buddy.core.service_api import ServiceError
 from tests.test_install_preflight import prepared
 
 

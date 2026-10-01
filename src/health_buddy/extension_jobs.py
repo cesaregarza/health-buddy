@@ -7,14 +7,14 @@ from contextlib import AbstractContextManager
 
 from health_buddy.client_auth import AuthenticatedOperations
 from health_buddy.client_workflow import ClientWorkflow, WorkflowNamespace
-from health_buddy.config import Config
-from health_buddy.domain import digest, instant, number, object_value, text
-from health_buddy.durability import check_deadline, exclusive
+from health_buddy.core.config import Config
+from health_buddy.core.domain import digest, instant, number, object_value, text
+from health_buddy.core.durability import check_deadline, exclusive
+from health_buddy.core.files import extension_id, private_directory
+from health_buddy.core.security_api import BearerProof, Runtime, SecurityRequest
+from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.extension_diagnostics import observed_call
-from health_buddy.extension_files import extension_id, private_directory
 from health_buddy.extension_registry import Registry
-from health_buddy.security_api import BearerProof, Runtime, SecurityRequest
-from health_buddy.service_api import JSON, ServiceError
 
 
 def job_lock(config: Config, name: str) -> AbstractContextManager[None]:

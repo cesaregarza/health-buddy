@@ -6,12 +6,13 @@ from importlib.resources import files
 
 import pytest
 
-from health_buddy import extension_files, extension_manifest
-from health_buddy.extension_api import EXTENSION_API, MAX_EXTENSIONS
-from health_buddy.extension_files import runtime_files
+from health_buddy import extension_manifest
+from health_buddy.core import files as core_files
+from health_buddy.core.extension_api import EXTENSION_API, MAX_EXTENSIONS
+from health_buddy.core.files import runtime_files
+from health_buddy.core.service_api import ServiceError
 from health_buddy.extension_install import install
 from health_buddy.extension_registry import Registry
-from health_buddy.service_api import ServiceError
 from tests.extension_fixtures import example, write_json
 from tests.security_fixtures import secured
 
@@ -107,7 +108,7 @@ def test_runtime_file_entry_and_byte_limits_are_enforced(
 ):
     runtime, _, _ = secured(tmp_path / "owner")
     root = example(runtime.operations.config, METRIC)
-    monkeypatch.setattr(extension_files, limit_name, limit)
+    monkeypatch.setattr(core_files, limit_name, limit)
     with pytest.raises(ServiceError) as error:
         runtime_files(root)
     assert error.value.code in {

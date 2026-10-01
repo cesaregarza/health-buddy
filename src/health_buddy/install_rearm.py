@@ -15,16 +15,16 @@ from health_buddy.connect_agent import (
     partition,
     unique_object,
 )
-from health_buddy.domain import digest, encode
-from health_buddy.durability import atomic_bytes, exclusive
-from health_buddy.extension_files import private_directory, read_json
+from health_buddy.core.domain import digest, encode
+from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.files import private_directory, read_json
+from health_buddy.core.security_api import AgentGrant
+from health_buddy.core.service_api import ServiceError
 from health_buddy.install_agent import actors, matches, owner
 from health_buddy.install_preflight import preflight
 from health_buddy.install_remove import container, serve_state
 from health_buddy.retry_paths import native_path
 from health_buddy.runtime_manifest import file_digest
-from health_buddy.security_api import AgentGrant
-from health_buddy.service_api import ServiceError
 from health_buddy.transport_limits import EnvelopeError
 from health_buddy.transport_security import request_payload
 

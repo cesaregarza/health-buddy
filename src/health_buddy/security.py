@@ -20,9 +20,9 @@ from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING, cast
 
-from health_buddy.domain import check_identity
-from health_buddy.durability import check_deadline, exclusive
-from health_buddy.security_api import (
+from health_buddy.core.domain import check_identity
+from health_buddy.core.durability import check_deadline, exclusive
+from health_buddy.core.security_api import (
     Authenticated,
     BearerProof,
     ClientIdentity,
@@ -34,6 +34,13 @@ from health_buddy.security_api import (
     SecurityRequest,
     SessionProof,
 )
+from health_buddy.core.service_api import (
+    Authority,
+    Identity,
+    Operation,
+    Principal,
+    ServiceError,
+)
 from health_buddy.security_store import (
     SecurityStore,
     csrf_value,
@@ -42,16 +49,9 @@ from health_buddy.security_store import (
     secret_value,
     valid_secret,
 )
-from health_buddy.service_api import (
-    Authority,
-    Identity,
-    Operation,
-    Principal,
-    ServiceError,
-)
 
 if TYPE_CHECKING:
-    from health_buddy.operations import Service
+    from health_buddy.core.operations import Service
 
 PUBLIC_ACTIONS = frozenset({"bootstrap.redeem", "pairing.redeem"})
 OWNER_ACTIONS = frozenset(

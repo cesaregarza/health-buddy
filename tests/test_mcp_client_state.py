@@ -6,7 +6,7 @@ import threading
 
 import pytest
 
-from health_buddy.durability import exclusive
+from health_buddy.core.durability import exclusive
 from health_buddy.mcp_errors import failure, status_result
 from health_buddy.retry_paths import RetryRoot
 from tests.test_extension_workflow import SyntheticOperations, emit

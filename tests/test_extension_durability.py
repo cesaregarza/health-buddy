@@ -2,13 +2,14 @@
 
 import pytest
 
-from health_buddy import client_workflow, extension_files, extension_registry
+from health_buddy import client_workflow, extension_registry
 from health_buddy.client_workflow import ClientWorkflow, WorkflowNamespace
-from health_buddy.extension_files import runtime_files
+from health_buddy.core import files
+from health_buddy.core.files import runtime_files
+from health_buddy.core.service_api import Principal, ServiceError
+from health_buddy.core.workspace import initialize
 from health_buddy.extension_registry import Registry
 from health_buddy.extension_views import catalog
-from health_buddy.service_api import Principal, ServiceError
-from health_buddy.workspace import initialize
 from tests.extension_fixtures import example
 from tests.security_fixtures import secured
 from tests.test_extension_workflow import SyntheticOperations, emit
@@ -40,7 +41,7 @@ def test_review_retry_flushes_every_ancestor_before_registry_publish(
         real_sync(path)
 
     monkeypatch.setattr(extension_registry, "fsync_path", sync)
-    monkeypatch.setattr(extension_files, "fsync_path", sync)
+    monkeypatch.setattr(files, "fsync_path", sync)
     registry = Registry(config)
     with pytest.raises(OSError):
         registry.enable(METRIC, source_ids=("manual",))

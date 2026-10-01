@@ -17,8 +17,8 @@ from starlette.responses import Response as HTTPResponse
 from starlette.routing import Route, Router
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from health_buddy.security_api import Runtime
-from health_buddy.service_api import (
+from health_buddy.core.security_api import Runtime
+from health_buddy.core.service_api import (
     Identity,
     Operation,
     Operations,

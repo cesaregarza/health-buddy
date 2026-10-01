@@ -16,10 +16,10 @@ from health_buddy import (
     install_rearm,
     install_remove,
 )
-from health_buddy.domain import encode
-from health_buddy.durability import atomic_bytes
-from health_buddy.security_api import BearerProof
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.domain import encode
+from health_buddy.core.durability import atomic_bytes
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded, intent
 from tests.test_install_remove import removal_fixture
 

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy.service_api import Request
+from health_buddy.core.service_api import Request
 from tests.canonical_fixtures import metadata, setup
 
 
@@ -150,8 +150,8 @@ def test_compound_units_missingness_and_present_zero_are_explicit(tmp_path):
 
 def test_empty_intake_fails_adoption_without_changing_owner_data(tmp_path):
     from health_buddy.core.git_store import Store, StoreError, git
-    from health_buddy.operations import Service
-    from health_buddy.workspace import initialize
+    from health_buddy.core.operations import Service
+    from health_buddy.core.workspace import initialize
 
     root = tmp_path / "owner"
     config = initialize(root)
@@ -197,8 +197,8 @@ def test_foreign_blood_pressure_replacement_rejects_b_only_and_both_grants(tmp_p
 def test_sodium_less_intake_adoption_preserves_record_as_unknown(tmp_path):
     from health_buddy.core import source_bundle
     from health_buddy.core.git_store import Store, csv_text, parse_csv
-    from health_buddy.operations import Service
-    from health_buddy.workspace import initialize
+    from health_buddy.core.operations import Service
+    from health_buddy.core.workspace import initialize
     from tests.canonical_fixtures import RegisteredPolicy, decoded
 
     root = tmp_path / "owner"

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from health_buddy.app import App
-from health_buddy.service_api import Request
+from health_buddy.core.service_api import Request
 from scripts import (
     log_blood_pressure,
     log_circumference,

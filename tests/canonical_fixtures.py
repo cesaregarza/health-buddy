@@ -10,15 +10,15 @@ from pathlib import Path
 from threading import RLock
 from uuid import uuid4
 
-from health_buddy.operations import Service
-from health_buddy.service_api import (
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import (
     Authority,
     Identity,
     Principal,
     Request,
     ServiceError,
 )
-from health_buddy.workspace import initialize
+from health_buddy.core.workspace import initialize
 from tests.test_health_ingest_models import batch_payload
 
 

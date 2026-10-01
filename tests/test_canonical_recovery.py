@@ -13,8 +13,8 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy.operations import Service
-from health_buddy.service_api import Request
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import Request
 from tests.canonical_fixtures import (
     RegisteredPolicy,
     intent,

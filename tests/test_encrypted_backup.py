@@ -7,11 +7,11 @@ import pytest
 from health_buddy.app import App
 from health_buddy.backup import create, restore
 from health_buddy.backup_crypto import keygen
-from health_buddy.durability import atomic_bytes
+from health_buddy.core.durability import atomic_bytes
 from health_buddy.extension_registry import Registry
-from health_buddy.security_api import BearerProof
+from health_buddy.core.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded
 from tests.extension_fixtures import example
 from tests.security_fixtures import secured
@@ -247,7 +247,7 @@ def test_low_disk_and_incomplete_archive_never_publish(tmp_path):
 
 
 def test_backup_requires_admin_and_quiescence_and_rejects_symlinks(tmp_path):
-    from health_buddy.security_api import AgentGrant
+    from health_buddy.core.security_api import AgentGrant
     from tests.security_fixtures import action
 
     runtime, owner, _token = secured(tmp_path / "source")
@@ -292,7 +292,7 @@ def test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence(tmp_path)
     import subprocess
     import sys
 
-    from health_buddy.extension_api import PrepareConnector
+    from health_buddy.core.extension_api import PrepareConnector
     from health_buddy.extension_jobs import run_event
     from health_buddy.extension_prepare import prepare
     from tests.extension_fixtures import prepared

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy.domain import identity_value
+from health_buddy.core.domain import identity_value
+from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp_settings import Settings, private_path
 from health_buddy.retry_paths import RetryRoot
-from health_buddy.service_api import ServiceError
 from tests.test_extension_workflow import IDENTITY
 
 
@@ -33,7 +33,8 @@ def settings_file(tmp_path):
 
 
 def test_explicit_state_is_not_a_local_backend(tmp_path, monkeypatch):
-    from health_buddy import security_runtime, workspace
+    from health_buddy import security_runtime
+    from health_buddy.core import workspace
 
     def forbidden(*args, **kwargs):
         raise AssertionError("local backend initialization is forbidden")

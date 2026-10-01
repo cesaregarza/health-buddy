@@ -9,12 +9,12 @@ from contextlib import closing
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from health_buddy.domain import check_identity, decode, identifier, object_value
-from health_buddy.extension_files import read_file
+from health_buddy.core.domain import check_identity, decode, identifier, object_value
+from health_buddy.core.files import read_file
+from health_buddy.core.security_api import SecurityReply
+from health_buddy.core.service_api import Identity, Principal, ServiceError
 from health_buddy.runtime_manifest import native_directory
 from health_buddy.security_actions import _name
-from health_buddy.security_api import SecurityReply
-from health_buddy.service_api import Identity, Principal, ServiceError
 
 if TYPE_CHECKING:
     from health_buddy.security import SecurityAuthority

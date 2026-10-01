@@ -10,11 +10,11 @@ import mcp_types as types
 from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
 
-from health_buddy.domain import encode
+from health_buddy.core.domain import encode
+from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp_errors import failure
 from health_buddy.mcp_stdio import streams
 from health_buddy.mcp_tools import ToolService
-from health_buddy.service_api import ServiceError
 from health_buddy.transport_jobs import Jobs
 from health_buddy.transport_limits import EnvelopeError, Limits
 

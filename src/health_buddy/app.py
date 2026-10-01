@@ -8,18 +8,17 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Never, cast
 
-from health_buddy import loggers
 from health_buddy.client_auth import AuthenticatedOperations
 from health_buddy.client_workflow import ClientWorkflow, decoded
-from health_buddy.config import Config
-from health_buddy.core import source_bundle
-from health_buddy.domain import decode, digest, normalize
-from health_buddy.durability import atomic_bytes
-from health_buddy.operations import open_service
-from health_buddy.plans import to_wire
-from health_buddy.policy import DEVELOPMENT_PRINCIPAL
-from health_buddy.security_api import BearerProof, ClientIdentity, Runtime
-from health_buddy.service_api import (
+from health_buddy.core import loggers, source_bundle
+from health_buddy.core.config import Config
+from health_buddy.core.domain import decode, digest, normalize
+from health_buddy.core.durability import atomic_bytes
+from health_buddy.core.operations import open_service
+from health_buddy.core.plans import to_wire
+from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL
+from health_buddy.core.security_api import BearerProof, ClientIdentity, Runtime
+from health_buddy.core.service_api import (
     JSON,
     Identity,
     Operation,
@@ -28,7 +27,7 @@ from health_buddy.service_api import (
     Request,
     ServiceError,
 )
-from health_buddy.workspace import initialize
+from health_buddy.core.workspace import initialize
 
 
 class App:

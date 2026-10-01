@@ -7,10 +7,10 @@ import anyio
 import httpx2
 import pytest
 
-from health_buddy.domain import envelope, identity_value
+from health_buddy.core.domain import envelope, identity_value
+from health_buddy.core.service_api import Request, ServiceError
 from health_buddy.mcp_api import MAX_RESPONSE, HttpOperations
 from health_buddy.mcp_settings import Settings
-from health_buddy.service_api import Request, ServiceError
 from tests.test_extension_workflow import IDENTITY
 from tests.test_mcp_settings import settings_file
 

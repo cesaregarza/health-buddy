@@ -102,7 +102,7 @@ def test_support_bundle_excludes_tokens_and_personal_records():
 def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path):
     from health_buddy.extension_diagnostics import observed_call, recent_failure
     from health_buddy.extension_install import install
-    from health_buddy.service_api import ServiceError
+    from health_buddy.core.service_api import ServiceError
 
     app = App.development(tmp_path / "owner")
     install(
@@ -179,7 +179,7 @@ def test_receiver_failure_and_private_phone_unknown(tmp_path):
 
 
 def test_partial_application_permissions_have_distinct_code(tmp_path):
-    from health_buddy.service_api import ServiceError
+    from health_buddy.core.service_api import ServiceError
 
     app = App.development(tmp_path / "owner")
     with patch.object(app, "_read", side_effect=ServiceError(403, "forbidden")):
@@ -233,7 +233,7 @@ def test_failed_source_is_error_and_status_returns_nonzero(tmp_path, capsys):
 def test_source_runtime_version_without_installed_product_wheel(tmp_path):
     from importlib.metadata import PackageNotFoundError
 
-    from health_buddy.release_identity import ReleaseIdentity
+    from health_buddy.core.release_identity import ReleaseIdentity
 
     app = App.development(tmp_path / "owner")
     with (

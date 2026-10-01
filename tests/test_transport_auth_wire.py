@@ -92,7 +92,7 @@ def readiness_metadata(status, body):
 
 @contextmanager
 def server(folder, *, ready=True, workspace=None, listener_fault=None):
-    from health_buddy.config import load
+    from health_buddy.core.config import load
 
     path = (
         load(workspace).path(load(workspace).values["security"]["socketPath"])

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from health_buddy.service_api import JSON, ServiceError
+from health_buddy.core.service_api import JSON, ServiceError
 
 SAFE_CODES = frozenset(
     {

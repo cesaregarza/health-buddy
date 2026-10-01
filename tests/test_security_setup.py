@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 
 from health_buddy.cli import main
-from health_buddy.security_api import BearerProof
+from health_buddy.core.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential, setup_security
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.service_api import Request, ServiceError
 from tests.security_fixtures import secured
 
 

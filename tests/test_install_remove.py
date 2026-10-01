@@ -9,8 +9,8 @@ import pytest
 
 from health_buddy import install_agent, install_remove, install_status
 from health_buddy.security import SecurityAuthority
-from health_buddy.security_api import AgentGrant, SecurityRequest
-from health_buddy.service_api import ServiceError
+from health_buddy.core.security_api import AgentGrant, SecurityRequest
+from health_buddy.core.service_api import ServiceError
 from tests.test_install_agent import connection_fixture
 
 

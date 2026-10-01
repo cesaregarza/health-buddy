@@ -13,7 +13,7 @@ from typing import cast
 from starlette.requests import Request as HTTPRequest
 from starlette.responses import Response as HTTPResponse
 
-from health_buddy.security_api import (
+from health_buddy.core.security_api import (
     AgentGrant,
     Authenticated,
     BearerProof,
@@ -28,7 +28,7 @@ from health_buddy.security_api import (
     SecurityRequest,
     SessionProof,
 )
-from health_buddy.service_api import JSON, Identity, ServiceError
+from health_buddy.core.service_api import JSON, Identity, ServiceError
 from health_buddy.transport_jobs import Jobs
 from health_buddy.transport_limits import (
     EnvelopeError,
@@ -340,7 +340,7 @@ class SecurityTransport:
             browser_origin(values, self.runtime.ingress.external_origin)
             if values.get("x-health-buddy-browser") != "1":
                 raise EnvelopeError(403, "browser_request_required") from None
-            from health_buddy.security_api import CookieDirective
+            from health_buddy.core.security_api import CookieDirective
 
             return security_response(
                 SecurityReply(200, {"cleared": True}, cookie=CookieDirective("clear")),

@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from health_buddy.service_api import JSON
+from health_buddy.core.service_api import JSON
 
 EXTENSION_API = 1
 REGISTRY_SCHEMA = 1

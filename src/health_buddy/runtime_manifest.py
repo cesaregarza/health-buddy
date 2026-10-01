@@ -9,7 +9,7 @@ import re
 import stat
 from pathlib import Path
 
-from health_buddy.release_identity import ReleaseIdentity
+from health_buddy.core.release_identity import ReleaseIdentity
 
 MAX_FILES = 4096
 MAX_ENTRIES = 8192

@@ -5,13 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from health_buddy.domain import decode, digest, encode, identity_value
-from health_buddy.durability import atomic_bytes, exclusive, fsync_path
-from health_buddy.extension_files import bounded_children, read_file
+from health_buddy.core.domain import decode, digest, encode, identity_value
+from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.core.files import bounded_children, read_file
+from health_buddy.core.security_api import ClientIdentity
+from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.mcp_schemas import validate
 from health_buddy.retry_paths import RetryRoot
-from health_buddy.security_api import ClientIdentity
-from health_buddy.service_api import JSON, ServiceError
 
 MAX_PROPOSAL = 384 * 1024
 

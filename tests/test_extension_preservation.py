@@ -16,14 +16,14 @@ from pathlib import Path
 import pytest
 
 from health_buddy import personal_workspace
-from health_buddy.core import source_bundle
 from health_buddy.client_workflow import decoded
-from health_buddy.domain import digest
+from health_buddy.core import source_bundle
+from health_buddy.core.domain import digest
+from health_buddy.core.service_api import Request, ServiceError
+from health_buddy.core.workspace import initialize
 from health_buddy.extension_install import install
 from health_buddy.extension_jobs import run_event
 from health_buddy.extension_registry import Registry
-from health_buddy.service_api import Request, ServiceError
-from health_buddy.workspace import initialize
 from tests.extension_fixtures import example, prepared
 
 
@@ -306,11 +306,11 @@ sys.path.insert(0, str(Path(sys.argv[1]) / "src"))
 import health_buddy
 from health_buddy import personal_workspace
 from health_buddy.client_workflow import decoded
-from health_buddy.domain import digest
+from health_buddy.core.domain import digest
 from health_buddy.extension_jobs import run_event
-from health_buddy.security_api import BearerProof
+from health_buddy.core.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential
-from health_buddy.service_api import Request
+from health_buddy.core.service_api import Request
 from health_buddy.core import source_bundle
 root, selected = Path(sys.argv[2]), Path(sys.argv[1])
 owner_token = read_credential(Path(sys.argv[3]))
@@ -395,7 +395,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(sys.argv[3]) / "src"))
 from health_buddy.extension_jobs import run_event
-from health_buddy.security_api import BearerProof
+from health_buddy.core.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential
 root, credential_path = Path(sys.argv[1]), Path(sys.argv[2])
 runtime = open_runtime(root)

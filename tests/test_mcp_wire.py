@@ -11,11 +11,11 @@ import time
 import pytest
 
 from health_buddy.client_workflow import decoded
+from health_buddy.core.plans import to_wire
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import Request
 from health_buddy.extension_registry import Registry
 from health_buddy.personal_workspace import describe
-from health_buddy.plans import to_wire
-from health_buddy.security_api import BearerProof
-from health_buddy.service_api import Request
 from tests import test_transport_auth_wire as uds_fixtures
 from tests.canonical_fixtures import intent
 from tests.extension_fixtures import example
@@ -340,7 +340,7 @@ def test_redirect_refused_before_any_followup_or_credential_forwarding(
 def test_sdk_cancellation_releases_protocol_slots_but_retains_durable_job(
     short_directory, tmp_path, modern
 ):
-    from health_buddy.domain import digest
+    from health_buddy.core.domain import digest
 
     with actual_backend(short_directory, tmp_path) as (bridge, settings, runtime, _, _):
         values = json.loads(settings.read_bytes())

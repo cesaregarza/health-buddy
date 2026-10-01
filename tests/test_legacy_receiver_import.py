@@ -9,13 +9,13 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import pytest
 
-from health_buddy.domain import encode
-from health_buddy.durability import atomic_bytes
+from health_buddy.core.domain import encode
+from health_buddy.core.durability import atomic_bytes
 from health_buddy.legacy_receiver_import import export_receiver, import_receiver
-from health_buddy.operations import Service
-from health_buddy.security_api import BearerProof
+from health_buddy.core.operations import Service
+from health_buddy.core.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, setup_security
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.service_api import Request, ServiceError
 from health_ingest.models import parse_batch
 from health_ingest.storage import HealthRepository
 from tests.canonical_fixtures import RegisteredPolicy, decoded
@@ -255,8 +255,8 @@ def test_ordinary_startup_still_refuses_nonempty_legacy_receiver(tmp_path):
         before,
         _exported,
     ) = fixture(tmp_path)
-    from health_buddy.health_store import HealthStore
-    from health_buddy.service_api import Identity
+    from health_buddy.core.health_store import HealthStore
+    from health_buddy.core.service_api import Identity
 
     with pytest.raises(ServiceError, match="reconciliation_required"):
         HealthStore(database, receiver=True).initialize(

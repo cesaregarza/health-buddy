@@ -12,17 +12,17 @@ from pathlib import Path
 
 sys.path.insert(0, "/opt/health-buddy/source/src")
 
-from health_buddy.domain import digest, encode, identity_value
-from health_buddy.durability import atomic_bytes
-from health_buddy.extension_api import PrepareConnector
+from health_buddy.core.domain import digest, encode, identity_value
+from health_buddy.core.durability import atomic_bytes
+from health_buddy.core.extension_api import PrepareConnector
+from health_buddy.core.security_api import AgentGrant, BearerProof, SecurityRequest
+from health_buddy.core.service_api import Request
 from health_buddy.extension_install import install
 from health_buddy.extension_jobs import run_event
 from health_buddy.extension_prepare import prepare
 from health_buddy.extension_registry import Registry
 from health_buddy.packaged_runtime import open_packaged
-from health_buddy.security_api import AgentGrant, BearerProof, SecurityRequest
 from health_buddy.security_runtime import read_credential, setup_security
-from health_buddy.service_api import Request
 
 SOURCE = Path("/opt/health-buddy/source")
 ROOT = Path("/workspace")
@@ -108,7 +108,7 @@ def seed() -> None:
 def backup_crypto_check() -> None:
     """Exercise shipped native crypto using fabricated bytes, never owner data."""
     from health_buddy.backup_crypto import seal, unseal
-    from health_buddy.service_api import ServiceError
+    from health_buddy.core.service_api import ServiceError
 
     assert (QUALIFICATION / "seeded").read_bytes() == b"synthetic-only\n", (
         "synthetic guard missing"

@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
-from health_buddy.service_api import JSON, Identity, Operations, Principal
+from health_buddy.core.service_api import JSON, Identity, Operations, Principal
 
 type Mechanism = Literal["bearer", "session", "proxy", "bootstrap"]
 type SecurityAction = Literal[

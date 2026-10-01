@@ -8,7 +8,7 @@ import pytest
 
 from health_buddy.app import App
 from health_buddy.cli import main
-from health_buddy.service_api import ServiceError
+from health_buddy.core.service_api import ServiceError
 
 
 def arguments(root, *command):

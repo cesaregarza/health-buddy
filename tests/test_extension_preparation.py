@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy.extension_api import PrepareConnector
+from health_buddy.core.extension_api import PrepareConnector
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import ServiceError
 from health_buddy.extension_prepare import prepare
-from health_buddy.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential
-from health_buddy.service_api import ServiceError
 from tests.extension_fixtures import example, write_json
 from tests.security_fixtures import action, secured
 

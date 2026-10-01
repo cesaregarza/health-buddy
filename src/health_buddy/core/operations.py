@@ -12,10 +12,8 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from health_buddy import loggers, records
-from health_buddy.core import source_bundle
-from health_buddy.core.git_store import Store, StoreError
-from health_buddy.domain import (
+from health_buddy.core import loggers, records, source_bundle
+from health_buddy.core.domain import (
     API_VERSION,
     MAX_BODY,
     MAX_HEALTH_BODY,
@@ -34,13 +32,14 @@ from health_buddy.domain import (
     revision,
     text,
 )
-from health_buddy.durability import check_deadline, exclusive, unavailable
-from health_buddy.health_store import HealthStore
-from health_buddy.journal import Effect, Journal, State
-from health_buddy.policy import DenyPolicy, DevelopmentPolicy, require_grant
-from health_buddy.release_identity import ReleaseIdentity
-from health_buddy.security_api import DeviceBinding
-from health_buddy.service_api import (
+from health_buddy.core.durability import check_deadline, exclusive, unavailable
+from health_buddy.core.git_store import Store, StoreError
+from health_buddy.core.health_store import HealthStore
+from health_buddy.core.journal import Effect, Journal, State
+from health_buddy.core.policy import DenyPolicy, DevelopmentPolicy, require_grant
+from health_buddy.core.release_identity import ReleaseIdentity
+from health_buddy.core.security_api import DeviceBinding
+from health_buddy.core.service_api import (
     JSON,
     Authority,
     AuthorizationPolicy,
@@ -51,8 +50,8 @@ from health_buddy.service_api import (
     Response,
     ServiceError,
 )
-from health_buddy.stores import RECORD_INDEX, ManualStore
-from health_buddy.workspace import initialize
+from health_buddy.core.stores import RECORD_INDEX, ManualStore
+from health_buddy.core.workspace import initialize
 from health_ingest.models import BatchValidationError, parse_batch
 from health_ingest.storage import BatchConflictError
 
@@ -430,7 +429,7 @@ class Service:
                     datetime.now(self.config.zone).date(),
                 )
             else:
-                from health_buddy.plans import validate_plan
+                from health_buddy.core.plans import validate_plan
 
                 program = validate_plan(payload)
                 changes = {
@@ -555,19 +554,19 @@ class Service:
     def _validate_plan(self, value: JSON) -> None:
         # The retained pure validator owns program semantics. Additional strict
         # public-input shape checks are supplied by the plan adapter.
-        from health_buddy.plans import validate_plan
+        from health_buddy.core.plans import validate_plan
 
         validate_plan(value)
 
     def _read(self, authority: Authority, request: Request, state: State) -> Response:
-        from health_buddy.views import read
+        from health_buddy.core.views import read
 
         return read(self, authority, request, state)
 
     def _fallback(
         self, authority: Authority, request: Request, state: State
     ) -> Response:
-        from health_buddy.views import fallback
+        from health_buddy.core.views import fallback
 
         return fallback(self, authority, request, state)
 

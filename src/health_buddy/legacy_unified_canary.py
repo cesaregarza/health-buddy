@@ -9,22 +9,22 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-from health_buddy import config
 from health_buddy.backup import private_path
 from health_buddy.backup_archive import MANIFEST, snapshot, verified
 from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
-from health_buddy.domain import decode, digest, encode
-from health_buddy.durability import atomic_bytes, exclusive, fsync_path
-from health_buddy.extension_files import private_directory, read_file
+from health_buddy.core import config
+from health_buddy.core.domain import decode, digest, encode
+from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.core.files import private_directory, read_file
+from health_buddy.core.operations import Service
+from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
+from health_buddy.core.security_api import Runtime
+from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.legacy_import import MAX_BYTES, MAX_RECORDS, _path, _read
 from health_buddy.legacy_manual_canary import import_manual_canary
 from health_buddy.legacy_receiver_import import _checked, seed_adopted_receiver
 from health_buddy.legacy_sleepiq_import import daily_export
-from health_buddy.operations import Service
-from health_buddy.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
 from health_buddy.runtime_manifest import native_directory
-from health_buddy.security_api import Runtime
-from health_buddy.service_api import Principal, ServiceError
 
 RECEIPT = "operations/unified-import.json"
 ORIGINAL = "stores/imported-sleepiq-nightly.csv"

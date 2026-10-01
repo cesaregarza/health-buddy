@@ -13,9 +13,11 @@ from typing import Any
 
 from health_buddy.backup import private_path
 from health_buddy.connect_agent import connect
-from health_buddy.domain import digest, encode
-from health_buddy.durability import atomic_bytes, exclusive
-from health_buddy.extension_files import read_file, read_json
+from health_buddy.core.domain import digest, encode
+from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.files import read_file, read_json
+from health_buddy.core.security_api import SecurityRequest
+from health_buddy.core.service_api import ServiceError
 from health_buddy.install_agent import actors, matches, owner
 from health_buddy.install_https import (
     check_routes,
@@ -28,8 +30,6 @@ from health_buddy.install_https import (
 from health_buddy.retry_paths import native_path
 from health_buddy.runtime_manifest import file_digest
 from health_buddy.runtime_release import docker_command, selected_artifact
-from health_buddy.security_api import SecurityRequest
-from health_buddy.service_api import ServiceError
 from health_buddy.upgrade_activation import COMPOSE, compose
 
 FORMAT = (

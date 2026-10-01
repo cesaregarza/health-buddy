@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any, cast
 
 from health_buddy.core import source_bundle
-from health_buddy.domain import invalid, object_value, text
-from health_buddy.loggers import camel
-from health_buddy.service_api import JSON
+from health_buddy.core.domain import invalid, object_value, text
+from health_buddy.core.loggers import camel
+from health_buddy.core.service_api import JSON
 
 TOP = set(
     (

@@ -11,8 +11,8 @@ import json
 from dataclasses import dataclass
 from typing import cast
 
-from health_buddy.domain import number, text
-from health_buddy.service_api import (
+from health_buddy.core.domain import number, text
+from health_buddy.core.service_api import (
     JSON,
     Identity,
     Operations,

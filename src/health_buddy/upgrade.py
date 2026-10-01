@@ -10,12 +10,14 @@ from typing import Any
 from health_buddy.backup import create, disk_required, materialize, private_path
 from health_buddy.backup_archive import verified
 from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
-from health_buddy.config import load
-from health_buddy.domain import digest, encode, identity_value
-from health_buddy.durability import atomic_bytes, exclusive, fsync_path
-from health_buddy.extension_files import read_file
+from health_buddy.core.config import load
+from health_buddy.core.domain import digest, encode, identity_value
+from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.core.files import read_file
+from health_buddy.core.operations import Service
+from health_buddy.core.security_api import Runtime
+from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.extension_registry import Registry
-from health_buddy.operations import Service
 from health_buddy.personal_workspace import forks_locked
 from health_buddy.runtime_manifest import (
     MAX_METADATA,
@@ -25,9 +27,7 @@ from health_buddy.runtime_manifest import (
     file_digest,
 )
 from health_buddy.runtime_release import selected_artifact
-from health_buddy.security_api import Runtime
 from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import Principal, ServiceError
 
 
 def preflight(

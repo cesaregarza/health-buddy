@@ -8,8 +8,8 @@ import time
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from health_buddy.domain import identifier, identity_value, invalid
-from health_buddy.security_api import (
+from health_buddy.core.domain import identifier, identity_value, invalid
+from health_buddy.core.security_api import (
     AgentGrant,
     BootstrapProof,
     CookieDirective,
@@ -20,8 +20,8 @@ from health_buddy.security_api import (
     SecurityReply,
     SecurityRequest,
 )
+from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.security_store import denied, fingerprint, secret_value, valid_secret
-from health_buddy.service_api import JSON, ServiceError
 
 if TYPE_CHECKING:
     from health_buddy.security import Handle, SecurityAuthority

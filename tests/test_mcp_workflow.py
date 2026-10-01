@@ -11,11 +11,11 @@ import pytest
 
 from health_buddy.client_auth import AuthenticatedOperations
 from health_buddy.client_workflow import ClientWorkflow, McpWorkflowNamespace
-from health_buddy.domain import digest
+from health_buddy.core.domain import digest
+from health_buddy.core.security_api import AgentGrant, BearerProof, ClientIdentity
+from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.retry_paths import RetryRoot
-from health_buddy.security_api import AgentGrant, BearerProof, ClientIdentity
 from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import Principal, ServiceError
 from tests.security_fixtures import action, secured
 from tests.test_extension_workflow import IDENTITY, SyntheticOperations, emit
 

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
-from health_buddy.domain import (
+from health_buddy.core.domain import (
     MAX_RESPONSE,
     check_identity,
     decode,
@@ -28,11 +28,15 @@ from health_buddy.domain import (
     object_value,
     revision,
 )
-from health_buddy.durability import atomic_bytes, exclusive, fsync_path, private_file
-from health_buddy.extension_files import bounded_children
-from health_buddy.retry_paths import RetryRoot, WorkflowPaths
-from health_buddy.security_api import ClientIdentity
-from health_buddy.service_api import (
+from health_buddy.core.durability import (
+    atomic_bytes,
+    exclusive,
+    fsync_path,
+    private_file,
+)
+from health_buddy.core.files import bounded_children
+from health_buddy.core.security_api import ClientIdentity
+from health_buddy.core.service_api import (
     JSON,
     Identity,
     Operation,
@@ -42,6 +46,7 @@ from health_buddy.service_api import (
     Response,
     ServiceError,
 )
+from health_buddy.retry_paths import RetryRoot, WorkflowPaths
 
 MAX_STATE = 8 * 1024 * 1024
 ROUTES = {

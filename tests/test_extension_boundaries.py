@@ -6,9 +6,9 @@ import time
 import pytest
 
 from health_buddy import extension_runner
+from health_buddy.core.security_api import AgentGrant
+from health_buddy.core.service_api import ServiceError
 from health_buddy.extension_registry import Registry
-from health_buddy.security_api import AgentGrant
-from health_buddy.service_api import ServiceError
 from tests.extension_fixtures import example
 from tests.security_fixtures import action, secured
 from tests.test_transport_auth_wire import request, server

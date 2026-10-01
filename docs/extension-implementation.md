@@ -2,7 +2,7 @@
 
 The installed descriptor is validated against
 [`extension_manifest.schema.json`](../src/health_buddy/extension_manifest.schema.json).
-[`extension_api.py`](../src/health_buddy/extension_api.py) declares finite DTOs and
+[`extension_api.py`](../src/health_buddy/core/extension_api.py) declares finite DTOs and
 limits. The `{manifest,cases}` documents under `contracts/v1/examples` and their
 wrapper schema remain abstract protocol conformance examples. They specify the
 metric, provenance, missingness and retry semantics; they are not installable
@@ -20,7 +20,7 @@ or incompatible dependencies and changed state schemas. It never migrates state.
 
 | Module | Responsibility |
 | --- | --- |
-| `extension_manifest`, `extension_files` | Strict descriptor and bounded nonfollowing file inventory |
+| `extension_manifest`, `core/files` | Strict descriptor and bounded nonfollowing file inventory |
 | `extension_registry` | Native reviewed activation, digest snapshots, compatibility, disable and revert |
 | `extension_runner`, `extension_worker` | Bounded schema/pure Python hook execution |
 | `extension_views` | Canonical caller-filtered metric inputs and exact reviewed view asset |

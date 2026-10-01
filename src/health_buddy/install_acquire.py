@@ -19,9 +19,10 @@ from pathlib import Path
 from typing import IO, Any, cast
 
 from health_buddy.backup import private_path
-from health_buddy.domain import encode
-from health_buddy.durability import atomic_bytes, exclusive, fsync_path
-from health_buddy.extension_files import private_directory, read_json
+from health_buddy.core.domain import encode
+from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.core.files import private_directory, read_json
+from health_buddy.core.service_api import ServiceError
 from health_buddy.retry_paths import native_path
 from health_buddy.runtime_inputs import _Redirect
 from health_buddy.runtime_manifest import (
@@ -33,7 +34,6 @@ from health_buddy.runtime_manifest import (
     verify_source_identity,
 )
 from health_buddy.runtime_release import selected_artifact
-from health_buddy.service_api import ServiceError
 
 WORKER = Path(__file__).with_name("install_acquire_worker.py")
 SECONDS = 120

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from health_buddy.service_api import JSON
+from health_buddy.core.service_api import JSON
 
 DISCOVERY_VERSION = 1
 MAX_DISCOVERY_BYTES = 32_768

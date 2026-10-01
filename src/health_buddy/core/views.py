@@ -7,10 +7,8 @@ import binascii
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
-from health_buddy import plans, projection, snapshots
-from health_buddy.core import source_bundle
-from health_buddy.core.git_store import StoreError
-from health_buddy.domain import (
+from health_buddy.core import plans, projection, snapshots, source_bundle
+from health_buddy.core.domain import (
     API_VERSION,
     MAX_BODY,
     MAX_DAYS,
@@ -30,11 +28,12 @@ from health_buddy.domain import (
     object_value,
     text,
 )
-from health_buddy.durability import check_deadline, unavailable
-from health_buddy.journal import State
-from health_buddy.policy import require_grant
-from health_buddy.providers import Jev, ProviderUnavailable
-from health_buddy.service_api import (
+from health_buddy.core.durability import check_deadline, unavailable
+from health_buddy.core.git_store import StoreError
+from health_buddy.core.journal import State
+from health_buddy.core.policy import require_grant
+from health_buddy.core.providers import Jev, ProviderUnavailable
+from health_buddy.core.service_api import (
     JSON,
     Authority,
     Operation,
@@ -44,7 +43,7 @@ from health_buddy.service_api import (
 )
 
 if TYPE_CHECKING:
-    from health_buddy.operations import Service
+    from health_buddy.core.operations import Service
 
 RECORD_FIELDS = frozenset(
     {

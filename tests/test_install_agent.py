@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from health_buddy import install_agent, install_https, install_status
-from health_buddy.security_api import PairingReservation, SecurityRequest
-from health_buddy.service_api import ServiceError
+from health_buddy.core.security_api import PairingReservation, SecurityRequest
+from health_buddy.core.service_api import ServiceError
 from tests.test_install_https import serve_fixture
 
 

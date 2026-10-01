@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from health_buddy.security_api import IngressConfig
+from health_buddy.core.security_api import IngressConfig
 
 
 class ConfigError(ValueError):

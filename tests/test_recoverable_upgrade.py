@@ -12,15 +12,15 @@ import pytest
 from health_buddy import upgrade_activation
 from health_buddy.app import App
 from health_buddy.backup_crypto import keygen
-from health_buddy.durability import atomic_bytes
+from health_buddy.core.durability import atomic_bytes
 from health_buddy.extension_jobs import run_event
 from health_buddy.extension_registry import Registry
 from health_buddy.runtime_bundle import create_bundle
 from health_buddy.runtime_manifest import verify_source_identity
 from health_buddy.runtime_release import create_release
-from health_buddy.security_api import BearerProof
+from health_buddy.core.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.service_api import Request, ServiceError
 from health_buddy.upgrade import stage
 from health_buddy.upgrade_activation import activate
 from tests.extension_fixtures import example, prepared

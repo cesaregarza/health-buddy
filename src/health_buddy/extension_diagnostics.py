@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from health_buddy.config import Config
-from health_buddy.domain import encode
-from health_buddy.durability import atomic_bytes
-from health_buddy.extension_files import extension_id, private_directory, read_json
+from health_buddy.core.config import Config
+from health_buddy.core.domain import encode
+from health_buddy.core.durability import atomic_bytes
+from health_buddy.core.files import extension_id, private_directory, read_json
+from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.extension_runner import call
-from health_buddy.service_api import JSON, ServiceError
 
 FAILURES = frozenset(
     {

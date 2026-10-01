@@ -11,18 +11,18 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from health_buddy import config
 from health_buddy.backup import private_path
-from health_buddy.domain import encode, identity_value
-from health_buddy.durability import atomic_bytes, exclusive
-from health_buddy.extension_files import read_file, read_json
-from health_buddy.operations import Service
+from health_buddy.core import config
+from health_buddy.core.domain import encode, identity_value
+from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.files import read_file, read_json
+from health_buddy.core.operations import Service
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import ServiceError
 from health_buddy.packaged_runtime import private_workspace
 from health_buddy.retry_paths import native_path
-from health_buddy.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential, setup_security
 from health_buddy.security_store import SecurityStore
-from health_buddy.service_api import ServiceError
 
 RECOVERY = (
     "Retain the journal, config and credential output. Inspect partial authority; "

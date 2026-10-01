@@ -3,8 +3,8 @@
 import json
 
 from health_buddy.cli import main
+from health_buddy.core.workspace import initialize
 from health_buddy.extension_registry import Registry
-from health_buddy.workspace import initialize
 from tests.extension_fixtures import private_file
 from tests.security_fixtures import secured
 

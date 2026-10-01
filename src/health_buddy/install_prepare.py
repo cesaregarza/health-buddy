@@ -9,17 +9,17 @@ from typing import Any
 
 from health_buddy.backup import private_path
 from health_buddy.connect_agent import connect
-from health_buddy.domain import encode
-from health_buddy.durability import atomic_bytes, exclusive
-from health_buddy.extension_files import private_directory, read_file, read_json
+from health_buddy.core.domain import encode
+from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.files import private_directory, read_file, read_json
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import ServiceError
+from health_buddy.core.workspace import initialize
 from health_buddy.install_preflight import preflight
 from health_buddy.mcp_settings import Settings
-from health_buddy.operations import Service
 from health_buddy.retry_paths import native_path
 from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import ServiceError
 from health_buddy.upgrade import preflight as upgrade_preflight
-from health_buddy.workspace import initialize
 
 MAINTENANCE_REFERENCES = (
     "docs/agent-guide.md",

@@ -5,24 +5,24 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, cast
 
-from health_buddy.discovery_api import (
+from health_buddy.core.discovery_api import (
     MAX_DISCOVERY_BYTES,
     DocumentRef,
     ExtensionDiscovery,
     WorkspaceDiscoveryV1,
 )
-from health_buddy.domain import envelope
+from health_buddy.core.domain import envelope
+from health_buddy.core.journal import State
+from health_buddy.core.release_identity import ReleaseIdentity
+from health_buddy.core.service_api import JSON, Authority, Response, ServiceError
 from health_buddy.extension_registry import Registry, ReviewedExtension
-from health_buddy.journal import State
-from health_buddy.release_identity import ReleaseIdentity
-from health_buddy.service_api import JSON, Authority, Response, ServiceError
 
 if TYPE_CHECKING:
-    from health_buddy.operations import Service
+    from health_buddy.core.operations import Service
 
 DOCUMENTS = (
     DocumentRef("agent-guide", "docs/agent-guide.md"),
-    DocumentRef("extension-interface", "src/health_buddy/extension_api.py"),
+    DocumentRef("extension-interface", "src/health_buddy/core/extension_api.py"),
     DocumentRef(
         "extension-descriptor", "src/health_buddy/extension_manifest.schema.json"
     ),

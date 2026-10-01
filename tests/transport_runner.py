@@ -10,7 +10,7 @@ from functools import partial
 from pathlib import Path
 
 from health_buddy.production_server import serve
-from health_buddy.service_api import Principal, Response
+from health_buddy.core.service_api import Principal, Response
 
 
 class ProbeOperations:
@@ -63,7 +63,7 @@ def main():
     parser.add_argument("--fail-startup", action="store_true")
     args = parser.parse_args()
     if args.workspace is not None:
-        from health_buddy.operations import open_service
+        from health_buddy.core.operations import open_service
 
         factory = partial(open_service, args.workspace, development=args.development)
     elif args.evidence is not None:
