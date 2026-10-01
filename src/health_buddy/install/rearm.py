@@ -19,14 +19,11 @@ from health_buddy.connect_agent import (
 from health_buddy.core.domain import digest, encode
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import private_directory, read_json
-from health_buddy.core.security_api import AgentGrant
 from health_buddy.core.service_api import ServiceError
-from health_buddy.install.agent import actors, matches, owner
+from health_buddy.install.agent import actors, matches, owner, read_policy
 from health_buddy.install.preflight import preflight
 from health_buddy.install.remove import container, serve_state
 from health_buddy.runtime.manifest import file_digest
-from health_buddy.transport.limits import EnvelopeError
-from health_buddy.transport.security import request_payload
 
 
 def rearm(
@@ -64,15 +61,7 @@ def rearm(
     private_directory(retry_root.parent)
     if len({journal, original_policy, policy, agent_token, settings, retry_root}) != 6:
         raise ServiceError(422, "install_rearm_requires_fresh_distinct_outputs")
-    selected_policy = read_json(policy, 16384)
-    if not isinstance(selected_policy, dict):
-        raise ServiceError(422, "install_rearm_invalid_policy")
-    try:
-        grant = request_payload("grants.create", selected_policy)
-    except EnvelopeError:
-        raise ServiceError(422, "install_rearm_invalid_policy") from None
-    if not isinstance(grant, AgentGrant):
-        raise ServiceError(422, "install_rearm_invalid_policy")
+    selected_policy, grant = read_policy(policy, "install_rearm_invalid_policy")
     request = {
         "removedSha256": expected_removed_sha256,
         "originalPolicy": str(original_policy),
@@ -91,113 +80,23 @@ def rearm(
             runtime, admitted = owner(record)
             existing = record.get("reviewedReinstall")
             if existing is not None:
-                if (
-                    not isinstance(existing, dict)
-                    or existing.get("request") != request
-                    or existing.get("binding") != record["binding"]
-                    or existing.get("ownerSetup") != record["ownerSetup"]
-                    or existing.get("activationBinding")
-                    != record["activation"]["binding"]
-                    or existing.get("httpsBinding") != record["privateHttps"]["binding"]
-                    or record.get("removal") is not None
-                ):
-                    raise ServiceError(
-                        409, "install_rearm_repeat_requires_original_review"
-                    )
-                old_actor = existing["removedAgent"]["actorId"]
+                old_actor = _repeated_review_actor(existing, request, record)
             else:
-                if file_digest(journal, 32768)[1] != expected_removed_sha256:
-                    raise ServiceError(409, "install_rearm_removed_state_changed")
-                removal, agent = record.get("removal"), record.get("agentSetup")
-                if (
-                    not isinstance(removal, dict)
-                    or removal.get("phase") != "removed"
-                    or not isinstance(agent, dict)
-                    or agent.get("phase") != "configured"
-                    or record["activation"]["phase"] != "removed"
-                    or record["privateHttps"]["phase"] != "removed"
-                    or removal.get("actorId") != agent.get("actorId")
-                    or removal.get("agent") != agent["binding"]
-                    or removal.get("activation") != record["activation"]["binding"]
-                    or removal.get("https") != record["privateHttps"]["binding"]
-                    or digest(read_json(original_policy, 16384))
-                    != agent["binding"]["policySha256"]
-                ):
-                    raise ServiceError(
-                        409, "install_rearm_requires_original_removed_binding"
-                    )
-                old_actor = agent["actorId"]
+                old_actor = _removed_agent_actor(
+                    record, journal, expected_removed_sha256, original_policy
+                )
             inventory = actors(runtime, admitted)
-            removed = [actor for actor in inventory if actor["id"] == old_actor]
-            original = read_json(original_policy, 16384)
-            if (
-                len(removed) != 1
-                or removed[0].get("active") is not False
-                or not isinstance(original, dict)
-                or not matches(dict(removed[0], active=True), original)
-            ):
-                raise ServiceError(409, "install_rearm_requires_original_revoked_grant")
-            workspace = Path(record["binding"]["workspace"])
-            checked = preflight(
-                bundle=Path(record["binding"]["bundle"]),
-                manifest=Path(record["binding"]["manifest"]),
-                trusted_manifest_sha256=record["binding"]["manifestSha256"],
-                workspace=workspace,
-                docker=Path(record["binding"]["docker"]),
-            )
-            if {item["code"] for item in checked["diagnostics"]} - {
-                "existing_state_requires_review"
-            } or checked["release"] != record["release"]:
-                raise ServiceError(409, "install_rearm_matching_source_required")
+            _validate_revoked_grant(inventory, old_actor, original_policy)
+            _validate_matching_source(record)
             if existing is not None:
-                return {
-                    "schemaVersion": 1,
-                    "rearmed": True,
-                    "duplicate": True,
-                    "priorGrantRevoked": True,
-                    "connected": False,
-                }
+                return _rearmed(duplicate=True)
             if any(actor.get("name") == grant.name for actor in inventory):
                 raise ServiceError(409, "install_rearm_requires_new_scoped_grant")
-            source = Path(record["binding"]["bundle"]) / "source"
-            old = record["agentSetup"]["binding"]
-            reserved = (
-                source,
-                workspace / "operations",
-                workspace / "security",
-                workspace / "stores",
-            )
-            if any(
-                path.is_relative_to(root)
-                for path in (policy, agent_token, settings, retry_root)
-                for root in reserved
-            ) or any(path.exists() for path in (agent_token, settings, retry_root)):
-                raise ServiceError(409, "install_rearm_requires_fresh_distinct_outputs")
-            if any(
-                str(path) in (old["token"], old["settings"], old["retryRoot"])
-                for path in (agent_token, settings, retry_root)
-            ):
-                raise ServiceError(409, "install_rearm_requires_fresh_distinct_outputs")
+            _validate_fresh_outputs(record, policy, (agent_token, settings, retry_root))
             if container(record, record["removal"]["containerId"])[0]:
                 raise ServiceError(409, "install_rearm_owned_container_still_present")
             serve_state(record)
-            config, skill = Path(old["config"]), Path(old["skill"])
-            connect(config, skill, client=old["client"], remove=True, check_only=True)
-            if old["client"] == "codex":
-                present = bool(partition(optional(config))[1])
-            else:
-                present = "health_buddy" in json.loads(
-                    optional(config) or b"{}", object_pairs_hook=unique_object
-                ).get("mcpServers", {})
-            if present or any(
-                (skill / name).exists()
-                for name in (
-                    *MANAGED,
-                    ".health-buddy-install.json",
-                    ".health-buddy-remove.json",
-                )
-            ):
-                raise ServiceError(409, "install_rearm_owned_client_still_present")
+            _validate_client_removed(record["agentSetup"]["binding"])
             record["reviewedReinstall"] = {
                 "request": request,
                 "binding": record["binding"],
@@ -210,13 +109,133 @@ def rearm(
             record["activation"]["phase"] = "admitting"
             record["privateHttps"]["phase"] = "setting"
             atomic_bytes(journal, encode(record))
-            return {
-                "schemaVersion": 1,
-                "rearmed": True,
-                "duplicate": False,
-                "priorGrantRevoked": True,
-                "connected": False,
-            }
+            return _rearmed(duplicate=False)
+
+
+def _rearmed(*, duplicate: bool) -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "rearmed": True,
+        "duplicate": duplicate,
+        "priorGrantRevoked": True,
+        "connected": False,
+    }
+
+
+def _repeated_review_actor(
+    existing: object, request: dict[str, Any], record: dict[str, Any]
+) -> Any:
+    """A repeat must restate the reviewed request against an unchanged journal."""
+    if (
+        not isinstance(existing, dict)
+        or existing.get("request") != request
+        or existing.get("binding") != record["binding"]
+        or existing.get("ownerSetup") != record["ownerSetup"]
+        or existing.get("activationBinding") != record["activation"]["binding"]
+        or existing.get("httpsBinding") != record["privateHttps"]["binding"]
+        or record.get("removal") is not None
+    ):
+        raise ServiceError(409, "install_rearm_repeat_requires_original_review")
+    return existing["removedAgent"]["actorId"]
+
+
+def _removed_agent_actor(
+    record: dict[str, Any],
+    journal: Path,
+    expected_removed_sha256: str,
+    original_policy: Path,
+) -> Any:
+    """The configured agent that a completed removal took down with its runtime."""
+    if file_digest(journal, 32768)[1] != expected_removed_sha256:
+        raise ServiceError(409, "install_rearm_removed_state_changed")
+    removal, agent = record.get("removal"), record.get("agentSetup")
+    if (
+        not isinstance(removal, dict)
+        or removal.get("phase") != "removed"
+        or not isinstance(agent, dict)
+        or agent.get("phase") != "configured"
+        or record["activation"]["phase"] != "removed"
+        or record["privateHttps"]["phase"] != "removed"
+        or removal.get("actorId") != agent.get("actorId")
+        or removal.get("agent") != agent["binding"]
+        or removal.get("activation") != record["activation"]["binding"]
+        or removal.get("https") != record["privateHttps"]["binding"]
+        or digest(read_json(original_policy, 16384)) != agent["binding"]["policySha256"]
+    ):
+        raise ServiceError(409, "install_rearm_requires_original_removed_binding")
+    return agent["actorId"]
+
+
+def _validate_revoked_grant(
+    inventory: list[Any], old_actor: Any, original_policy: Path
+) -> None:
+    removed = [actor for actor in inventory if actor["id"] == old_actor]
+    original = read_json(original_policy, 16384)
+    if (
+        len(removed) != 1
+        or removed[0].get("active") is not False
+        or not isinstance(original, dict)
+        or not matches(dict(removed[0], active=True), original)
+    ):
+        raise ServiceError(409, "install_rearm_requires_original_revoked_grant")
+
+
+def _validate_matching_source(record: dict[str, Any]) -> None:
+    checked = preflight(
+        bundle=Path(record["binding"]["bundle"]),
+        manifest=Path(record["binding"]["manifest"]),
+        trusted_manifest_sha256=record["binding"]["manifestSha256"],
+        workspace=Path(record["binding"]["workspace"]),
+        docker=Path(record["binding"]["docker"]),
+    )
+    if {item["code"] for item in checked["diagnostics"]} - {
+        "existing_state_requires_review"
+    } or checked["release"] != record["release"]:
+        raise ServiceError(409, "install_rearm_matching_source_required")
+
+
+def _validate_fresh_outputs(
+    record: dict[str, Any], policy: Path, outputs: tuple[Path, ...]
+) -> None:
+    """New handoff outputs: absent, outside runtime state, unlike the removed ones."""
+    workspace = Path(record["binding"]["workspace"])
+    source = Path(record["binding"]["bundle"]) / "source"
+    old = record["agentSetup"]["binding"]
+    reserved = (
+        source,
+        workspace / "operations",
+        workspace / "security",
+        workspace / "stores",
+    )
+    if any(
+        path.is_relative_to(root) for path in (policy, *outputs) for root in reserved
+    ) or any(path.exists() for path in outputs):
+        raise ServiceError(409, "install_rearm_requires_fresh_distinct_outputs")
+    if any(
+        str(path) in (old["token"], old["settings"], old["retryRoot"])
+        for path in outputs
+    ):
+        raise ServiceError(409, "install_rearm_requires_fresh_distinct_outputs")
+
+
+def _validate_client_removed(old: dict[str, Any]) -> None:
+    config, skill = Path(old["config"]), Path(old["skill"])
+    connect(config, skill, client=old["client"], remove=True, check_only=True)
+    if old["client"] == "codex":
+        present = bool(partition(optional(config))[1])
+    else:
+        present = "health_buddy" in json.loads(
+            optional(config) or b"{}", object_pairs_hook=unique_object
+        ).get("mcpServers", {})
+    if present or any(
+        (skill / name).exists()
+        for name in (
+            *MANAGED,
+            ".health-buddy-install.json",
+            ".health-buddy-remove.json",
+        )
+    ):
+        raise ServiceError(409, "install_rearm_owned_client_still_present")
 
 
 def main(argv: list[str] | None = None) -> int:
