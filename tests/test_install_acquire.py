@@ -1,5 +1,6 @@
 """Synthetic HTTPS bytes and real release/source validators, no network/tooling."""
 
+import http.client
 import io
 import json
 import subprocess
@@ -297,3 +298,194 @@ def test_replaced_partial_refuses_cleanup_of_foreign_bytes(tmp_path, monkeypatch
     with pytest.raises(ServiceError, match="partial_ownership_changed"):
         install_acquire.acquire(**arguments)
     assert partial.read_bytes() == b"Synthetic foreign replacement"
+
+
+# GitHub Release downloads run through the real opener, redirect handler and
+# http.client parser; only the HTTPS connection is canned, so no request leaves.
+REAL_BUILD_OPENER = urllib.request.build_opener
+RELEASE = "https://github.com/owner/health-buddy/releases/download/v1.0.0/"
+NAMES = (
+    "runtime-manifest.json",
+    "health-buddy-source.tar",
+    "health-buddy-linux-amd64.docker.tar",
+    "health-buddy-linux-arm64.docker.tar",
+)
+# Each download URL answers with a 302 to its own short-lived signed asset URL.
+SIGNED = {
+    RELEASE + name: "https://release-assets.githubusercontent.com"
+    f"/github-production-release-asset/1/{index}"
+    f"?sp=r&se=2026-10-01T00%3A05%3A00Z&sig=synthetic{index}"
+    for index, name in enumerate(NAMES)
+}
+
+
+class Socket:
+    def __init__(self, raw):
+        self.raw = raw
+
+    def makefile(self, mode):
+        return io.BytesIO(self.raw)
+
+
+class Transport(urllib.request.HTTPSHandler):
+    """Replies with canned bytes per exact URL and records what each request sent."""
+
+    def __init__(self, replies):
+        super().__init__()
+        self.replies = replies
+        self.sent = []
+
+    def https_open(self, request):
+        names = {name.lower() for name, _ in request.header_items()}
+        self.sent.append((request.full_url, names))
+        response = http.client.HTTPResponse(Socket(self.replies[request.full_url]))
+        response.begin()
+        response.url, response.msg = request.full_url, response.reason
+        return response
+
+
+def found(location):
+    # A cookie set on the 302 must never reach the next hop.
+    return (
+        "HTTP/1.1 302 Found\r\n"
+        f"Location: {location}\r\n"
+        "Set-Cookie: _gh_sess=synthetic; Secure; HttpOnly\r\n"
+        "Content-Length: 0\r\n\r\n"
+    ).encode()
+
+
+def ok(body):
+    return b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(body), body)
+
+
+def github_release(tmp_path, monkeypatch):
+    arguments, _state, selected = acquisition_fixture(tmp_path, monkeypatch)
+    replies = {}
+    for name in NAMES:
+        replies[RELEASE + name] = found(SIGNED[RELEASE + name])
+        replies[SIGNED[RELEASE + name]] = ok(
+            (selected["manifest"].parent / name).read_bytes()
+        )
+    transport = Transport(replies)
+
+    def build(*handlers):
+        assert handlers[0].proxies == {}
+        assert [type(handler) for handler in handlers] == [
+            urllib.request.ProxyHandler,
+            install_acquire.Redirect,
+        ]
+        return REAL_BUILD_OPENER(*handlers, transport)
+
+    monkeypatch.setattr(install_acquire.urllib.request, "build_opener", build)
+    return {**arguments, "manifest_url": RELEASE + NAMES[0]}, transport, selected
+
+
+def test_github_release_follows_its_asset_redirect_and_verifies_every_artifact(
+    tmp_path, monkeypatch
+):
+    arguments, transport, selected = github_release(tmp_path, monkeypatch)
+    result = install_acquire.acquire(**arguments)
+    assert result["artifactsVerified"] and result["sourceBundleMatched"]
+    # Every artifact resolves beside the manifest on github.com, then takes its
+    # own signed hop to the asset host; nothing else is requested.
+    urls = [url for url, _ in transport.sent]
+    assert len(urls) == 2 * len(NAMES)
+    assert dict(zip(urls[::2], urls[1::2], strict=True)) == SIGNED
+    # Only the fixed request header plus urllib's own Host and User-Agent reach
+    # either host: the 302's cookie is not carried and no authorization is sent.
+    for _url, names in transport.sent:
+        assert names == {"accept-encoding", "host", "user-agent"}
+    for name in NAMES:
+        assert (arguments["staging"] / name).read_bytes() == (
+            selected["manifest"].parent / name
+        ).read_bytes()
+
+
+@pytest.mark.parametrize(
+    ("manifest_url", "location"),
+    [
+        (RELEASE + NAMES[0], "https://assets.example.test/runtime-manifest.json"),
+        (
+            RELEASE + NAMES[0],
+            "https://raw.githubusercontent.com/owner/health-buddy/v1.0.0/"
+            "runtime-manifest.json",
+        ),
+        (
+            RELEASE + NAMES[0],
+            "https://release-assets.githubusercontent.com.example.test/"
+            "runtime-manifest.json",
+        ),
+        (
+            "https://release.example.test/v1.0.0/runtime-manifest.json",
+            SIGNED[RELEASE + NAMES[0]],
+        ),
+    ],
+    ids=[
+        "arbitrary-host",
+        "other-github-host",
+        "lookalike-host",
+        "asset-host-from-another-origin",
+    ],
+)
+def test_redirect_outside_the_github_pair_is_refused_at_the_redirect(
+    tmp_path, monkeypatch, manifest_url, location
+):
+    arguments, transport, selected = github_release(tmp_path, monkeypatch)
+    # The target would serve the pinned manifest, so only the redirect rule
+    # stands between this acquisition and success.
+    transport.replies[manifest_url] = found(location)
+    transport.replies[location] = ok(selected["manifest"].read_bytes())
+    with pytest.raises(ServiceError, match="install_acquire_redirect_refused"):
+        install_acquire.acquire(**{**arguments, "manifest_url": manifest_url})
+    # Every check before transport passed: the publisher was asked and answered
+    # with its 302, and the refused target was never requested.
+    assert [url for url, _ in transport.sent] == [manifest_url]
+    assert not (arguments["staging"] / "runtime-manifest.json").exists()
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        "http://release-assets.githubusercontent.com/1?sig=synthetic",
+        "https://release-assets.githubusercontent.com:8443/1?sig=synthetic",
+        "https://owner@release-assets.githubusercontent.com/1?sig=synthetic",
+        "https://release-assets.githubusercontent.com/1?sig=synthetic#fragment",
+        "https://release-assets.githubusercontent.com/1?sig=" + "s" * 2048,
+    ],
+    ids=["http", "port", "userinfo", "fragment", "overlong"],
+)
+def test_github_asset_hop_keeps_every_other_url_rule(changed):
+    redirect = install_acquire.Redirect()
+    request = urllib.request.Request(
+        "https://github.com/owner/health-buddy/releases/download/v1.0.0/"
+        "runtime-manifest.json",
+        headers={"Accept-Encoding": "identity"},
+    )
+    admitted = "https://release-assets.githubusercontent.com/1?sig=synthetic"
+    allowed = redirect.redirect_request(request, io.BytesIO(), 302, "", {}, admitted)
+    assert allowed.full_url == admitted
+    with pytest.raises(ServiceError, match="redirect_refused"):
+        redirect.redirect_request(request, io.BytesIO(), 302, "", {}, changed)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [RELEASE + NAMES[0] + "?sp=r&sig=synthetic", SIGNED[RELEASE + NAMES[0]]],
+    ids=["release-url-with-query", "signed-asset-url"],
+)
+def test_signed_query_stays_refused_on_the_manifest_url(tmp_path, monkeypatch, url):
+    arguments, transport, _selected = github_release(tmp_path, monkeypatch)
+    with pytest.raises(ServiceError, match="install_acquire_https_url_required"):
+        install_acquire.acquire(**{**arguments, "manifest_url": url})
+    assert not transport.sent and not any(arguments["staging"].iterdir())
+
+
+def test_manifest_pin_still_binds_bytes_from_the_asset_host(tmp_path, monkeypatch):
+    arguments, transport, _selected = github_release(tmp_path, monkeypatch)
+    with pytest.raises(ServiceError, match="install_acquire_hash_mismatch"):
+        install_acquire.acquire(**{**arguments, "trusted_manifest_sha256": "0" * 64})
+    # Both hops were taken; the pin refused the bytes and nothing was kept.
+    manifest = RELEASE + NAMES[0]
+    assert [url for url, _ in transport.sent] == [manifest, SIGNED[manifest]]
+    assert not (arguments["staging"] / "runtime-manifest.json").exists()
+    assert not list(arguments["staging"].glob(".health-buddy-acquire-*"))

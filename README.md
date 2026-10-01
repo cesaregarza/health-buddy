@@ -15,10 +15,10 @@ every command. In order, each step is done when this field is `true`: acquire
 (`runtimeActivated`), private HTTPS (`privateRouteConfigured`), agent setup
 (`clientConfigurationPrepared`). `connected: false` is expected throughout.
 No manifest is published yet: on reaching acquire, stop and ask the owner for
-the manifest URL and SHA-256; never take the hash from downloaded files. On a
-refusal, keep the journal and inputs, then follow the printed `recovery` and the
-doc's notes on that `code`. Rerunning the identical command resumes an
-interrupted step.
+the manifest URL and SHA-256; never take the hash from downloaded files. Once
+one exists, its source is a GitHub Release. On a refusal, keep the journal and
+inputs, then follow the printed `recovery` and the doc's notes on that `code`.
+Rerunning the identical command resumes an interrupted step.
 
 ## Status
 

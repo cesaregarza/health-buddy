@@ -38,9 +38,18 @@ from health_buddy.runtime.release import selected_artifact
 WORKER = Path(__file__).with_name("acquire_worker.py")
 SECONDS = 120
 ARCHIVE_LIMIT = 1024**3
+# GitHub serves a release asset by answering its github.com download URL with a
+# 302 to a short-lived signed URL on its asset host. Each entry admits one such
+# hop as a (request host, redirect host) pair rather than trusting either host
+# on its own: the asset host is reachable only when github.com itself sends the
+# installer there, so no other origin can route a download through it, and the
+# signed query is accepted on that hop alone. Hosts must match exactly.
+RELEASE_ASSET_REDIRECTS = frozenset(
+    {("github.com", "release-assets.githubusercontent.com")}
+)
 
 
-def admitted_url(value: str) -> str:
+def admitted_url(value: str, *, signed_query: bool = False) -> str:
     try:
         parsed = urllib.parse.urlsplit(value)
         invalid = parsed.port not in (None, 443)
@@ -53,7 +62,7 @@ def admitted_url(value: str) -> str:
         or parsed.username is not None
         or parsed.password is not None
         or invalid
-        or parsed.query
+        or (parsed.query and not signed_query)
         or parsed.fragment
         or any(ord(char) < 33 or ord(char) > 126 for char in value)
     ):
@@ -61,7 +70,17 @@ def admitted_url(value: str) -> str:
     return value
 
 
+def release_asset_redirect(source: str, target: str) -> bool:
+    hosts = (
+        urllib.parse.urlsplit(source).hostname,
+        urllib.parse.urlsplit(target).hostname,
+    )
+    return hosts in RELEASE_ASSET_REDIRECTS
+
+
 class Redirect(_Redirect):
+    """Same-origin redirects without a query, plus GitHub's release-asset hop."""
+
     def redirect_request(
         self,
         req: urllib.request.Request,
@@ -72,9 +91,17 @@ class Redirect(_Redirect):
         newurl: str,
     ) -> urllib.request.Request | None:
         try:
+            if release_asset_redirect(req.full_url, newurl):
+                admitted_url(newurl, signed_query=True)
+                # Cross-origin by design: admitted_url already applies every
+                # other _Redirect rule, so CPython's base handler (method and
+                # status rules) runs here without the same-origin check.
+                return urllib.request.HTTPRedirectHandler.redirect_request(
+                    self, req, fp, code, msg, headers, newurl
+                )
             admitted_url(newurl)
             return super().redirect_request(req, fp, code, msg, headers, newurl)
-        except (ServiceError, ManifestError):
+        except (ServiceError, ManifestError, ValueError):
             raise ServiceError(422, "install_acquire_redirect_refused") from None
 
 
