@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import ModuleType
 from typing import Any, cast
 
 from health_buddy.core import source_bundle
@@ -128,43 +129,7 @@ def validate_plan(value: JSON) -> dict[str, Any]:
     policy = _allowed(program.get("progression_policy", {}), POLICY)
     for template_name, value in templates.items():
         text(template_name, limit=80)
-        template = _allowed(value, TEMPLATE)
-        for key in ("label", "target_duration"):
-            text(template.get(key), limit=500)
-        for key in ("minimum_version", "minimum_session_guidance", "notes"):
-            if key in template:
-                text(template[key], limit=2000, empty=True)
-        for key in ("warmup", "cooldown"):
-            items = template.get(key, [])
-            if not isinstance(items, list) or len(items) > 40:
-                raise invalid()
-            for item in items:
-                text(item, limit=2000)
-        exercises = template.get("exercises")
-        if not isinstance(exercises, list) or not 1 <= len(exercises) <= 80:
-            raise invalid()
-        for raw in exercises:
-            exercise = _allowed(raw, EXERCISE)
-            text(exercise.get("exercise"), limit=200)
-            for key in ("load", "work", "rir", "next_target", "notes"):
-                if key in exercise:
-                    text(exercise[key], limit=2000, empty=True)
-            if "progression" in exercise:
-                config = _allowed(exercise["progression"], PROGRESSION)
-                for key in (
-                    "sets",
-                    "rep_min",
-                    "rep_max",
-                    "backoff_sets",
-                    "backoff_rep_min",
-                    "backoff_rep_max",
-                ):
-                    if key in config and (
-                        type(config[key]) is not int
-                        or not 1 <= cast(int, config[key]) <= 100
-                    ):
-                        raise invalid()
-                progression._config(exercise, policy)
+        _validate_template(_allowed(value, TEMPLATE), progression, policy)
     for key in ("schedule", "date_overrides"):
         slots = program.get(key, {})
         if not isinstance(slots, dict) or len(slots) > 100:
@@ -176,7 +141,57 @@ def validate_plan(value: JSON) -> dict[str, Any]:
     lead = _allowed(program.get("lead_in"), LEAD)
     for item in lead.values():
         text(item, limit=2000)
-    monitoring = object_value(program.get("health_monitoring"), {"blood_pressure"})
+    _validate_monitoring(program.get("health_monitoring"))
+    if "gym_access" in program:
+        _validate_gym_access(_allowed(program["gym_access"], GYM))
+    return cast(
+        dict[str, Any], source_bundle.module("next_workout").validate_program(program)
+    )
+
+
+def _validate_template(
+    template: dict[str, JSON], progression: ModuleType, policy: dict[str, JSON]
+) -> None:
+    for key in ("label", "target_duration"):
+        text(template.get(key), limit=500)
+    for key in ("minimum_version", "minimum_session_guidance", "notes"):
+        if key in template:
+            text(template[key], limit=2000, empty=True)
+    for key in ("warmup", "cooldown"):
+        items = template.get(key, [])
+        if not isinstance(items, list) or len(items) > 40:
+            raise invalid()
+        for item in items:
+            text(item, limit=2000)
+    exercises = template.get("exercises")
+    if not isinstance(exercises, list) or not 1 <= len(exercises) <= 80:
+        raise invalid()
+    for raw in exercises:
+        exercise = _allowed(raw, EXERCISE)
+        text(exercise.get("exercise"), limit=200)
+        for key in ("load", "work", "rir", "next_target", "notes"):
+            if key in exercise:
+                text(exercise[key], limit=2000, empty=True)
+        if "progression" in exercise:
+            config = _allowed(exercise["progression"], PROGRESSION)
+            for key in (
+                "sets",
+                "rep_min",
+                "rep_max",
+                "backoff_sets",
+                "backoff_rep_min",
+                "backoff_rep_max",
+            ):
+                if key in config and (
+                    type(config[key]) is not int
+                    or not 1 <= cast(int, config[key]) <= 100
+                ):
+                    raise invalid()
+            progression._config(exercise, policy)
+
+
+def _validate_monitoring(value: JSON) -> None:
+    monitoring = object_value(value, {"blood_pressure"})
     bp = object_value(
         monitoring["blood_pressure"], {"protocol", "safety", "baseline", "maintenance"}
     )
@@ -195,30 +210,28 @@ def validate_plan(value: JSON) -> dict[str, Any]:
             entry = object_value(session, {"time", "label", "work"})
             for item in entry.values():
                 text(item, limit=2000)
-    if "gym_access" in program:
-        gym = _allowed(program["gym_access"], GYM)
-        if "hours" in gym:
-            hours = object_value(
-                gym["hours"],
-                set(),
-                set("monday tuesday wednesday thursday friday saturday sunday".split()),
-            )
-            for hours_text in hours.values():
-                text(hours_text, limit=1000)
-        if "rule" in gym:
-            text(gym["rule"], limit=2000)
-        mappings = [gym.get("latest_useful_starts", {})]
-        weekdays = gym.get("weekday_latest_useful_starts", {})
-        if not isinstance(weekdays, dict):
+
+
+def _validate_gym_access(gym: dict[str, JSON]) -> None:
+    if "hours" in gym:
+        hours = object_value(
+            gym["hours"],
+            set(),
+            set("monday tuesday wednesday thursday friday saturday sunday".split()),
+        )
+        for hours_text in hours.values():
+            text(hours_text, limit=1000)
+    if "rule" in gym:
+        text(gym["rule"], limit=2000)
+    mappings = [gym.get("latest_useful_starts", {})]
+    weekdays = gym.get("weekday_latest_useful_starts", {})
+    if not isinstance(weekdays, dict):
+        raise invalid()
+    mappings.extend(weekdays.values())
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
             raise invalid()
-        mappings.extend(weekdays.values())
-        for mapping in mappings:
-            if not isinstance(mapping, dict):
-                raise invalid()
-            for starts in mapping.values():
-                entry = object_value(starts, {"full", "minimum"})
-                for start in entry.values():
-                    text(start, limit=20)
-    return cast(
-        dict[str, Any], source_bundle.module("next_workout").validate_program(program)
-    )
+        for starts in mapping.values():
+            entry = object_value(starts, {"full", "minimum"})
+            for start in entry.values():
+                text(start, limit=20)
