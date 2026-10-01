@@ -12,6 +12,7 @@ import pytest
 
 from health_buddy.install import activation as install_activation
 from health_buddy.install import https as install_https
+from health_buddy.install import serve as install_serve
 from health_buddy.core.service_api import ServiceError
 from tests.test_install_activation import fixture
 
@@ -69,7 +70,7 @@ def serve_fixture(tmp_path, monkeypatch):
         "short": "1.102.5",
         "long": "1.102.5-t5fb2a81b0",
         "daemonLong": "1.102.5-t5fb2a81b0",
-        "gitCommit": install_https.SOURCE,
+        "gitCommit": install_serve.SOURCE,
         "cap": 139,
     }
     status = {
@@ -298,10 +299,10 @@ def test_cli_output_cap_refuses_oversized_stream(tmp_path, monkeypatch):
     arguments, _state, _selected, _identity, _note, _engine = serve_fixture(
         tmp_path, monkeypatch
     )
-    stream = iter([b"x" * install_https.LIMIT, b"x"])
+    stream = iter([b"x" * install_serve.LIMIT, b"x"])
     monkeypatch.setattr(os, "read", lambda _fd, _size: next(stream))
     with pytest.raises(ServiceError, match="install_https_response_limit"):
-        install_https.command(
+        install_serve.command(
             arguments["tailscale"],
             arguments["daemon_socket"],
             "status",
