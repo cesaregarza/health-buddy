@@ -20,6 +20,7 @@ sys.dont_write_bytecode = True
 
 from health_buddy.cli import main as canonical_cli
 from health_buddy.core import config
+from health_buddy.core.durability import private_umask
 from health_buddy.core.operations import open_service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import ServiceError
@@ -124,10 +125,10 @@ def health(root: Path) -> bool:
     )
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     supplied = _with_cli_delimiter(list(sys.argv[1:] if argv is None else argv))
     args = _parser().parse_args(supplied)
-    os.umask(0o077)
     try:
         private_workspace(args.workspace)
         if args.command == "health":

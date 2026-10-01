@@ -283,19 +283,37 @@ def test_ready_preserves_normal_git_metadata_after_bootstrap_and_write(
             else f"ref: refs/heads/{initial_branch}\n".encode()
         )
         (manual / "HEAD").write_bytes(initial_head)
-        assert reference.stat().st_mode & 0o777 == 0o644
+        assert reference.stat().st_mode & 0o777 == 0o600
+        # A store written before Git ran under the private umask keeps Git's 0644.
+        reference.chmod(0o644)
         before = footprint(service.config.root)
         assert ready(service.config, time.monotonic() + 1)
         assert footprint(service.config.root) == before
         response = service.execute(owner.principal, intent(service, owner.principal))
         assert response.status == 200
-        assert reference.stat().st_mode & 0o777 == 0o644
+        assert reference.stat().st_mode & 0o777 == 0o600
         after = footprint(service.config.root)
         assert ready(service.config, time.monotonic() + 1)
         assert footprint(service.config.root) == after
         assert (manual / "HEAD").read_bytes() == initial_head
     finally:
         os.umask(previous)
+
+
+def test_store_writes_stay_private_under_group_writable_umask(tmp_path: Path) -> None:
+    # Ubuntu's default umask and no entry point: adoption and a canonical write
+    # run Git, whose refs and object directories would follow this umask.
+    previous = os.umask(0o002)
+    try:
+        runtime, owner, _token = secured(tmp_path / "workspace")
+        service = runtime.operations
+        response = service.execute(owner.principal, intent(service, owner.principal))
+        assert response.status == 200
+    finally:
+        os.umask(previous)
+    manual = service.config.storage("manual")
+    assert not [path for path in manual.rglob("*") if path.stat().st_mode & 0o077]
+    assert ready(service.config, time.monotonic() + 1)
 
 
 @pytest.mark.parametrize(

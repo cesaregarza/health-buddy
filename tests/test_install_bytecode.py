@@ -1,8 +1,13 @@
-"""Entry points run in place from a verified bundle without changing its tree."""
+"""Entry points run in place from a verified bundle without changing its tree.
+
+Each also runs under the private umask, whatever the caller's.
+"""
 
 from __future__ import annotations
 
+import argparse
 import ast
+import importlib
 import os
 import shutil
 import subprocess
@@ -73,6 +78,33 @@ def test_entry_point_disables_bytecode_before_any_package_import(path: Path) -> 
         if ast.unparse(statement) == "sys.dont_write_bytecode = True":
             return
     pytest.fail("entry point never disables bytecode")
+
+
+@pytest.mark.parametrize(
+    "path", [*ENTRY_POINTS, PACKAGE / "connect_agent.py"], ids=lambda path: path.stem
+)
+def test_entry_point_runs_under_the_private_umask(
+    path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    name = ".".join(path.relative_to(SOURCE).with_suffix("").parts)
+    seen = []
+
+    def parse(*_args: object, **_kwargs: object) -> None:
+        current = os.umask(0o077)
+        os.umask(current)
+        seen.append(current)
+        raise SystemExit(2)
+
+    # Parsing is each main's first step; the umask must already be private.
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", parse)
+    previous = os.umask(0o002)
+    try:
+        with pytest.raises(SystemExit):
+            importlib.import_module(name).main([])
+        assert os.umask(previous) == 0o002  # Restored for in-process callers.
+    finally:
+        os.umask(previous)
+    assert seen == [0o077]
 
 
 def package_bundle(tmp_path: Path) -> Path:

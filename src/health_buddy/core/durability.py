@@ -54,6 +54,16 @@ def atomic_bytes(path: Path, content: bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
+@contextmanager
+def private_umask() -> Iterator[None]:
+    """Create owner-only files in this block, whatever the process umask."""
+    previous = os.umask(0o077)
+    try:
+        yield
+    finally:
+        os.umask(previous)
+
+
 def check_deadline(deadline: float | None) -> None:
     if deadline is not None and time.monotonic() >= deadline:
         raise unavailable()

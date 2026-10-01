@@ -1,6 +1,7 @@
 """Guided owner authority setup; real auth/readiness and synthetic host only."""
 
 import json
+import os
 
 import pytest
 
@@ -11,7 +12,7 @@ from health_buddy.core.security_api import BearerProof
 from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.core.service_api import ServiceError
 from tests.test_install_activation import fixture, simulate_nonroot_owner
-from tests.test_install_prepare import inputs
+from tests.test_install_prepare import command_line, inputs
 
 
 def prepared_owner(tmp_path, monkeypatch):
@@ -36,6 +37,11 @@ def prepared_owner(tmp_path, monkeypatch):
         confirm_owner_setup=True,
     )
     return selected, arguments, values, note
+
+
+def owner_command(arguments):
+    selection = {k: v for k, v in arguments.items() if k != "confirm_owner_setup"}
+    return [*command_line(selection), "--confirm-owner-setup"]
 
 
 def test_default_prepare_guided_owner_activation_and_repeat(tmp_path, monkeypatch):
@@ -180,22 +186,7 @@ def test_partial_authority_retains_empty_output_requires_explicit_recovery(
     binding = selected["workspace"] / "operations/security-binding.json"
     retained = binding.read_bytes()
     monkeypatch.setattr(install_owner, "setup_security", real)
-    assert (
-        install_owner.main(
-            [
-                "--journal",
-                str(selected["journal"]),
-                "--owner-token",
-                str(arguments["owner_token"]),
-                "--origin",
-                arguments["origin"],
-                "--owner-subject",
-                arguments["owner_subject"],
-                "--confirm-owner-setup",
-            ]
-        )
-        == 2
-    )
+    assert install_owner.main(owner_command(arguments)) == 2
     refusal = json.loads(capsys.readouterr().out)
     assert refusal["code"] == "install_owner_partial_requires_explicit_recovery"
     assert "revokes all credentials" in refusal["recovery"]
@@ -223,3 +214,23 @@ def test_explicit_consent_validated_origin_and_unowned_output_refuse(
         install_owner.setup(**arguments)
     assert selected["journal"].read_bytes() == before
     assert arguments["owner_token"].read_text() == "synthetic foreign file retained"
+
+
+def test_prepare_and_owner_setup_under_umask_002_leave_nothing_group_writable(
+    tmp_path, monkeypatch, capsys
+):
+    # Ubuntu's default umask for ordinary users. prepared_owner prepares through
+    # the library, outside any entry point's umask, as other library callers do.
+    previous = os.umask(0o002)
+    try:
+        selected, arguments, _original, note = prepared_owner(tmp_path, monkeypatch)
+        assert install_owner.main(owner_command(arguments)) == 0
+    finally:
+        os.umask(previous)
+    assert json.loads(capsys.readouterr().out)["ownerSetupReady"]
+    root = selected["workspace"]
+    store = root / "stores/manual.git"
+    assert not [path for path in store.rglob("*") if path.lstat().st_mode & 0o077]
+    writable = {path for path in root.rglob("*") if path.lstat().st_mode & 0o022}
+    # Only the owner's own note keeps the umask it was written with.
+    assert writable <= {note}

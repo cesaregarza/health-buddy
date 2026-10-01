@@ -149,6 +149,7 @@ manifest URL and SHA-256, then run:
 
 ```sh
 cat > "$HOME/health-buddy/env.sh" <<'EOF'
+umask 077
 export HB_HOME="$(realpath "$HOME")/health-buddy"
 export BUNDLE="$HB_HOME/bundle"
 export SOURCE="$BUNDLE/source"
@@ -165,6 +166,10 @@ EOF
 "$PYTHON" "$SOURCE/scripts/package_runtime.py" verify-source --source "$SOURCE" --manifest "$BUNDLE/release/source-manifest.json"
 "$PYTHON" -m health_buddy.install.acquire --help
 ```
+
+`umask 077` keeps every file the installer and Git create private to you:
+Ubuntu's default `002` would leave Git refs group-writable, which the runtime's
+readiness check refuses.
 
 `PYTHONPATH` makes Python import the installer from the bundle, and
 `PYTHONDONTWRITEBYTECODE=1` stops it writing `__pycache__` files into it, which

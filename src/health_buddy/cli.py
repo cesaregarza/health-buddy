@@ -16,6 +16,7 @@ sys.dont_write_bytecode = True
 from health_buddy.client.app import App
 from health_buddy.core.config import ConfigError, load
 from health_buddy.core.domain import decode
+from health_buddy.core.durability import private_umask
 from health_buddy.core.git_store import StoreError
 from health_buddy.core.loggers import FIELDS
 from health_buddy.core.operations import open_service
@@ -24,6 +25,7 @@ from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.security.runtime import open_runtime, read_credential, setup_security
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:

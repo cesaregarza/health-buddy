@@ -18,7 +18,7 @@ from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core.config import Config
 from health_buddy.core.domain import encode
-from health_buddy.core.durability import atomic_bytes, exclusive
+from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.serve import (
@@ -268,6 +268,7 @@ def _set_root_handler(
         raise ServiceError(503, "install_https_mutation_not_observed", retryable=True)
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("journal", "tailscale", "daemon-socket"):

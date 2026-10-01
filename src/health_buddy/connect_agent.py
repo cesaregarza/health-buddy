@@ -18,6 +18,7 @@ from health_buddy.core.durability import (
     exclusive,
     fsync_path,
     private_file,
+    private_umask,
 )
 from health_buddy.core.files import private_directory, read_file
 from health_buddy.core.service_api import ServiceError
@@ -451,6 +452,7 @@ def _skill_files(source: Path, workspace: Path) -> dict[str, bytes]:
     }
 
 
+@private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("client", choices=("codex", "claude"))
