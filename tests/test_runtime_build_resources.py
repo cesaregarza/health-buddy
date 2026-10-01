@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 SPEC = importlib.util.spec_from_file_location(
-    "runtime_install", Path(__file__).resolve().parents[1] / "packaging/install_runtime.py"
+    "runtime_install",
+    Path(__file__).resolve().parents[1] / "packaging/install_runtime.py",
 )
 assert SPEC is not None and SPEC.loader is not None
 INSTALL = importlib.util.module_from_spec(SPEC)
