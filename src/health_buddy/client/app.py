@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
@@ -127,16 +126,7 @@ class App:
     def _logger_intent(self, kind: str, arguments: list[str]) -> dict[str, JSON]:
         if kind not in loggers.FIELDS:
             raise ServiceError(422, "invalid_request")
-        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-        for field in loggers.FIELDS[kind].split():
-            parser.add_argument(
-                "--" + field.replace("_", "-"),
-                action="append" if field == "reading" else "store",
-                default=argparse.SUPPRESS,
-            )
-        parser.add_argument("--replace-existing", action="store_true")
-        if kind == "circumference":
-            parser.add_argument("--apply", action="store_true")
+        parser = loggers.flag_parser(kind)
 
         def reject(message: str) -> Never:
             raise ServiceError(422, "invalid_logger_arguments")
