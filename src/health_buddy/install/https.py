@@ -16,6 +16,7 @@ from typing import Any
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
+from health_buddy.core.config import Config
 from health_buddy.core.domain import digest, encode
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import read_json
@@ -224,100 +225,17 @@ def route(
     journal = private_path(journal)
     for path in (journal, tailscale, daemon_socket):
         native_path(path)
-    cli_stat = tailscale.lstat()
-    if (
-        not stat.S_ISREG(cli_stat.st_mode)
-        or not cli_stat.st_mode & 0o111
-        or not stat.S_ISSOCK(daemon_socket.lstat().st_mode)
-    ):
-        raise ServiceError(422, "install_https_requires_native_cli_and_daemon_socket")
-    cli_hash = file_digest(tailscale, 128 * 1024**2)[1]
+    cli_hash = _admitted_cli_digest(tailscale, daemon_socket)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
-        retained = read_json(journal, 32768)
-        if not isinstance(retained, dict) or retained.get("schemaVersion") != 1:
-            raise ServiceError(409, "install_https_requires_owned_ready_runtime")
-        prepared: dict[str, Any] = dict(retained)
-        owner, activation = prepared.get("ownerSetup"), prepared.get("activation")
-        if (
-            not isinstance(owner, dict)
-            or owner.get("phase") != "ready"
-            or not isinstance(activation, dict)
-            or activation.get("phase") != "active"
-        ):
-            raise ServiceError(409, "install_https_requires_owned_ready_runtime")
-        active = activation["binding"]
-        workspace = Path(active["workspace"])
-        native_path(workspace)
-        settings = managed_ingress(workspace)
-        config_hash = file_digest(workspace / "config.json", 16384)[1]
-        if (
-            config_hash != owner["targetConfigSha256"]
-            or read_json(workspace / "identity.json", 4096)
-            != {"schemaVersion": 1, **active["identity"]}
-            or owner["binding"]["identity"] != active["identity"]
-        ):
-            raise ServiceError(409, "install_https_owner_binding_changed")
-        epoch = read_json(workspace / "operations/security-binding.json", 4096)
-        if (
-            not isinstance(epoch, dict)
-            or epoch.get("securityEpoch") != owner["authority"]["securityEpoch"]
-            or not ready(settings, time.monotonic() + 1.0)
-        ):
-            raise ServiceError(409, "install_https_requires_owned_ready_runtime")
-        manifest = Path(prepared["binding"]["manifest"])
-        environment, docker = Path(active["environment"]), Path(active["docker"])
-        for path in (manifest, environment, docker):
-            native_path(path)
-        if file_digest(manifest, 2 * 1024**2)[1] != active["target"]["manifestSha256"]:
-            raise ServiceError(409, "install_https_runtime_release_changed")
-        running(
-            docker,
-            environment,
-            active["project"],
-            manifest,
-            active["target"]["architecture"],
-            workspace,
-            active["uid"],
-            active["gid"],
-            require_healthy=True,
-        )
-        socket = settings.path("security/runtime/http.sock")
-        native_path(socket)
-        if not stat.S_ISSOCK(socket.lstat().st_mode):
-            raise ServiceError(409, "install_https_requires_ready_workspace_socket")
-        origin = settings.ingress().external_origin
-        if origin is None:
-            raise ServiceError(409, "install_https_requires_matching_configured_origin")
-        name, long = eligible(tailscale, daemon_socket, origin)
-        hostport, proxy = name + ":443", "unix:" + str(socket)
-        binding = {
-            "identity": active["identity"],
-            "activation": active,
-            "configSha256": config_hash,
-            "tailscale": str(tailscale),
-            "cliSha256": cli_hash,
-            "daemonSocket": str(daemon_socket),
-            "versionLong": long,
-            "origin": origin,
-            "proxy": proxy,
-        }
+        prepared = _ready_installation(journal)
+        binding, hostport = _route_binding(prepared, tailscale, daemon_socket, cli_hash)
         observed = observe(tailscale, daemon_socket)
         check_routes(observed, hostport)
         root = handler(observed, hostport)
-        intended = {"Proxy": proxy}
+        intended = {"Proxy": binding["proxy"]}
         progress = prepared.get("privateHttps")
         if progress is not None:
-            if (
-                not isinstance(progress, dict)
-                or progress.get("binding") != binding
-                or progress.get("phase")
-                not in ("setting", "enabled", "removing", "removed")
-            ):
-                raise ServiceError(
-                    409, "install_https_resume_requires_original_binding"
-                )
-            if unrelated(observed, hostport) != progress["unrelatedSha256"]:
-                raise ServiceError(409, "install_https_unrelated_configuration_changed")
+            _validate_resume(progress, binding, observed, hostport)
         elif root is not None or action == "remove":
             raise ServiceError(409, "install_https_root_not_owned")
         if root not in (None, intended):
@@ -349,25 +267,9 @@ def route(
             atomic_bytes(journal, encode(prepared))
         desired = None if action == "remove" else intended
         if root != desired:
-            # Separate CLI read-modify-write is not atomic with our observation.
-            # Owner consent includes quiescence of external Serve editors.
-            command(
-                tailscale,
-                daemon_socket,
-                "serve",
-                "--bg",
-                "--https=443",
-                "--set-path=/",
-                "off" if action == "remove" else proxy,
+            _set_root_handler(
+                tailscale, daemon_socket, hostport, desired, progress["unrelatedSha256"]
             )
-            observed = observe(tailscale, daemon_socket)
-            check_routes(observed, hostport)
-            if unrelated(observed, hostport) != progress["unrelatedSha256"]:
-                raise ServiceError(409, "install_https_unrelated_configuration_changed")
-            if handler(observed, hostport) != desired:
-                raise ServiceError(
-                    503, "install_https_mutation_not_observed", retryable=True
-                )
         progress["phase"] = "removed" if action == "remove" else "enabled"
         atomic_bytes(journal, encode(prepared))
         return {
@@ -380,6 +282,161 @@ def route(
                 "phone_pairing",
             ],
         }
+
+
+def _admitted_cli_digest(tailscale: Path, daemon_socket: Path) -> str:
+    cli_stat = tailscale.lstat()
+    if (
+        not stat.S_ISREG(cli_stat.st_mode)
+        or not cli_stat.st_mode & 0o111
+        or not stat.S_ISSOCK(daemon_socket.lstat().st_mode)
+    ):
+        raise ServiceError(422, "install_https_requires_native_cli_and_daemon_socket")
+    return file_digest(tailscale, 128 * 1024**2)[1]
+
+
+def _ready_installation(journal: Path) -> dict[str, Any]:
+    retained = read_json(journal, 32768)
+    if not isinstance(retained, dict) or retained.get("schemaVersion") != 1:
+        raise ServiceError(409, "install_https_requires_owned_ready_runtime")
+    prepared: dict[str, Any] = dict(retained)
+    owner, activation = prepared.get("ownerSetup"), prepared.get("activation")
+    if (
+        not isinstance(owner, dict)
+        or owner.get("phase") != "ready"
+        or not isinstance(activation, dict)
+        or activation.get("phase") != "active"
+    ):
+        raise ServiceError(409, "install_https_requires_owned_ready_runtime")
+    return prepared
+
+
+def _route_binding(
+    prepared: dict[str, Any], tailscale: Path, daemon_socket: Path, cli_hash: str
+) -> tuple[dict[str, Any], str]:
+    """Bind the ready runtime's socket to this host's Serve name.
+
+    Returns the binding the journal records and the host:port it serves.
+    """
+    active = prepared["activation"]["binding"]
+    workspace = Path(active["workspace"])
+    native_path(workspace)
+    settings = managed_ingress(workspace)
+    config_hash = _owner_config_digest(workspace, prepared["ownerSetup"], active)
+    _validate_security_ready(workspace, prepared["ownerSetup"], settings)
+    _validate_running_release(Path(prepared["binding"]["manifest"]), active)
+    socket = _workspace_socket(settings)
+    origin = settings.ingress().external_origin
+    if origin is None:
+        raise ServiceError(409, "install_https_requires_matching_configured_origin")
+    name, long = eligible(tailscale, daemon_socket, origin)
+    binding = {
+        "identity": active["identity"],
+        "activation": active,
+        "configSha256": config_hash,
+        "tailscale": str(tailscale),
+        "cliSha256": cli_hash,
+        "daemonSocket": str(daemon_socket),
+        "versionLong": long,
+        "origin": origin,
+        "proxy": "unix:" + str(socket),
+    }
+    return binding, name + ":443"
+
+
+def _owner_config_digest(
+    workspace: Path, owner: dict[str, Any], active: dict[str, Any]
+) -> str:
+    """The config owner setup wrote, for the identity activation started."""
+    config_hash = file_digest(workspace / "config.json", 16384)[1]
+    if (
+        config_hash != owner["targetConfigSha256"]
+        or read_json(workspace / "identity.json", 4096)
+        != {"schemaVersion": 1, **active["identity"]}
+        or owner["binding"]["identity"] != active["identity"]
+    ):
+        raise ServiceError(409, "install_https_owner_binding_changed")
+    return config_hash
+
+
+def _validate_security_ready(
+    workspace: Path, owner: dict[str, Any], settings: Config
+) -> None:
+    epoch = read_json(workspace / "operations/security-binding.json", 4096)
+    if (
+        not isinstance(epoch, dict)
+        or epoch.get("securityEpoch") != owner["authority"]["securityEpoch"]
+        or not ready(settings, time.monotonic() + 1.0)
+    ):
+        raise ServiceError(409, "install_https_requires_owned_ready_runtime")
+
+
+def _validate_running_release(manifest: Path, active: dict[str, Any]) -> None:
+    """The activated release must be the healthy API serving this workspace."""
+    environment, docker = Path(active["environment"]), Path(active["docker"])
+    for path in (manifest, environment, docker):
+        native_path(path)
+    if file_digest(manifest, 2 * 1024**2)[1] != active["target"]["manifestSha256"]:
+        raise ServiceError(409, "install_https_runtime_release_changed")
+    running(
+        docker,
+        environment,
+        active["project"],
+        manifest,
+        active["target"]["architecture"],
+        Path(active["workspace"]),
+        active["uid"],
+        active["gid"],
+        require_healthy=True,
+    )
+
+
+def _workspace_socket(settings: Config) -> Path:
+    socket = settings.path("security/runtime/http.sock")
+    native_path(socket)
+    if not stat.S_ISSOCK(socket.lstat().st_mode):
+        raise ServiceError(409, "install_https_requires_ready_workspace_socket")
+    return socket
+
+
+def _validate_resume(
+    progress: object, binding: dict[str, Any], observed: dict[str, Any], hostport: str
+) -> None:
+    """Resume only the recorded route, with every unrelated Serve entry unchanged."""
+    if (
+        not isinstance(progress, dict)
+        or progress.get("binding") != binding
+        or progress.get("phase") not in ("setting", "enabled", "removing", "removed")
+    ):
+        raise ServiceError(409, "install_https_resume_requires_original_binding")
+    if unrelated(observed, hostport) != progress["unrelatedSha256"]:
+        raise ServiceError(409, "install_https_unrelated_configuration_changed")
+
+
+def _set_root_handler(
+    tailscale: Path,
+    daemon_socket: Path,
+    hostport: str,
+    desired: dict[str, str] | None,
+    unrelated_sha256: str,
+) -> None:
+    # Separate CLI read-modify-write is not atomic with our observation.
+    # Owner consent includes quiescence of external Serve editors.
+    command(
+        tailscale,
+        daemon_socket,
+        "serve",
+        "--bg",
+        "--https=443",
+        "--set-path=/",
+        "off" if desired is None else desired["Proxy"],
+    )
+    observed = observe(tailscale, daemon_socket)
+    check_routes(observed, hostport)
+    if unrelated(observed, hostport) != unrelated_sha256:
+        raise ServiceError(409, "install_https_unrelated_configuration_changed")
+    if handler(observed, hostport) != desired:
+        raise ServiceError(503, "install_https_mutation_not_observed", retryable=True)
 
 
 def main(argv: list[str] | None = None) -> int:
