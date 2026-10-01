@@ -174,24 +174,9 @@ def _records(
         if "from" in request.query or "to" in request.query
         else None
     )
-    statuses: dict[str, JSON] = {}
-    for name, component in capture["components"].items():
-        if authority.read_sources is not None and name not in authority.read_sources:
-            continue
-        if requested_sources is not None and name not in requested_sources:
-            continue
-        statuses[name] = component["state"]
-        if not snapshots.covers(
-            component["coverage"], requested_window, requested_kinds
-        ):
-            raise unavailable()
-        truncated = component["state"].get("truncatedKinds", [])
-        if truncated:
-            raise ServiceError(
-                413,
-                "source_window_too_large",
-                details={"reason": "narrow_date_range_or_record_kinds"},
-            )
+    statuses = _source_statuses(
+        capture, authority, requested_sources, requested_kinds, requested_window
+    )
     values = snapshots.observations(
         capture, authority, service.config.zone.key, stale=stale
     )
@@ -202,21 +187,13 @@ def _records(
             if fields is None
             else fields & authority.read_fields
         )
-
-    def filtered(item: dict[str, JSON]) -> dict[str, JSON]:
-        return (
-            item
-            if fields is None
-            else {key: value for key, value in item.items() if key in fields}
-        )
-
     if request.operation == "records.get":
         record_id = identifier(request.resource_id)
         item = next((row for row in values if row["id"] == record_id), None)
         if item is None:
             raise ServiceError(404, "not_found")
         return {
-            "record": filtered(item),
+            "record": _only(item, fields),
             "stale": stale or item.get("freshness") == "stale",
         }
     start, end = requested_window or tuple(
@@ -239,44 +216,10 @@ def _records(
     values.sort(key=lambda item: (text(item["observedAt"]), text(item["id"])))
     # Cursor binds the actual explicit window. A first-page default window is
     # returned so clients can repeat it exactly when requesting the next page.
-    scope = digest(
-        {
-            "from": start.isoformat(),
-            "to": end.isoformat(),
-            "kinds": sorted(kinds) if kinds else None,
-            "sources": sorted(sources) if sources else None,
-            "fields": sorted(fields) if fields is not None else None,
-            "policySources": sorted(authority.read_sources)
-            if authority.read_sources is not None
-            else None,
-            "policyKinds": sorted(authority.read_kinds)
-            if authority.read_kinds is not None
-            else None,
-        }
-    )
+    scope = _cursor_scope(start, end, kinds, sources, fields, authority)
     cursor = request.query.get("cursor")
     if cursor is not None:
-        try:
-            parsed = object_value(
-                decode(base64.urlsafe_b64decode(cursor.encode()), limit=4096),
-                {"revision", "scope", "last"},
-            )
-        except (ValueError, binascii.Error, UnicodeError) as exc:
-            raise invalid() from exc
-        if parsed["revision"] != capture["revision"]:
-            raise ServiceError(409, "revision_conflict")
-        if (
-            parsed["scope"] != scope
-            or not isinstance(parsed["last"], list)
-            or len(parsed["last"]) != 2
-        ):
-            raise invalid()
-        last = (text(parsed["last"][0]), text(parsed["last"][1]))
-        values = [
-            item
-            for item in values
-            if (text(item["observedAt"]), text(item["id"])) > last
-        ]
+        values = _after_cursor(values, cursor, capture["revision"], scope)
     page = values[:limit]
     next_cursor = None
     if len(values) > limit:
@@ -294,13 +237,98 @@ def _records(
         for status in statuses.values()
     )
     return {
-        "records": cast(list[JSON], [filtered(item) for item in page]),
+        "records": cast(list[JSON], [_only(item, fields) for item in page]),
         "nextCursor": next_cursor,
         "window": {"from": start.isoformat(), "to": end.isoformat()},
         "timezone": service.config.zone.key,
         "stale": partial,
         "sources": statuses,
     }
+
+
+def _source_statuses(
+    capture: dict[str, Any],
+    authority: Authority,
+    requested_sources: set[str] | None,
+    requested_kinds: set[str] | None,
+    requested_window: tuple[datetime, datetime] | None,
+) -> dict[str, JSON]:
+    """Each readable requested source's state; its capture must cover the read."""
+    statuses: dict[str, JSON] = {}
+    for name, component in capture["components"].items():
+        if authority.read_sources is not None and name not in authority.read_sources:
+            continue
+        if requested_sources is not None and name not in requested_sources:
+            continue
+        statuses[name] = component["state"]
+        if not snapshots.covers(
+            component["coverage"], requested_window, requested_kinds
+        ):
+            raise unavailable()
+        truncated = component["state"].get("truncatedKinds", [])
+        if truncated:
+            raise ServiceError(
+                413,
+                "source_window_too_large",
+                details={"reason": "narrow_date_range_or_record_kinds"},
+            )
+    return statuses
+
+
+def _only(item: dict[str, JSON], fields: set[str] | None) -> dict[str, JSON]:
+    if fields is None:
+        return item
+    return {key: value for key, value in item.items() if key in fields}
+
+
+def _cursor_scope(
+    start: datetime,
+    end: datetime,
+    kinds: set[str] | None,
+    sources: set[str] | None,
+    fields: set[str] | None,
+    authority: Authority,
+) -> str:
+    return digest(
+        {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "kinds": sorted(kinds) if kinds else None,
+            "sources": sorted(sources) if sources else None,
+            "fields": sorted(fields) if fields is not None else None,
+            "policySources": sorted(authority.read_sources)
+            if authority.read_sources is not None
+            else None,
+            "policyKinds": sorted(authority.read_kinds)
+            if authority.read_kinds is not None
+            else None,
+        }
+    )
+
+
+def _after_cursor(
+    values: list[dict[str, JSON]], cursor: str, revision: JSON, scope: str
+) -> list[dict[str, JSON]]:
+    """The records after a cursor issued for this revision and query scope."""
+    try:
+        parsed = object_value(
+            decode(base64.urlsafe_b64decode(cursor.encode()), limit=4096),
+            {"revision", "scope", "last"},
+        )
+    except (ValueError, binascii.Error, UnicodeError) as exc:
+        raise invalid() from exc
+    if parsed["revision"] != revision:
+        raise ServiceError(409, "revision_conflict")
+    if (
+        parsed["scope"] != scope
+        or not isinstance(parsed["last"], list)
+        or len(parsed["last"]) != 2
+    ):
+        raise invalid()
+    last = (text(parsed["last"][0]), text(parsed["last"][1]))
+    return [
+        item for item in values if (text(item["observedAt"]), text(item["id"])) > last
+    ]
 
 
 def _selection(
@@ -467,56 +495,68 @@ def _render(
     elif operation in {"training.fast.read", "training.fast.write"}:
         if stale:
             raise unavailable()
-        provider = Jev(service.config)
-        fast = source_bundle.module("training_fast")
-        try:
-            provider.require_enabled()
-            body = (
-                dict(request.query)
-                if operation == "training.fast.read"
-                else object_value(request.payload, {"date", "revision", "step"})
-            )
-            day, revision_value = (
-                text(body.get("date"), limit=10),
-                text(body.get("revision"), limit=40),
-            )
-            dashboard = snapshots.dashboard(service, capture, authority)
-            plan = fast.select_plan(
-                dashboard,
-                day,
-                revision_value,
-                service.config.values["integrations"]["jev"]["model"],
-            )
-            cache = fast.Store(service.config.storage("cache") / "training-fast")
-
-            def still_current() -> None:
-                check_deadline(request.deadline)
-                # Canonical lock remains held, so no health mutation can pass
-                # the policy/transaction boundary while this plan is selected.
-                if service.journal.state().revision != state.revision:
-                    raise ServiceError(409, "revision_conflict")
-
-            data = cast(
-                JSON,
-                cache.step(plan, body.get("step"), provider.ask, still_current)
-                if operation == "training.fast.write"
-                else cache.get(plan),
-            )
-        except ProviderUnavailable as exc:
-            raise ServiceError(503, "provider_unavailable") from exc
-        except fast.FastError as exc:
-            status = exc.status if exc.status in {400, 409, 422, 503} else 422
-            raise ServiceError(
-                status,
-                "revision_conflict"
-                if status == 409
-                else "invalid_plan"
-                if status != 503
-                else "provider_unavailable",
-            ) from exc
+        data = _training_fast(service, authority, request, state, capture)
     else:
         raise invalid()
     return envelope(data, state.identity, capture["revision"])
+
+
+def _training_fast(
+    service: Service,
+    authority: Authority,
+    request: Request,
+    state: State,
+    capture: dict[str, Any],
+) -> JSON:
+    """Read or advance the cached guided session for the selected training plan."""
+    operation = request.operation
+    provider = Jev(service.config)
+    fast = source_bundle.module("training_fast")
+    try:
+        provider.require_enabled()
+        body = (
+            dict(request.query)
+            if operation == "training.fast.read"
+            else object_value(request.payload, {"date", "revision", "step"})
+        )
+        day, revision_value = (
+            text(body.get("date"), limit=10),
+            text(body.get("revision"), limit=40),
+        )
+        dashboard = snapshots.dashboard(service, capture, authority)
+        plan = fast.select_plan(
+            dashboard,
+            day,
+            revision_value,
+            service.config.values["integrations"]["jev"]["model"],
+        )
+        cache = fast.Store(service.config.storage("cache") / "training-fast")
+
+        def still_current() -> None:
+            check_deadline(request.deadline)
+            # Canonical lock remains held, so no health mutation can pass
+            # the policy/transaction boundary while this plan is selected.
+            if service.journal.state().revision != state.revision:
+                raise ServiceError(409, "revision_conflict")
+
+        return cast(
+            JSON,
+            cache.step(plan, body.get("step"), provider.ask, still_current)
+            if operation == "training.fast.write"
+            else cache.get(plan),
+        )
+    except ProviderUnavailable as exc:
+        raise ServiceError(503, "provider_unavailable") from exc
+    except fast.FastError as exc:
+        status = exc.status if exc.status in {400, 409, 422, 503} else 422
+        raise ServiceError(
+            status,
+            "revision_conflict"
+            if status == 409
+            else "invalid_plan"
+            if status != 503
+            else "provider_unavailable",
+        ) from exc
 
 
 def _available_operations(service: Service, authority: Authority) -> list[JSON]:
@@ -546,42 +586,15 @@ def read(
         return discover(
             service, authority, state, _available_operations(service, authority)
         )
-    writable = "records:write" in authority.grants
     if request.operation == "capabilities":
-        data: dict[str, JSON] = {
-            "apiVersion": 1,
-            "schemaVersion": 1,
-            "writable": writable,
-            "healthkitReceiver": service.health.receiver,
-            "limits": {
-                "maxRows": MAX_ROWS,
-                "maxDays": MAX_DAYS,
-                "maxBodyBytes": MAX_BODY,
-                "maxPlanBodyBytes": MAX_PLAN_BODY,
-                "maxHealthkitBodyBytes": MAX_HEALTH_BODY,
-            },
-            "recordKinds": [
-                "body-mass",
-                "water-intake",
-                "intake",
-                "blood-pressure",
-                "circumference",
-                "workout-session",
-                "workout-set",
-                "cardio-segment",
-            ],
-            "loggerKinds": list(LOGGER_KINDS),
-        }
-        data["availableOperations"] = _available_operations(service, authority)
-        data["sourceStatusOperation"] = (
-            "projection.status" if "records:read" in authority.grants else None
+        return envelope(
+            _capabilities(service, authority), state.identity, state.revision
         )
-        return envelope(cast(JSON, data), state.identity, state.revision)
     if request.operation == "workouts.status":
         return envelope(
             {
                 "available": True,
-                "writable": writable,
+                "writable": "records:write" in authority.grants,
                 "mode": "canonical-local",
                 "reason": None,
             },
@@ -595,18 +608,7 @@ def read(
 
         return extension_read(service, authority, request, state)
     if request.operation == "asset.read":
-        name = request.resource_id
-        media_types = {
-            "icon.svg": "image/svg+xml",
-            "manifest.webmanifest": "application/manifest+json",
-            "extension-worker.js": "text/javascript; charset=utf-8",
-        }
-        if name not in media_types:
-            raise ServiceError(404, "not_found")
-        raw = (source_bundle.DASHBOARD / "assets" / name).read_bytes()
-        if len(raw) > 65536:
-            raise unavailable()
-        return Response(200, raw, (("Content-Type", media_types[name]),))
+        return _asset(request.resource_id)
     if request.operation == "context.intent":
         body = object_value(request.payload, {"text"})
         try:
@@ -650,6 +652,52 @@ def read(
         return fallback(service, authority, request, state)
     snapshots.remember(service, capture)
     return response
+
+
+def _capabilities(service: Service, authority: Authority) -> JSON:
+    data: dict[str, JSON] = {
+        "apiVersion": 1,
+        "schemaVersion": 1,
+        "writable": "records:write" in authority.grants,
+        "healthkitReceiver": service.health.receiver,
+        "limits": {
+            "maxRows": MAX_ROWS,
+            "maxDays": MAX_DAYS,
+            "maxBodyBytes": MAX_BODY,
+            "maxPlanBodyBytes": MAX_PLAN_BODY,
+            "maxHealthkitBodyBytes": MAX_HEALTH_BODY,
+        },
+        "recordKinds": [
+            "body-mass",
+            "water-intake",
+            "intake",
+            "blood-pressure",
+            "circumference",
+            "workout-session",
+            "workout-set",
+            "cardio-segment",
+        ],
+        "loggerKinds": list(LOGGER_KINDS),
+    }
+    data["availableOperations"] = _available_operations(service, authority)
+    data["sourceStatusOperation"] = (
+        "projection.status" if "records:read" in authority.grants else None
+    )
+    return cast(JSON, data)
+
+
+def _asset(name: str | None) -> Response:
+    media_types = {
+        "icon.svg": "image/svg+xml",
+        "manifest.webmanifest": "application/manifest+json",
+        "extension-worker.js": "text/javascript; charset=utf-8",
+    }
+    if name not in media_types:
+        raise ServiceError(404, "not_found")
+    raw = (source_bundle.DASHBOARD / "assets" / name).read_bytes()
+    if len(raw) > 65536:
+        raise unavailable()
+    return Response(200, raw, (("Content-Type", media_types[name]),))
 
 
 def fallback(

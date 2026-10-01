@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, time, timedelta
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
+from zoneinfo import ZoneInfo
 
 from health_buddy.core import snapshots
 from health_buddy.core.domain import (
@@ -73,34 +75,9 @@ def _metric(
     state: State,
     reviewed: ReviewedExtension,
 ) -> dict[str, JSON]:
-    # Seven local calendar days, ending at today's selected local wall time.
-    # Explicit from/to are for reproducible native/reference reads only and
-    # still must describe no more than seven local days (DST can vary hours).
     zone = service.config.zone
-    end = datetime.now(zone)
-    start = datetime.combine(end.date() - timedelta(days=6), time.min, zone)
-    if "from" in request.query or "to" in request.query:
-        if set(request.query) & {"from", "to"} != {"from", "to"}:
-            raise ServiceError(422, "invalid_extension_window")
-        try:
-            start = datetime.fromisoformat(request.query["from"].replace("Z", "+00:00"))
-            end = datetime.fromisoformat(request.query["to"].replace("Z", "+00:00"))
-            if (
-                start.tzinfo is None
-                or end.tzinfo is None
-                or end < start
-                or end.astimezone(zone).date() - start.astimezone(zone).date()
-                > timedelta(days=6)
-            ):
-                raise ValueError("window")
-        except (ValueError, OverflowError):
-            raise ServiceError(422, "invalid_extension_window") from None
-    source = request.query.get("sourceId")
-    if source is None and len(reviewed.source_ids) == 1:
-        source = reviewed.source_ids[0]
-    if source is None:
-        raise ServiceError(422, "extension_source_selection_required")
-    source = identifier(source)
+    start, end = _window(zone, request.query)
+    source = _selected_source(request.query, reviewed)
     _scope(authority, reviewed, source)
     _known_source(service, source)
     from health_buddy.core.views import _records
@@ -129,25 +106,11 @@ def _metric(
     records = cast(list[dict[str, JSON]], rows)
     truncated = data["nextCursor"] is not None
     stale = data["stale"] is True
-    component = capture["components"].get(source)
-    source_kind = service.journal.sources().get(source, {}).get("source_kind")
-    if component is None and (
-        source == "healthkit-import" or source_kind == "healthkit"
-    ):
-        component = capture["components"].get("healthkit")
-    disabled = (
-        component is not None and component["state"]["availability"] == "disabled"
-    )
+    disabled = _source_disabled(service, capture, source)
     source_missingness = (
         "source_unavailable" if stale else ("source_disabled" if disabled else None)
     )
-    freshness = (
-        "stale"
-        if stale or any(row.get("freshness") == "stale" for row in records)
-        else "fresh"
-        if records and all(row.get("freshness") == "fresh" for row in records)
-        else "unknown"
-    )
+    freshness = _freshness(records, stale)
     projection = "stale" if stale else "partial" if truncated or disabled else "current"
     payload: dict[str, JSON] = {
         "schemaVersion": 1,
@@ -172,6 +135,83 @@ def _metric(
         payload,
     )
     check_deadline(request.deadline)
+    result, unit, missingness = _metric_result(raw, records)
+    return {
+        "schemaVersion": 1,
+        **result,
+        "unit": unit,
+        "sourceId": source,
+        "timezone": zone.key,
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "dataRevision": state.revision,
+        "projectionState": projection,
+        "freshness": freshness,
+        "truncated": truncated,
+        "missingness": source_missingness or missingness,
+    }
+
+
+def _window(zone: ZoneInfo, query: Mapping[str, str]) -> tuple[datetime, datetime]:
+    # Seven local calendar days, ending at today's selected local wall time.
+    # Explicit from/to are for reproducible native/reference reads only and
+    # still must describe no more than seven local days (DST can vary hours).
+    end = datetime.now(zone)
+    start = datetime.combine(end.date() - timedelta(days=6), time.min, zone)
+    if "from" in query or "to" in query:
+        if set(query) & {"from", "to"} != {"from", "to"}:
+            raise ServiceError(422, "invalid_extension_window")
+        try:
+            start = datetime.fromisoformat(query["from"].replace("Z", "+00:00"))
+            end = datetime.fromisoformat(query["to"].replace("Z", "+00:00"))
+            if (
+                start.tzinfo is None
+                or end.tzinfo is None
+                or end < start
+                or end.astimezone(zone).date() - start.astimezone(zone).date()
+                > timedelta(days=6)
+            ):
+                raise ValueError("window")
+        except (ValueError, OverflowError):
+            raise ServiceError(422, "invalid_extension_window") from None
+    return start, end
+
+
+def _selected_source(query: Mapping[str, str], reviewed: ReviewedExtension) -> str:
+    source = query.get("sourceId")
+    if source is None and len(reviewed.source_ids) == 1:
+        source = reviewed.source_ids[0]
+    if source is None:
+        raise ServiceError(422, "extension_source_selection_required")
+    return identifier(source)
+
+
+def _source_disabled(service: Service, capture: dict[str, Any], source: str) -> bool:
+    """Whether the captured component behind this source is disabled."""
+    component = capture["components"].get(source)
+    source_kind = service.journal.sources().get(source, {}).get("source_kind")
+    if component is None and (
+        source == "healthkit-import" or source_kind == "healthkit"
+    ):
+        component = capture["components"].get("healthkit")
+    return component is not None and component["state"]["availability"] == "disabled"
+
+
+def _freshness(records: list[dict[str, JSON]], stale: bool) -> str:
+    if stale or any(row.get("freshness") == "stale" for row in records):
+        return "stale"
+    if records and all(row.get("freshness") == "fresh" for row in records):
+        return "fresh"
+    return "unknown"
+
+
+def _metric_result(
+    raw: JSON, records: list[dict[str, JSON]]
+) -> tuple[dict[str, JSON], str, JSON]:
+    """The hook's result, its unit and its missingness, once all are bounded.
+
+    Every record ID it cites must be one of the records it was given.
+    """
     result = object_value(raw, {"value", "unit", "count", "recordIds", "missingness"})
     ids = result["recordIds"]
     if (
@@ -193,20 +233,7 @@ def _metric(
         result["value"] is None and missingness is None
     ):
         raise ServiceError(503, "extension_output_invalid")
-    return {
-        "schemaVersion": 1,
-        **result,
-        "unit": unit,
-        "sourceId": source,
-        "timezone": zone.key,
-        "from": start.isoformat(),
-        "to": end.isoformat(),
-        "dataRevision": state.revision,
-        "projectionState": projection,
-        "freshness": freshness,
-        "truncated": truncated,
-        "missingness": source_missingness or missingness,
-    }
+    return result, unit, missingness
 
 
 def read(
