@@ -27,9 +27,9 @@ from health_buddy.core.service_api import (
     Response,
     ServiceError,
 )
-from health_buddy.transport_ingress import VerifiedSocket
-from health_buddy.transport_jobs import Jobs
-from health_buddy.transport_limits import (
+from health_buddy.transport.ingress import VerifiedSocket
+from health_buddy.transport.jobs import Jobs
+from health_buddy.transport.limits import (
     DEFAULT_LIMITS,
     EnvelopeError,
     Limits,
@@ -39,10 +39,10 @@ from health_buddy.transport_limits import (
     json_object,
     query,
 )
-from health_buddy.transport_security import SecurityTransport
-from health_buddy.transport_security import route as security_route
-from health_buddy.transport_ui import script as auth_script
-from health_buddy.transport_ui import shell as auth_shell
+from health_buddy.transport.security import SecurityTransport
+from health_buddy.transport.security import route as security_route
+from health_buddy.transport.ui import script as auth_script
+from health_buddy.transport.ui import shell as auth_shell
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@ import os
 from functools import partial
 from pathlib import Path
 
-from health_buddy.production_server import serve
+from health_buddy.transport.server import serve
 from tests.auth_transport_fixtures import fake_runtime
 
 

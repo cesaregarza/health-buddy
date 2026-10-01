@@ -10,7 +10,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Durable stores and receipts | `core/journal.py`, `core/durability.py`, `core/stores.py`, `core/health_store.py`; canonical recovery/boundaries tests |
 | Manual values and stable IDs | `core/records.py`, `core/loggers.py`, `core/plans.py`; canonical logger/source ownership tests; retained pure validator tests |
 | Source capture and scoped projections | `core/snapshots.py`, `core/views.py`, `core/projection.py`; canonical reads/extensions and portable workspace tests |
-| Maintained HTTP | `transport*.py`, `production_server.py`; transport, wire and portable HTTP tests |
+| Maintained HTTP | `transport/` (`asgi.py`, `server.py`, `listener.py`, `limits.py`, `ingress.py`, `jobs.py`, `security.py`, `ui.py`); transport, wire and portable HTTP tests |
 | Security authority and native setup | `core/security_api.py`, `security/authority.py`, `security/store.py`, `security/actions.py`, `security/device_admission.py`, `security/readiness.py`, `security/runtime.py`; security authority/pairing/recovery/setup tests |
 | UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
 | Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |

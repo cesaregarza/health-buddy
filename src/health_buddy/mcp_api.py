@@ -29,7 +29,7 @@ from health_buddy.core.service_api import (
 )
 from health_buddy.mcp_errors import SAFE_CODES
 from health_buddy.mcp_settings import Settings
-from health_buddy.transport_limits import EnvelopeError, Limits, json_object
+from health_buddy.transport.limits import EnvelopeError, Limits, json_object
 
 ROUTES: dict[Operation, tuple[str, str, frozenset[str]]] = {
     "capabilities": ("GET", "/v1/capabilities", frozenset()),

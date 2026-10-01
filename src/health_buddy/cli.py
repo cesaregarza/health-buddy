@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "serve":
-            from health_buddy.production_server import serve
+            from health_buddy.transport.server import serve
 
             # Construct the service inside Granian's child, never in this
             # supervisor before the factory crosses its process boundary.

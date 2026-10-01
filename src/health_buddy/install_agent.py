@@ -28,8 +28,8 @@ from health_buddy.mcp_settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.retry_paths import native_path
 from health_buddy.security.runtime import open_runtime, read_credential
-from health_buddy.transport_limits import EnvelopeError
-from health_buddy.transport_security import request_payload
+from health_buddy.transport.limits import EnvelopeError
+from health_buddy.transport.security import request_payload
 
 
 def owner(record: dict[str, Any]) -> tuple[Runtime, Authenticated]:

@@ -15,7 +15,7 @@ import pytest
 
 from health_buddy.core.service_api import ServiceError
 from health_buddy.security.readiness import ready
-from health_buddy.transport import create_app
+from health_buddy.transport.asgi import create_app
 from tests.canonical_fixtures import intent
 from tests.security_fixtures import secured
 from tests.test_transport import exchange

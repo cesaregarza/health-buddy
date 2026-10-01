@@ -8,7 +8,7 @@ from health_buddy.core.security_api import AgentGrant, BearerProof
 from health_buddy.core.service_api import Request
 from health_buddy.discovery import source_identity
 from health_buddy.extension_registry import Registry
-from health_buddy.transport import ENDPOINTS
+from health_buddy.transport.asgi import ENDPOINTS
 from tests.extension_fixtures import example
 from tests.security_fixtures import action, secured
 

@@ -15,8 +15,8 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp_errors import failure
 from health_buddy.mcp_stdio import streams
 from health_buddy.mcp_tools import ToolService
-from health_buddy.transport_jobs import Jobs
-from health_buddy.transport_limits import EnvelopeError, Limits
+from health_buddy.transport.jobs import Jobs
+from health_buddy.transport.limits import EnvelopeError, Limits
 
 REFERENCE_URI = "health-buddy://adapter/v1"
 REFERENCE = """Health Buddy local MCP adapter reference, schema version 1.

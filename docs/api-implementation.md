@@ -19,7 +19,7 @@ Owner-trusted Python is not a hostile-code sandbox.
 | Retained logger and plan semantics | `core/loggers.py`, `core/records.py`, `core/plans.py` |
 | Source filtering, projections and private last-good inputs | `core/snapshots.py`, `core/views.py`, `core/projection.py` |
 | Native/browser durable pending workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template |
-| Maintained HTTP, bounded admission and child factory | `transport.py`, `production_server.py` |
+| Maintained HTTP, bounded admission and child factory | `transport/asgi.py`, `transport/server.py` |
 | Scoped examples | `extensions.py` (`ScopedClient`, `latest_body_mass`, `water_connector`) |
 | Executable synthetic evidence | `tests/test_canonical_*.py`, `tests/test_client_workflow.py`, transport/portable tests and six dashboard browser scripts |
 

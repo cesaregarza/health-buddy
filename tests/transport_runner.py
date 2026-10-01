@@ -9,7 +9,7 @@ import time
 from functools import partial
 from pathlib import Path
 
-from health_buddy.production_server import serve
+from health_buddy.transport.server import serve
 from health_buddy.core.service_api import Principal, Response
 
 

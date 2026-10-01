@@ -12,7 +12,7 @@ from playwright.sync_api import expect, sync_playwright
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 # This standalone source script must first locate the local package.
-from health_buddy.transport_ui import SCRIPT, shell  # noqa: E402
+from health_buddy.transport.ui import SCRIPT, shell  # noqa: E402
 
 ORIGIN = "https://synthetic.example"
 SESSION = "synthetic-session-" + "b" * 32

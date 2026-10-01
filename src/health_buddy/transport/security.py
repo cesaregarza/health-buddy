@@ -29,8 +29,8 @@ from health_buddy.core.security_api import (
     SessionProof,
 )
 from health_buddy.core.service_api import JSON, Identity, ServiceError
-from health_buddy.transport_jobs import Jobs
-from health_buddy.transport_limits import (
+from health_buddy.transport.jobs import Jobs
+from health_buddy.transport.limits import (
     EnvelopeError,
     Limits,
     content_length,

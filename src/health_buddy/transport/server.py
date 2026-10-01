@@ -14,9 +14,9 @@ from starlette.types import ASGIApp
 
 from health_buddy.core.security_api import IngressConfig, Runtime
 from health_buddy.core.service_api import Operations
-from health_buddy.runtime_listener import ListenerLease, listener_lease
-from health_buddy.transport import create_app
-from health_buddy.transport_ingress import VerifiedSocket, prepare_socket
+from health_buddy.transport.asgi import create_app
+from health_buddy.transport.ingress import VerifiedSocket, prepare_socket
+from health_buddy.transport.listener import ListenerLease, listener_lease
 
 if TYPE_CHECKING:
     # Concrete model for tested CPython3.12/GIL; no free-threaded qualification.
@@ -101,7 +101,7 @@ def _serve(
             raise ValueError("development_requires_loopback")
         prepare_socket(socket_path)
     runtime = _OwnedSocketServer(
-        target="health_buddy.transport",
+        target="health_buddy.transport.asgi",
         address="127.0.0.1",
         port=port,
         uds=socket_path,

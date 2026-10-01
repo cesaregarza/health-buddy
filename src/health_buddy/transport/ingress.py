@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from starlette.types import Scope
 
 from health_buddy.core.security_api import IngressConfig
-from health_buddy.transport_limits import EnvelopeError
+from health_buddy.transport.limits import EnvelopeError
 
 
 def socket_parent(path: Path) -> None:

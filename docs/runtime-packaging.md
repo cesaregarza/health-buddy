@@ -16,7 +16,7 @@ neither publishes a registry image nor creates an external release.
 | `runtime/context.py`, `packaging/runtime.Dockerfile`, `install_runtime.py` | Complete build context and offline binary assembly |
 | `runtime/artifact.py`, `runtime/release.py` | Bounded Docker-save archive admission, actual artifact manifest and fixed-ID loading |
 | `packaged_runtime.py`, `scripts/runtime_entrypoint.py` | Explicit nonroot API/CLI/job/health entrypoints |
-| `runtime_listener.py`, `security/readiness.py` | Shared listener lifetime and read-only core readiness |
+| `transport/listener.py`, `security/readiness.py` | Shared listener lifetime and read-only core readiness |
 | `packaging/compose.yaml` | Same immutable image for API and explicit finite jobs |
 | `packaging/verify_runtime.py`, `runtime_synthetic.py` | Admitted isolated-runner build/replacement/retry qualification |
 
