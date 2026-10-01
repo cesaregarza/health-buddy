@@ -65,6 +65,22 @@ claim that those tickets are complete.
    concise verification summary to Linear, then move completed implementation
    to In Review. Unpublished or partially verified work stays out of In Review.
 
+## Source scope
+
+This repository contains the **v1 contract** and a clean source extraction of
+the dashboard, HealthKit ingest, manual operations and optional SleepIQ source.
+The source bundle now supports a private local first run, manual logging,
+dashboard and context packs with every optional integration disabled. Canonical
+v1 operations now join UI, CLI and scoped extension clients behind one durable
+coordinator. Owner sessions, scoped agent grants and upload-only device pairing
+share a durable authorization authority. Reviewed personal metrics/views and
+connector jobs live outside the replaceable source, with maintained synthetic
+examples and durable event retries. Source packaging now includes immutable
+input locks, a Docker archive/Compose runtime and controlled native architecture
+qualification commands. Actual image/build receipts and operator release
+qualification remain separate; installer and live-agent qualification remain
+later tickets. Passing source checks does not establish release qualification.
+
 ## Activation and release gates
 
 Publishing or merging source is distinct from activation. Runtime/installer/
