@@ -23,6 +23,7 @@ from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.files import private_directory, read_json
+from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.service_api import ServiceError
 from health_buddy.runtime.inputs import _Redirect
 from health_buddy.runtime.manifest import (
@@ -374,49 +375,7 @@ def acquire(
         artifact(
             manifest, manifest_url, trusted_manifest_sha256, MAX_METADATA, None, journal
         )
-        value = _json(manifest)
-        if not isinstance(value, dict) or (
-            value.get("sourceCommit"),
-            value.get("sourceTree"),
-            value.get("packageVersion"),
-        ) != (identity.source_commit, identity.source_tree, identity.package_version):
-            raise ServiceError(409, "install_acquire_source_mismatch")
-        source = value.get("sourceArchive")
-        if (
-            not isinstance(source, dict)
-            or source.get("file") != "health-buddy-source.tar"
-            or source.get("sha256") != identity.source_archive_sha256
-            or source.get("bytes")
-            != file_digest(bundle / "release/source.tar", 64 * 1024**2)[0]
-        ):
-            raise ServiceError(409, "install_acquire_source_mismatch")
-        files = value.get("artifacts")
-        if not isinstance(files, list) or len(files) != 2:
-            raise ServiceError(422, "install_acquire_invalid_manifest")
-        downloads = [
-            ("health-buddy-source.tar", source["sha256"], source["bytes"], 64 * 1024**2)
-        ]
-        seen: set[str] = set()
-        for item in files:
-            if not isinstance(item, dict) or item.get("architecture") not in (
-                "amd64",
-                "arm64",
-            ):
-                raise ServiceError(422, "install_acquire_invalid_manifest")
-            name = "health-buddy-linux-" + item["architecture"] + ".docker.tar"
-            size, digest = item.get("archive_bytes"), item.get("archive_sha256")
-            if (
-                item.get("file") != name
-                or name in seen
-                or type(size) is not int
-                or not 0 < size <= ARCHIVE_LIMIT
-                or not isinstance(digest, str)
-                or not SHA256.fullmatch(digest)
-            ):
-                raise ServiceError(422, "install_acquire_invalid_manifest")
-            seen.add(name)
-            downloads.append((name, digest, size, ARCHIVE_LIMIT))
-        for name, digest, size, limit in downloads:
+        for name, digest, size, limit in _release_downloads(manifest, identity, bundle):
             artifact(
                 staging / name,
                 urllib.parse.urljoin(manifest_url, name),
@@ -438,6 +397,58 @@ def acquire(
             "publisherSignatureVerified": False,
             "sourceBundleMatched": True,
         }
+
+
+def _release_downloads(
+    manifest: Path, identity: ReleaseIdentity, bundle: Path
+) -> list[tuple[str, str, int, int]]:
+    """The source archive and both image archives the verified manifest pins.
+
+    Each entry is (file name, sha256, bytes, size limit).
+    """
+    value = _json(manifest)
+    if not isinstance(value, dict) or (
+        value.get("sourceCommit"),
+        value.get("sourceTree"),
+        value.get("packageVersion"),
+    ) != (identity.source_commit, identity.source_tree, identity.package_version):
+        raise ServiceError(409, "install_acquire_source_mismatch")
+    source = value.get("sourceArchive")
+    if (
+        not isinstance(source, dict)
+        or source.get("file") != "health-buddy-source.tar"
+        or source.get("sha256") != identity.source_archive_sha256
+        or source.get("bytes")
+        != file_digest(bundle / "release/source.tar", 64 * 1024**2)[0]
+    ):
+        raise ServiceError(409, "install_acquire_source_mismatch")
+    files = value.get("artifacts")
+    if not isinstance(files, list) or len(files) != 2:
+        raise ServiceError(422, "install_acquire_invalid_manifest")
+    downloads = [
+        ("health-buddy-source.tar", source["sha256"], source["bytes"], 64 * 1024**2)
+    ]
+    seen: set[str] = set()
+    for item in files:
+        if not isinstance(item, dict) or item.get("architecture") not in (
+            "amd64",
+            "arm64",
+        ):
+            raise ServiceError(422, "install_acquire_invalid_manifest")
+        name = "health-buddy-linux-" + item["architecture"] + ".docker.tar"
+        size, digest = item.get("archive_bytes"), item.get("archive_sha256")
+        if (
+            item.get("file") != name
+            or name in seen
+            or type(size) is not int
+            or not 0 < size <= ARCHIVE_LIMIT
+            or not isinstance(digest, str)
+            or not SHA256.fullmatch(digest)
+        ):
+            raise ServiceError(422, "install_acquire_invalid_manifest")
+        seen.add(name)
+        downloads.append((name, digest, size, ARCHIVE_LIMIT))
+    return downloads
 
 
 def main(argv: list[str] | None = None) -> int:
