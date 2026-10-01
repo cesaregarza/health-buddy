@@ -129,6 +129,22 @@ def test_changed_archive_is_refused_without_loading(tmp_path, monkeypatch):
     assert "release_invalid" in codes(install_preflight.preflight(**inputs))
 
 
+def test_changed_source_names_the_file_to_re_extract(tmp_path, monkeypatch):
+    inputs = prepared(tmp_path, monkeypatch)
+    (inputs["bundle"] / "source/src/module.py").write_text("VALUE = 2\n")
+    result = install_preflight.preflight(**inputs)
+    assert not result["preflightPassed"]
+    assert {"release_invalid", "source_inventory_mismatch"} <= codes(result)
+    (mismatch,) = [
+        item
+        for item in result["diagnostics"]
+        if item["code"] == "source_inventory_mismatch"
+    ]
+    assert mismatch["recovery"].startswith("Re-extract the source bundle")
+    assert "src/module.py" in mismatch["recovery"]
+    assert str(inputs["bundle"]) not in json.dumps(result)
+
+
 def test_bytecode_from_running_the_bundle_in_place_still_passes(
     tmp_path, monkeypatch
 ):

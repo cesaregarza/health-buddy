@@ -249,6 +249,61 @@ def test_cli_failure_is_redacted_and_owned_partial_is_gone(
     assert not list(arguments["staging"].glob(".health-buddy-acquire-*"))
 
 
+def command_line(arguments):
+    return [
+        "--manifest-url",
+        arguments["manifest_url"],
+        "--trusted-manifest-sha256",
+        arguments["trusted_manifest_sha256"],
+        "--bundle",
+        str(arguments["bundle"]),
+        "--staging",
+        str(arguments["staging"]),
+    ]
+
+
+def test_changed_bundle_source_is_named_before_transport(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, state, _selected = acquisition_fixture(tmp_path, monkeypatch)
+    (arguments["bundle"] / "source/src/module.py").write_text("VALUE = 2\n")
+    assert install_acquire.main(command_line(arguments)) == 2
+    output = capsys.readouterr().out
+    assert json.loads(output)["code"] == "install_acquire_source_identity_mismatch"
+    # Fixed acquire errors stay path-free; preflight names the differing file.
+    assert "module.py" not in output and str(arguments["bundle"]) not in output
+    assert not state["calls"] and not any(arguments["staging"].iterdir())
+
+
+@pytest.mark.parametrize("problem", ["missing", "shared"])
+def test_unavailable_staging_is_named_before_transport(
+    tmp_path, monkeypatch, capsys, problem
+):
+    arguments, state, _selected = acquisition_fixture(tmp_path, monkeypatch)
+    if problem == "missing":
+        arguments["staging"].rmdir()
+    else:
+        arguments["staging"].chmod(0o755)
+    assert install_acquire.main(command_line(arguments)) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "install_acquire_staging_unavailable"
+    assert not state["calls"]
+
+
+def test_os_failure_after_admission_keeps_the_generic_code(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, _state, _selected = acquisition_fixture(tmp_path, monkeypatch)
+
+    def unreachable(value):
+        raise OSError("synthetic local failure")
+
+    monkeypatch.setattr(install_acquire, "fetch", unreachable)
+    assert install_acquire.main(command_line(arguments)) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "install_acquire_release_or_transport_failed"
+
+
 def test_stream_overrun_refuses_even_without_content_length(tmp_path, monkeypatch):
     partial = tmp_path / "owned-partial"
     tmp_path.chmod(0o700)

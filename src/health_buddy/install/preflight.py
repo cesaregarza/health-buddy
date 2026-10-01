@@ -20,6 +20,7 @@ from health_buddy.operator_diagnostics import port_state
 from health_buddy.runtime.manifest import (
     SHA256,
     ManifestError,
+    SourceInventoryMismatch,
     _json,
     file_digest,
     native_directory,
@@ -114,6 +115,7 @@ def preflight(
     }
     architecture = facts["architecture"]
     refusals = _host_refusals(facts)
+    differing: str | None = None
     # Physical host facts do not establish effective container/daemon quotas.
     result["host"]["quotaAdmission"] = "not_performed"
     unavailable = _unavailable_directories(workspace, bundle, manifest.parent)
@@ -125,9 +127,14 @@ def preflight(
     if not _trusted_manifest(manifest, trusted_manifest_sha256, safe_paths):
         refusals.append("release_untrusted")
     elif safe_paths and architecture is not None:
-        release, refusal = _verify_release(
-            bundle, manifest, trusted_manifest_sha256, architecture
-        )
+        try:
+            release, refusal = _verify_release(
+                bundle, manifest, trusted_manifest_sha256, architecture
+            )
+        except SourceInventoryMismatch as error:
+            # release_invalid keeps its meaning; a second diagnostic names the file.
+            release, refusal = None, "release_invalid"
+            differing = error.path
         if refusal is None:
             result["release"] = release
         else:
@@ -142,8 +149,25 @@ def preflight(
         {"code": code, "severity": "error", "recovery": GUIDANCE[code]}
         for code in refusals
     ]
+    if differing is not None:
+        result["diagnostics"].append(_inventory_mismatch(differing))
     result["preflightPassed"] = not refusals
     return result
+
+
+def _inventory_mismatch(path: str) -> dict[str, str]:
+    """Name the file, so the owner re-extracts instead of inspecting artifacts.
+
+    The path is relative to the bundle's source tree, never an absolute host path.
+    """
+    return {
+        "code": "source_inventory_mismatch",
+        "severity": "error",
+        "recovery": (
+            "Re-extract the source bundle from its verified archive; "
+            f"{path} differs from the bundle's source manifest."
+        ),
+    }
 
 
 def _host_refusals(facts: dict[str, Any]) -> list[str]:
@@ -214,7 +238,11 @@ def _trusted_manifest(manifest: Path, trusted_sha256: str, readable: bool) -> bo
 def _verify_release(
     bundle: Path, manifest: Path, trusted_sha256: str, architecture: str
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """The verified release, or the refusal that prevented its verification."""
+    """The verified release, or the refusal that prevented its verification.
+
+    A source tree that differs from its manifest raises SourceInventoryMismatch,
+    so the caller can name the file.
+    """
     try:
         artifact = selected_artifact(manifest, architecture)
         identity = verify_source_identity(
@@ -239,6 +267,8 @@ def _verify_release(
             "imageArchiveSha256": artifact.archive_sha256,
             "trust": "operator_supplied_manifest_pin_not_publisher_identity_proof",
         }, None
+    except SourceInventoryMismatch:
+        raise
     except (OSError, ManifestError):
         return None, "release_invalid"
 
