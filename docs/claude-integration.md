@@ -46,7 +46,8 @@ CONFIG must be `$CLAUDE_PROJECT/.mcp.json`; SKILL_DIRECTORY must end in
 `health-buddy`. Personal discovery normally uses `$HOME/.claude/skills/health-buddy`.
 Use isolated synthetic directories for verification, never the owner's actual
 settings. The helper refuses native paths containing `${` because Claude would
-expand them and change the selected command/environment.
+expand them and change the selected command/environment. PYTHON follows the
+interpreter rules in [Codex setup](codex-integration.md#connect-repeat-and-update).
 
 ```sh
 export PYTHONPATH="$SOURCE/src"
