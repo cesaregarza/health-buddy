@@ -61,9 +61,16 @@ The candidate manifest is generated only after both actual
 `health-buddy-linux-amd64.docker.tar` and
 `health-buddy-linux-arm64.docker.tar` files exist and verify. It records their
 actual hashes/sizes, source commit/tree/archive, input lock and implemented
-interface versions. `SHA256SUMS` covers the actual artifacts and manifest.
-There are no placeholder digests or fabricated download URLs. This is Docker
-`image save` format, not an OCI-layout directory or published registry index.
+interface versions. `SHA256SUMS` covers the actual artifacts, the manifest
+and `health-buddy-bundle.tar`, which the same `manifest` command writes: the
+verified source bundle a fresh host installs from, one top-level `bundle/`
+directory holding `source/` and `release/{source.tar,source-manifest.json}`,
+packed with zero owner, group and mtime so the same bundle always yields the
+same bytes. The manifest does not list it; the
+[bootstrap](install-preflight.md#before-the-first-stage) checks it against an
+owner-confirmed SHA-256. There are no placeholder digests or fabricated download
+URLs. This is Docker `image save` format, not an OCI-layout directory or
+published registry index.
 
 Archive admission checks physical tar headers before parsing, bounded regular
 entries and metadata, one Docker `manifest.json` image, config filename/content
