@@ -86,36 +86,7 @@ def _url(value: object, kind: str) -> str:
 def load_inputs(path: Path, architecture: str) -> PlatformInputs:
     if architecture not in ARCHES:
         raise ManifestError("unsupported_runtime_architecture")
-    root = _object(
-        _json(path),
-        {
-            "lockVersion",
-            "pythonVersion",
-            "baseIndex",
-            "debianSnapshot",
-            "platforms",
-        },
-    )
-    if (
-        type(root["lockVersion"]) is not int
-        or root["lockVersion"] != 1
-        or root["pythonVersion"] != "3.12.14"
-        or not isinstance(root["baseIndex"], str)
-        or not DIGEST.fullmatch(root["baseIndex"])
-        or root["debianSnapshot"] != "20260929T000000Z"
-    ):
-        raise ManifestError("unsupported_input_lock")
-    platforms = _object(root["platforms"], ARCHES)
-    selected = _object(
-        platforms[architecture],
-        {
-            "baseImage",
-            "baseConfig",
-            "baseCompressedBytes",
-            "wheels",
-            "debs",
-        },
-    )
+    selected = _selected_platform(path, architecture)
     base = selected["baseImage"]
     config = selected["baseConfig"]
     base_size = selected["baseCompressedBytes"]
@@ -137,57 +108,95 @@ def load_inputs(path: Path, architecture: str) -> PlatformInputs:
         if not isinstance(items, list) or not 1 <= len(items) <= cap:
             raise ManifestError("input_count_exceeded")
         for item in items:
-            keys = {"name", "version", "filename", "url", "bytes", "sha256"}
-            if kind == "debs":
-                keys |= {
-                    "architecture",
-                    "installedBytes",
-                    "source",
-                    "suite",
-                    "metadataSha256",
-                }
-            record = _object(item, keys)
-            name, version, filename = (
-                _text(record[key]) for key in ("name", "version", "filename")
-            )
-            digest, size = record["sha256"], record["bytes"]
-            if (
-                not isinstance(digest, str)
-                or not SHA256.fullmatch(digest)
-                or type(size) is not int
-                or not 0 < size <= 32 * 1024 * 1024
-                or not filename.endswith(".whl" if kind == "wheels" else ".deb")
-                or (kind, name) in names
-                or filename in filenames
-            ):
-                raise ManifestError("invalid_input_file")
-            installed_size = record.get("installedBytes")
-            metadata_hash = record.get("metadataSha256")
-            if kind == "debs" and (
-                record["architecture"] not in (architecture, "all")
-                or type(installed_size) is not int
-                or not 0 < installed_size <= 256 * 1024 * 1024
-                or not isinstance(metadata_hash, str)
-                or not SHA256.fullmatch(metadata_hash)
-            ):
-                raise ManifestError("invalid_debian_input")
-            names.add((kind, name))
-            filenames.add(filename)
-            total += size
-            result.append(
-                InputFile(
-                    name,
-                    version,
-                    filename,
-                    _url(record["url"], kind),
-                    size,
-                    digest,
-                    kind,
-                )
-            )
+            file = _input_file(item, kind, architecture, names, filenames)
+            names.add((kind, file.name))
+            filenames.add(file.filename)
+            total += file.size
+            result.append(file)
     if total > MAX_INPUT_BYTES:
         raise ManifestError("input_bytes_exceeded")
     return PlatformInputs(architecture, base, config, tuple(result))
+
+
+def _selected_platform(path: Path, architecture: str) -> dict[str, object]:
+    """The supported lock's entry for one architecture."""
+    root = _object(
+        _json(path),
+        {
+            "lockVersion",
+            "pythonVersion",
+            "baseIndex",
+            "debianSnapshot",
+            "platforms",
+        },
+    )
+    if (
+        type(root["lockVersion"]) is not int
+        or root["lockVersion"] != 1
+        or root["pythonVersion"] != "3.12.14"
+        or not isinstance(root["baseIndex"], str)
+        or not DIGEST.fullmatch(root["baseIndex"])
+        or root["debianSnapshot"] != "20260929T000000Z"
+    ):
+        raise ManifestError("unsupported_input_lock")
+    platforms = _object(root["platforms"], ARCHES)
+    return _object(
+        platforms[architecture],
+        {
+            "baseImage",
+            "baseConfig",
+            "baseCompressedBytes",
+            "wheels",
+            "debs",
+        },
+    )
+
+
+def _input_file(
+    item: object,
+    kind: str,
+    architecture: str,
+    names: set[tuple[str, str]],
+    filenames: set[str],
+) -> InputFile:
+    """One pinned wheel or Debian package, distinct from those already read."""
+    keys = {"name", "version", "filename", "url", "bytes", "sha256"}
+    if kind == "debs":
+        keys |= {
+            "architecture",
+            "installedBytes",
+            "source",
+            "suite",
+            "metadataSha256",
+        }
+    record = _object(item, keys)
+    name, version, filename = (
+        _text(record[key]) for key in ("name", "version", "filename")
+    )
+    digest, size = record["sha256"], record["bytes"]
+    if (
+        not isinstance(digest, str)
+        or not SHA256.fullmatch(digest)
+        or type(size) is not int
+        or not 0 < size <= 32 * 1024 * 1024
+        or not filename.endswith(".whl" if kind == "wheels" else ".deb")
+        or (kind, name) in names
+        or filename in filenames
+    ):
+        raise ManifestError("invalid_input_file")
+    installed_size = record.get("installedBytes")
+    metadata_hash = record.get("metadataSha256")
+    if kind == "debs" and (
+        record["architecture"] not in (architecture, "all")
+        or type(installed_size) is not int
+        or not 0 < installed_size <= 256 * 1024 * 1024
+        or not isinstance(metadata_hash, str)
+        or not SHA256.fullmatch(metadata_hash)
+    ):
+        raise ManifestError("invalid_debian_input")
+    return InputFile(
+        name, version, filename, _url(record["url"], kind), size, digest, kind
+    )
 
 
 def verify_inputs(inputs: PlatformInputs, directory: Path) -> None:
