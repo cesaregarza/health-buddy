@@ -25,7 +25,7 @@ from health_buddy.core.security_api import (
 )
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
-from health_buddy.mcp_settings import Settings
+from health_buddy.mcp.settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.transport.limits import EnvelopeError

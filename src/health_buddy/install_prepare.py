@@ -17,7 +17,7 @@ from health_buddy.core.operations import Service
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import initialize
 from health_buddy.install_preflight import preflight
-from health_buddy.mcp_settings import Settings
+from health_buddy.mcp.settings import Settings
 from health_buddy.security.runtime import open_runtime
 from health_buddy.upgrade import preflight as upgrade_preflight
 

@@ -10,11 +10,11 @@ from health_buddy.client.workflow import ClientWorkflow, McpWorkflowNamespace, d
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.security_api import ClientIdentity
 from health_buddy.core.service_api import JSON, Operation, Request, ServiceError
-from health_buddy.mcp_api import HttpOperations
-from health_buddy.mcp_errors import failure, status_result
-from health_buddy.mcp_proposals import Proposals, binding
-from health_buddy.mcp_schemas import CATALOG, SPECS, ToolSpec, validate
-from health_buddy.mcp_settings import Settings
+from health_buddy.mcp.api import HttpOperations
+from health_buddy.mcp.errors import failure, status_result
+from health_buddy.mcp.proposals import Proposals, binding
+from health_buddy.mcp.schemas import CATALOG, SPECS, ToolSpec, validate
+from health_buddy.mcp.settings import Settings
 
 MAX_RESULT = 64 * 1024
 

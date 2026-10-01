@@ -8,7 +8,7 @@ import pytest
 from health_buddy.client.retry_paths import RetryRoot
 from health_buddy.core.domain import identity_value
 from health_buddy.core.service_api import ServiceError
-from health_buddy.mcp_settings import Settings, private_path
+from health_buddy.mcp.settings import Settings, private_path
 from tests.test_extension_workflow import IDENTITY
 
 

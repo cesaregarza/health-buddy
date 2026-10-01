@@ -11,7 +11,7 @@ from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.files import bounded_children, read_file
 from health_buddy.core.security_api import ClientIdentity
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.mcp_schemas import validate
+from health_buddy.mcp.schemas import validate
 
 MAX_PROPOSAL = 384 * 1024
 

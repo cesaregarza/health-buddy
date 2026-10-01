@@ -8,7 +8,7 @@ import pytest
 
 from health_buddy.client.retry_paths import RetryRoot
 from health_buddy.core.durability import exclusive
-from health_buddy.mcp_errors import failure, status_result
+from health_buddy.mcp.errors import failure, status_result
 from tests.test_extension_workflow import SyntheticOperations, emit
 from tests.test_mcp_workflow import state_path, workflow
 

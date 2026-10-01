@@ -27,8 +27,8 @@ from health_buddy.core.service_api import (
     Response,
     ServiceError,
 )
-from health_buddy.mcp_errors import SAFE_CODES
-from health_buddy.mcp_settings import Settings
+from health_buddy.mcp.errors import SAFE_CODES
+from health_buddy.mcp.settings import Settings
 from health_buddy.transport.limits import EnvelopeError, Limits, json_object
 
 ROUTES: dict[Operation, tuple[str, str, frozenset[str]]] = {

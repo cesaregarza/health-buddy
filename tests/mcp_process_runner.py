@@ -38,7 +38,7 @@ original = builtins.__import__
 
 def importing(name, *args, **kwargs):
     module = original(name, *args, **kwargs)
-    if name == "health_buddy.mcp_runtime":
+    if name == "health_buddy.mcp.runtime":
         observed.write_text("observed")
         # This executes after the product claims descriptors, during real import.
         os.write(1, b"synthetic-private-stdout-canary\n")

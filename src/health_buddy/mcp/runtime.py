@@ -12,9 +12,9 @@ from mcp.server.lowlevel import Server
 
 from health_buddy.core.domain import encode
 from health_buddy.core.service_api import ServiceError
-from health_buddy.mcp_errors import failure
-from health_buddy.mcp_stdio import streams
-from health_buddy.mcp_tools import ToolService
+from health_buddy.mcp.errors import failure
+from health_buddy.mcp.stdio import streams
+from health_buddy.mcp.tools import ToolService
 from health_buddy.transport.jobs import Jobs
 from health_buddy.transport.limits import EnvelopeError, Limits
 

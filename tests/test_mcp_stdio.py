@@ -9,8 +9,8 @@ import pytest
 from mcp.shared.message import SessionMessage
 from mcp_types.jsonrpc import ErrorData, JSONRPCError
 
-from health_buddy.mcp_runtime import Handler
-from health_buddy.mcp_stdio import MAX_FRAME, Framing, streams
+from health_buddy.mcp.runtime import Handler
+from health_buddy.mcp.stdio import MAX_FRAME, Framing, streams
 from tests.test_mcp_tools import setup
 
 
@@ -97,8 +97,8 @@ async def test_idle_pipe_reader_is_cancelled_without_blocked_worker():
 
 @pytest.mark.parametrize("slow_drip", [False, True])
 async def test_partial_frame_idle_and_total_deadlines_close(slow_drip, monkeypatch):
-    monkeypatch.setattr("health_buddy.mcp_stdio.PARTIAL_IDLE_SECONDS", 0.08)
-    monkeypatch.setattr("health_buddy.mcp_stdio.PARTIAL_TOTAL_SECONDS", 0.2)
+    monkeypatch.setattr("health_buddy.mcp.stdio.PARTIAL_IDLE_SECONDS", 0.08)
+    monkeypatch.setattr("health_buddy.mcp.stdio.PARTIAL_TOTAL_SECONDS", 0.2)
     read_fd, source = os.pipe()
     sink, write_fd = os.pipe()
 

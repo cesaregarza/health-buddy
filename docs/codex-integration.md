@@ -161,9 +161,9 @@ Focused checks from the exact source checkpoint:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_codex_integration.py tests/test_mcp_settings.py tests/test_mcp_tools.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py tests/test_codex_integration.py tests/test_mcp_tools.py tests/mcp_wire_fixtures.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py tests/test_codex_integration.py tests/test_mcp_tools.py tests/mcp_wire_fixtures.py
-"$PYTHON" -m mypy src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/connect_agent.py src/health_buddy/mcp/tools.py tests/test_codex_integration.py tests/test_mcp_tools.py tests/mcp_wire_fixtures.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/connect_agent.py src/health_buddy/mcp/tools.py tests/test_codex_integration.py tests/test_mcp_tools.py tests/mcp_wire_fixtures.py
+"$PYTHON" -m mypy src/health_buddy/connect_agent.py src/health_buddy/mcp/tools.py
 ```
 
 The actual SDK scenario requires the private socket root described in
