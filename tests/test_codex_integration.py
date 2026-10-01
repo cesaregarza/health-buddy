@@ -194,25 +194,27 @@ def test_unrelated_later_tables_survive_update_and_removal(tmp_path):
     assert config.read_text() == UNRELATED + later
 
 
-def uv_interpreter(tmp_path):
+def uv_interpreter(tmp_path, version):
     """Mirror uv: venv python -> linked minor-version directory -> real file."""
-    versioned = tmp_path / "uv-python" / "cpython-3.12.99-linux-x86_64-gnu"
+    versioned = tmp_path / "uv-python" / f"cpython-{version}.99-linux-x86_64-gnu"
     (versioned / "bin").mkdir(parents=True)
-    interpreter = versioned / "bin" / "python3.12"
+    interpreter = versioned / "bin" / f"python{version}"
     interpreter.write_bytes(b"synthetic interpreter, never executed\n")
     interpreter.chmod(0o700)
-    alias = versioned.parent / "cpython-3.12-linux-x86_64-gnu"
+    alias = versioned.parent / f"cpython-{version}-linux-x86_64-gnu"
     alias.symlink_to(versioned.name, target_is_directory=True)
     python = tmp_path / "venv" / "bin" / "python"
     python.parent.mkdir(parents=True)
-    python.symlink_to(alias / "bin" / "python3.12")
+    python.symlink_to(alias / "bin" / f"python{version}")
     return python
 
 
-def test_uv_interpreter_behind_linked_version_directory_connects(tmp_path):
+# 3.13 is the Raspberry Pi OS Python that venvs there resolve to.
+@pytest.mark.parametrize("version", ["3.12", "3.13"])
+def test_uv_interpreter_behind_linked_version_directory_connects(tmp_path, version):
     config, skill, workspace = targets(tmp_path)
     settings, _ = settings_file(tmp_path)
-    python = uv_interpreter(tmp_path)
+    python = uv_interpreter(tmp_path, version)
     connect(
         config,
         skill,
@@ -241,6 +243,28 @@ def test_interpreter_resolving_under_mnt_is_refused(tmp_path, monkeypatch):
         "access",
         lambda path, mode, **kwargs: path == mounted or access(path, mode, **kwargs),
     )
+    with pytest.raises(ServiceError, match="invalid_codex_python"):
+        connect(
+            config,
+            skill,
+            settings=settings,
+            python=python,
+            source=ROOT,
+            workspace=workspace,
+        )
+    assert config.read_text() == UNRELATED and not skill.exists()
+
+
+def test_interpreter_resolving_to_a_non_python_name_is_refused(tmp_path):
+    config, skill, workspace = targets(tmp_path)
+    settings, _ = settings_file(tmp_path)
+    tool = tmp_path / "tools" / "python3.13-config"
+    tool.parent.mkdir()
+    tool.write_bytes(b"synthetic runnable tool, never executed\n")
+    tool.chmod(0o700)
+    python = tmp_path / "venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(tool)
     with pytest.raises(ServiceError, match="invalid_codex_python"):
         connect(
             config,

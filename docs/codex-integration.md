@@ -86,9 +86,10 @@ Use the pinned source-check setup and 53-package wheel lock in the canonical
 names that Python 3.12 environment; the helper pins the source package version
 and points the adapter at SOURCE/src, not ambient installed modules. PYTHON may
 be a venv symlink chain, including a uv-managed interpreter. PYTHON and the file
-it resolves to must both be absolute paths without `..`, outside `/mnt` and
-named `python`, `python3` or `python3.12`, and the resolved file must be
-executable. Otherwise setup refuses; `install_agent` reports this as
+it resolves to must both be absolute paths without `..` and outside `/mnt`.
+PYTHON must be named `python`, `python3` or `python3.12`; the resolved file
+must be an executable named `python`, `python3` or `python3.N` for any minor
+version N. Otherwise setup refuses; `install_agent` reports this as
 `invalid_codex_python`. The config records PYTHON unresolved, so the client
 starts Python inside the venv. From SOURCE:
 

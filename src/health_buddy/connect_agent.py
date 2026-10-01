@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import tomllib
 from importlib.resources import files
 from pathlib import Path
@@ -22,6 +23,9 @@ BEGIN = "# BEGIN health-buddy managed Codex integration\n"
 END = "# END health-buddy managed Codex integration\n"
 MANAGED = ("SKILL.md", "WORKSPACE.json")
 PYTHON_NAMES = frozenset({"python", "python3", "python3.12"})
+# A venv resolves to its base interpreter, which can be any python3.N: the
+# Raspberry Pi OS Python is 3.13. Only the configured name stays fixed.
+RESOLVED_PYTHON_NAME = re.compile(r"python(3(\.[0-9]+)?)?")
 
 
 def checksum(raw: bytes) -> str:
@@ -33,13 +37,12 @@ def optional(path: Path, limit: int = 65_536) -> bytes:
     return read_file(path, limit) if path.exists() else b""
 
 
-def allowed_python_path(path: Path) -> bool:
+def lexically_native(path: Path) -> bool:
     return (
         path.is_absolute()
         and not str(path).startswith("//")
         and ".." not in path.parts
         and not path.is_relative_to("/mnt")
-        and path.name in PYTHON_NAMES
     )
 
 
@@ -52,11 +55,12 @@ def native_interpreter(python: Path) -> None:
     venv from the path it was started as.
     """
     # The client runs the given path, so it must pass before anything resolves.
-    if not allowed_python_path(python):
+    if not lexically_native(python) or python.name not in PYTHON_NAMES:
         raise ServiceError(422, "invalid_codex_python")
     resolved = Path(os.path.realpath(python))
     if (
-        not allowed_python_path(resolved)
+        not lexically_native(resolved)
+        or not RESOLVED_PYTHON_NAME.fullmatch(resolved.name)
         or not resolved.is_file()
         or not os.access(resolved, os.X_OK)
     ):

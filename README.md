@@ -1,34 +1,34 @@
 # Health Buddy
 
 Health Buddy is a self-hosted health tracking workspace for one person who
-wants their records on their own machine. It tracks workouts, body
-measurements, meals and more through a web dashboard, CLI, HTTP API and MCP
-tools, and is built for Codex or Claude Code to install, maintain and extend.
+wants their records on their own machine. It tracks workouts, measurements,
+meals and more through a web dashboard, CLI, HTTP API and MCP tools, and is
+built for Codex or Claude Code to install, maintain and extend.
 
 ## Install
 
-Run as the owner on a 64-bit Linux host with Docker Compose and, for private
-HTTPS, Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md)
-gives every command. In order, a step is done when this output field is
-`true`: acquire (`artifactsVerified`), preflight (`preflightPassed`),
-prepare (`workspacePrepared`), owner setup (`ownerSetupReady`), activate
+Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
+Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
+every command. In order, each step is done when this field is `true`: acquire
+(`artifactsVerified`), preflight (`preflightPassed`), prepare
+(`workspacePrepared`), owner setup (`ownerSetupReady`), activate
 (`runtimeActivated`), private HTTPS (`privateRouteConfigured`), agent setup
 (`clientConfigurationPrepared`). `connected: false` is expected throughout.
-Take the manifest SHA-256 from the publisher through a separate channel, never
-from downloaded files. On a refusal, keep the journal and inputs and follow
-the printed `recovery` and the doc's notes on that `code`; rerun the identical
-command to resume an interrupted step.
+No manifest is published yet: on reaching acquire, stop and ask the owner for
+the manifest URL and SHA-256; never take the hash from downloaded files. On a
+refusal, keep the journal and inputs, then follow the printed `recovery` and the
+doc's notes on that `code`. Rerunning the identical command resumes an
+interrupted step.
 
 ## Status
 
-Private pre-release: no release, tag or published manifest exists. Manually
-dispatched CI builds amd64 and arm64 runtime images and runs them under Compose
-on synthetic data. Not done: installer distribution, a released phone
-companion, the public site, an outside pilot.
+Private pre-release: no release or tag exists. Manually dispatched CI builds
+amd64 and arm64 images and runs them under Compose on synthetic data. Not done:
+installer distribution, a released phone companion, public site, outside pilot.
 
 ## Try it locally
 
-From the repository root, in a Python 3.12 virtual environment after
+From the repository root, in a Python 3.12 venv after
 `python -m pip install .`:
 
 ```sh
