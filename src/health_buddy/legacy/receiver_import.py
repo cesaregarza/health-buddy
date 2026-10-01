@@ -123,11 +123,31 @@ def _checked(value: JSON) -> dict[str, JSON]:
     if not isinstance(devices, list) or not 1 <= len(devices) <= 8:
         raise ServiceError(422, "import_invalid_receiver_devices")
     device_ids = {_uuid(device) for device in devices}
-    mapping = value["mapping"]
+    _validate_mapping(value["mapping"], len(devices), device_ids)
+    _validate_rows(value, len(devices), device_ids)
+    tombstones = {
+        (str(row["device_id"]), str(row["record_id"])): row
+        for row in cast(list[dict[str, JSON]], value["tombstones"])
+    }
+    for row in cast(list[dict[str, JSON]], value["records"]):
+        tombstone = tombstones.get((str(row["device_id"]), str(row["record_id"])))
+        if (row["deleted_at"] is not None) != (tombstone is not None) or (
+            tombstone is not None
+            and (
+                row["type_identifier"] != tombstone["type_identifier"]
+                or row["deleted_at"] != tombstone["observed_at"]
+            )
+        ):
+            raise ServiceError(409, "import_receiver_tombstone_conflict")
+    return value
+
+
+def _validate_mapping(mapping: JSON, devices: int, device_ids: set[str]) -> None:
+    """One distinct, non-reserved source and stream for each exported device."""
     if (
         not isinstance(mapping, list)
         or len(mapping) != len(device_ids)
-        or len(devices) != len(device_ids)
+        or devices != len(device_ids)
     ):
         raise ServiceError(422, "import_invalid_receiver_mapping")
     mapped: set[str] = set()
@@ -157,8 +177,11 @@ def _checked(value: JSON) -> dict[str, JSON]:
         mapped.add(device)
         sources.add(source)
         streams.add(stream)
-    count = len(devices)
-    keys: dict[str, set[tuple[str, str]]] = {}
+
+
+def _validate_rows(value: dict[str, JSON], devices: int, device_ids: set[str]) -> None:
+    """Bounded, unique rows of the exported devices, each valid for its table."""
+    count = devices
     for table in ("records", "batches", "tombstones"):
         rows = value[table]
         if not isinstance(rows, list):
@@ -166,7 +189,7 @@ def _checked(value: JSON) -> dict[str, JSON]:
         count += len(rows)
         if count > MAX_RECORDS:
             raise ServiceError(413, "import_snapshot_too_large")
-        keys[table] = set()
+        keys: set[tuple[str, str]] = set()
         for item in rows:
             if not isinstance(item, dict) or set(item) != set(COLUMNS[table]):
                 raise ServiceError(422, "import_invalid_receiver_row")
@@ -178,37 +201,13 @@ def _checked(value: JSON) -> dict[str, JSON]:
                 device,
                 str(item["batch_id"] if table == "batches" else item["record_id"]),
             )
-            if key in keys[table]:
+            if key in keys:
                 raise ServiceError(409, "import_receiver_duplicate_row")
-            keys[table].add(key)
+            keys.add(key)
             if table == "batches":
-                _uuid(item["batch_id"])
-                instant(item["generated_at"])
-                if (
-                    not isinstance(item["payload_sha256"], str)
-                    or not SHA256.fullmatch(item["payload_sha256"])
-                    or any(
-                        type(item[name]) is not int
-                        or not 0 <= cast(int, item[name]) <= 500
-                        for name in ("record_count", "deletion_count")
-                    )
-                    or cast(int, item["record_count"])
-                    + cast(int, item["deletion_count"])
-                    == 0
-                ):
-                    raise ServiceError(422, "import_invalid_receiver_receipt")
+                _validate_receipt(item)
             elif table == "records":
-                batch = _batch(device, str(item["received_at"]), record=_record(item))
-                canonical = json.dumps(
-                    batch.records[0].normalized,
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ).encode()
-                if hashlib.sha256(canonical).hexdigest() != item["record_sha256"]:
-                    raise ServiceError(409, "import_receiver_record_digest_conflict")
-                if item["deleted_at"] is not None:
-                    instant(item["deleted_at"])
+                _validate_record(device, item)
             else:
                 _batch(
                     device,
@@ -219,21 +218,36 @@ def _checked(value: JSON) -> dict[str, JSON]:
                         "observedAt": item["observed_at"],
                     },
                 )
-    tombstones = {
-        (str(row["device_id"]), str(row["record_id"])): row
-        for row in cast(list[dict[str, JSON]], value["tombstones"])
-    }
-    for row in cast(list[dict[str, JSON]], value["records"]):
-        tombstone = tombstones.get((str(row["device_id"]), str(row["record_id"])))
-        if (row["deleted_at"] is not None) != (tombstone is not None) or (
-            tombstone is not None
-            and (
-                row["type_identifier"] != tombstone["type_identifier"]
-                or row["deleted_at"] != tombstone["observed_at"]
-            )
-        ):
-            raise ServiceError(409, "import_receiver_tombstone_conflict")
-    return value
+
+
+def _validate_receipt(item: dict[str, JSON]) -> None:
+    _uuid(item["batch_id"])
+    instant(item["generated_at"])
+    if (
+        not isinstance(item["payload_sha256"], str)
+        or not SHA256.fullmatch(item["payload_sha256"])
+        or any(
+            type(item[name]) is not int or not 0 <= cast(int, item[name]) <= 500
+            for name in ("record_count", "deletion_count")
+        )
+        or cast(int, item["record_count"]) + cast(int, item["deletion_count"]) == 0
+    ):
+        raise ServiceError(422, "import_invalid_receiver_receipt")
+
+
+def _validate_record(device: str, item: dict[str, JSON]) -> None:
+    """The record must parse as a batch record whose digest the export recorded."""
+    batch = _batch(device, str(item["received_at"]), record=_record(item))
+    canonical = json.dumps(
+        batch.records[0].normalized,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    if hashlib.sha256(canonical).hexdigest() != item["record_sha256"]:
+        raise ServiceError(409, "import_receiver_record_digest_conflict")
+    if item["deleted_at"] is not None:
+        instant(item["deleted_at"])
 
 
 def _export_receiver(
