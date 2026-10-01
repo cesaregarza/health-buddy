@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.core import source_bundle
-from health_buddy.core.durability import private_umask
 
 STORE_CONFIG = (
     "[core]\n\trepositoryformatversion = 0\n\tbare = true\n\tfilemode = true\n"
@@ -66,18 +65,18 @@ def git(
     ]
     try:
         # Internal plumbing arguments only, no shell, clean environment. Git
-        # creates refs and objects with the umask: keep them owner-only.
-        with private_umask():
-            result = subprocess.run(  # noqa: S603
-                command,
-                input=data,
-                text=True,
-                capture_output=True,
-                env=env,
-                cwd=repo.parent,
-                timeout=30,
-                check=False,
-            )
+        # creates refs and objects with the umask: the child's is set to 077.
+        result = subprocess.run(  # noqa: S603
+            command,
+            input=data,
+            text=True,
+            capture_output=True,
+            env=env,
+            cwd=repo.parent,
+            timeout=30,
+            check=False,
+            umask=0o077,
+        )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise StoreError(
             "Local Git is unavailable or timed out; records preserved"
