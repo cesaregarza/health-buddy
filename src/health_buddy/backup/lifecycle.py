@@ -13,13 +13,14 @@ from uuid import uuid4
 
 from health_buddy.backup.archive import snapshot, verified
 from health_buddy.backup.crypto import MAX_ARCHIVE_BYTES, read_key, seal, unseal
-from health_buddy.core.config import load
+from health_buddy.core.config import Config, load
 from health_buddy.core.domain import encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.files import read_file
+from health_buddy.core.journal import State
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
-from health_buddy.core.service_api import Principal, ServiceError
+from health_buddy.core.service_api import Identity, Principal, ServiceError
 from health_buddy.core.workspace import create_file
 from health_buddy.runtime.manifest import native_directory
 from health_buddy.security.runtime import _private_parent, open_runtime
@@ -151,54 +152,9 @@ def restore(
                 or previous.revision != manifest["dataRevision"]
             ):
                 raise ServiceError(422, "backup_identity_mismatch")
-            current = replace(previous.identity, restore_epoch=str(uuid4()))
-            security = SecurityStore(staged)
-            with exclusive(service.lock), exclusive(security.lock):
-                if service.journal.receiver_binding() is not None:
-                    service.check_receiver(previous.identity)
-                    service.health.rotate_staged_restore(previous.identity, current)
-                service.journal.rotate_staged_restore(current)
-                token = security.rekey_staged_restore(previous.identity, current)
-                handoff = "secrets/restored-owner-" + uuid4().hex
-                create_file(config.path(handoff), token + "\n")
-                atomic_bytes(
-                    config.path("operations/restore-receipt.json"),
-                    encode(
-                        {
-                            "schemaVersion": 1,
-                            "previousIdentity": identity_value(previous.identity),
-                            "currentIdentity": identity_value(current),
-                            "dataRevision": previous.revision,
-                            "policy": (
-                                "all_old_credentials_invalid_require_"
-                                "explicit_repair_or_rotation"
-                            ),
-                        }
-                    ),
-                )
-            reopened = open_runtime(staged)
-            if not isinstance(reopened.operations, Service):
-                raise ServiceError(503, "native_coordinator_required")
-            if reopened.operations.journal.verify().identity != current:
-                raise ServiceError(422, "restore_verification_failed")
-            if reopened.operations.journal.receiver_binding() is not None:
-                reopened.operations.check_receiver(current)
-            for directory in sorted(
-                (path for path in staged.rglob("*") if path.is_dir()),
-                key=lambda path: len(path.parts),
-                reverse=True,
-            ):
-                fsync_path(directory)
-            fsync_path(staged)
-            # Destination creation is reserved with mkdir; only this empty
-            # private directory can be replaced, never another owner tree.
-            target.mkdir(mode=0o700)
-            try:
-                os.replace(staged, target)
-            except BaseException:
-                target.rmdir()
-                raise
-            fsync_path(target.parent)
+            current, handoff = _rekey_staged(staged, config, service, previous)
+            _verify_restored(staged, current)
+            _publish_restored(staged, target)
     return {
         "schemaVersion": 1,
         "restored": True,
@@ -212,3 +168,67 @@ def restore(
             "pending_intent_review",
         ],
     }
+
+
+def _rekey_staged(
+    staged: Path, config: Config, service: Service, previous: State
+) -> tuple[Identity, str]:
+    """Move the staged copy to a new restore epoch and issue a fresh owner token.
+
+    Returns the new identity and the owner credential's workspace reference.
+    """
+    current = replace(previous.identity, restore_epoch=str(uuid4()))
+    security = SecurityStore(staged)
+    with exclusive(service.lock), exclusive(security.lock):
+        if service.journal.receiver_binding() is not None:
+            service.check_receiver(previous.identity)
+            service.health.rotate_staged_restore(previous.identity, current)
+        service.journal.rotate_staged_restore(current)
+        token = security.rekey_staged_restore(previous.identity, current)
+        handoff = "secrets/restored-owner-" + uuid4().hex
+        create_file(config.path(handoff), token + "\n")
+        atomic_bytes(
+            config.path("operations/restore-receipt.json"),
+            encode(
+                {
+                    "schemaVersion": 1,
+                    "previousIdentity": identity_value(previous.identity),
+                    "currentIdentity": identity_value(current),
+                    "dataRevision": previous.revision,
+                    "policy": (
+                        "all_old_credentials_invalid_require_"
+                        "explicit_repair_or_rotation"
+                    ),
+                }
+            ),
+        )
+    return current, handoff
+
+
+def _verify_restored(staged: Path, current: Identity) -> None:
+    reopened = open_runtime(staged)
+    if not isinstance(reopened.operations, Service):
+        raise ServiceError(503, "native_coordinator_required")
+    if reopened.operations.journal.verify().identity != current:
+        raise ServiceError(422, "restore_verification_failed")
+    if reopened.operations.journal.receiver_binding() is not None:
+        reopened.operations.check_receiver(current)
+
+
+def _publish_restored(staged: Path, target: Path) -> None:
+    for directory in sorted(
+        (path for path in staged.rglob("*") if path.is_dir()),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        fsync_path(directory)
+    fsync_path(staged)
+    # Destination creation is reserved with mkdir; only this empty
+    # private directory can be replaced, never another owner tree.
+    target.mkdir(mode=0o700)
+    try:
+        os.replace(staged, target)
+    except BaseException:
+        target.rmdir()
+        raise
+    fsync_path(target.parent)
