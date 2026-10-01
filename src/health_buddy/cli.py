@@ -9,6 +9,10 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+# ruff: noqa: E402
+# Imported in place from the source bundle: never write bytecode into its tree.
+sys.dont_write_bytecode = True
+
 from health_buddy.client.app import App
 from health_buddy.core.config import ConfigError, load
 from health_buddy.core.domain import decode

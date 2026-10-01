@@ -8,8 +8,13 @@ import os
 import platform
 import shutil
 import stat
+import sys
 from pathlib import Path
 from typing import Any
+
+# ruff: noqa: E402
+# Imported in place from the source bundle: never write bytecode into its tree.
+sys.dont_write_bytecode = True
 
 from health_buddy.operator_diagnostics import port_state
 from health_buddy.runtime.manifest import (

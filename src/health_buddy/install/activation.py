@@ -6,10 +6,15 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any
+
+# ruff: noqa: E402
+# Imported in place from the source bundle: never write bytecode into its tree.
+sys.dont_write_bytecode = True
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path

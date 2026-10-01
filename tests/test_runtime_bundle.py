@@ -16,6 +16,7 @@ from health_buddy.runtime import manifest as runtime_manifest
 from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import (
     ManifestError,
+    SourceInventoryMismatch,
     canonical,
     read_source_identity,
     verify_source_identity,
@@ -158,6 +159,84 @@ def test_source_integrity_changes_fail_closed(tmp_path: Path, mutation: str) -> 
     assert read_source_identity(selected, manifest) == ReleaseIdentity()
     with pytest.raises((ManifestError, OSError)):
         verify_source_identity(selected, manifest)
+
+
+def plant_bytecode(selected: Path) -> None:
+    """What importing the bundle in place leaves, plus legacy loose bytecode."""
+    cache = selected / "src/__pycache__"
+    cache.mkdir()
+    (cache / "module.cpython-312.pyc").write_bytes(b"synthetic cached bytecode")
+    (selected / "__pycache__").mkdir()
+    (selected / "src/module.pyc").write_bytes(b"synthetic legacy bytecode")
+    (selected / "docs/guide.pyo").write_bytes(b"synthetic optimized bytecode")
+
+
+def test_interpreter_bytecode_is_not_bundle_content(tmp_path: Path) -> None:
+    selected, manifest, _revision = prepared(tmp_path)
+    before = verify_source_identity(selected, manifest)
+    plant_bytecode(selected)
+    assert verify_source_identity(selected, manifest) == before
+
+
+@pytest.mark.parametrize(
+    ("mutation", "path"),
+    [
+        ("changed", "src/module.py"),
+        ("added", "src/extra.py"),
+        ("removed", "docs/guide.md"),
+    ],
+)
+def test_inventory_mismatch_names_the_differing_file(
+    tmp_path: Path, mutation: str, path: str
+) -> None:
+    selected, manifest, _revision = prepared(tmp_path)
+    plant_bytecode(selected)
+    if mutation == "removed":
+        (selected / path).unlink()
+    else:
+        (selected / path).write_text("VALUE = 2\n")
+    with pytest.raises(SourceInventoryMismatch) as failure:
+        verify_source_identity(selected, manifest)
+    assert str(failure.value) == "source_inventory_mismatch"
+    assert failure.value.path == path
+
+
+def test_inventory_mismatch_reports_the_first_path_in_sorted_order(
+    tmp_path: Path,
+) -> None:
+    selected, manifest, _revision = prepared(tmp_path)
+    (selected / "src/module.py").write_text("VALUE = 2\n")
+    (selected / "docs/later.md").write_text("Synthetic addition.\n")
+    with pytest.raises(SourceInventoryMismatch) as failure:
+        verify_source_identity(selected, manifest)
+    assert failure.value.path == "docs/later.md"
+
+
+@pytest.mark.parametrize("name", ["src/__pycache__", "src/module.pyc"])
+def test_link_named_as_bytecode_still_fails(tmp_path: Path, name: str) -> None:
+    selected, manifest, _revision = prepared(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (selected / name).symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ManifestError, match="invalid_bundle_file"):
+        verify_source_identity(selected, manifest)
+
+
+@pytest.mark.parametrize(
+    "tracked", ["src/__pycache__/module.cpython-312.pyc", "src/module.pyc"]
+)
+def test_bundle_refuses_a_commit_that_tracks_bytecode(
+    tmp_path: Path, tracked: str
+) -> None:
+    repository, _revision = source(tmp_path)
+    (repository / tracked).parent.mkdir(exist_ok=True)
+    (repository / tracked).write_bytes(b"synthetic tracked bytecode")
+    git(repository, "add", tracked)
+    git(repository, "commit", "--quiet", "-m", "Synthetic tracked bytecode")
+    output = tmp_path / "output"
+    with pytest.raises(ManifestError, match="bytecode_source_entry"):
+        create_bundle(repository, git(repository, "rev-parse", "HEAD"), output)
+    assert not output.exists()
 
 
 @pytest.mark.parametrize(
