@@ -187,8 +187,21 @@ def validate(values: Any, root: Path) -> Config:
     for collection in ("goals", "equipment"):
         if not isinstance(value[collection], list) or len(value[collection]) > 100:
             raise ConfigError(f"{collection} must be a list of at most 100 entries")
+    _validate_goals(value["goals"])
+    _validate_equipment(value["equipment"])
+    storage = _object(value["storage"], {"manual", "healthkit", "cache"}, "storage")
+    for name, path in storage.items():
+        relative_path(path, f"storage.{name}")
+    integrations = _validated_integrations(value["integrations"])
+    config = Config(root.resolve(), value)
+    _security(config)
+    _validate_layout(config, storage, integrations)
+    return config
+
+
+def _validate_goals(goals: list[Any]) -> None:
     identifiers: set[str] = set()
-    for goal in value["goals"]:
+    for goal in goals:
         keys = {"id", "label", "metric", "target", "unit", "direction"}
         _object(goal, keys, "goal")
         identifier = _identifier(goal["id"], "goal.id")
@@ -207,10 +220,13 @@ def validate(values: Any, root: Path) -> Config:
             or not math.isfinite(target)
         ):
             raise ConfigError("Goal target must be positive and finite")
-    identifiers.clear()
+
+
+def _validate_equipment(equipment: list[Any]) -> None:
+    identifiers: set[str] = set()
     aliases: set[tuple[str, str]] = set()
     bases = {"per_hand", "total_stack", "machine_stack", "total", "bodyweight"}
-    for item in value["equipment"]:
+    for item in equipment:
         keys = {"id", "label", "exercise", "loadBasis", "aliases"}
         _object(item, keys, "equipment")
         identifier = _identifier(item["id"], "equipment.id")
@@ -228,12 +244,10 @@ def validate(values: Any, root: Path) -> Config:
             if key in aliases:
                 raise ConfigError("Equipment aliases must be unambiguous")
             aliases.add(key)
-    storage = _object(value["storage"], {"manual", "healthkit", "cache"}, "storage")
-    for name, path in storage.items():
-        relative_path(path, f"storage.{name}")
-    integrations = _object(
-        value["integrations"], {"healthkit", "sleepiq", "jev"}, "integrations"
-    )
+
+
+def _validated_integrations(value: Any) -> dict[str, Any]:
+    integrations = _object(value, {"healthkit", "sleepiq", "jev"}, "integrations")
     # Existing v1 enabled-only files retain their read-only semantics without
     # rewriting the owner's configuration or silently activating a receiver.
     healthkit = integrations["healthkit"]
@@ -270,8 +284,13 @@ def validate(values: Any, root: Path) -> Config:
         raise ConfigError("Jev endpoint must be a valid HTTPS URL") from exc
     if not valid_endpoint:
         raise ConfigError("Jev endpoint must be HTTPS without embedded credentials")
-    config = Config(root.resolve(), value)
-    _security(config)
+    return integrations
+
+
+def _validate_layout(
+    config: Config, storage: dict[str, Any], integrations: dict[str, Any]
+) -> None:
+    """Stores and the export stay apart from each other and from owner files."""
     paths = [config.storage(name) for name in storage]
     paths.append(config.path(integrations["sleepiq"]["exportFile"]))
     reserved = [
@@ -288,7 +307,6 @@ def validate(values: Any, root: Path) -> Config:
         or secret == config.root / "secrets"
     ):
         raise ConfigError("Jev apiKeyFile must be a file within secrets/")
-    return config
 
 
 def _canonical_origin(value: Any) -> None:
