@@ -12,11 +12,8 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from health_ingest.models import BatchValidationError, parse_batch
-from health_ingest.storage import BatchConflictError
-
-from . import legacy, loggers, records
-from .domain import (
+from health_buddy import legacy, loggers, records
+from health_buddy.domain import (
     API_VERSION,
     MAX_BODY,
     MAX_HEALTH_BODY,
@@ -35,14 +32,14 @@ from .domain import (
     revision,
     text,
 )
-from .durability import check_deadline, exclusive, unavailable
-from .health_store import HealthStore
-from .journal import Effect, Journal, State
-from .legacy_store import Store, StoreError
-from .policy import DenyPolicy, DevelopmentPolicy, require_grant
-from .release_identity import ReleaseIdentity
-from .security_api import DeviceBinding
-from .service_api import (
+from health_buddy.durability import check_deadline, exclusive, unavailable
+from health_buddy.health_store import HealthStore
+from health_buddy.journal import Effect, Journal, State
+from health_buddy.legacy_store import Store, StoreError
+from health_buddy.policy import DenyPolicy, DevelopmentPolicy, require_grant
+from health_buddy.release_identity import ReleaseIdentity
+from health_buddy.security_api import DeviceBinding
+from health_buddy.service_api import (
     JSON,
     Authority,
     AuthorizationPolicy,
@@ -53,8 +50,10 @@ from .service_api import (
     Response,
     ServiceError,
 )
-from .stores import RECORD_INDEX, ManualStore
-from .workspace import initialize
+from health_buddy.stores import RECORD_INDEX, ManualStore
+from health_buddy.workspace import initialize
+from health_ingest.models import BatchValidationError, parse_batch
+from health_ingest.storage import BatchConflictError
 
 
 def _now() -> str:
@@ -430,7 +429,7 @@ class Service:
                     datetime.now(self.config.zone).date(),
                 )
             else:
-                from .plans import validate_plan
+                from health_buddy.plans import validate_plan
 
                 program = validate_plan(payload)
                 changes = {
@@ -555,19 +554,19 @@ class Service:
     def _validate_plan(self, value: JSON) -> None:
         # The retained pure validator owns program semantics. Additional strict
         # public-input shape checks are supplied by the plan adapter.
-        from .plans import validate_plan
+        from health_buddy.plans import validate_plan
 
         validate_plan(value)
 
     def _read(self, authority: Authority, request: Request, state: State) -> Response:
-        from .views import read
+        from health_buddy.views import read
 
         return read(self, authority, request, state)
 
     def _fallback(
         self, authority: Authority, request: Request, state: State
     ) -> Response:
-        from .views import fallback
+        from health_buddy.views import fallback
 
         return fallback(self, authority, request, state)
 

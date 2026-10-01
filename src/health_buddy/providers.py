@@ -10,8 +10,8 @@ import urllib.request
 from http.client import HTTPMessage
 from typing import IO, Any, cast
 
-from . import legacy
-from .config import Config
+from health_buddy import legacy
+from health_buddy.config import Config
 
 
 class ProviderUnavailable(ValueError):

@@ -11,8 +11,8 @@ import re
 import tempfile
 from pathlib import Path
 
-from .durability import fsync_path, unavailable
-from .legacy_store import Store, git
+from health_buddy.durability import fsync_path, unavailable
+from health_buddy.legacy_store import Store, git
 
 CANONICAL_MARKER = "metadata/canonical.json"
 RECORD_INDEX = "metadata/record-index.json"

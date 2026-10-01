@@ -10,12 +10,12 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-from .backup_crypto import MAX_ARCHIVE_BYTES
-from .config import Config, relative_path
-from .domain import decode, encode, identity_value
-from .extension_files import bounded_children
-from .operations import BackupInventory
-from .service_api import ServiceError
+from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES
+from health_buddy.config import Config, relative_path
+from health_buddy.domain import decode, encode, identity_value
+from health_buddy.extension_files import bounded_children
+from health_buddy.operations import BackupInventory
+from health_buddy.service_api import ServiceError
 
 MAX_ENTRIES = 8192
 MANIFEST = "backup-manifest.json"

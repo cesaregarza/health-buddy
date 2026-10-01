@@ -11,9 +11,9 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
-from .runtime_artifact import ArtifactInspection, verify_docker_archive
-from .runtime_bundle import _write
-from .runtime_manifest import (
+from health_buddy.runtime_artifact import ArtifactInspection, verify_docker_archive
+from health_buddy.runtime_bundle import _write
+from health_buddy.runtime_manifest import (
     GIT_SHA,
     INTERFACES,
     SHA256,

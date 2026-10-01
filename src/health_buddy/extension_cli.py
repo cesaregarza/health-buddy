@@ -8,19 +8,19 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from .client_workflow import decoded
-from .config import load
-from .domain import decode
-from .extension_api import PrepareConnector
-from .extension_files import read_file
-from .extension_install import install
-from .extension_jobs import run_event
-from .extension_prepare import prepare
-from .extension_registry import Registry, status_json
-from .personal_workspace import describe
-from .security_api import BearerProof
-from .security_runtime import open_runtime, read_credential
-from .service_api import JSON, Request, ServiceError
+from health_buddy.client_workflow import decoded
+from health_buddy.config import load
+from health_buddy.domain import decode
+from health_buddy.extension_api import PrepareConnector
+from health_buddy.extension_files import read_file
+from health_buddy.extension_install import install
+from health_buddy.extension_jobs import run_event
+from health_buddy.extension_prepare import prepare
+from health_buddy.extension_registry import Registry, status_json
+from health_buddy.personal_workspace import describe
+from health_buddy.security_api import BearerProof
+from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.service_api import JSON, Request, ServiceError
 
 
 def add_commands(commands: Any) -> None:

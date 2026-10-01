@@ -10,8 +10,8 @@ from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager
 from threading import RLock
 
-from .domain import READ_OPERATIONS, WRITE_OPERATIONS
-from .service_api import Authority, Operation, Principal, ServiceError
+from health_buddy.domain import READ_OPERATIONS, WRITE_OPERATIONS
+from health_buddy.service_api import Authority, Operation, Principal, ServiceError
 
 DEVELOPMENT_PRINCIPAL = Principal("local-development-owner")
 

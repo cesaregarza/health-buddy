@@ -11,15 +11,20 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from .config import Config
-from .domain import digest, encode, identifier
-from .durability import atomic_bytes, exclusive, fsync_path
-from .extension_api import PrepareConnector
-from .extension_files import extension_id, private_directory, read_file, read_json
-from .extension_jobs import job_lock
-from .extension_manifest import parse_manifest
-from .extension_registry import Registry
-from .security_api import (
+from health_buddy.config import Config
+from health_buddy.domain import digest, encode, identifier
+from health_buddy.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.extension_api import PrepareConnector
+from health_buddy.extension_files import (
+    extension_id,
+    private_directory,
+    read_file,
+    read_json,
+)
+from health_buddy.extension_jobs import job_lock
+from health_buddy.extension_manifest import parse_manifest
+from health_buddy.extension_registry import Registry
+from health_buddy.security_api import (
     AgentGrant,
     Authenticated,
     BearerProof,
@@ -27,8 +32,8 @@ from .security_api import (
     Runtime,
     SecurityRequest,
 )
-from .security_runtime import read_credential
-from .service_api import JSON, ServiceError
+from health_buddy.security_runtime import read_credential
+from health_buddy.service_api import JSON, ServiceError
 
 
 def _identity(
@@ -72,7 +77,7 @@ def prepare(
     *,
     fault: Callable[[str], None] | None = None,
 ) -> dict[str, JSON]:
-    from .operations import Service
+    from health_buddy.operations import Service
 
     if not isinstance(runtime.operations, Service):
         raise ServiceError(503, "native_coordinator_required")

@@ -12,11 +12,11 @@ from granian.constants import HTTPModes, Interfaces, Loops, RuntimeModes, TaskIm
 from granian.http import HTTP1Settings
 from starlette.types import ASGIApp
 
-from .runtime_listener import ListenerLease, listener_lease
-from .security_api import IngressConfig, Runtime
-from .service_api import Operations
-from .transport import create_app
-from .transport_ingress import VerifiedSocket, prepare_socket
+from health_buddy.runtime_listener import ListenerLease, listener_lease
+from health_buddy.security_api import IngressConfig, Runtime
+from health_buddy.service_api import Operations
+from health_buddy.transport import create_app
+from health_buddy.transport_ingress import VerifiedSocket, prepare_socket
 
 if TYPE_CHECKING:
     # Concrete model for tested CPython3.12/GIL; no free-threaded qualification.

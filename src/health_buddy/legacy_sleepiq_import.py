@@ -7,9 +7,9 @@ from dataclasses import fields
 from datetime import date, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .legacy_import import MAX_RECORDS
-from .legacy_store import csv_text, parse_csv
-from .service_api import ServiceError
+from health_buddy.legacy_import import MAX_RECORDS
+from health_buddy.legacy_store import csv_text, parse_csv
+from health_buddy.service_api import ServiceError
 
 
 def daily_export(raw: str, *, sleeper_id: str, timezone: str) -> tuple[str, int]:

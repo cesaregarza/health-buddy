@@ -13,7 +13,7 @@ from typing import cast
 from starlette.requests import Request as HTTPRequest
 from starlette.responses import Response as HTTPResponse
 
-from .security_api import (
+from health_buddy.security_api import (
     AgentGrant,
     Authenticated,
     BearerProof,
@@ -28,12 +28,16 @@ from .security_api import (
     SecurityRequest,
     SessionProof,
 )
-from .service_api import JSON, Identity, ServiceError
-from .transport_jobs import Jobs
-from .transport_limits import EnvelopeError, Limits, content_length, json_object
+from health_buddy.service_api import JSON, Identity, ServiceError
+from health_buddy.transport_jobs import Jobs
+from health_buddy.transport_limits import (
+    EnvelopeError,
+    Limits,
+    content_length,
+    json_object,
+)
 
 COOKIE = "__Host-health-buddy"
-SECRET_LIMIT = 512
 SAFE_HEADERS = {
     "cache-control": "no-store",
     "x-content-type-options": "nosniff",
@@ -41,7 +45,6 @@ SAFE_HEADERS = {
     "content-security-policy": "frame-ancestors 'none'",
     "connection": "close",
 }
-_ID = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
 _SECRET = re.compile(r"[A-Za-z0-9._~-]{20,512}")
 
 
@@ -337,7 +340,7 @@ class SecurityTransport:
             browser_origin(values, self.runtime.ingress.external_origin)
             if values.get("x-health-buddy-browser") != "1":
                 raise EnvelopeError(403, "browser_request_required") from None
-            from .security_api import CookieDirective
+            from health_buddy.security_api import CookieDirective
 
             return security_response(
                 SecurityReply(200, {"cleared": True}, cookie=CookieDirective("clear")),

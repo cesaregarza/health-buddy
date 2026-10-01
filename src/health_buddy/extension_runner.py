@@ -9,9 +9,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .domain import decode, encode
-from .extension_api import MAX_RESULT_BYTES, RUN_SECONDS
-from .service_api import JSON, ServiceError
+from health_buddy.domain import decode, encode
+from health_buddy.extension_api import MAX_RESULT_BYTES, RUN_SECONDS
+from health_buddy.service_api import JSON, ServiceError
 
 
 def invoke(request: dict[str, JSON]) -> JSON:

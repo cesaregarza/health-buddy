@@ -5,17 +5,17 @@ from __future__ import annotations
 from datetime import UTC, datetime, time, timedelta
 from typing import TYPE_CHECKING, cast
 
-from . import snapshots
-from .domain import encode, envelope, identifier, number, object_value, text
-from .durability import check_deadline
-from .extension_api import MAX_METRIC_ROWS
-from .extension_diagnostics import observed_call
-from .extension_registry import Registry, ReviewedExtension, status_json
-from .journal import State
-from .service_api import JSON, Authority, Request, Response, ServiceError
+from health_buddy import snapshots
+from health_buddy.domain import encode, envelope, identifier, number, object_value, text
+from health_buddy.durability import check_deadline
+from health_buddy.extension_api import MAX_METRIC_ROWS
+from health_buddy.extension_diagnostics import observed_call
+from health_buddy.extension_registry import Registry, ReviewedExtension, status_json
+from health_buddy.journal import State
+from health_buddy.service_api import JSON, Authority, Request, Response, ServiceError
 
 if TYPE_CHECKING:
-    from .operations import Service
+    from health_buddy.operations import Service
 
 METRIC_FIELDS = frozenset({"id", "kind", "value", "unit", "observedAt", "sourceId"})
 
@@ -90,7 +90,7 @@ def _metric(
     source = identifier(source)
     _scope(authority, reviewed, source)
     _known_source(service, source)
-    from .views import _records
+    from health_buddy.views import _records
 
     query = {
         "from": start.isoformat(),
@@ -218,7 +218,7 @@ def read(
         _scope(authority, reviewed, source)
         _known_source(service, source)
         path = reviewed.manifest.entrypoints["view"].split(":", 1)[0]
-        from .extension_files import read_file
+        from health_buddy.extension_files import read_file
 
         raw = read_file(reviewed.root / path, 65_536)
         return Response(200, raw, (("Content-Type", "text/javascript; charset=utf-8"),))

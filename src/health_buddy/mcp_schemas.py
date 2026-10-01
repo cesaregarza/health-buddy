@@ -7,9 +7,9 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from .loggers import FIELDS, camel
-from .plans import CHILDREN, NODE_FIELDS
-from .service_api import ServiceError
+from health_buddy.loggers import FIELDS, camel
+from health_buddy.plans import CHILDREN, NODE_FIELDS
+from health_buddy.service_api import ServiceError
 
 Schema = dict[str, Any]
 

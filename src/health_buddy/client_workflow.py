@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
-from .domain import (
+from health_buddy.domain import (
     MAX_RESPONSE,
     check_identity,
     decode,
@@ -28,11 +28,11 @@ from .domain import (
     object_value,
     revision,
 )
-from .durability import atomic_bytes, exclusive, fsync_path, private_file
-from .extension_files import bounded_children
-from .retry_paths import RetryRoot, WorkflowPaths
-from .security_api import ClientIdentity
-from .service_api import (
+from health_buddy.durability import atomic_bytes, exclusive, fsync_path, private_file
+from health_buddy.extension_files import bounded_children
+from health_buddy.retry_paths import RetryRoot, WorkflowPaths
+from health_buddy.security_api import ClientIdentity
+from health_buddy.service_api import (
     JSON,
     Identity,
     Operation,

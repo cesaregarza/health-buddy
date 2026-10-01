@@ -2,7 +2,7 @@
 
 from starlette.responses import Response
 
-from .transport_security import SAFE_HEADERS
+from health_buddy.transport_security import SAFE_HEADERS
 
 _STYLE = """
 body {

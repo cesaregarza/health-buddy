@@ -11,8 +11,8 @@ from urllib.parse import urlsplit
 
 from starlette.types import Scope
 
-from .security_api import IngressConfig
-from .transport_limits import EnvelopeError
+from health_buddy.security_api import IngressConfig
+from health_buddy.transport_limits import EnvelopeError
 
 
 def socket_parent(path: Path) -> None:

@@ -48,6 +48,8 @@ def test_real_sdk_scoped_discovery_no_telemetry_or_ambient_proxy(
                 "ok"
             ] is False and "synthetic-private-canary" not in json.dumps(denied)
         assert not (tmp_path / "unexpected-activity").exists()
+        # The instrumented import hook must have fired for the canary to mean anything.
+        assert (tmp_path / "mcp-runtime-import-observed").exists()
         assert all(
             path in {"/v1/session", "/v1/capabilities", "/v1/workspace/discovery"}
             for _, path in bridge.seen

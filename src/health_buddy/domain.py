@@ -8,10 +8,9 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast
 from uuid import UUID
 
-from .service_api import JSON, Identity, Operation, Response, ServiceError
+from health_buddy.service_api import JSON, Identity, Operation, Response, ServiceError
 
 API_VERSION = "1"
 MAX_BODY = 65_536
@@ -301,23 +300,4 @@ class Observation:
             "missingness": self.missingness,
             "provenance": {"sourceId": self.source_id, "sourceKind": self.source_kind},
             **({"attributes": self.attributes} if self.attributes is not None else {}),
-        }
-
-
-@dataclass(frozen=True)
-class ReadSnapshot:
-    identity: Identity
-    data_revision: int
-    timezone: str
-    observations: tuple[Observation, ...]
-    sources: tuple[tuple[str, dict[str, JSON]], ...]
-    stale: bool = False
-
-    def wire(self) -> dict[str, JSON]:
-        return {
-            "schemaVersion": 1,
-            "timezone": self.timezone,
-            "records": cast(list[JSON], [item.wire() for item in self.observations]),
-            "sources": dict(self.sources),
-            "stale": self.stale,
         }

@@ -19,7 +19,7 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, cast
 
-from .runtime_manifest import (
+from health_buddy.runtime_manifest import (
     SHA256,
     ManifestError,
     _json,

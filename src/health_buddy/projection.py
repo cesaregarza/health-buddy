@@ -10,9 +10,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from . import legacy
-from .config import Config
-from .legacy_store import Store, StoreError, csv_text, parse_csv
+from health_buddy import legacy
+from health_buddy.config import Config
+from health_buddy.legacy_store import Store, StoreError, csv_text, parse_csv
 
 
 def source_state(
@@ -254,23 +254,6 @@ def live_prescription(
             )
 
 
-def project(
-    config: Config, store: Store, *, now: datetime | None = None
-) -> dict[str, Any]:
-    now = (now or datetime.now(UTC)).astimezone(config.zone)
-    revision, files = store.snapshot()
-    health, sources = optional_sources(config, now)
-    return project_files(
-        config,
-        files,
-        revision,
-        git_timestamp(store, revision),
-        health,
-        sources,
-        now=now,
-    )
-
-
 def project_files(
     config: Config,
     files: dict[str, str],
@@ -416,7 +399,7 @@ def project_files(
 
 
 def git_timestamp(store: Store, revision: str) -> str:
-    from .legacy_store import git
+    from health_buddy.legacy_store import git
 
     return git(store.path, "show", "-s", "--format=%cI", revision).strip()
 

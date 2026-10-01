@@ -12,15 +12,15 @@ from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 
-from .domain import encode, identity_value
-from .durability import exclusive, fsync_path
-from .operations import open_service
-from .release_identity import ReleaseIdentity
-from .runtime_readiness import ready
-from .security import SecurityAuthority
-from .security_api import Runtime
-from .security_store import SecurityStore, private_owned, valid_secret
-from .service_api import ServiceError
+from health_buddy.domain import encode, identity_value
+from health_buddy.durability import exclusive, fsync_path
+from health_buddy.operations import open_service
+from health_buddy.release_identity import ReleaseIdentity
+from health_buddy.runtime_readiness import ready
+from health_buddy.security import SecurityAuthority
+from health_buddy.security_api import Runtime
+from health_buddy.security_store import SecurityStore, private_owned, valid_secret
+from health_buddy.service_api import ServiceError
 
 
 def open_runtime(

@@ -20,9 +20,9 @@ from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING, cast
 
-from .domain import check_identity
-from .durability import check_deadline, exclusive
-from .security_api import (
+from health_buddy.domain import check_identity
+from health_buddy.durability import check_deadline, exclusive
+from health_buddy.security_api import (
     Authenticated,
     BearerProof,
     ClientIdentity,
@@ -34,7 +34,7 @@ from .security_api import (
     SecurityRequest,
     SessionProof,
 )
-from .security_store import (
+from health_buddy.security_store import (
     SecurityStore,
     csrf_value,
     denied,
@@ -42,10 +42,16 @@ from .security_store import (
     secret_value,
     valid_secret,
 )
-from .service_api import Authority, Identity, Operation, Principal, ServiceError
+from health_buddy.service_api import (
+    Authority,
+    Identity,
+    Operation,
+    Principal,
+    ServiceError,
+)
 
 if TYPE_CHECKING:
-    from .operations import Service
+    from health_buddy.operations import Service
 
 PUBLIC_ACTIONS = frozenset({"bootstrap.redeem", "pairing.redeem"})
 OWNER_ACTIONS = frozenset(
@@ -113,7 +119,7 @@ class SecurityAuthority:
         name: str,
     ) -> SecurityReply:
         """Native maintenance only; deliberately absent from transport actions."""
-        from .imported_device_admission import admit
+        from health_buddy.imported_device_admission import admit
 
         return admit(
             self,
@@ -361,7 +367,7 @@ class SecurityAuthority:
     def execute(
         self, principal: Principal | None, request: SecurityRequest
     ) -> SecurityReply:
-        from .security_actions import execute
+        from health_buddy.security_actions import execute
 
         if (
             not isinstance(request, SecurityRequest)

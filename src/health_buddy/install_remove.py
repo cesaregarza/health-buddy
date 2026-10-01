@@ -11,19 +11,26 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .backup import private_path
-from .connect_agent import connect
-from .domain import digest, encode
-from .durability import atomic_bytes, exclusive
-from .extension_files import read_file, read_json
-from .install_agent import actors, matches, owner
-from .install_https import check_routes, eligible, handler, observe, route, unrelated
-from .retry_paths import native_path
-from .runtime_manifest import file_digest
-from .runtime_release import docker_command, selected_artifact
-from .security_api import SecurityRequest
-from .service_api import ServiceError
-from .upgrade_activation import COMPOSE, compose
+from health_buddy.backup import private_path
+from health_buddy.connect_agent import connect
+from health_buddy.domain import digest, encode
+from health_buddy.durability import atomic_bytes, exclusive
+from health_buddy.extension_files import read_file, read_json
+from health_buddy.install_agent import actors, matches, owner
+from health_buddy.install_https import (
+    check_routes,
+    eligible,
+    handler,
+    observe,
+    route,
+    unrelated,
+)
+from health_buddy.retry_paths import native_path
+from health_buddy.runtime_manifest import file_digest
+from health_buddy.runtime_release import docker_command, selected_artifact
+from health_buddy.security_api import SecurityRequest
+from health_buddy.service_api import ServiceError
+from health_buddy.upgrade_activation import COMPOSE, compose
 
 FORMAT = (
     "{{.Id}}\n{{.Image}}\n{{.State.Running}}\n{{.Config.User}}\n"

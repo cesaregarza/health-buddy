@@ -14,16 +14,16 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from .backup import private_path
-from .domain import digest, encode
-from .durability import atomic_bytes, exclusive
-from .extension_files import read_json
-from .packaged_runtime import managed_ingress
-from .retry_paths import native_path
-from .runtime_manifest import file_digest
-from .runtime_readiness import ready
-from .service_api import ServiceError
-from .upgrade_activation import running
+from health_buddy.backup import private_path
+from health_buddy.domain import digest, encode
+from health_buddy.durability import atomic_bytes, exclusive
+from health_buddy.extension_files import read_json
+from health_buddy.packaged_runtime import managed_ingress
+from health_buddy.retry_paths import native_path
+from health_buddy.runtime_manifest import file_digest
+from health_buddy.runtime_readiness import ready
+from health_buddy.service_api import ServiceError
+from health_buddy.upgrade_activation import running
 
 VERSION = "1.102.5"
 SOURCE = "5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115"

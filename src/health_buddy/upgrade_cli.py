@@ -7,11 +7,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .security_api import BearerProof
-from .security_runtime import open_runtime, read_credential
-from .service_api import ServiceError
-from .upgrade import stage
-from .upgrade_activation import activate
+from health_buddy.security_api import BearerProof
+from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.service_api import ServiceError
+from health_buddy.upgrade import stage
+from health_buddy.upgrade_activation import activate
 
 
 def add_commands(commands: Any) -> None:

@@ -14,10 +14,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from .config import Config
-from .legacy_store import STORE_CONFIG
-from .security_store import SecurityStore, private_owned
-from .service_api import Identity, ServiceError
+from health_buddy.config import Config
+from health_buddy.legacy_store import STORE_CONFIG
+from health_buddy.security_store import SecurityStore, private_owned
+from health_buddy.service_api import Identity, ServiceError
 
 OID = re.compile(r"[0-9a-f]{40}\Z")
 

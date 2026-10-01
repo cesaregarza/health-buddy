@@ -11,19 +11,19 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .backup_archive import snapshot, verified
-from .backup_crypto import MAX_ARCHIVE_BYTES, read_key, seal, unseal
-from .config import load
-from .domain import encode, identity_value
-from .durability import atomic_bytes, exclusive, fsync_path
-from .extension_files import read_file
-from .operations import Service
-from .runtime_manifest import native_directory
-from .security_api import Runtime
-from .security_runtime import _private_parent, open_runtime
-from .security_store import SecurityStore
-from .service_api import Principal, ServiceError
-from .workspace import create_file
+from health_buddy.backup_archive import snapshot, verified
+from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, seal, unseal
+from health_buddy.config import load
+from health_buddy.domain import encode, identity_value
+from health_buddy.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.extension_files import read_file
+from health_buddy.operations import Service
+from health_buddy.runtime_manifest import native_directory
+from health_buddy.security_api import Runtime
+from health_buddy.security_runtime import _private_parent, open_runtime
+from health_buddy.security_store import SecurityStore
+from health_buddy.service_api import Principal, ServiceError
+from health_buddy.workspace import create_file
 
 
 def private_path(path: Path) -> Path:

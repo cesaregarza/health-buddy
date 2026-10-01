@@ -7,8 +7,8 @@ import binascii
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
-from . import legacy, plans, projection, snapshots
-from .domain import (
+from health_buddy import legacy, plans, projection, snapshots
+from health_buddy.domain import (
     API_VERSION,
     MAX_BODY,
     MAX_DAYS,
@@ -28,15 +28,22 @@ from .domain import (
     object_value,
     text,
 )
-from .durability import check_deadline, unavailable
-from .journal import State
-from .legacy_store import StoreError
-from .policy import require_grant
-from .providers import Jev, ProviderUnavailable
-from .service_api import JSON, Authority, Operation, Request, Response, ServiceError
+from health_buddy.durability import check_deadline, unavailable
+from health_buddy.journal import State
+from health_buddy.legacy_store import StoreError
+from health_buddy.policy import require_grant
+from health_buddy.providers import Jev, ProviderUnavailable
+from health_buddy.service_api import (
+    JSON,
+    Authority,
+    Operation,
+    Request,
+    Response,
+    ServiceError,
+)
 
 if TYPE_CHECKING:
-    from .operations import Service
+    from health_buddy.operations import Service
 
 RECORD_FIELDS = frozenset(
     {
@@ -420,7 +427,7 @@ def _render(
         data: JSON = _records(service, authority, request, capture, stale)
     elif operation == "dashboard.read":
         dashboard = snapshots.dashboard(service, capture, authority, stale=stale)
-        from .extension_views import catalog
+        from health_buddy.extension_views import catalog
 
         dashboard["extensions"] = catalog(service)
         if request.query.get("format", "html") == "html":
@@ -534,7 +541,7 @@ def read(
 ) -> Response:
     validate(request, state)
     if request.operation == "workspace.discover":
-        from .discovery import read as discover
+        from health_buddy.discovery import read as discover
 
         return discover(
             service, authority, state, _available_operations(service, authority)
@@ -584,7 +591,7 @@ def read(
     if request.operation == "context.scopes":
         return envelope(_catalog(), state.identity, state.revision)
     if request.operation in {"extensions.list", "extensions.read", "extensions.asset"}:
-        from .extension_views import read as extension_read
+        from health_buddy.extension_views import read as extension_read
 
         return extension_read(service, authority, request, state)
     if request.operation == "asset.read":

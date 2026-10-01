@@ -7,16 +7,20 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .legacy_import import export_measurements, import_measurements
-from .legacy_manual_canary import INPUTS, export_manual_canary, import_manual_canary
-from .legacy_receiver_import import export_receiver, import_receiver
-from .legacy_unified_canary import backup_readiness, import_canary
-from .legacy_workout_import import export_workouts, import_workouts
-from .runtime_manifest import native_directory
-from .security import SecurityAuthority
-from .security_api import BearerProof
-from .security_runtime import open_runtime, read_credential
-from .service_api import ServiceError
+from health_buddy.legacy_import import export_measurements, import_measurements
+from health_buddy.legacy_manual_canary import (
+    INPUTS,
+    export_manual_canary,
+    import_manual_canary,
+)
+from health_buddy.legacy_receiver_import import export_receiver, import_receiver
+from health_buddy.legacy_unified_canary import backup_readiness, import_canary
+from health_buddy.legacy_workout_import import export_workouts, import_workouts
+from health_buddy.runtime_manifest import native_directory
+from health_buddy.security import SecurityAuthority
+from health_buddy.security_api import BearerProof
+from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.service_api import ServiceError
 
 
 def add_commands(commands: Any) -> None:

@@ -6,15 +6,15 @@ import time
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from .client_workflow import ClientWorkflow, McpWorkflowNamespace, decoded
-from .domain import digest, encode, identity_value
-from .mcp_api import HttpOperations
-from .mcp_errors import failure, status_result
-from .mcp_proposals import Proposals, binding
-from .mcp_schemas import CATALOG, SPECS, ToolSpec, validate
-from .mcp_settings import Settings
-from .security_api import ClientIdentity
-from .service_api import JSON, Operation, Request, ServiceError
+from health_buddy.client_workflow import ClientWorkflow, McpWorkflowNamespace, decoded
+from health_buddy.domain import digest, encode, identity_value
+from health_buddy.mcp_api import HttpOperations
+from health_buddy.mcp_errors import failure, status_result
+from health_buddy.mcp_proposals import Proposals, binding
+from health_buddy.mcp_schemas import CATALOG, SPECS, ToolSpec, validate
+from health_buddy.mcp_settings import Settings
+from health_buddy.security_api import ClientIdentity
+from health_buddy.service_api import JSON, Operation, Request, ServiceError
 
 MAX_RESULT = 64 * 1024
 

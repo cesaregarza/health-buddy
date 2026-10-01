@@ -12,7 +12,7 @@ import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
-from .runtime_manifest import (
+from health_buddy.runtime_manifest import (
     GIT_SHA,
     MAX_METADATA,
     SHA256,

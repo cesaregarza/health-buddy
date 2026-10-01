@@ -12,6 +12,7 @@ from opentelemetry import trace
 settings = Path(sys.argv[2])
 origin = urlsplit(json.loads(settings.read_bytes())["origin"])
 marker = settings.parent / "unexpected-activity"
+observed = settings.parent / "mcp-runtime-import-observed"
 
 
 def forbidden(*args, **kwargs):
@@ -37,7 +38,8 @@ original = builtins.__import__
 
 def importing(name, *args, **kwargs):
     module = original(name, *args, **kwargs)
-    if name == "mcp_runtime":
+    if name == "health_buddy.mcp_runtime":
+        observed.write_text("observed")
         # This executes after the product claims descriptors, during real import.
         os.write(1, b"synthetic-private-stdout-canary\n")
         print("synthetic-private-print-canary", flush=True)

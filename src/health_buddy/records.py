@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from .domain import (
+from health_buddy.domain import (
     Observation,
     decode,
     digest,
@@ -22,9 +22,9 @@ from .domain import (
     object_value,
     text,
 )
-from .legacy_store import csv_text, headers, parse_csv
-from .service_api import JSON, ServiceError
-from .stores import OBSERVATIONS, RECORD_INDEX
+from health_buddy.legacy_store import csv_text, headers, parse_csv
+from health_buddy.service_api import JSON, ServiceError
+from health_buddy.stores import OBSERVATIONS, RECORD_INDEX
 
 MAX_STORE_JSON = 67_108_864
 KINDS = {

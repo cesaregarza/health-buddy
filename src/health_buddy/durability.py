@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from .service_api import ServiceError
+from health_buddy.service_api import ServiceError
 
 
 def unavailable() -> ServiceError:

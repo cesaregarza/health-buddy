@@ -7,10 +7,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import cast
 
-from .config import Config
-from .domain import decode, encode, identifier
-from .durability import atomic_bytes, exclusive, fsync_path
-from .extension_api import (
+from health_buddy.config import Config
+from health_buddy.domain import decode, encode, identifier
+from health_buddy.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.extension_api import (
     EXTENSION_API,
     MAX_CONFIG_BYTES,
     MAX_EXTENSIONS,
@@ -19,7 +19,7 @@ from .extension_api import (
     ExtensionState,
     ExtensionStatus,
 )
-from .extension_files import (
+from health_buddy.extension_files import (
     FileInventory,
     bounded_children,
     extension_id,
@@ -27,9 +27,9 @@ from .extension_files import (
     read_json,
     runtime_files,
 )
-from .extension_manifest import configuration, parse_manifest
-from .extension_runner import validate_config
-from .service_api import JSON, ServiceError
+from health_buddy.extension_manifest import configuration, parse_manifest
+from health_buddy.extension_runner import validate_config
+from health_buddy.service_api import JSON, ServiceError
 
 MAX_REGISTRY = 131_072
 MAX_REVIEWS = 32

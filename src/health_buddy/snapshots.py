@@ -13,11 +13,9 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from health_ingest.models import ALLOWED_TYPES
-
-from . import legacy, projection, records
-from .config import Config
-from .domain import (
+from health_buddy import legacy, projection, records
+from health_buddy.config import Config
+from health_buddy.domain import (
     Observation,
     check_identity,
     decode,
@@ -27,14 +25,20 @@ from .domain import (
     instant,
     text,
 )
-from .durability import atomic_bytes, check_deadline, private_file, unavailable
-from .journal import State
-from .legacy_store import csv_text, headers, parse_csv
-from .service_api import JSON, Authority, Identity, ServiceError
-from .stores import OBSERVATIONS, RECORD_INDEX
+from health_buddy.durability import (
+    atomic_bytes,
+    check_deadline,
+    private_file,
+    unavailable,
+)
+from health_buddy.journal import State
+from health_buddy.legacy_store import csv_text, headers, parse_csv
+from health_buddy.service_api import JSON, Authority, Identity, ServiceError
+from health_buddy.stores import OBSERVATIONS, RECORD_INDEX
+from health_ingest.models import ALLOWED_TYPES
 
 if TYPE_CHECKING:
-    from .operations import Service
+    from health_buddy.operations import Service
 
 MAX_CACHE = 67_108_864
 HEALTH_FIELDS = (

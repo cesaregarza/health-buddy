@@ -19,7 +19,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from . import legacy
+from health_buddy import legacy
 
 STORE_CONFIG = (
     "[core]\n\trepositoryformatversion = 0\n\tbare = true\n\tfilemode = true\n"

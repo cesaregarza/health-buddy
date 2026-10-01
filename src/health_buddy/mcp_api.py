@@ -11,12 +11,12 @@ from typing import cast
 import anyio
 import httpx2
 
-from .client_workflow import decoded, response_identity
-from .domain import check_identity, encode, error_response, object_value
-from .mcp_errors import SAFE_CODES
-from .mcp_settings import Settings
-from .security_api import ClientIdentity
-from .service_api import (
+from health_buddy.client_workflow import decoded, response_identity
+from health_buddy.domain import check_identity, encode, error_response, object_value
+from health_buddy.mcp_errors import SAFE_CODES
+from health_buddy.mcp_settings import Settings
+from health_buddy.security_api import ClientIdentity
+from health_buddy.service_api import (
     Identity,
     Operation,
     Principal,
@@ -24,7 +24,7 @@ from .service_api import (
     Response,
     ServiceError,
 )
-from .transport_limits import EnvelopeError, Limits, json_object
+from health_buddy.transport_limits import EnvelopeError, Limits, json_object
 
 ROUTES: dict[Operation, tuple[str, str, frozenset[str]]] = {
     "capabilities": ("GET", "/v1/capabilities", frozenset()),

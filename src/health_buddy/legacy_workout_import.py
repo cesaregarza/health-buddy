@@ -9,14 +9,20 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from . import config, loggers, records
-from .backup import disk_required
-from .domain import decode, digest, encode, identifier
-from .durability import atomic_bytes, fsync_path
-from .legacy_import import MAX_BYTES, MAX_RECORDS, _path, _read, adopt_snapshot
-from .legacy_store import csv_text, headers, parse_csv
-from .runtime_manifest import SHA256
-from .service_api import JSON, ServiceError
+from health_buddy import config, loggers, records
+from health_buddy.backup import disk_required
+from health_buddy.domain import decode, digest, encode, identifier
+from health_buddy.durability import atomic_bytes, fsync_path
+from health_buddy.legacy_import import (
+    MAX_BYTES,
+    MAX_RECORDS,
+    _path,
+    _read,
+    adopt_snapshot,
+)
+from health_buddy.legacy_store import csv_text, headers, parse_csv
+from health_buddy.runtime_manifest import SHA256
+from health_buddy.service_api import JSON, ServiceError
 
 SESSIONS = "data/sessions.csv"
 SETS = "data/sets.csv"

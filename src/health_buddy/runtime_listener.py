@@ -17,9 +17,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from .durability import atomic_bytes, fsync_path
-from .security_store import private_owned
-from .transport_ingress import VerifiedSocket
+from health_buddy.durability import atomic_bytes, fsync_path
+from health_buddy.security_store import private_owned
+from health_buddy.transport_ingress import VerifiedSocket
 
 MANAGED_PATH = "security/runtime/http.sock"
 MARKER_PATH = "security/runtime/listener.json"

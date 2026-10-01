@@ -8,15 +8,15 @@ import sys
 from functools import partial
 from pathlib import Path
 
-from .app import App
-from .config import ConfigError, load
-from .domain import decode
-from .legacy_store import StoreError
-from .loggers import FIELDS
-from .operations import open_service
-from .security_api import BearerProof
-from .security_runtime import open_runtime, read_credential, setup_security
-from .service_api import ServiceError
+from health_buddy.app import App
+from health_buddy.config import ConfigError, load
+from health_buddy.domain import decode
+from health_buddy.legacy_store import StoreError
+from health_buddy.loggers import FIELDS
+from health_buddy.operations import open_service
+from health_buddy.security_api import BearerProof
+from health_buddy.security_runtime import open_runtime, read_credential, setup_security
+from health_buddy.service_api import ServiceError
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,16 +41,16 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    from .extension_cli import add_commands
+    from health_buddy.extension_cli import add_commands
 
     add_commands(commands)
-    from .backup_cli import add_commands as add_backup_commands
+    from health_buddy.backup_cli import add_commands as add_backup_commands
 
     add_backup_commands(commands)
-    from .upgrade_cli import add_commands as add_upgrade_commands
+    from health_buddy.upgrade_cli import add_commands as add_upgrade_commands
 
     add_upgrade_commands(commands)
-    from .import_cli import add_commands as add_import_commands
+    from health_buddy.import_cli import add_commands as add_import_commands
 
     add_import_commands(commands)
     commands.add_parser("init")
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.development and args.credential_file is not None:
             raise ServiceError(422, "development_cannot_use_credentials")
         if args.command in {"status", "doctor", "support-bundle"}:
-            from .operator_diagnostics import (
+            from health_buddy.operator_diagnostics import (
                 finding,
                 human,
                 report,
@@ -157,19 +157,19 @@ def main(argv: list[str] | None = None) -> int:
                 else 0
             )
         if args.command == "legacy-import":
-            from .import_cli import handle as handle_import
+            from health_buddy.import_cli import handle as handle_import
 
             return handle_import(args)
         if args.command == "upgrade":
-            from .upgrade_cli import handle as handle_upgrade
+            from health_buddy.upgrade_cli import handle as handle_upgrade
 
             return handle_upgrade(args)
         if args.command == "backup":
-            from .backup_cli import handle as handle_backup
+            from health_buddy.backup_cli import handle as handle_backup
 
             return handle_backup(args)
         if args.command in {"workspace", "extension"}:
-            from .extension_cli import handle
+            from health_buddy.extension_cli import handle
 
             return handle(args)
         if args.command == "security":
@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "serve":
-            from .production_server import serve
+            from health_buddy.production_server import serve
 
             # Construct the service inside Granian's child, never in this
             # supervisor before the factory crosses its process boundary.

@@ -7,9 +7,9 @@ import os
 import stat
 from pathlib import Path
 
-from . import config, legacy
-from .durability import fsync_path
-from .legacy_store import Store
+from health_buddy import config, legacy
+from health_buddy.durability import fsync_path
+from health_buddy.legacy_store import Store
 
 OWNER_NOTE = """# Personal Health Buddy workspace
 

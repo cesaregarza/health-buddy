@@ -8,12 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from .config import ConfigError, _canonical_origin
-from .domain import check_identity, decode, object_value
-from .extension_files import private_directory, read_file
-from .retry_paths import RetryRoot, native_path
-from .security_store import valid_secret
-from .service_api import Identity, ServiceError
+from health_buddy.config import ConfigError, _canonical_origin
+from health_buddy.domain import check_identity, decode, object_value
+from health_buddy.extension_files import private_directory, read_file
+from health_buddy.retry_paths import RetryRoot, native_path
+from health_buddy.security_store import valid_secret
+from health_buddy.service_api import Identity, ServiceError
 
 
 def private_path(value: object) -> Path:

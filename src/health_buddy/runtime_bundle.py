@@ -16,7 +16,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from .runtime_manifest import (
+from health_buddy.runtime_manifest import (
     GIT_SHA,
     INTERFACES,
     MAX_BYTES,

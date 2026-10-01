@@ -6,9 +6,9 @@ import hashlib
 import os
 from pathlib import Path
 
-from .runtime_bundle import _directory, _source_directory, _sync, _write
-from .runtime_inputs import load_inputs, verify_inputs
-from .runtime_manifest import (
+from health_buddy.runtime_bundle import _directory, _source_directory, _sync, _write
+from health_buddy.runtime_inputs import load_inputs, verify_inputs
+from health_buddy.runtime_manifest import (
     ManifestError,
     canonical,
     file_digest,

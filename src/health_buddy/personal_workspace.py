@@ -10,13 +10,13 @@ import subprocess
 from pathlib import Path
 from typing import cast
 
-from . import legacy
-from .config import Config
-from .domain import digest
-from .durability import exclusive
-from .extension_files import read_file, read_json
-from .extension_registry import Registry, status_json
-from .service_api import JSON, ServiceError
+from health_buddy import legacy
+from health_buddy.config import Config
+from health_buddy.domain import digest
+from health_buddy.durability import exclusive
+from health_buddy.extension_files import read_file, read_json
+from health_buddy.extension_registry import Registry, status_json
+from health_buddy.service_api import JSON, ServiceError
 
 MAX_ENTRIES = 10_000
 MAX_FILE_BYTES = 16_777_216

@@ -8,17 +8,17 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Never, cast
 
-from . import legacy, loggers
-from .client_auth import AuthenticatedOperations
-from .client_workflow import ClientWorkflow, decoded
-from .config import Config
-from .domain import decode, digest, normalize
-from .durability import atomic_bytes
-from .operations import open_service
-from .plans import to_wire
-from .policy import DEVELOPMENT_PRINCIPAL
-from .security_api import BearerProof, ClientIdentity, Runtime
-from .service_api import (
+from health_buddy import legacy, loggers
+from health_buddy.client_auth import AuthenticatedOperations
+from health_buddy.client_workflow import ClientWorkflow, decoded
+from health_buddy.config import Config
+from health_buddy.domain import decode, digest, normalize
+from health_buddy.durability import atomic_bytes
+from health_buddy.operations import open_service
+from health_buddy.plans import to_wire
+from health_buddy.policy import DEVELOPMENT_PRINCIPAL
+from health_buddy.security_api import BearerProof, ClientIdentity, Runtime
+from health_buddy.service_api import (
     JSON,
     Identity,
     Operation,
@@ -27,7 +27,7 @@ from .service_api import (
     Request,
     ServiceError,
 )
-from .workspace import initialize
+from health_buddy.workspace import initialize
 
 
 class App:
@@ -55,7 +55,7 @@ class App:
         cls, root: Path, *, proof: BearerProof, runtime: Runtime | None = None
     ) -> App:
         if runtime is None:
-            from .security_runtime import open_runtime
+            from health_buddy.security_runtime import open_runtime
 
             runtime = open_runtime(root)
         admitted = runtime.security.authenticate(proof)

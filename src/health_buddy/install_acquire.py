@@ -18,13 +18,13 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, Any, cast
 
-from .backup import private_path
-from .domain import encode
-from .durability import atomic_bytes, exclusive, fsync_path
-from .extension_files import private_directory, read_json
-from .retry_paths import native_path
-from .runtime_inputs import _Redirect
-from .runtime_manifest import (
+from health_buddy.backup import private_path
+from health_buddy.domain import encode
+from health_buddy.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.extension_files import private_directory, read_json
+from health_buddy.retry_paths import native_path
+from health_buddy.runtime_inputs import _Redirect
+from health_buddy.runtime_manifest import (
     MAX_METADATA,
     SHA256,
     ManifestError,
@@ -32,8 +32,8 @@ from .runtime_manifest import (
     file_digest,
     verify_source_identity,
 )
-from .runtime_release import selected_artifact
-from .service_api import ServiceError
+from health_buddy.runtime_release import selected_artifact
+from health_buddy.service_api import ServiceError
 
 WORKER = Path(__file__).with_name("install_acquire_worker.py")
 SECONDS = 120

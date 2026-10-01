@@ -17,8 +17,8 @@ from starlette.responses import Response as HTTPResponse
 from starlette.routing import Route, Router
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .security_api import Runtime
-from .service_api import (
+from health_buddy.security_api import Runtime
+from health_buddy.service_api import (
     Identity,
     Operation,
     Operations,
@@ -27,9 +27,9 @@ from .service_api import (
     Response,
     ServiceError,
 )
-from .transport_ingress import VerifiedSocket
-from .transport_jobs import Jobs
-from .transport_limits import (
+from health_buddy.transport_ingress import VerifiedSocket
+from health_buddy.transport_jobs import Jobs
+from health_buddy.transport_limits import (
     DEFAULT_LIMITS,
     EnvelopeError,
     Limits,
@@ -39,10 +39,10 @@ from .transport_limits import (
     json_object,
     query,
 )
-from .transport_security import SecurityTransport
-from .transport_security import route as security_route
-from .transport_ui import script as auth_script
-from .transport_ui import shell as auth_shell
+from health_buddy.transport_security import SecurityTransport
+from health_buddy.transport_security import route as security_route
+from health_buddy.transport_ui import script as auth_script
+from health_buddy.transport_ui import shell as auth_shell
 
 
 @dataclass(frozen=True)

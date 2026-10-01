@@ -34,7 +34,7 @@ def delegate_logger(kind: str, argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    from .cli import main
+    from health_buddy.cli import main
 
     selected = ["--workspace", options.workspace]
     if options.development:

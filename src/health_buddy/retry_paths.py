@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .durability import fsync_path
-from .service_api import ServiceError
+from health_buddy.durability import fsync_path
+from health_buddy.service_api import ServiceError
 
 
 class WorkflowPaths(Protocol):

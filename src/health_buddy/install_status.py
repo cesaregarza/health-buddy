@@ -7,14 +7,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .backup import private_path
-from .config import load
-from .durability import exclusive
-from .extension_files import read_json
-from .install_agent import actors, owner
-from .security_api import BearerProof, SecurityRequest
-from .security_runtime import read_credential
-from .service_api import ServiceError
+from health_buddy.backup import private_path
+from health_buddy.config import load
+from health_buddy.durability import exclusive
+from health_buddy.extension_files import read_json
+from health_buddy.install_agent import actors, owner
+from health_buddy.security_api import BearerProof, SecurityRequest
+from health_buddy.security_runtime import read_credential
+from health_buddy.service_api import ServiceError
 
 
 def section(value: object) -> dict[str, Any]:

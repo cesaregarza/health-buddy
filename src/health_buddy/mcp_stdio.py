@@ -16,8 +16,8 @@ import anyio
 from mcp.shared.message import ServerMessageMetadata, SessionMessage
 from mcp_types.jsonrpc import JSONRPCError, jsonrpc_message_adapter
 
-from .domain import encode
-from .transport_limits import Limits, json_object
+from health_buddy.domain import encode
+from health_buddy.transport_limits import Limits, json_object
 
 MAX_FRAME = 384 * 1024
 MAX_OUTPUT = 160 * 1024

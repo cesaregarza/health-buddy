@@ -18,9 +18,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
-from .domain import encode, identity_value
-from .durability import atomic_bytes, fsync_path, private_file
-from .service_api import Identity, ServiceError
+from health_buddy.domain import encode, identity_value
+from health_buddy.durability import atomic_bytes, fsync_path, private_file
+from health_buddy.service_api import Identity, ServiceError
 
 SCHEMA = """
 BEGIN IMMEDIATE;

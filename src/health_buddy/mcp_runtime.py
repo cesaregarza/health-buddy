@@ -10,13 +10,13 @@ import mcp_types as types
 from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
 
-from .domain import encode
-from .mcp_errors import failure
-from .mcp_stdio import streams
-from .mcp_tools import ToolService
-from .service_api import ServiceError
-from .transport_jobs import Jobs
-from .transport_limits import EnvelopeError, Limits
+from health_buddy.domain import encode
+from health_buddy.mcp_errors import failure
+from health_buddy.mcp_stdio import streams
+from health_buddy.mcp_tools import ToolService
+from health_buddy.service_api import ServiceError
+from health_buddy.transport_jobs import Jobs
+from health_buddy.transport_limits import EnvelopeError, Limits
 
 REFERENCE_URI = "health-buddy://adapter/v1"
 REFERENCE = """Health Buddy local MCP adapter reference, schema version 1.

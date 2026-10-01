@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from . import legacy
-from .domain import invalid, object_value, text
-from .loggers import camel
-from .service_api import JSON
+from health_buddy import legacy
+from health_buddy.domain import invalid, object_value, text
+from health_buddy.loggers import camel
+from health_buddy.service_api import JSON
 
 TOP = set(
     (

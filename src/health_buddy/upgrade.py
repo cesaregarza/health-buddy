@@ -7,21 +7,27 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .backup import create, disk_required, materialize, private_path
-from .backup_archive import verified
-from .backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
-from .config import load
-from .domain import digest, encode, identity_value
-from .durability import atomic_bytes, exclusive, fsync_path
-from .extension_files import read_file
-from .extension_registry import Registry
-from .operations import Service
-from .personal_workspace import forks_locked
-from .runtime_manifest import MAX_METADATA, SHA256, ManifestError, _json, file_digest
-from .runtime_release import selected_artifact
-from .security_api import Runtime
-from .security_runtime import open_runtime
-from .service_api import Principal, ServiceError
+from health_buddy.backup import create, disk_required, materialize, private_path
+from health_buddy.backup_archive import verified
+from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
+from health_buddy.config import load
+from health_buddy.domain import digest, encode, identity_value
+from health_buddy.durability import atomic_bytes, exclusive, fsync_path
+from health_buddy.extension_files import read_file
+from health_buddy.extension_registry import Registry
+from health_buddy.operations import Service
+from health_buddy.personal_workspace import forks_locked
+from health_buddy.runtime_manifest import (
+    MAX_METADATA,
+    SHA256,
+    ManifestError,
+    _json,
+    file_digest,
+)
+from health_buddy.runtime_release import selected_artifact
+from health_buddy.security_api import Runtime
+from health_buddy.security_runtime import open_runtime
+from health_buddy.service_api import Principal, ServiceError
 
 
 def preflight(

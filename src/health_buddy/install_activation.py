@@ -11,20 +11,20 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .backup import private_path
-from .domain import encode, identity_value
-from .durability import atomic_bytes, exclusive
-from .extension_files import read_file, read_json
-from .install_preflight import preflight
-from .operations import Service
-from .packaged_runtime import managed_ingress
-from .retry_paths import native_path
-from .runtime_manifest import file_digest
-from .runtime_release import docker_command, load_release, selected_artifact
-from .security_runtime import open_runtime
-from .service_api import ServiceError
-from .upgrade import preflight as upgrade_preflight
-from .upgrade_activation import COMPOSE, compose, running
+from health_buddy.backup import private_path
+from health_buddy.domain import encode, identity_value
+from health_buddy.durability import atomic_bytes, exclusive
+from health_buddy.extension_files import read_file, read_json
+from health_buddy.install_preflight import preflight
+from health_buddy.operations import Service
+from health_buddy.packaged_runtime import managed_ingress
+from health_buddy.retry_paths import native_path
+from health_buddy.runtime_manifest import file_digest
+from health_buddy.runtime_release import docker_command, load_release, selected_artifact
+from health_buddy.security_runtime import open_runtime
+from health_buddy.service_api import ServiceError
+from health_buddy.upgrade import preflight as upgrade_preflight
+from health_buddy.upgrade_activation import COMPOSE, compose, running
 
 
 def result(progress: dict[str, Any]) -> dict[str, Any]:

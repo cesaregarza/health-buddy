@@ -9,7 +9,7 @@ from typing import TypeVar
 
 import anyio
 
-from .transport_limits import EnvelopeError, Limits
+from health_buddy.transport_limits import EnvelopeError, Limits
 
 T = TypeVar("T")
 

@@ -8,10 +8,10 @@ from pathlib import Path
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from .durability import fsync_path
-from .extension_files import read_file
-from .security_runtime import _private_parent
-from .service_api import ServiceError
+from health_buddy.durability import fsync_path
+from health_buddy.extension_files import read_file
+from health_buddy.security_runtime import _private_parent
+from health_buddy.service_api import ServiceError
 
 HEADER = b"HEALTH-BUDDY-BACKUP\x00\x01AES256GCM\x00"
 MAX_ARCHIVE_BYTES = 256 * 1024 * 1024

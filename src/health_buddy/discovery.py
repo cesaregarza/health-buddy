@@ -5,20 +5,20 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, cast
 
-from .discovery_api import (
+from health_buddy.discovery_api import (
     MAX_DISCOVERY_BYTES,
     DocumentRef,
     ExtensionDiscovery,
     WorkspaceDiscoveryV1,
 )
-from .domain import envelope
-from .extension_registry import Registry, ReviewedExtension
-from .journal import State
-from .release_identity import ReleaseIdentity
-from .service_api import JSON, Authority, Response, ServiceError
+from health_buddy.domain import envelope
+from health_buddy.extension_registry import Registry, ReviewedExtension
+from health_buddy.journal import State
+from health_buddy.release_identity import ReleaseIdentity
+from health_buddy.service_api import JSON, Authority, Response, ServiceError
 
 if TYPE_CHECKING:
-    from .operations import Service
+    from health_buddy.operations import Service
 
 DOCUMENTS = (
     DocumentRef("agent-guide", "docs/agent-guide.md"),

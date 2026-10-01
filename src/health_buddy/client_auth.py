@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .security_api import BearerProof, ClientIdentity, Runtime
-from .service_api import Operation, Principal, Request, Response
+from health_buddy.security_api import BearerProof, ClientIdentity, Runtime
+from health_buddy.service_api import Operation, Principal, Request, Response
 
 
 class AuthenticatedOperations:
