@@ -29,15 +29,22 @@ export PYTHONPATH="$SOURCE/src"
 "$PYTHON" -m health_buddy.install.acquire --manifest-url "$PUBLISHER_MANIFEST_URL" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --bundle "$BUNDLE" --staging "$ARTIFACTS"
 ```
 
-The supported publisher origin serves `/.../runtime-manifest.json` and its three
-fixed neighboring files: `health-buddy-source.tar` and
-`health-buddy-linux-{amd64,arm64}.docker.tar`. HTTPS port 443 only, no userinfo,
-query credentials, cookies, ambient proxies or authorization headers. Redirects
-must stay on that exact HTTPS origin without query/fragment/userinfo, with the
-maintained redirect count and closed original bodies. Cross-origin CDNs and
-GitHub release redirects/signed-query URLs are intentionally refused: use an
-owner-admitted same-origin static publisher/mirror rather than assuming an
-arbitrary GitHub release URL is supported. No download host is silently adopted.
+The supported source is a GitHub Release. Pass the manifest asset's URL,
+`https://github.com/<owner>/<repo>/releases/download/<tag>/runtime-manifest.json`,
+naming a fixed tag rather than `latest`. The same release carries the three
+fixed neighboring assets fetched beside it: `health-buddy-source.tar` and
+`health-buddy-linux-{amd64,arm64}.docker.tar`. Read the manifest SHA-256 from
+the release page or its notes, then confirm it through a separate channel
+before passing it as the pin. The URL must be HTTPS on port 443 with no
+userinfo, query or fragment; no cookies, ambient proxies or authorization
+headers are sent. GitHub answers each download with a 302 to a short-lived
+signed URL on `release-assets.githubusercontent.com`. The installer admits that
+hop, and only that hop, across origins: from exactly `github.com` to exactly
+that host, over HTTPS on port 443, keeping its signed query string. Every other
+redirect must stay on the same HTTPS origin without query/fragment/userinfo, so
+a maintainer-run same-origin publisher still works. The maintained redirect
+count and closed original bodies apply to every hop. No other download host is
+silently adopted.
 
 The journal binds origin URL/pin/source identity before network activity. Each
 file streams at most 64 KiB per read; metadata is capped at 2 MiB, source archive
