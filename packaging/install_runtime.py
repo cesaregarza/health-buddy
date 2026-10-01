@@ -22,27 +22,44 @@ RELEASE = Path("/opt/health-buddy/release")
 INPUTS = Path("/build-inputs")
 
 
-def build_resources() -> dict[str, object]:
+def build_resources(root: Path = Path("/sys/fs/cgroup")) -> dict[str, object]:
     """Fail before installation if Docker RUN lacks the requested cgroup cap.
 
     This is proof for this RUN only. Builder cache/export and the Docker daemon
     are bounded separately by the ephemeral runner/job, not this cgroup.
     """
-    root = Path("/sys/fs/cgroup")
-    memory_raw = (root / "memory.max").read_bytes()[:128].strip()
-    cpu_raw = (root / "cpu.max").read_bytes()[:128].split()
+    # Prefer v2 when its files are present; an incomplete or unlimited v2
+    # hierarchy must not fall back to unrelated v1 controller limits.
+    version = (
+        2
+        if any(
+            (root / name).exists()
+            for name in ("cgroup.controllers", "memory.max", "cpu.max")
+        )
+        else 1
+    )
+    if version == 2:
+        memory_raw = (root / "memory.max").read_bytes()[:128].strip()
+        cpu_raw = (root / "cpu.max").read_bytes()[:128].split()
+    else:
+        memory_raw = (root / "memory/memory.limit_in_bytes").read_bytes()[:128].strip()
+        cpu_raw = [
+            (root / "cpu" / name).read_bytes()[:128].strip()
+            for name in ("cpu.cfs_quota_us", "cpu.cfs_period_us")
+        ]
     if (
         not memory_raw.isdigit()
         or len(cpu_raw) != 2
         or not all(value.isdigit() for value in cpu_raw)
     ):
-        raise ValueError("bounded_cgroup_v2_build_resources_required")
+        raise ValueError(f"bounded_cgroup_v{version}_build_resources_required")
     memory, quota, period = int(memory_raw), int(cpu_raw[0]), int(cpu_raw[1])
     if not 0 < memory <= 2 * 1024**3 or not 0 < quota <= period or period > 1_000_000:
         raise ValueError("build_resource_cap_not_applied")
     return {
         "schemaVersion": 1,
         "scope": "installer Docker RUN only",
+        "cgroupVersion": version,
         "memoryBytes": memory,
         "cpuQuota": quota,
         "cpuPeriod": period,
