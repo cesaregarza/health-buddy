@@ -10,9 +10,8 @@ signs in to Tailscale or launches a model client automatically.
 Verification uses synthetic host responses and real local workspace/authority/
 client files. Actual owner-host/HTTPS/phone acceptance remains unqualified, and
 named-client gates remain open in CES-1073/1074; CES-1083 owns cross-agent/final
-upgrade qualification. During active P-CES-17, all execution belongs to the queue.
-Installed owners outside that orchestration run documented native commands under
-their own authorization.
+upgrade qualification. Owners run the documented native commands under their
+own authorization.
 
 ## Acquire pinned release artifacts
 
@@ -237,7 +236,7 @@ sign-in is an independent owner prerequisite; live client/phone acceptance stays
 
 `health_buddy.install_activation` is the next owner-controlled action. It contacts
 only the explicitly admitted native CLI and local Unix Docker socket. Preparation
-and preflight commands still perform no activation. No tool or queue receipt here
+and preflight commands still perform no activation. No tool or check receipt here
 establishes an actual deployment: this source flow is verified with synthetic
 subprocess responses only.
 

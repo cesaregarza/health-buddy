@@ -85,9 +85,7 @@ indicators. Text is escaped; a failed view leaves built-in logging available.
 For a simple adaptation, edit `config/settings.json` (`title`, `displayUnit`
 kg/lb) and its synthetic tests/notes in the installed personal directory.
 Changes to runtime/config put the addition in `needs_review`. Inspect the diff,
-run its behavioral tests in the shared validation queue during this project,
-then explicitly enable it again. The queue also owns builds, browser checks and
-installs; another agent must not start independent validation.
+run its behavioral tests, then explicitly enable it again.
 
 ```sh
 health-buddy --workspace "$WORKSPACE" extension disable --id local.weekly-mass
@@ -153,9 +151,9 @@ or `--upstream-base COMMIT` for an explicit target. Changed base reports
 clean record means only `recorded_compatible`, not live Git/build evidence.
 Before recording a review, inspect the chosen native checkout with hooks,
 fsmonitor, external diff/textconv and submodule helpers disabled; record its
-exact commit/tree, deliberate local changes and unresolved conflicts. Submit
-its documented relevant tests/build to the queue, then update owner metadata
-with that evidence. Discovery never runs those commands or repairs/rebases code.
+exact commit/tree, deliberate local changes and unresolved conflicts. Run
+its documented relevant tests/build, then update owner metadata with that
+evidence. Discovery never runs those commands or repairs/rebases code.
 
 The [canonical agent guide](agent-guide.md) reuses these installed examples as
 scaffolds and maps edits to their checks. Installer/upgrade execution remains

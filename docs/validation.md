@@ -44,12 +44,11 @@ Mutation tests deliberately introduce those failures. Do not count a fixture
 oracle pass as implementation acceptance for a future server; preserve these
 cases as conformance inputs and add tests against real interfaces then.
 
-## Queue-owned verification
+## Contract-slice verification
 
 Use Python 3.11+ and an isolated native Linux environment with
 `requirements-contract.txt`. No network or database is used after installing
-the single direct development dependency. The testing queue owns installation
-and all commands; no parallel test runners are needed.
+the single direct development dependency; no parallel test runners are needed.
 
 ```sh
 python3 scripts/validate_contracts.py
@@ -57,9 +56,10 @@ python3 -m unittest discover -s tests -v
 git diff --check BASE..HEAD
 ```
 
-The queue receipt must name the exact commit, predecessor, Python/dependency
-versions, commands, outcomes and raw logs. No GitHub Actions workflow is added
-in this slice; hosted verification remains held for the final controlled batch.
+The receipt must name the exact commit, predecessor, Python/dependency
+versions, commands, outcomes and raw logs. This slice added no GitHub Actions
+workflow; the current check and Actions policy is in
+[AGENTS.md](../AGENTS.md#checks-and-publication).
 
 Production obligations remain: durable atomic journal/ledger and concurrent
 write/crash recovery; cryptographic token/pairing protection, rate limits and

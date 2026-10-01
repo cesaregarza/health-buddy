@@ -80,8 +80,8 @@ source inclusion and `.dockerignore` use explicit code-oriented allowlists.
 `scripts/audit_distribution.py` checks a Git-inventoried candidate tree and generated
 archives for forbidden paths, unsafe file types and obvious credential/host
 defaults without echoing values, including nested private directories and
-symlink/hardlink archive entries. Its `--root` is a checkout or queue-created
-scratch Git index, not a standalone unpacked sdist. The testing receipt identifies the exact
+symlink/hardlink archive entries. Its `--root` is a checkout or a scratch Git
+index, not a standalone unpacked sdist. The testing receipt identifies the exact
 commit, archive inspection and raw results. No image exists yet: CES-1068 must
 inspect the actual built image/context before runtime qualification.
 

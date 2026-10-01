@@ -45,7 +45,7 @@ or disable TLS. Reload/restart after configuration changes, then rediscover.
 
 For customization, obtain the operator's separate native authorization and use
 the selected persistent workspace plus matching canonical guide. Inspect the
-installed descriptor/source/notes/tests; edit one supported extension, request
-its relevant synthetic checks from the project queue where applicable, review,
-explicitly enable and retain a change note. MCP health grants cannot activate
-code. No provider key or paid model API is required by Health Buddy itself.
+installed descriptor/source/notes/tests; edit one supported extension, run
+its relevant synthetic checks, review, explicitly enable and retain a change
+note. MCP health grants cannot activate code. No provider key or paid model API
+is required by Health Buddy itself.

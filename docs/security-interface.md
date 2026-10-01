@@ -2,8 +2,8 @@
 
 This document describes the CES-1067 security owner and transport interface.
 The accepted health Operations API and immutable health receipt bytes remain
-separate from security state and one-time private replies. Execution evidence is
-recorded by the shared validation queue, not inferred from this source map.
+separate from security state and one-time private replies. Execution evidence
+comes from recorded check runs, not from this source map.
 
 ## Ownership and factories
 
@@ -202,5 +202,5 @@ native rotation hook, not restore execution or qualification.
 
 Current UDS/Serve primary-source evidence and precise transport admission rules
 are owned by the transport lane. Runtime, concurrency, secret scans, actual UDS
-negative cases and all regressions run only through the single testing queue
-on a frozen integrated commit. No production/device/deployment claim yet.
+negative cases and all regressions run on a frozen integrated commit. No
+production/device/deployment claim yet.

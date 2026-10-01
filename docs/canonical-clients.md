@@ -115,8 +115,8 @@ Portable App/CLI/HTTP tests exercise the actual canonical service. The existing
 browser suites retain their UI checks with canonical mocked envelopes; the
 portable browser uses the maintained server. `check_client_workflow.py` separately
 checks lost acknowledgements, cross-tab ownership, malformed state and identity
-changes against a synthetic server model. All execution is assigned to the
-serial testing queue and bound to a frozen source commit.
+changes against a synthetic server model. Results are bound to a frozen source
+commit.
 
 Retained native receipts exclude the transport-only `Idempotency-Replayed`
 header. The canonical status, body and other headers remain unchanged on

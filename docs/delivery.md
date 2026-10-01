@@ -50,15 +50,15 @@ claim that those tickets are complete.
 
 1. Prepare local isolated clean commits in dependency order. Later slices name
    their exact accepted predecessor; accepted source is not a release.
-2. Submit each frozen commit to the single testing queue. Receipts name exact
-   SHA, commands, versions, outcomes, logs and unverified gates. One job at a
-   time, bounded internal parallelism; no workers run independent builds.
+2. Run the checks in [AGENTS.md](../AGENTS.md#checks-and-publication) on
+   each frozen commit. Receipts name exact SHA, commands, versions, outcomes,
+   logs and unverified gates.
 3. Review acceptance criteria and raw evidence. Fix and retest changed evidence.
    Stage PR title/body before remote publication.
-4. At the final controlled batch, inspect actual workflow triggers and repository
-   rules before any push or PR. Drafts can trigger Actions. Do not disable
-   unrelated workflows or invoke Apple/paid builds. Publish verified PRs only
-   through the coordinator's selected batch; validate remote head/checks. Stage
+4. Before any push or PR, inspect actual workflow triggers and repository
+   rules. Drafts can trigger Actions. Do not disable unrelated workflows or
+   invoke Apple/paid builds. Push, open or merge PRs only after coordinator
+   review with operator approval; validate remote head/checks. Stage
    the new repository privately; public beta/source release qualification is a
    separate CES-1084 operator gate, not implied by MIT licensing.
 5. After successful PR publication and required verification, add its URL and

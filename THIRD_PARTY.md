@@ -15,7 +15,7 @@ bundled frontend framework. Test fixture values are fabricated.
 External dependencies are installed by the package manager, not vendored into
 source. Preserve their installed `.dist-info` license files and dependency
 notices in any redistributed wheel/container or dependency bundle. The queue
-records exact installed versions and license metadata; CES-1068 audits the
+recorded exact installed versions and license metadata; CES-1068 audits the
 actual runtime image, including transitive dependencies and base-image notices.
 
 | Direct package observed in queue | License determination | Purpose / inclusion |

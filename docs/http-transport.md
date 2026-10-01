@@ -84,6 +84,6 @@ Those probes do not implement health mutations or durable retry semantics.
 `tests/test_portable_http.py` and the portable browser script use the same
 maintained launcher with a synthetic canonical workspace. They require the
 core implementation and verify real save/alias replay/restart and UI flows.
-All execution belongs to the serial testing queue and must cite the exact
-integrated commit. Source tests alone do not qualify device acceptance,
-remote authentication, ARM execution, deployment, migration or release.
+Recorded results must cite the exact integrated commit. Source tests alone do
+not qualify device acceptance, remote authentication, ARM execution, deployment,
+migration or release.
