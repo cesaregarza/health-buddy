@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from health_buddy.backup import disk_required
+from health_buddy.backup.lifecycle import disk_required
 from health_buddy.core import config
 from health_buddy.core.domain import decode, encode, identifier, instant
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path

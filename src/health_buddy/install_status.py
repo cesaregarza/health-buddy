@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from health_buddy.backup import private_path
+from health_buddy.backup.lifecycle import private_path
 from health_buddy.core.config import load
 from health_buddy.core.durability import exclusive
 from health_buddy.core.files import read_json

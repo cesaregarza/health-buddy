@@ -5,8 +5,8 @@ import json
 import pytest
 
 from health_buddy.client.app import App
-from health_buddy.backup import create, restore
-from health_buddy.backup_crypto import keygen
+from health_buddy.backup.lifecycle import create, restore
+from health_buddy.backup.crypto import keygen
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.extension.registry import Registry
 from health_buddy.core.security_api import BearerProof
@@ -201,7 +201,7 @@ def test_low_disk_and_incomplete_archive_never_publish(tmp_path):
     from types import SimpleNamespace
     from unittest.mock import patch
 
-    from health_buddy.backup_crypto import read_key, seal, unseal
+    from health_buddy.backup.crypto import read_key, seal, unseal
 
     runtime, owner, token = secured(tmp_path / "source")
     key = tmp_path / "backup.key"
@@ -210,7 +210,7 @@ def test_low_disk_and_incomplete_archive_never_publish(tmp_path):
     create(runtime, owner.principal, archive, key, confirm_quiesced=True)
     before = runtime.operations.journal.state()
     with patch(
-        "health_buddy.backup.shutil.disk_usage", return_value=SimpleNamespace(free=1)
+        "health_buddy.backup.lifecycle.shutil.disk_usage", return_value=SimpleNamespace(free=1)
     ):
         with pytest.raises(ServiceError, match="backup_insufficient_disk"):
             restore(tmp_path / "low-disk", archive, key, confirm_revoke_all=True)
@@ -454,7 +454,7 @@ def test_snapshot_holds_supported_writer_until_complete(tmp_path):
     from threading import Event, Thread
     from unittest.mock import patch
 
-    from health_buddy.backup_archive import snapshot
+    from health_buddy.backup.archive import snapshot
     from tests.canonical_fixtures import intent
 
     runtime, owner, token = secured(tmp_path / "source")
@@ -480,7 +480,7 @@ def test_snapshot_holds_supported_writer_until_complete(tmp_path):
         return snapshot(config, inventory)
 
     try:
-        with patch("health_buddy.backup.snapshot", held_snapshot):
+        with patch("health_buddy.backup.lifecycle.snapshot", held_snapshot):
             create(
                 runtime,
                 owner.principal,
@@ -524,8 +524,8 @@ def test_backup_rejects_unsafe_owner_file_modes(tmp_path, unsafe_mode):
 
 
 def test_snapshot_effective_privacy_normalizes_git_and_readable_modes(tmp_path):
-    from health_buddy.backup_archive import verified
-    from health_buddy.backup_crypto import read_key, unseal
+    from health_buddy.backup.archive import verified
+    from health_buddy.backup.crypto import read_key, unseal
 
     runtime, owner, _token = secured(tmp_path / "source")
     root = runtime.operations.config.root

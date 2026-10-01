@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from health_buddy.backup_archive import snapshot, verified
-from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, seal, unseal
+from health_buddy.backup.archive import snapshot, verified
+from health_buddy.backup.crypto import MAX_ARCHIVE_BYTES, read_key, seal, unseal
 from health_buddy.core.config import load
 from health_buddy.core.domain import encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path

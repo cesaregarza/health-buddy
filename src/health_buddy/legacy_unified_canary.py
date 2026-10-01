@@ -9,9 +9,9 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-from health_buddy.backup import private_path
-from health_buddy.backup_archive import MANIFEST, snapshot, verified
-from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
+from health_buddy.backup.archive import MANIFEST, snapshot, verified
+from health_buddy.backup.crypto import MAX_ARCHIVE_BYTES, read_key, unseal
+from health_buddy.backup.lifecycle import private_path
 from health_buddy.core import config
 from health_buddy.core.domain import decode, digest, encode
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path

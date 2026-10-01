@@ -107,7 +107,7 @@ def seed() -> None:
 
 def backup_crypto_check() -> None:
     """Exercise shipped native crypto using fabricated bytes, never owner data."""
-    from health_buddy.backup_crypto import seal, unseal
+    from health_buddy.backup.crypto import seal, unseal
     from health_buddy.core.service_api import ServiceError
 
     assert (QUALIFICATION / "seeded").read_bytes() == b"synthetic-only\n", (

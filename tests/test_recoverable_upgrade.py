@@ -11,7 +11,7 @@ import pytest
 
 from health_buddy import upgrade_activation
 from health_buddy.client.app import App
-from health_buddy.backup_crypto import keygen
+from health_buddy.backup.crypto import keygen
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.extension.jobs import run_event
 from health_buddy.extension.registry import Registry

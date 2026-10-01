@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from health_buddy.backup import disk_required, private_path
+from health_buddy.backup.lifecycle import disk_required, private_path
 from health_buddy.core import config, loggers, records
 from health_buddy.core.domain import decode, digest, encode, identifier
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path

@@ -10,8 +10,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from health_buddy.backup import private_path
-from health_buddy.backup_archive import snapshot, verified
+from health_buddy.backup.archive import snapshot, verified
+from health_buddy.backup.lifecycle import private_path
 from health_buddy.core.domain import encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import read_file, read_json

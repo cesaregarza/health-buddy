@@ -9,9 +9,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from health_buddy.backup import create
-from health_buddy.backup_archive import verified
-from health_buddy.backup_crypto import keygen, read_key, unseal
+from health_buddy.backup.lifecycle import create
+from health_buddy.backup.archive import verified
+from health_buddy.backup.crypto import keygen, read_key, unseal
 from health_buddy.cli import main
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.legacy_sleepiq_import import daily_export

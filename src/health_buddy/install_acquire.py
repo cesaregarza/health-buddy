@@ -18,7 +18,7 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, Any, cast
 
-from health_buddy.backup import private_path
+from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path

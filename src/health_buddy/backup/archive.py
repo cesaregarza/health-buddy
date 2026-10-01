@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES
+from health_buddy.backup.crypto import MAX_ARCHIVE_BYTES
 from health_buddy.core.config import Config, relative_path
 from health_buddy.core.domain import decode, encode, identity_value
 from health_buddy.core.files import bounded_children

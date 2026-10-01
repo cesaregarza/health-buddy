@@ -11,7 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from health_buddy.backup import private_path
+from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.core import config
 from health_buddy.core.domain import encode, identity_value

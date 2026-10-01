@@ -7,9 +7,14 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from health_buddy.backup import create, disk_required, materialize, private_path
-from health_buddy.backup_archive import verified
-from health_buddy.backup_crypto import MAX_ARCHIVE_BYTES, read_key, unseal
+from health_buddy.backup.archive import verified
+from health_buddy.backup.crypto import MAX_ARCHIVE_BYTES, read_key, unseal
+from health_buddy.backup.lifecycle import (
+    create,
+    disk_required,
+    materialize,
+    private_path,
+)
 from health_buddy.core.config import load
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
