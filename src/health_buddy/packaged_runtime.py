@@ -121,37 +121,8 @@ def health(root: Path) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
-    parser.add_argument("--workspace", type=Path, default=WORKSPACE)
-    sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("api")
-    sub.add_parser("health")
-    sub.add_parser("info")
-    fresh = sub.add_parser("init")
-    fresh.add_argument("--external-origin", required=True)
-    fresh.add_argument("--owner-subject", required=True)
-    cli = sub.add_parser("cli")
-    cli.add_argument("arguments", nargs=argparse.REMAINDER)
-    job = sub.add_parser("job")
-    job.add_argument("--id", required=True)
-    job.add_argument("--event-file", type=Path, required=True)
-    job.add_argument("--credential-file", type=Path, required=True)
-    supplied = list(sys.argv[1:] if argv is None else argv)
-    # The native wrapper has no options after its cli command; canonical global
-    # options belong to that remainder. Normalize the optional explicit delimiter.
-    position = 0
-    while position < len(supplied):
-        if supplied[position] == "--workspace":
-            position += 2
-        elif supplied[position].startswith("--workspace="):
-            position += 1
-        else:
-            break
-    if supplied[position : position + 1] == ["cli"]:
-        position += 1
-        if supplied[position : position + 1] != ["--"]:
-            supplied.insert(position, "--")
-    args = parser.parse_args(supplied)
+    supplied = _with_cli_delimiter(list(sys.argv[1:] if argv is None else argv))
+    args = _parser().parse_args(supplied)
     os.umask(0o077)
     try:
         private_workspace(args.workspace)
@@ -173,44 +144,9 @@ def main(argv: list[str] | None = None) -> int:
                 "host HTTPS proxy setup remain explicit."
             )
         elif args.command == "cli":
-            arguments = (
-                args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
-            )
-            if any(
-                item == "--workspace"
-                or item.startswith("--workspace=")
-                or item == "--development"
-                for item in arguments
-            ):
-                raise ManifestError(
-                    "packaged_cli_workspace_or_development_override_refused"
-                )
-            return canonical_cli(["--workspace", str(args.workspace), *arguments])
+            return _packaged_cli(args.workspace, args.arguments)
         elif args.command == "job":
-            for path in (args.event_file, args.credential_file):
-                if (
-                    not path.is_absolute()
-                    or not path.is_relative_to(args.workspace)
-                    or ".." in path.parts
-                ):
-                    raise ManifestError("job_inputs_must_be_inside_owner_workspace")
-                # Reject a linked ancestor before any input reader or canonical
-                # dispatch can probe a descendant outside the owner workspace.
-                native_directory(path.parent)
-            return canonical_cli(
-                [
-                    "--workspace",
-                    str(args.workspace),
-                    "--credential-file",
-                    str(args.credential_file),
-                    "extension",
-                    "run",
-                    "--id",
-                    args.id,
-                    "--event-file",
-                    str(args.event_file),
-                ]
-            )
+            return _job(args.workspace, args.id, args.event_file, args.credential_file)
     except (
         ManifestError,
         ServiceError,
@@ -226,3 +162,79 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     return 0
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument("--workspace", type=Path, default=WORKSPACE)
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("api")
+    sub.add_parser("health")
+    sub.add_parser("info")
+    fresh = sub.add_parser("init")
+    fresh.add_argument("--external-origin", required=True)
+    fresh.add_argument("--owner-subject", required=True)
+    cli = sub.add_parser("cli")
+    cli.add_argument("arguments", nargs=argparse.REMAINDER)
+    job = sub.add_parser("job")
+    job.add_argument("--id", required=True)
+    job.add_argument("--event-file", type=Path, required=True)
+    job.add_argument("--credential-file", type=Path, required=True)
+    return parser
+
+
+def _with_cli_delimiter(supplied: list[str]) -> list[str]:
+    # The native wrapper has no options after its cli command; canonical global
+    # options belong to that remainder. Normalize the optional explicit delimiter.
+    position = 0
+    while position < len(supplied):
+        if supplied[position] == "--workspace":
+            position += 2
+        elif supplied[position].startswith("--workspace="):
+            position += 1
+        else:
+            break
+    if supplied[position : position + 1] == ["cli"]:
+        position += 1
+        if supplied[position : position + 1] != ["--"]:
+            supplied.insert(position, "--")
+    return supplied
+
+
+def _packaged_cli(workspace: Path, remainder: list[str]) -> int:
+    arguments = remainder[1:] if remainder[:1] == ["--"] else remainder
+    if any(
+        item == "--workspace"
+        or item.startswith("--workspace=")
+        or item == "--development"
+        for item in arguments
+    ):
+        raise ManifestError("packaged_cli_workspace_or_development_override_refused")
+    return canonical_cli(["--workspace", str(workspace), *arguments])
+
+
+def _job(workspace: Path, job_id: str, event_file: Path, credential_file: Path) -> int:
+    for path in (event_file, credential_file):
+        if (
+            not path.is_absolute()
+            or not path.is_relative_to(workspace)
+            or ".." in path.parts
+        ):
+            raise ManifestError("job_inputs_must_be_inside_owner_workspace")
+        # Reject a linked ancestor before any input reader or canonical
+        # dispatch can probe a descendant outside the owner workspace.
+        native_directory(path.parent)
+    return canonical_cli(
+        [
+            "--workspace",
+            str(workspace),
+            "--credential-file",
+            str(credential_file),
+            "extension",
+            "run",
+            "--id",
+            job_id,
+            "--event-file",
+            str(event_file),
+        ]
+    )
