@@ -31,6 +31,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.development and args.credential_file is not None:
             raise ServiceError(422, "development_cannot_use_credentials")
+        if args.development and _installed(args.workspace):
+            print(INSTALLED_REFUSAL, file=sys.stderr)
+            return 2
         if args.command in {"status", "doctor", "support-bundle"}:
             return _diagnose(args)
         if args.command == "legacy-import":
@@ -74,6 +77,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     return 0
+
+
+INSTALLED_REFUSAL = (
+    "Health Buddy: development_mode_refused_on_installed_workspace (HTTP 409).\n"
+    "Use the owner's credential instead of --development: "
+    "--credential-file <owner token> log ..."
+)
+
+
+def _installed(workspace: Path) -> bool:
+    """Prepare marks an installation; its runtime serves only tailscale-uds."""
+    root = workspace.expanduser().resolve()
+    if (root / "personal/INSTALLATION.json").exists(follow_symlinks=False):
+        return True
+    try:
+        return load(root).ingress().mode == "tailscale-uds"
+    except ConfigError:
+        return False
 
 
 def _parser() -> argparse.ArgumentParser:

@@ -19,6 +19,9 @@ preflight. Do not expose it through a proxy, tunnel or public interface. The
 production runtime/installer is CES-1068. [Authorization setup](authorization.md)
 provides explicit native credentials and protected browser sessions; browser
 login also needs deliberately configured HTTPS ingress.
+Development mode refuses a workspace an installation has prepared
+(`development_mode_refused_on_installed_workspace`); there, run commands with
+the owner's `--credential-file` instead of `--development`.
 The wheel still targets library/ingest use: this dashboard entrypoint requires
 the source bundle's templates, calculations and scripts. An editable source
 install also provides the `health-buddy` command.
