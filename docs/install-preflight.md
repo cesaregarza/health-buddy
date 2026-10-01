@@ -463,6 +463,11 @@ installation journal. This is a native owner token, not an expiring browser
 bootstrap proof; keep it private and use credential-file arguments rather than
 pasting it into commands or chat.
 
+An authority that authenticates while the workspace fails the local readiness
+check refuses with `install_owner_workspace_not_ready`. The authority is intact:
+make the workspace private (no group or other write access) and quiescent, then
+run the same owner command again. `security recover` is not the remedy.
+
 An empty output or incomplete/mismatched authority refuses with
 `install_owner_partial_requires_explicit_recovery`. Keep the checkpoint and
 partial files for inspection. Deliberate existing OS-owner recovery uses a **new**

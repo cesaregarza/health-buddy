@@ -234,3 +234,27 @@ def test_prepare_and_owner_setup_under_umask_002_leave_nothing_group_writable(
     writable = {path for path in root.rglob("*") if path.lstat().st_mode & 0o022}
     # Only the owner's own note keeps the umask it was written with.
     assert writable <= {note}
+
+
+def test_unready_workspace_names_readiness_and_a_plain_retry_completes(
+    tmp_path, monkeypatch, capsys
+):
+    selected, arguments, _original, _note = prepared_owner(tmp_path, monkeypatch)
+    # As Git left it on the host under umask 002.
+    reference = selected["workspace"] / "stores/manual.git/refs/heads/main"
+    reference.chmod(0o664)
+    assert install_owner.main(owner_command(arguments)) == 2
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal == {
+        "schemaVersion": 1,
+        "code": "install_owner_workspace_not_ready",
+        "ownerSetupReady": False,
+        "recovery": install_owner.NOT_READY_RECOVERY,
+    }
+    assert "readiness check" in refusal["recovery"]
+    credential = arguments["owner_token"].read_bytes()
+    reference.chmod(0o644)  # The host's repair: chmod go-w.
+    assert install_owner.main(owner_command(arguments)) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["ownerSetupReady"] and "recovery" not in result
+    assert arguments["owner_token"].read_bytes() == credential
