@@ -25,7 +25,7 @@ from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import Request, ServiceError
 from health_buddy.core.workspace import initialize
 from health_buddy.runtime_listener import ListenerLease, listener_lease
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 from health_buddy.transport_ingress import VerifiedSocket
 from tests.auth_transport_fixtures import short_socket_directory
 from tests.canonical_fixtures import decoded, intent

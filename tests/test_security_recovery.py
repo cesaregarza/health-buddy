@@ -17,7 +17,7 @@ from health_buddy.core.security_api import (
     PairingReservation,
     SecurityRequest,
 )
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded, intent
 from tests.security_fixtures import action, secured

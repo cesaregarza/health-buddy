@@ -309,7 +309,7 @@ from health_buddy.client_workflow import decoded
 from health_buddy.core.domain import digest
 from health_buddy.extension_jobs import run_event
 from health_buddy.core.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.core.service_api import Request
 from health_buddy.core import source_bundle
 root, selected = Path(sys.argv[2]), Path(sys.argv[1])
@@ -396,7 +396,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(sys.argv[3]) / "src"))
 from health_buddy.extension_jobs import run_event
 from health_buddy.core.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.security.runtime import open_runtime, read_credential
 root, credential_path = Path(sys.argv[1]), Path(sys.argv[2])
 runtime = open_runtime(root)
 token = read_credential(credential_path)

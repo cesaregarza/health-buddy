@@ -14,7 +14,7 @@ from health_buddy.core.durability import atomic_bytes
 from health_buddy.legacy_receiver_import import export_receiver, import_receiver
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime, setup_security
+from health_buddy.security.runtime import open_runtime, setup_security
 from health_buddy.core.service_api import Request, ServiceError
 from health_ingest.models import parse_batch
 from health_ingest.storage import HealthRepository

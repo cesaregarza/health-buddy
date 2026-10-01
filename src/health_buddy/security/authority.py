@@ -41,7 +41,7 @@ from health_buddy.core.service_api import (
     Principal,
     ServiceError,
 )
-from health_buddy.security_store import (
+from health_buddy.security.store import (
     SecurityStore,
     csrf_value,
     denied,
@@ -119,7 +119,7 @@ class SecurityAuthority:
         name: str,
     ) -> SecurityReply:
         """Native maintenance only; deliberately absent from transport actions."""
-        from health_buddy.imported_device_admission import admit
+        from health_buddy.security.device_admission import admit
 
         return admit(
             self,
@@ -367,7 +367,7 @@ class SecurityAuthority:
     def execute(
         self, principal: Principal | None, request: SecurityRequest
     ) -> SecurityReply:
-        from health_buddy.security_actions import execute
+        from health_buddy.security.actions import execute
 
         if (
             not isinstance(request, SecurityRequest)

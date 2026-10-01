@@ -18,7 +18,7 @@ from health_buddy.core.workspace import initialize
 from health_buddy.install_preflight import preflight
 from health_buddy.mcp_settings import Settings
 from health_buddy.retry_paths import native_path
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 from health_buddy.upgrade import preflight as upgrade_preflight
 
 MAINTENANCE_REFERENCES = (

@@ -27,7 +27,7 @@ from health_buddy.runtime.manifest import (
     file_digest,
 )
 from health_buddy.runtime.release import selected_artifact
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 
 
 def preflight(

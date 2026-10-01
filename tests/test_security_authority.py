@@ -16,7 +16,7 @@ from health_buddy.core.security_api import (
     SecurityRequest,
     SessionProof,
 )
-from health_buddy.security_runtime import open_runtime, read_credential, setup_security
+from health_buddy.security.runtime import open_runtime, read_credential, setup_security
 from health_buddy.core.service_api import Principal, Request, ServiceError
 from tests.canonical_fixtures import decoded, intent
 from tests.security_fixtures import action, secured
@@ -89,7 +89,7 @@ def test_bootstrap_consumes_once_checks_tuple_and_expires(tmp_path, monkeypatch)
     import time
 
     now = time.time()
-    monkeypatch.setattr("health_buddy.security_store.time.time", lambda: now + 301)
+    monkeypatch.setattr("health_buddy.security.store.time.time", lambda: now + 301)
     with pytest.raises(ServiceError) as expired_error:
         expired.security.execute(
             None,
@@ -332,7 +332,7 @@ def test_session_expiry_rechecks_cached_handle(tmp_path, monkeypatch):
 
     now = time.time()
     monkeypatch.setattr(
-        "health_buddy.security_store.time.time",
+        "health_buddy.security.store.time.time",
         lambda: now + runtime.ingress.session_seconds + 1,
     )
     assert (
@@ -387,7 +387,7 @@ def test_handles_deduplicate_expire_and_never_become_database_authority(
     import time
 
     now = time.monotonic()
-    monkeypatch.setattr("health_buddy.security.time.monotonic", lambda: now + 301)
+    monkeypatch.setattr("health_buddy.security.authority.time.monotonic", lambda: now + 301)
     with pytest.raises(ServiceError):
         runtime.security.describe(fresh.principal)
     renewed = runtime.security.authenticate(BearerProof(token))

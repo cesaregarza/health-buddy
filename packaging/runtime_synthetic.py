@@ -22,7 +22,7 @@ from health_buddy.extension_jobs import run_event
 from health_buddy.extension_prepare import prepare
 from health_buddy.extension_registry import Registry
 from health_buddy.packaged_runtime import open_packaged
-from health_buddy.security_runtime import read_credential, setup_security
+from health_buddy.security.runtime import read_credential, setup_security
 
 SOURCE = Path("/opt/health-buddy/source")
 ROOT = Path("/workspace")

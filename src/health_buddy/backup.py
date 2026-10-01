@@ -22,8 +22,8 @@ from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.core.workspace import create_file
 from health_buddy.runtime.manifest import native_directory
-from health_buddy.security_runtime import _private_parent, open_runtime
-from health_buddy.security_store import SecurityStore
+from health_buddy.security.runtime import _private_parent, open_runtime
+from health_buddy.security.store import SecurityStore
 
 
 def private_path(path: Path) -> Path:

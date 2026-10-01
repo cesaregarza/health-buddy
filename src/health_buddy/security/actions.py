@@ -21,10 +21,10 @@ from health_buddy.core.security_api import (
     SecurityRequest,
 )
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.security_store import denied, fingerprint, secret_value, valid_secret
+from health_buddy.security.store import denied, fingerprint, secret_value, valid_secret
 
 if TYPE_CHECKING:
-    from health_buddy.security import Handle, SecurityAuthority
+    from health_buddy.security.authority import Handle, SecurityAuthority
 
 AGENT_GRANTS = frozenset({"records:read", "records:write", "providers:invoke"})
 

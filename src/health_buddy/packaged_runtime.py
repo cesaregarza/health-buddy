@@ -26,7 +26,7 @@ from health_buddy.runtime.manifest import (
     native_directory,
     verify_source_identity,
 )
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 
 SOURCE = Path("/opt/health-buddy/source")
 MANIFEST = Path("/opt/health-buddy/release/source-manifest.json")

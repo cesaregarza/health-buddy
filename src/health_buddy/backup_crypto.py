@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from health_buddy.core.durability import fsync_path
 from health_buddy.core.files import read_file
 from health_buddy.core.service_api import ServiceError
-from health_buddy.security_runtime import _private_parent
+from health_buddy.security.runtime import _private_parent
 
 HEADER = b"HEALTH-BUDDY-BACKUP\x00\x01AES256GCM\x00"
 MAX_ARCHIVE_BYTES = 256 * 1024 * 1024

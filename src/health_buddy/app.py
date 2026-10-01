@@ -55,7 +55,7 @@ class App:
         cls, root: Path, *, proof: BearerProof, runtime: Runtime | None = None
     ) -> App:
         if runtime is None:
-            from health_buddy.security_runtime import open_runtime
+            from health_buddy.security.runtime import open_runtime
 
             runtime = open_runtime(root)
         admitted = runtime.security.authenticate(proof)

@@ -20,7 +20,7 @@ from health_buddy.extension_jobs import run_event
 from health_buddy.extension_prepare import prepare
 from health_buddy.extension_registry import Registry, status_json
 from health_buddy.personal_workspace import describe
-from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.security.runtime import open_runtime, read_credential
 
 
 def add_commands(commands: Any) -> None:

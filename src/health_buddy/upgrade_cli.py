@@ -9,7 +9,7 @@ from typing import Any
 
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
-from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.upgrade import stage
 from health_buddy.upgrade_activation import activate
 

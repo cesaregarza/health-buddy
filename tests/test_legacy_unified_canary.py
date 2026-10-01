@@ -20,7 +20,7 @@ from health_buddy.legacy_unified_canary import ORIGINAL, backup_readiness, impor
 from health_buddy.core.operations import Service
 from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
 from health_buddy.core.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime, read_credential, setup_security
+from health_buddy.security.runtime import open_runtime, read_credential, setup_security
 from health_buddy.core.service_api import Request, ServiceError
 from sleepiq_exporter.domain import BedInfo, SleeperInfo, SleepMetrics
 from sleepiq_exporter.normalization import normalize_record

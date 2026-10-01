@@ -18,9 +18,9 @@ from health_buddy.core.operations import open_service
 from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import ServiceError
-from health_buddy.runtime_readiness import ready
-from health_buddy.security import SecurityAuthority
-from health_buddy.security_store import SecurityStore, private_owned, valid_secret
+from health_buddy.security.authority import SecurityAuthority
+from health_buddy.security.readiness import ready
+from health_buddy.security.store import SecurityStore, private_owned, valid_secret
 
 
 def open_runtime(

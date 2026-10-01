@@ -33,8 +33,8 @@ def settings_file(tmp_path):
 
 
 def test_explicit_state_is_not_a_local_backend(tmp_path, monkeypatch):
-    from health_buddy import security_runtime
     from health_buddy.core import workspace
+    from health_buddy.security import runtime as security_runtime
 
     def forbidden(*args, **kwargs):
         raise AssertionError("local backend initialization is forbidden")

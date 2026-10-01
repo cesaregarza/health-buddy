@@ -11,7 +11,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Manual values and stable IDs | `core/records.py`, `core/loggers.py`, `core/plans.py`; canonical logger/source ownership tests; retained pure validator tests |
 | Source capture and scoped projections | `core/snapshots.py`, `core/views.py`, `core/projection.py`; canonical reads/extensions and portable workspace tests |
 | Maintained HTTP | `transport*.py`, `production_server.py`; transport, wire and portable HTTP tests |
-| Security authority and native setup | `core/security_api.py`, `security.py`, `security_store.py`, `security_actions.py`, `security_runtime.py`; security authority/pairing/recovery/setup tests |
+| Security authority and native setup | `core/security_api.py`, `security/authority.py`, `security/store.py`, `security/actions.py`, `security/device_admission.py`, `security/readiness.py`, `security/runtime.py`; security authority/pairing/recovery/setup tests |
 | UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
 | Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
 | Personal registry, native jobs and reviewed views | `core/extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |

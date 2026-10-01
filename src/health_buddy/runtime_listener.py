@@ -18,7 +18,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from health_buddy.core.durability import atomic_bytes, fsync_path
-from health_buddy.security_store import private_owned
+from health_buddy.security.store import private_owned
 from health_buddy.transport_ingress import VerifiedSocket
 
 MANAGED_PATH = "security/runtime/http.sock"

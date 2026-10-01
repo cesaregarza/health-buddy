@@ -10,7 +10,7 @@ from health_buddy.backup_crypto import keygen
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.extension_registry import Registry
 from health_buddy.core.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime, read_credential
+from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded
 from tests.extension_fixtures import example

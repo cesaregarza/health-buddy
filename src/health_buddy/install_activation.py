@@ -22,7 +22,7 @@ from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.retry_paths import native_path
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.runtime.release import docker_command, load_release, selected_artifact
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 from health_buddy.upgrade import preflight as upgrade_preflight
 from health_buddy.upgrade_activation import COMPOSE, compose, running
 

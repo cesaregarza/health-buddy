@@ -21,8 +21,8 @@ from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
 from health_buddy.packaged_runtime import private_workspace
 from health_buddy.retry_paths import native_path
-from health_buddy.security_runtime import open_runtime, read_credential, setup_security
-from health_buddy.security_store import SecurityStore
+from health_buddy.security.runtime import open_runtime, read_credential, setup_security
+from health_buddy.security.store import SecurityStore
 
 RECOVERY = (
     "Retain the journal, config and credential output. Inspect partial authority; "

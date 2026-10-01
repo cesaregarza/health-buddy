@@ -17,7 +17,7 @@ from pathlib import Path
 from health_buddy.core.config import Config
 from health_buddy.core.git_store import STORE_CONFIG
 from health_buddy.core.service_api import Identity, ServiceError
-from health_buddy.security_store import SecurityStore, private_owned
+from health_buddy.security.store import SecurityStore, private_owned
 
 OID = re.compile(r"[0-9a-f]{40}\Z")
 

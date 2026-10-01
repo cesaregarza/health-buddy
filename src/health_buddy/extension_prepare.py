@@ -33,7 +33,7 @@ from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.extension_jobs import job_lock
 from health_buddy.extension_manifest import parse_manifest
 from health_buddy.extension_registry import Registry
-from health_buddy.security_runtime import read_credential
+from health_buddy.security.runtime import read_credential
 
 
 def _identity(

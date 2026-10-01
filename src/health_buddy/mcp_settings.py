@@ -13,7 +13,7 @@ from health_buddy.core.domain import check_identity, decode, object_value
 from health_buddy.core.files import private_directory, read_file
 from health_buddy.core.service_api import Identity, ServiceError
 from health_buddy.retry_paths import RetryRoot, native_path
-from health_buddy.security_store import valid_secret
+from health_buddy.security.store import valid_secret
 
 
 def private_path(value: object) -> Path:

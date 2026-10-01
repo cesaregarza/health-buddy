@@ -16,7 +16,7 @@ from health_buddy.core.domain import digest, encode, envelope
 from health_buddy.core.security_api import AgentGrant, BearerProof
 from health_buddy.core.service_api import Identity, Principal, Request, ServiceError
 from health_buddy.core.workspace import initialize
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 from tests.security_fixtures import action, secured
 
 IDENTITY = Identity(

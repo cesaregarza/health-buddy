@@ -19,7 +19,7 @@ from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import verify_source_identity
 from health_buddy.runtime.release import create_release
 from health_buddy.core.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime
+from health_buddy.security.runtime import open_runtime
 from health_buddy.core.service_api import Request, ServiceError
 from health_buddy.upgrade import stage
 from health_buddy.upgrade_activation import activate

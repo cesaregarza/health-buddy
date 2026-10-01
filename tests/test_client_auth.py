@@ -162,7 +162,7 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
     from health_buddy.app import App
     from health_buddy.client_workflow import decoded
     from health_buddy.core.security_api import AgentGrant, BearerProof
-    from health_buddy.security_runtime import open_runtime
+    from health_buddy.security.runtime import open_runtime
     from health_buddy.core.service_api import Request
     from tests.security_fixtures import action, secured
 

@@ -16,7 +16,7 @@ from health_buddy.core.loggers import FIELDS
 from health_buddy.core.operations import open_service
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
-from health_buddy.security_runtime import open_runtime, read_credential, setup_security
+from health_buddy.security.runtime import open_runtime, read_credential, setup_security
 
 
 def main(argv: list[str] | None = None) -> int:
