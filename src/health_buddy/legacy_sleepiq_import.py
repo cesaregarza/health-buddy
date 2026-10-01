@@ -7,8 +7,8 @@ from dataclasses import fields
 from datetime import date, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from health_buddy.core.git_store import csv_text, parse_csv
 from health_buddy.legacy_import import MAX_RECORDS
-from health_buddy.legacy_store import csv_text, parse_csv
 from health_buddy.service_api import ServiceError
 
 

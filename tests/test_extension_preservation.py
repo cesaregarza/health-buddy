@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from health_buddy import personal_workspace
+from health_buddy.core import source_bundle
 from health_buddy.client_workflow import decoded
 from health_buddy.domain import digest
 from health_buddy.extension_install import install
@@ -288,7 +289,7 @@ def test_fresh_process_uses_copied_source_with_same_owner_and_retained_state(
         "digest"
     ]
 
-    release = Path(personal_workspace.legacy.RELEASE)
+    release = Path(source_bundle.RELEASE)
     copied = tmp_path / "selected-source"
     for name in ("src", "scripts", "health-runner/dashboard"):
         source = release / name
@@ -310,12 +311,12 @@ from health_buddy.extension_jobs import run_event
 from health_buddy.security_api import BearerProof
 from health_buddy.security_runtime import open_runtime, read_credential
 from health_buddy.service_api import Request
-from health_buddy import legacy
+from health_buddy.core import source_bundle
 root, selected = Path(sys.argv[2]), Path(sys.argv[1])
 owner_token = read_credential(Path(sys.argv[3]))
 agent_token = read_credential(Path(sys.argv[4]))
 assert Path(health_buddy.__file__).resolve().is_relative_to(selected / "src")
-assert legacy.RELEASE.resolve() == selected.resolve()
+assert source_bundle.RELEASE.resolve() == selected.resolve()
 runtime = open_runtime(root)
 principal = runtime.security.authenticate(BearerProof(owner_token)).principal
 value = decoded(runtime.operations.execute(
@@ -418,7 +419,7 @@ print("DONE", flush=True)
             child,
             str(config.root),
             str(config.path(prepared_result["credentialReference"])),
-            str(Path(personal_workspace.legacy.RELEASE)),
+            str(Path(source_bundle.RELEASE)),
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,

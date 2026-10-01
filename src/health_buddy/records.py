@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from health_buddy.core.git_store import csv_text, headers, parse_csv
 from health_buddy.domain import (
     Observation,
     decode,
@@ -22,7 +23,6 @@ from health_buddy.domain import (
     object_value,
     text,
 )
-from health_buddy.legacy_store import csv_text, headers, parse_csv
 from health_buddy.service_api import JSON, ServiceError
 from health_buddy.stores import OBSERVATIONS, RECORD_INDEX
 

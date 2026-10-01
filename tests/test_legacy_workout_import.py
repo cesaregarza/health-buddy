@@ -8,7 +8,7 @@ import pytest
 from health_buddy.cli import main
 from health_buddy.domain import encode
 from health_buddy.durability import atomic_bytes
-from health_buddy.legacy_store import csv_text, headers
+from health_buddy.core.git_store import csv_text, headers
 from health_buddy.legacy_workout_import import (
     FAMILY,
     SESSIONS,
@@ -157,7 +157,7 @@ def test_foreign_or_corrupt_parent_refused_before_export_and_import(
     _source, sessions, sets, snapshot, _before = fixture(tmp_path)
     export(sessions, sets, snapshot)
     document = json.loads(snapshot.read_bytes())
-    from health_buddy.legacy_store import parse_csv
+    from health_buddy.core.git_store import parse_csv
 
     rows = parse_csv(document["files"][SETS], headers()[SETS])
     rows[0][field] = value
@@ -181,7 +181,7 @@ def test_duplicate_parent_refused_before_destination_exists(tmp_path):
     _source, sessions, sets, snapshot, _before = fixture(tmp_path)
     export(sessions, sets, snapshot)
     document = json.loads(snapshot.read_bytes())
-    from health_buddy.legacy_store import parse_csv
+    from health_buddy.core.git_store import parse_csv
 
     rows = parse_csv(document["files"][SESSIONS], headers()[SESSIONS])
     changed = csv_text(headers()[SESSIONS], rows + rows)

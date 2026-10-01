@@ -19,7 +19,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from health_buddy import legacy
+from health_buddy.core import source_bundle
 
 STORE_CONFIG = (
     "[core]\n\trepositoryformatversion = 0\n\tbare = true\n\tfilemode = true\n"
@@ -93,12 +93,12 @@ def csv_text(fields: list[str], rows: list[dict[str, str]]) -> str:
 
 
 def headers() -> dict[str, list[str]]:
-    workout = legacy.module("workout_store")
+    workout = source_bundle.module("workout_store")
     return {
         "data/sessions.csv": workout.SESSION_FIELDS,
         "data/sets.csv": workout.SET_FIELDS,
-        "data/measurements.csv": legacy.module("log_measurement").FIELDNAMES,
-        "data/intake.csv": legacy.module("log_intake").FIELDNAMES,
+        "data/measurements.csv": source_bundle.module("log_measurement").FIELDNAMES,
+        "data/intake.csv": source_bundle.module("log_intake").FIELDNAMES,
     }
 
 
@@ -255,7 +255,7 @@ class Store:
             }
 
     def workout(self, payload: dict[str, Any], *, as_of: date) -> dict[str, Any]:
-        validator = legacy.module("workout_store")
+        validator = source_bundle.module("workout_store")
         session, sets = validator.normalize(payload, as_of=as_of)
 
         def change(files: dict[str, str]) -> dict[str, str]:

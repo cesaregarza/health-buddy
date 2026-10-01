@@ -7,9 +7,10 @@ import os
 import stat
 from pathlib import Path
 
-from health_buddy import config, legacy
+from health_buddy import config
+from health_buddy.core import source_bundle
+from health_buddy.core.git_store import Store
 from health_buddy.durability import fsync_path
-from health_buddy.legacy_store import Store
 
 OWNER_NOTE = """# Personal Health Buddy workspace
 
@@ -49,7 +50,9 @@ def create_file(path: Path, text: str) -> bool:
 
 def initialize(root: Path) -> config.Config:
     root = root.expanduser().resolve()
-    if root.is_relative_to(legacy.RELEASE) or legacy.RELEASE.is_relative_to(root):
+    if root.is_relative_to(
+        source_bundle.RELEASE
+    ) or source_bundle.RELEASE.is_relative_to(root):
         raise config.ConfigError("Choose a workspace separate from release source")
     _private_directory(root)
     config_file = root / "config.json"

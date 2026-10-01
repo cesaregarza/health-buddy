@@ -10,8 +10,8 @@ import urllib.request
 from http.client import HTTPMessage
 from typing import IO, Any, cast
 
-from health_buddy import legacy
 from health_buddy.config import Config
+from health_buddy.core import source_bundle
 
 
 class ProviderUnavailable(ValueError):
@@ -84,7 +84,7 @@ class Jev:
 
     def intent(self, text: str) -> dict[str, Any]:
         self.require_enabled()
-        service = legacy.module("context_service")
+        service = source_bundle.module("context_service")
         result = self.ask(
             {"state": {"request": text}, "questions": service.jev_questions()}
         )

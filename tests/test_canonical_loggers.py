@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from health_buddy.legacy_store import parse_csv
+from health_buddy.core.git_store import parse_csv
 from health_buddy.service_api import Request
 from tests.canonical_fixtures import decoded, metadata, setup
 

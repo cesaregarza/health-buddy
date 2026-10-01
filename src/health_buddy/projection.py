@@ -10,9 +10,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from health_buddy import legacy
 from health_buddy.config import Config
-from health_buddy.legacy_store import Store, StoreError, csv_text, parse_csv
+from health_buddy.core import source_bundle
+from health_buddy.core.git_store import Store, StoreError, csv_text, parse_csv
 
 
 def source_state(
@@ -74,7 +74,7 @@ def optional_sources(
             continue
         try:
             if name == "healthkit":
-                candidate = legacy.module("healthkit_source").read_healthkit(
+                candidate = source_bundle.module("healthkit_source").read_healthkit(
                     path, config.zone
                 )
                 json.dumps(candidate, allow_nan=False)
@@ -198,7 +198,7 @@ def _weight_summary(
             "notes",
         ]
         (root / "data/goals.csv").write_text(csv_text(goal_fields, []))
-        model = legacy.module("progress_summary")
+        model = source_bundle.module("progress_summary")
         try:
             summary = model.build_summary(root, medication="", as_of=now.date())
         except model.DataError:
@@ -215,7 +215,7 @@ def live_prescription(
 ) -> None:
     if "plans/current_program.json" not in reader.files:
         return
-    planner = legacy.module("next_workout")
+    planner = source_bundle.module("next_workout")
     with tempfile.TemporaryDirectory(
         prefix="plan-", dir=config.storage("cache")
     ) as folder:
@@ -266,7 +266,7 @@ def project_files(
 ) -> dict[str, Any]:
     """Render only the caller's immutable, already scoped source snapshot."""
     reader = Reader(files, config)
-    build = legacy.module("build_dashboard")
+    build = source_bundle.module("build_dashboard")
     records = sum(
         len(parse_csv(text)) for name, text in files.items() if name.endswith(".csv")
     )
@@ -399,13 +399,13 @@ def project_files(
 
 
 def git_timestamp(store: Store, revision: str) -> str:
-    from health_buddy.legacy_store import git
+    from health_buddy.core.git_store import git
 
     return git(store.path, "show", "-s", "--format=%cI", revision).strip()
 
 
 def render(data: dict[str, Any]) -> str:
-    template = legacy.module("build_dashboard").read_template()
+    template = source_bundle.module("build_dashboard").read_template()
     return str(
         template.replace(
             "/*__DATA__*/", json.dumps(data, allow_nan=False).replace("</", "<\\/")

@@ -13,8 +13,10 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from health_buddy import legacy, projection, records
+from health_buddy import projection, records
 from health_buddy.config import Config
+from health_buddy.core import source_bundle
+from health_buddy.core.git_store import csv_text, headers, parse_csv
 from health_buddy.domain import (
     Observation,
     check_identity,
@@ -32,7 +34,6 @@ from health_buddy.durability import (
     unavailable,
 )
 from health_buddy.journal import State
-from health_buddy.legacy_store import csv_text, headers, parse_csv
 from health_buddy.service_api import JSON, Authority, Identity, ServiceError
 from health_buddy.stores import OBSERVATIONS, RECORD_INDEX
 from health_ingest.models import ALLOWED_TYPES
@@ -333,7 +334,7 @@ def capture(
                 }
             for name in names:
                 raw, truncated = _raw_health(service, name, start, end, kinds, deadline)
-                health = legacy.module("healthkit_source").read_healthkit(
+                health = source_bundle.module("healthkit_source").read_healthkit(
                     service.config.storage("healthkit"), service.config.zone, rows=raw
                 )
                 encode(health)  # Non-finite optional values cannot enter the cache.

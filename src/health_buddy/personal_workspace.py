@@ -10,8 +10,8 @@ import subprocess
 from pathlib import Path
 from typing import cast
 
-from health_buddy import legacy
 from health_buddy.config import Config
+from health_buddy.core import source_bundle
 from health_buddy.domain import digest
 from health_buddy.durability import exclusive
 from health_buddy.extension_files import read_file, read_json
@@ -188,7 +188,7 @@ def forks_locked(config: Config, upstream_base: str | None) -> list[JSON]:
 
 def source_identity() -> dict[str, JSON]:
     """Describe this source only; no remotes, logs, hooks or build execution."""
-    source = legacy.RELEASE
+    source = source_bundle.RELEASE
     result: dict[str, JSON] = {
         "path": str(source),
         "kind": "source_bundle",

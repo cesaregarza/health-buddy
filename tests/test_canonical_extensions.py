@@ -8,9 +8,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from health_buddy import legacy
+from health_buddy.core import source_bundle
 from health_buddy.extensions import ScopedClient, latest_body_mass, water_connector
-from health_buddy.legacy_store import Store, csv_text
+from health_buddy.core.git_store import Store, csv_text
 from health_buddy.operations import Service
 from health_buddy.service_api import Principal, Request, ServiceError
 from health_buddy.workspace import initialize
@@ -188,7 +188,7 @@ def test_adopt_more_than_thousand_observations_then_write_and_paginate(tmp_path)
     root = tmp_path / "owner"
     config = initialize(root)
     legacy_store = Store(config.storage("manual"), config.path("operations"))
-    writer = legacy.module("log_measurement")
+    writer = source_bundle.module("log_measurement")
     now = datetime.now(UTC)
     rows = []
     for index in range(1001):
@@ -247,8 +247,8 @@ def test_dense_set_history_does_not_evict_weight_or_session_parent(tmp_path):
     root = tmp_path / "owner"
     config = initialize(root)
     store = Store(config.storage("manual"), config.path("operations"))
-    workout = legacy.module("workout_store")
-    measurement = legacy.module("log_measurement")
+    workout = source_bundle.module("workout_store")
+    measurement = source_bundle.module("log_measurement")
     now = datetime.now(UTC)
     day = (now - timedelta(days=1)).date().isoformat()
     session = {name: "" for name in workout.SESSION_FIELDS}

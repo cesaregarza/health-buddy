@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from health_buddy.config import Config
-from health_buddy.legacy_store import STORE_CONFIG
+from health_buddy.core.git_store import STORE_CONFIG
 from health_buddy.security_store import SecurityStore, private_owned
 from health_buddy.service_api import Identity, ServiceError
 

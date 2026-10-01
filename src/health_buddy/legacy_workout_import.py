@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from health_buddy import config, loggers, records
 from health_buddy.backup import disk_required
+from health_buddy.core.git_store import csv_text, headers, parse_csv
 from health_buddy.domain import decode, digest, encode, identifier
 from health_buddy.durability import atomic_bytes, fsync_path
 from health_buddy.legacy_import import (
@@ -20,7 +21,6 @@ from health_buddy.legacy_import import (
     _read,
     adopt_snapshot,
 )
-from health_buddy.legacy_store import csv_text, headers, parse_csv
 from health_buddy.runtime_manifest import SHA256
 from health_buddy.service_api import JSON, ServiceError
 

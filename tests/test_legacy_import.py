@@ -10,7 +10,7 @@ from health_buddy.cli import main
 from health_buddy.domain import decode
 from health_buddy.durability import atomic_bytes
 from health_buddy.legacy_import import export_measurements, import_measurements
-from health_buddy.legacy_store import csv_text, headers
+from health_buddy.core.git_store import csv_text, headers
 from health_buddy.operations import Service
 from health_buddy.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
 from health_buddy.service_api import Request, ServiceError

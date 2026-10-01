@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import Any, Never, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from health_buddy import legacy
 from health_buddy.config import Config
+from health_buddy.core import source_bundle
+from health_buddy.core.git_store import csv_text, parse_csv
 from health_buddy.domain import digest, identifier, invalid, object_value
-from health_buddy.legacy_store import csv_text, parse_csv
 from health_buddy.service_api import JSON, ServiceError
 
 type Transition = tuple[dict[str, str], dict[str, JSON], set[tuple[str, str]]]
@@ -117,7 +117,7 @@ def namespace(kind: str, fields: dict[str, JSON], config: Config) -> argparse.Na
             if kind.startswith("workout-")
             else "log_" + kind.replace("-", "_")
         )
-        parser = cast(argparse.ArgumentParser, legacy.module(module)._parser())
+        parser = cast(argparse.ArgumentParser, source_bundle.module(module)._parser())
         if kind.startswith("workout-"):
             argv.insert(0, kind.split("-", 1)[1])
 
@@ -177,11 +177,11 @@ def validate_input(kind: str, fields: dict[str, JSON], config: Config) -> None:
     args = namespace(kind, fields, config)
     try:
         if kind == "circumference":
-            legacy.module("log_circumference").build_row(args)
+            source_bundle.module("log_circumference").build_row(args)
         elif not kind.startswith("workout-"):
-            legacy.module("log_" + kind.replace("-", "_"))._row(args)
+            source_bundle.module("log_" + kind.replace("-", "_"))._row(args)
         else:
-            writer = legacy.module("log_workout")
+            writer = source_bundle.module("log_workout")
             writer._nonempty("session_id", args.session_id)
             if hasattr(args, "date"):
                 writer._date(args.date)
@@ -240,7 +240,7 @@ def _append(
 def completed(
     files: dict[str, str], payload: dict[str, Any], config: Config, as_of: date
 ) -> Transition:
-    validator = legacy.module("workout_store")
+    validator = source_bundle.module("workout_store")
     session, sets = validator.normalize(payload, as_of=as_of)
     equipment(config, sets)
     sessions = _rows(files, "data/sessions.csv", validator.SESSION_FIELDS)
@@ -285,7 +285,7 @@ def transition(
         if kind.startswith("workout-"):
             return _workout(kind, args, files, config)
         if kind == "circumference":
-            writer = legacy.module("log_circumference")
+            writer = source_bundle.module("log_circumference")
             destination, headers, row = writer.build_row(args)
             path = "data/" + destination.name
             rows = _rows(files, path, headers)
@@ -306,7 +306,7 @@ def transition(
             if not duplicate:
                 rows.append(row)
         else:
-            writer = legacy.module("log_" + kind.replace("-", "_"))
+            writer = source_bundle.module("log_" + kind.replace("-", "_"))
             headers, row = writer.FIELDNAMES, writer._row(args)
             path = {
                 "measurement": "data/measurements.csv",
@@ -362,7 +362,7 @@ def transition(
 def _workout(
     kind: str, args: argparse.Namespace, files: dict[str, str], config: Config
 ) -> Transition:
-    writer = legacy.module("log_workout")
+    writer = source_bundle.module("log_workout")
     session_id = writer._nonempty("session_id", args.session_id)
     sessions = _rows(files, "data/sessions.csv", writer.SESSION_FIELDS)
     parents = [row for row in sessions if row["session_id"] == session_id]

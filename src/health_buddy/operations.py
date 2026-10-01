@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from health_buddy import legacy, loggers, records
+from health_buddy import loggers, records
+from health_buddy.core import source_bundle
+from health_buddy.core.git_store import Store, StoreError
 from health_buddy.domain import (
     API_VERSION,
     MAX_BODY,
@@ -35,7 +37,6 @@ from health_buddy.domain import (
 from health_buddy.durability import check_deadline, exclusive, unavailable
 from health_buddy.health_store import HealthStore
 from health_buddy.journal import Effect, Journal, State
-from health_buddy.legacy_store import Store, StoreError
 from health_buddy.policy import DenyPolicy, DevelopmentPolicy, require_grant
 from health_buddy.release_identity import ReleaseIdentity
 from health_buddy.security_api import DeviceBinding
@@ -271,7 +272,7 @@ class Service:
             self._source(authority, "manual")
             if not isinstance(payload, dict):
                 raise invalid()
-            legacy.module("workout_store").normalize(
+            source_bundle.module("workout_store").normalize(
                 payload, datetime.now(self.config.zone).date()
             )
             path, method = "/v1/workouts", "POST"

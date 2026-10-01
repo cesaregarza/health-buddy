@@ -149,7 +149,7 @@ def test_compound_units_missingness_and_present_zero_are_explicit(tmp_path):
 
 
 def test_empty_intake_fails_adoption_without_changing_owner_data(tmp_path):
-    from health_buddy.legacy_store import Store, StoreError, git
+    from health_buddy.core.git_store import Store, StoreError, git
     from health_buddy.operations import Service
     from health_buddy.workspace import initialize
 
@@ -195,8 +195,8 @@ def test_foreign_blood_pressure_replacement_rejects_b_only_and_both_grants(tmp_p
 
 
 def test_sodium_less_intake_adoption_preserves_record_as_unknown(tmp_path):
-    from health_buddy import legacy
-    from health_buddy.legacy_store import Store, csv_text, parse_csv
+    from health_buddy.core import source_bundle
+    from health_buddy.core.git_store import Store, csv_text, parse_csv
     from health_buddy.operations import Service
     from health_buddy.workspace import initialize
     from tests.canonical_fixtures import RegisteredPolicy, decoded
@@ -204,7 +204,7 @@ def test_sodium_less_intake_adoption_preserves_record_as_unknown(tmp_path):
     root = tmp_path / "owner"
     config = initialize(root)
     store = Store(config.storage("manual"), config.path("operations"))
-    fields = legacy.module("log_intake").LEGACY_FIELDNAMES
+    fields = source_bundle.module("log_intake").LEGACY_FIELDNAMES
     row = {field: "" for field in fields}
     row.update(
         event_at_local=datetime.now(UTC).isoformat(timespec="seconds"),

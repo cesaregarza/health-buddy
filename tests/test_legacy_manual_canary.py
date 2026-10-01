@@ -10,7 +10,7 @@ from health_buddy.cli import main
 from health_buddy.domain import encode
 from health_buddy.durability import atomic_bytes
 from health_buddy.legacy_manual_canary import export_manual_canary, import_manual_canary
-from health_buddy.legacy_store import csv_text, headers
+from health_buddy.core.git_store import csv_text, headers
 from health_buddy.legacy_workout_import import export_workouts
 from health_buddy.operations import Service
 from health_buddy.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
@@ -213,7 +213,7 @@ def test_new_boundary_corruption_refused_before_publication(tmp_path, boundary):
     else:
         measurement = json.loads(document["inputs"]["measurements"])
         value = json.loads(document["inputs"]["workouts"])
-        from health_buddy.legacy_store import parse_csv
+        from health_buddy.core.git_store import parse_csv
         from health_buddy.legacy_workout_import import SESSIONS, SETS, _rows
 
         for path in (SESSIONS, SETS):

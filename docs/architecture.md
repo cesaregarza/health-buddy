@@ -16,7 +16,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
 | Personal registry, native jobs and reviewed views | `extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |
 | Private discovery and recorded core forks | `personal_workspace.py`, `extension_cli.py`; preservation and native maintenance tests |
-| Owner configuration/first run | `config.py`, `workspace.py`, `legacy_store.py`; portable workspace/config tests |
+| Owner configuration/first run | `config.py`, `workspace.py`, `core/git_store.py` (git-backed manual store), `core/source_bundle.py` (dashboard/scripts loader, kept until the dashboard cutover); portable workspace/config tests |
 | HealthKit schema-v1 calculations | `src/health_ingest/models.py`, `storage.py`, dashboard `healthkit_source.py`; protocol/storage and receiver recovery tests |
 | Dashboard/context calculations | dashboard `build_dashboard.py`, `context_pack.py`, scripts summaries/planning/progression; retained calculation tests |
 | Optional SleepIQ export | `src/sleepiq_exporter`; exporter/migration tests; selected local export projection |

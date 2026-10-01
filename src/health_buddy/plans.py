@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from health_buddy import legacy
+from health_buddy.core import source_bundle
 from health_buddy.domain import invalid, object_value, text
 from health_buddy.loggers import camel
 from health_buddy.service_api import JSON
@@ -124,7 +124,7 @@ def validate_plan(value: JSON) -> dict[str, Any]:
     templates = program.get("templates")
     if not isinstance(templates, dict) or not 1 <= len(templates) <= 40:
         raise invalid()
-    progression = legacy.module("prescription_progression")
+    progression = source_bundle.module("prescription_progression")
     policy = _allowed(program.get("progression_policy", {}), POLICY)
     for template_name, value in templates.items():
         text(template_name, limit=80)
@@ -219,4 +219,6 @@ def validate_plan(value: JSON) -> dict[str, Any]:
                 entry = object_value(starts, {"full", "minimum"})
                 for start in entry.values():
                     text(start, limit=20)
-    return cast(dict[str, Any], legacy.module("next_workout").validate_program(program))
+    return cast(
+        dict[str, Any], source_bundle.module("next_workout").validate_program(program)
+    )

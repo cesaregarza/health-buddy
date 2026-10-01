@@ -8,10 +8,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Never, cast
 
-from health_buddy import legacy, loggers
+from health_buddy import loggers
 from health_buddy.client_auth import AuthenticatedOperations
 from health_buddy.client_workflow import ClientWorkflow, decoded
 from health_buddy.config import Config
+from health_buddy.core import source_bundle
 from health_buddy.domain import decode, digest, normalize
 from health_buddy.durability import atomic_bytes
 from health_buddy.operations import open_service
@@ -179,9 +180,9 @@ class App:
             args = loggers.namespace(
                 kind, cast(dict[str, JSON], intent["fields"]), self.config
             )
-            destination, _headers, row = legacy.module("log_circumference").build_row(
-                args
-            )
+            destination, _headers, row = source_bundle.module(
+                "log_circumference"
+            ).build_row(args)
             return {"preview": True, "target": destination.name, "row": row}
         # Original flags identify a retry before any default timestamp is
         # generated again. Pending replay never invokes this builder twice.
@@ -201,7 +202,7 @@ class App:
         value = decode(raw, limit=256 * 1024)
 
         def build_payload() -> JSON:
-            program = legacy.module("next_workout").validate_program(value)
+            program = source_bundle.module("next_workout").validate_program(value)
             return to_wire(cast(JSON, program))
 
         # Editing the same selected file is a new intent. Explicit pending

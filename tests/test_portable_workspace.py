@@ -15,7 +15,7 @@ import pytest
 
 from health_buddy import config, snapshots
 from health_buddy.app import App
-from health_buddy.legacy_store import STORE_CONFIG, Store, StoreError, git
+from health_buddy.core.git_store import STORE_CONFIG, Store, StoreError, git
 from health_buddy.providers import Jev, ProviderUnavailable
 from health_buddy.service_api import Request, ServiceError
 from health_buddy.workspace import initialize
@@ -218,7 +218,7 @@ def test_existing_repository_metadata_rejected_before_git_or_config_read(
     else:
         bad.parent.mkdir(parents=True, exist_ok=True)
         bad.write_text("fabricated")
-    with patch("health_buddy.legacy_store.git", side_effect=AssertionError("No Git")):
+    with patch("health_buddy.core.git_store.git", side_effect=AssertionError("No Git")):
         with pytest.raises(StoreError):
             store.snapshot()
 
@@ -243,7 +243,7 @@ def test_hostile_hooks_signing_and_config_never_execute(tmp_path, monkeypatch):
     store = manual_store(app)
     local_config = store.path / "config"
     local_config.write_text(STORE_CONFIG + "[include]\n path = /nonexistent\n")
-    with patch("health_buddy.legacy_store.git", side_effect=AssertionError("No Git")):
+    with patch("health_buddy.core.git_store.git", side_effect=AssertionError("No Git")):
         with pytest.raises(StoreError):
             store.snapshot()
 

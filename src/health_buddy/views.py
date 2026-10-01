@@ -7,7 +7,9 @@ import binascii
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
-from health_buddy import legacy, plans, projection, snapshots
+from health_buddy import plans, projection, snapshots
+from health_buddy.core import source_bundle
+from health_buddy.core.git_store import StoreError
 from health_buddy.domain import (
     API_VERSION,
     MAX_BODY,
@@ -30,7 +32,6 @@ from health_buddy.domain import (
 )
 from health_buddy.durability import check_deadline, unavailable
 from health_buddy.journal import State
-from health_buddy.legacy_store import StoreError
 from health_buddy.policy import require_grant
 from health_buddy.providers import Jev, ProviderUnavailable
 from health_buddy.service_api import (
@@ -362,7 +363,7 @@ def _context(
     capture: dict[str, Any],
     stale: bool,
 ) -> dict[str, JSON]:
-    context = legacy.module("context_pack")
+    context = source_bundle.module("context_pack")
     days = _count(request.query.get("days"), 30, MAX_DAYS)
     limit = _count(request.query.get("limit"), MAX_ROWS, MAX_ROWS)
     ask = text(request.query.get("ask", ""), limit=2000, empty=True)
@@ -409,7 +410,7 @@ def _context(
 
 
 def _catalog() -> dict[str, JSON]:
-    value = dict(legacy.module("context_pack").catalog())
+    value = dict(source_bundle.module("context_pack").catalog())
     value["windows"] = [14, 30, 90, 366]
     return cast(dict[str, JSON], value)
 
@@ -468,7 +469,7 @@ def _render(
         if stale:
             raise unavailable()
         provider = Jev(service.config)
-        fast = legacy.module("training_fast")
+        fast = source_bundle.module("training_fast")
         try:
             provider.require_enabled()
             body = (
@@ -603,7 +604,7 @@ def read(
         }
         if name not in media_types:
             raise ServiceError(404, "not_found")
-        raw = (legacy.DASHBOARD / "assets" / name).read_bytes()
+        raw = (source_bundle.DASHBOARD / "assets" / name).read_bytes()
         if len(raw) > 65536:
             raise unavailable()
         return Response(200, raw, (("Content-Type", media_types[name]),))

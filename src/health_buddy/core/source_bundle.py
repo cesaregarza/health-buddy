@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-RELEASE = Path(__file__).resolve().parents[2]
+RELEASE = Path(__file__).resolve().parents[3]
 DASHBOARD = RELEASE / "health-runner" / "dashboard"
 
 

@@ -15,7 +15,7 @@ from health_buddy.backup_crypto import keygen, read_key, unseal
 from health_buddy.cli import main
 from health_buddy.durability import atomic_bytes
 from health_buddy.legacy_sleepiq_import import daily_export
-from health_buddy.legacy_store import csv_text, headers, parse_csv
+from health_buddy.core.git_store import csv_text, headers, parse_csv
 from health_buddy.legacy_unified_canary import ORIGINAL, backup_readiness, import_canary
 from health_buddy.operations import Service
 from health_buddy.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
