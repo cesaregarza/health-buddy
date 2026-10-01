@@ -125,11 +125,10 @@ mean of selected canonical body-mass observations in one source/window,
 normalized to kg; empty input is null with `insufficient_data`. The example's
 `config/settings.json` controls display title and kg/lb units. A native agent
 can review and adapt this source/configuration and update notes and synthetic
-tests. Follow `docs/extensions.md` and `docs/verification.md` for validation;
-when working under a shared queue, submit those commands there. After reviewing
-the results, ask the authorized owner to enable the reviewed digest through
-the existing native maintenance workflow. None of
-those actions is a shell, file-read or extension-enable MCP tool. A new MCP
+tests. Follow `docs/extensions.md` and `docs/verification.md` for validation.
+After reviewing the results, ask the authorized owner to enable the reviewed
+digest through the existing native maintenance workflow. None of those actions
+is a shell, file-read or extension-enable MCP tool. A new MCP
 session rediscovers the currently admitted ready descriptor; it must not reuse
 old extension metadata after a native edit or assume omitted extensions exist.
 Broader host-specific scaffold/agent guidance remains a separate deliverable.

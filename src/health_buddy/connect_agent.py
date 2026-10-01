@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import tomllib
 from importlib.resources import files
 from pathlib import Path
@@ -21,6 +22,10 @@ PACKAGE_VERSION = "0.1.0.dev0"
 BEGIN = "# BEGIN health-buddy managed Codex integration\n"
 END = "# END health-buddy managed Codex integration\n"
 MANAGED = ("SKILL.md", "WORKSPACE.json")
+PYTHON_NAMES = frozenset({"python", "python3", "python3.12"})
+# A venv resolves to its base interpreter, which can be any python3.N: the
+# Raspberry Pi OS Python is 3.13. Only the configured name stays fixed.
+RESOLVED_PYTHON_NAME = re.compile(r"python(3(\.[0-9]+)?)?")
 
 
 def checksum(raw: bytes) -> str:
@@ -30,6 +35,36 @@ def checksum(raw: bytes) -> str:
 def optional(path: Path, limit: int = 65_536) -> bytes:
     native_path(path)
     return read_file(path, limit) if path.exists() else b""
+
+
+def lexically_native(path: Path) -> bool:
+    return (
+        path.is_absolute()
+        and not str(path).startswith("//")
+        and ".." not in path.parts
+        and not path.is_relative_to("/mnt")
+    )
+
+
+def native_interpreter(python: Path) -> None:
+    """Admit a Python whose given path and resolved file both pass the rules.
+
+    Venvs reach their interpreter through symlinks, and uv also links its
+    minor-version directory, so linked ancestors are normal here, unlike for
+    client state. The config keeps the given path because Python finds its
+    venv from the path it was started as.
+    """
+    # The client runs the given path, so it must pass before anything resolves.
+    if not lexically_native(python) or python.name not in PYTHON_NAMES:
+        raise ServiceError(422, "invalid_codex_python")
+    resolved = Path(os.path.realpath(python))
+    if (
+        not lexically_native(resolved)
+        or not RESOLVED_PYTHON_NAME.fullmatch(resolved.name)
+        or not resolved.is_file()
+        or not os.access(resolved, os.X_OK)
+    ):
+        raise ServiceError(422, "invalid_codex_python")
 
 
 def partition(raw: bytes) -> tuple[str, str, str]:
@@ -246,31 +281,10 @@ def connect(
         credential = admitted.credential_file.lstat()
         if credential.st_uid != os.geteuid() or credential.st_nlink != 1:
             raise ServiceError(422, "invalid_codex_credential_file")
-        for path in (source, workspace, python.parent):
+        for path in (source, workspace):
             native_path(path)
         private_directory(workspace)
-        if not python.is_absolute() or python.name not in {
-            "python",
-            "python3",
-            "python3.12",
-        }:
-            raise ServiceError(422, "invalid_codex_python")
-        # Venv Python commonly uses a short symlink chain. Check every native
-        # target before touching it; never resolve/traverse a mounted target.
-        target = python
-        for _ in range(8):
-            if target == Path("/mnt") or Path("/mnt") in target.parents:
-                raise ServiceError(422, "invalid_codex_python")
-            native_path(target.parent)
-            if not target.is_symlink():
-                break
-            link = Path(os.readlink(target))
-            target = link if link.is_absolute() else target.parent / link
-            target = Path(os.path.normpath(target))
-        else:
-            raise ServiceError(422, "invalid_codex_python")
-        if not target.is_file() or not os.access(target, os.X_OK):
-            raise ServiceError(422, "invalid_codex_python")
+        native_interpreter(python)
         for relative in ("pyproject.toml", "docs/agent-guide.md", "src"):
             native_path(source / relative)
         project = tomllib.loads((source / "pyproject.toml").read_text())

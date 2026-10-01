@@ -49,5 +49,5 @@ identity, receipts and stable IDs; backup/restore release qualification remains
 separate. The native backup context holds admission while a later operator copies
 the complete workspace, not only its required-path inventory.
 
-All actual tests/builds follow the shared queue in AGENTS.md. Passing synthetic
+Tests and builds follow the check policy in AGENTS.md. Passing synthetic
 source checks is not physical-device, deployment, migration or release acceptance.

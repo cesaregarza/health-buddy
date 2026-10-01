@@ -13,7 +13,7 @@ final update acceptance belongs jointly to CES-1074/1083. Do not label an SDK te
 | MCP SDK | 2.2.0 with mcp-types 2.2.0, from the committed hashed development lock |
 | Locally inspected Codex package | @openai/codex 0.98.0 package metadata; inspection alone is not execution or skill-discovery acceptance |
 | Current documented Codex target | 0.159.2 from the [official changelog](https://learn.chatgpt.com/docs/changelog); not installed or qualified by this source change |
-| Named client/runtime artifact acceptance | Pending exact queue/client receipts; no model session, paid headless run or production credential was invoked |
+| Named client/runtime artifact acceptance | Pending exact check/client receipts; no model session, paid headless run or production credential was invoked |
 
 Official surfaces: [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp)
 and [standalone skills](https://learn.chatgpt.com/docs/build-skills). These describe
@@ -37,7 +37,7 @@ are explicit operator-selected paths, not secret values. CONFIG is the desired
 Codex host's config.toml; SKILL_DIRECTORY ends in `.agents/skills/health-buddy`
 for user discovery (or repository `.agents/skills/health-buddy` for repo scope).
 Do not run these commands against the user's actual settings during project
-verification: the queue supplies isolated synthetic directories instead.
+verification; use isolated synthetic directories instead, as the tests do.
 
 Obtain an agent grant through the existing owner authorization workflow, limited
 to intended read scopes and manual writes; use `records:read`/`records:write`,
@@ -84,7 +84,14 @@ Selected health responses will reach the AI host the operator chooses.
 Use the pinned source-check setup and 53-package wheel lock in the canonical
 [agent guide](agent-guide.md#first-runnable-change-weekly-mass-display). PYTHON
 names that Python 3.12 environment; the helper pins the source package version
-and points the adapter at SOURCE/src, not ambient installed modules. From SOURCE:
+and points the adapter at SOURCE/src, not ambient installed modules. PYTHON may
+be a venv symlink chain, including a uv-managed interpreter. PYTHON and the file
+it resolves to must both be absolute paths without `..` and outside `/mnt`.
+PYTHON must be named `python`, `python3` or `python3.12`; the resolved file
+must be an executable named `python`, `python3` or `python3.N` for any minor
+version N. Otherwise setup refuses; `install_agent` reports this as
+`invalid_codex_python`. The config records PYTHON unresolved, so the client
+starts Python inside the venv. From SOURCE:
 
 ```sh
 export PYTHONPATH="$SOURCE/src"
@@ -93,7 +100,7 @@ export PYTHONPATH="$SOURCE/src"
 
 An installed matching package also exposes `health-buddy-connect-agent` with the
 same arguments. Retain source and Python paths across sessions; do not point
-Codex at a temporary queue checkout. Repeating the command is idempotent;
+Codex at a temporary checkout. Repeating the command is idempotent;
 changing selected settings/source/workspace updates only its marked MCP table,
 SKILL.md and private WORKSPACE.json. The ownership manifest binds those bytes.
 Unmarked same-name entries, local edits, malformed/insecure files or interrupted
@@ -150,7 +157,7 @@ checks → review → explicit enable → retained note. A health grant cannot a
 code. Reachability of that persistent workspace is an operator prerequisite;
 remote discovery contains logical references, not native filesystem authority.
 
-Queue-owned focused commands from the exact source checkpoint:
+Focused checks from the exact source checkpoint:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_codex_integration.py tests/test_mcp_settings.py tests/test_mcp_tools.py
@@ -159,9 +166,9 @@ RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/heal
 "$PYTHON" -m mypy src/health_buddy/connect_agent.py src/health_buddy/mcp_tools.py
 ```
 
-The actual SDK scenario requires the existing admitted private socket root and
-serialized queue cgroup described in verification.md. No install/build/browser
-or model session is added to this focused job. Exact receipts establish observed
+The actual SDK scenario requires the private socket root described in
+[verification](verification.md). No install/build/browser or model session is
+added to these focused checks. Exact recorded output establishes observed
 source results. Actual Codex skill detection and named-session workflow remain open in CES-1073.
 Runtime artifact binding and combined update/cross-client qualification remain
 separate pending checks; source results do not close those acceptance items.

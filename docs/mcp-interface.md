@@ -3,7 +3,7 @@
 This document defines retry storage and admitted discovery for the local MCP
 adapter. The SDK server, bounded framing and private HTTP client are implemented
 in source; [adapter usage](mcp-adapter.md) describes their finite tool interface.
-Queue receipts establish tested commits and outcomes. Neither this interface nor
+Check receipts establish tested commits and outcomes. Neither this interface nor
 a source checkpoint qualifies a Codex/Claude host setup or a released artifact.
 
 `GET /v1/workspace/discovery` maps to `workspace.discover`, requires current

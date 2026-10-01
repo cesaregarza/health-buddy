@@ -3,8 +3,8 @@
 Use Python 3.12+ and Git from a Health Buddy source checkout or unpacked source
 bundle. Native core operations need no model key, global Git identity, signing setup,
 GitHub connection or host service. Install the declared project dependencies
-for the maintained Granian/Starlette HTTP entrypoint; the testing queue owns
-installation and validation during this project work.
+for the maintained Granian/Starlette HTTP entrypoint, for example with
+`python -m pip install .` in a Python 3.12 virtual environment.
 
 ```sh
 export PYTHONPATH="$PWD/src"

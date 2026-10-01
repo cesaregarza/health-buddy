@@ -1,48 +1,88 @@
 # Health Buddy
 
-Health Buddy is a self-hosted, single-owner health workspace in development. Its
-source dashboard supports daily tracking without an agent session or a model API
-key. Codex and Claude Code can use the same durable context and supported
-extension interfaces to help the owner adapt it.
+Health Buddy is a self-hosted health tracking workspace for one person who
+wants their records on their own machine. It tracks workouts, measurements,
+meals and more through a web dashboard, CLI, HTTP API and MCP tools, and is
+built for Codex or Claude Code to install, maintain and extend.
 
-This repository contains the **v1 contract** and a clean source extraction of
-the dashboard, HealthKit ingest, manual operations and optional SleepIQ source.
-The source bundle now supports a private local first run, manual logging,
-dashboard and context packs with every optional integration disabled. Canonical v1 operations now join UI, CLI and scoped extension clients behind
-one durable coordinator. Owner sessions, scoped agent grants and upload-only
-device pairing share a durable authorization authority. Reviewed personal
-metrics/views and connector jobs live outside the replaceable source, with
-maintained synthetic examples and durable event retries. Source packaging now includes
-immutable input locks, a Docker archive/Compose runtime and controlled native
-architecture qualification commands. Actual image/build receipts and operator
-release qualification remain separate; installer and live-agent qualification remain later tickets. Passing source checks does not establish release qualification.
+## Install
 
-- [Native owner installation, status and retained-data removal](docs/install-preflight.md)
-- [Claude Code local integration and qualification boundaries](docs/claude-integration.md)
-- [Codex local integration and qualification boundaries](docs/codex-integration.md)
-- [Codex and Claude Code maintenance guide](docs/agent-guide.md)
-- [Product, API, identity, and security contract](docs/v1-contract.md)
-- [Personal workspace and extension contract](docs/extensions.md)
-- [Repository responsibilities and delivery gates](docs/delivery.md)
-- [Versioned compatibility manifest](contracts/v1/compatibility.json)
-- [Historical contract acceptance mapping](docs/validation.md)
-- [Source map and data ownership](docs/architecture.md)
-- [Extraction provenance and exclusions](docs/extraction.md)
-- [Contributor setup and synthetic preview](CONTRIBUTING.md)
-- [Portable local first run and owner configuration](docs/configuration.md)
-- [Canonical API and operation ownership](docs/api-implementation.md)
-- [Durable client retries and supported CLI](docs/canonical-clients.md)
+Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
+Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
+every command. In order, each step is done when this field is `true`: acquire
+(`artifactsVerified`), preflight (`preflightPassed`), prepare
+(`workspacePrepared`), owner setup (`ownerSetupReady`), activate
+(`runtimeActivated`), private HTTPS (`privateRouteConfigured`), agent setup
+(`clientConfigurationPrepared`). `connected: false` is expected throughout.
+No manifest is published yet: on reaching acquire, stop and ask the owner for
+the manifest URL and SHA-256; never take the hash from downloaded files. On a
+refusal, keep the journal and inputs, then follow the printed `recovery` and the
+doc's notes on that `code`. Rerunning the identical command resumes an
+interrupted step.
+
+## Status
+
+Private pre-release: no release or tag exists. Manually dispatched CI builds
+amd64 and arm64 images and runs them under Compose on synthetic data. Not done:
+installer distribution, a released phone companion, public site, outside pilot.
+
+## Try it locally
+
+From the repository root, in a Python 3.12 venv after
+`python -m pip install .`:
+
+```sh
+export PYTHONPATH="$PWD/src"
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" init
+python -m health_buddy.cli --workspace "$HOME/.local/share/health-buddy" --development serve
+```
+
+Open http://127.0.0.1:8791. Development mode has no authentication and binds
+only to loopback; never expose it.
+
+## Documentation
+
+### Use
+
+- [Local first run and owner configuration](docs/configuration.md)
+- [Command-line client and pending writes](docs/canonical-clients.md)
 - [Owner, agent and device authorization](docs/authorization.md)
-- [Immutable runtime, private ownership and controlled image qualification](docs/runtime-packaging.md)
-- [Encrypted backup and clean-host recovery](docs/backup-restore.md)
-- [Synthetic data-only measurement import tracer](docs/legacy-import-canary.md)
-- [Queue verification commands](docs/verification.md)
+- [Codex setup](docs/codex-integration.md)
+- [Claude Code setup](docs/claude-integration.md)
+
+### Develop
+
+- [Agent boundaries, checks and publication policy](AGENTS.md)
+- [Maintenance guide for Codex and Claude Code](docs/agent-guide.md)
+- [Contributor setup and synthetic preview](CONTRIBUTING.md)
+- [Verification commands](docs/verification.md)
+- [Source map and data ownership](docs/architecture.md)
+- [Personal workspace and extensions](docs/extensions.md)
+- [Repository responsibilities and release gates](docs/delivery.md)
+
+### Operate
+
+- [Install, status and retained-data removal](docs/install-preflight.md)
+- [Reinstall with retained personal work](docs/install-reinstall.md)
+- [Status, doctor and recovery](docs/operator-diagnostics.md)
+- [Upgrade staging](docs/recoverable-upgrade.md)
+- [Runtime image and Compose packaging](docs/runtime-packaging.md)
+- [Encrypted backup and restore](docs/backup-restore.md)
+- [Synthetic record import tracers](docs/legacy-import-canary.md)
+
+### Contracts
+
+- [Product, API, identity and security contract](docs/v1-contract.md)
+- [Versioned compatibility manifest](contracts/v1/compatibility.json)
+- [API operations and ownership](docs/api-implementation.md)
+- [Contract acceptance history](docs/validation.md)
+- [Extraction provenance and exclusions](docs/extraction.md)
 - [Dependency and asset notices](THIRD_PARTY.md)
 
-Repository: `cesaregarza/health-buddy`. Owned public code is MIT licensed;
-extracted third-party material must retain its notices. No private records,
-credentials, private defaults, or source repository history belong here.
+## License and data
 
-The extracted code uses Python 3.12+; the contract alone supports 3.11+.
-Validation is
-currently routed through the project testing queue; see AGENTS.md.
+Repository: `cesaregarza/health-buddy`. Owned code is MIT licensed
+([LICENSE](LICENSE)); extracted third-party material must retain its notices.
+No private records, credentials, private defaults or source repository history
+belong here. Daily tracking works without an agent session or a model API key.
+The code needs Python 3.12+; the contract checks alone run on 3.11+.

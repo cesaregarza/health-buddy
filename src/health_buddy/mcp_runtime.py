@@ -53,9 +53,9 @@ the actual files and selected review digest; keep private inventory local.
 The maintained weekly-mass example keeps notes/DESIGN.md, src/metric.py and
 tests/test_metric.py together: one-source body-mass mean normalized to kg, with
 null/insufficient_data for empty input. Native edits need explicit owner review
-and the workflow in docs/extensions.md and docs/verification.md; use the shared
-queue when one governs the work. Health-token tools cannot install or enable
-code. A new session must rediscover admitted metadata after native changes.
+and the workflow in docs/extensions.md and docs/verification.md. Health-token
+tools cannot install or enable code. A new session must rediscover admitted
+metadata after native changes.
 """
 
 

@@ -57,12 +57,12 @@ fails. Production format 1 and corrupt state remain untouched until deliberate
 acknowledged resolution, which retains a private archive and fsyncs its parent.
 A failed directory sync reports unknown resolution rather than durable success.
 
-All runtime evidence is queue-owned. Adapter fake-authority cases, actual Granian
-UDS permission/lifecycle cases, actual security authority plus canonical service
-wire cases, and routed browser UI models are distinguished in their test modules.
-The queue supplies a short HEALTH_BUDDY_TEST_SOCKET_ROOT inside its admitted job
-temporary directory and bounds the entire process tree. Tests do not configure
-or qualify an installed Tailscale daemon, deployment, restore or physical phone.
+Adapter fake-authority cases, actual Granian UDS permission/lifecycle cases,
+actual security authority plus canonical service wire cases, and routed browser
+UI models are distinguished in their test modules. Runs need a short private
+HEALTH_BUDDY_TEST_SOCKET_ROOT as described in [verification](verification.md).
+Tests do not configure or qualify an installed Tailscale daemon, deployment,
+restore or physical phone.
 
 Primary references for the pinned boundary: [Granian2.8.3 supervisor](https://raw.githubusercontent.com/emmett-framework/granian/v2.8.3/granian/server/common.py),
 [Granian socket creation](https://raw.githubusercontent.com/emmett-framework/granian/v2.8.3/src/net.rs),

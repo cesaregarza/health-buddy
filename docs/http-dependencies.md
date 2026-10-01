@@ -23,7 +23,7 @@ inventory the selected binary's Rust dependencies before redistribution. The
 project's own MIT license does not replace upstream notices.
 
 Granian's Python dependency is Click. On Python 3.12, Starlette needs AnyIO and
-typing_extensions; AnyIO needs idna and typing_extensions. The queue records
+typing_extensions; AnyIO needs idna and typing_extensions. The queue recorded
 exact resolved transitive versions and notices. Do not infer a complete lock
 from the three direct pins.
 

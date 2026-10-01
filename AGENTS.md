@@ -20,35 +20,34 @@ do not quietly invent a second API or data owner.
 - Implementation PRs do not authorize merges, deployment, production migration,
   paid signing builds, external Apple distribution or release publication.
 
-## Temporary P-CES-17 orchestration restrictions
+## Checks and publication
 
-These restrictions apply only to active P-CES-17 orchestration workers.
-Installed owners outside that orchestration may run the documented native setup,
-checks and previews under their own authorization; no project testing queue is
-required for maintaining their matching source.
+This section is the project's one statement of who runs checks and who
+publishes; other documents link here.
 
-During P-CES-17, all dependency installation, test execution, compilation, browser suites and
-container builds belong to the single project testing queue. Workers prepare
-source and requests; they may inspect source and diffs. Do not execute local
-test commands independently, including the commands below. Send the queue an
-immutable commit, native checkout, exact commands and required synthetic inputs.
-Keep one job active and internal test parallelism at one.
-
-GitHub Actions and remote pushes/PRs are held for the coordinator's final
-controlled publication batch. Inspect workflow triggers before publication;
-draft PRs can trigger CI. Never disable unrelated workflows or run Apple builds
-to bypass the hold. Update these temporary restrictions only when the
-coordinator records the user's changed policy.
-
-## Contract validation entrypoints (queue-owned during P-CES-17)
+An implementing agent runs the checks itself. Set up the environment from
+[CONTRIBUTING.md](CONTRIBUTING.md), set `HEALTH_BUDDY_TEST_SOCKET_ROOT` to a
+private directory as [docs/verification.md](docs/verification.md) shows, then
+run from the repository root:
 
 ```sh
-python3 -m pip install -r requirements-contract.txt
-python3 scripts/validate_contracts.py
-python3 -m unittest discover -s tests -v
-git diff --check BASE..HEAD
+make PYTHON="$PWD/.venv/bin/python" contracts test dashboard-test lint typecheck
 ```
 
-These checks validate contracts and example state transitions, not a production
-HTTP server. Implementation must add integration, persistence/crash, concurrency,
-authorization, UI and restore tests in the owning tickets.
+`PYTHON` must be an absolute path because `dashboard-test` changes directory.
+The `contracts` target validates contracts and example state transitions, not a
+production HTTP server; implementation work adds integration,
+persistence/crash, concurrency, authorization, UI and restore tests in its
+owning ticket.
+
+Pushes, pull requests and merges wait for the coordinator's review and the
+operator's approval. GitHub Actions stay manual during the Actions-minutes
+hold: `ci.yml` runs only on manual dispatch, and `runtime-candidate.yml` runs
+on manual dispatch or on a push to a `validation/ces1068-*` branch, which is
+gated like any other push. Before a push or draft PR, check which workflows it
+triggers. Do not add triggers or disable unrelated workflows to get around the
+hold. Only an operator decision, recorded by the coordinator, changes this
+section.
+
+Provenance notes that cite "the queue" record receipts from the retired
+P-CES-17 testing queue; they are history, not instructions.

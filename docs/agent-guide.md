@@ -1,16 +1,12 @@
 # One guide for Codex and Claude Code
 
-This is the canonical maintenance entrypoint for both agents. Read AGENTS.md for
-current execution boundaries. During active P-CES-17 project orchestration, the testing queue
-alone executes **every command below that installs, tests, lints, builds, previews
-or runs the application**. An implementation worker inspects/edits source and
-submits an immutable commit, exact commands and expected synthetic outcomes.
-Installed owners outside P-CES-17 can run these native commands directly under
-their own authorization, using the public lock and their matching source; they
-do not need our private queue or its caches. Current workers remain queue-only.
-No private health records, vendor login, network source or paid model key is
-needed. CES-1073 and CES-1074 own their named Codex/Claude acceptance gates;
-CES-1083 owns cross-agent and final upgrade qualification.
+This is the canonical maintenance entrypoint for both agents. Read
+[AGENTS.md](../AGENTS.md) for boundaries and the check and publication policy:
+an implementing agent runs the commands below itself, and installed owners run
+them under their own authorization with the public lock and their matching
+source. No private health records, vendor login, network source or paid model
+key is needed. CES-1073 and CES-1074 own their named Codex/Claude acceptance
+gates; CES-1083 owns cross-agent and final upgrade qualification.
 
 ## Discover before editing
 
@@ -122,7 +118,6 @@ preview must refuse until review/enable. Add the reason and expected 72 kg →
 the extension; the maintained host adaptation test is a reusable example.
 
 Run this focused check set from the matching source checkout
-(submit it to the queue during active P-CES-17 orchestration)
 (set EXTENSION to the installed private extension directory):
 
 ```bash
@@ -184,12 +179,13 @@ undone by code rollback.
 Development extras in pyproject.toml contain ranges; the source setup above uses
 the committed hashed development lock instead. It is **not a production install**
 and excludes browser and distribution-build tooling; those retain their separate
-admitted setup and receipts (queue-owned during P-CES-17). `packaging/runtime-inputs.json` pins the
+admitted setup and receipts. `packaging/runtime-inputs.json` pins the
 runtime binary/base closure. The exact lock/hash-checked fetch/context/build
 commands are in [runtime packaging](runtime-packaging.md#build-and-local-loading).
 Dependency changes require that owning lock/notice lane, not a personal hook.
-For core interface edits run (submit to the queue during P-CES-17) `make contracts test lint typecheck package` and
-the distribution audit in CONTRIBUTING.md; the native private socket-root
+For core interface edits run
+`make PYTHON="$PWD/.venv/bin/python" contracts test dashboard-test lint typecheck package`
+and the distribution audit in CONTRIBUTING.md; the native private socket-root
 prerequisite and exact preview/browser commands are in [verification](verification.md).
 Synthetic dashboard preview: `make PYTHON=.venv/bin/python preview`.
 The default `make test` includes `tests/test_agent_guide.py`, checking local guide/
@@ -208,7 +204,7 @@ There is currently **no supported automatic extension state-migration command**.
 A changed state schema refuses activation. Preserve state and pending requests,
 disable the job, author and separately review an explicit migration under the
 extension's migrations/ with recovery/compatibility tests, and run its exact reviewed
-operator command (submit to the queue during P-CES-17). CES-1077 owns installer execution; CES-1071 owns upgrades; this
+operator command. CES-1077 owns installer execution; CES-1071 owns upgrades; this
 guide does not invent an unsafe migration or credential-preserving restore.
 
 A deeper core fork needs its own native source checkout, patches, exact upstream

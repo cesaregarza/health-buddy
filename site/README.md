@@ -37,13 +37,13 @@ The new output directory contains:
 
 Build determinism is verified with the same recorded Python/zlib toolchain.
 No third-party dependency is needed for build, static checks or unit tests.
-Playwright is required only for the queue-owned browser check; use the queue's
-existing environment, rather than adding a product dependency.
+Playwright is required only for the browser check; use an existing Playwright
+environment rather than adding a product dependency.
 
-## Validation commands (testing queue only)
+## Validation commands
 
 Replace `COMMIT` with the exact frozen 40-character candidate SHA and the output
-paths with new queue-owned native Linux directories. These commands are developer
+paths with new native Linux directories. These commands are developer
 validation, never product installation instructions.
 
 ```sh
@@ -66,8 +66,8 @@ pixels in Chromium by default, records requested URLs, asserts no page
 errors or horizontal overflow, and captures screenshots. It checks skip-link
 keyboard access, keyboard-activated copy, denied-copy selection feedback and
 JS-disabled navigation/prompt fallback. Use `--engines chromium firefox webkit`
-only when the queue already has those
-engines and broader coverage is requested. The harness never installs browsers.
+only when those engines are already installed and broader coverage is
+requested. The harness never installs browsers.
 Record the actual engines tested and any remaining engine gaps in the receipt.
 Clipboard success and denial are stubbed inside the browser, so results do not certify an operating system clipboard.
 
@@ -110,7 +110,7 @@ dashboard use or logging. The selected runtime packages its source, contracts an
 docs; canonical maintenance discovery uses the matching local bundle. This site
 only packages informational public source references, never a health workspace.
 
-## Focused checkpoint verification (queue only)
+## Focused checkpoint verification
 
 The existing 18-case source/artifact/browser baseline covers unchanged portions.
 Run the changed current-source, pinned-source provenance, changed-guide snippet/link,
@@ -128,4 +128,6 @@ or installs anything. Keep runtime digest and site artifact digest distinct.
 Only `site/` changes are owned by this lane. No top-level dependencies, runtime,
 configuration, workflows or product packages are changed. No build publishes an
 artifact, starts CI or deploys anything. The coordinator owns remote publication
-and Linear state. Project-wide testing queue and native Linux restrictions apply.
+and Linear state. The check and publication policy in
+[AGENTS.md](../AGENTS.md#checks-and-publication) and native Linux restrictions
+apply.

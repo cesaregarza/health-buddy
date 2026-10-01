@@ -46,7 +46,8 @@ CONFIG must be `$CLAUDE_PROJECT/.mcp.json`; SKILL_DIRECTORY must end in
 `health-buddy`. Personal discovery normally uses `$HOME/.claude/skills/health-buddy`.
 Use isolated synthetic directories for verification, never the owner's actual
 settings. The helper refuses native paths containing `${` because Claude would
-expand them and change the selected command/environment.
+expand them and change the selected command/environment. PYTHON follows the
+interpreter rules in [Codex setup](codex-integration.md#connect-repeat-and-update).
 
 ```sh
 export PYTHONPATH="$SOURCE/src"
@@ -119,7 +120,7 @@ explicit enable → change-note path in [the canonical guide](agent-guide.md).
 Both clients use matching source/contracts/examples/tests and the same persistent
 workspace. Do not create a second customization API or activate code with a token.
 
-Queue-owned focused commands from the immutable source checkpoint:
+Focused checks from the immutable source checkpoint:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_claude_integration.py tests/test_codex_integration.py
@@ -128,8 +129,8 @@ RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/heal
 "$PYTHON" -m mypy src/health_buddy/connect_agent.py
 ```
 
-Use the existing queue's private socket root/serialized cgroup described in
-verification.md. Request one installed-entrypoint/shared-skill package check;
-there is no new dependency, browser suite, install or model session in the
-focused source request. Record exact receipts before publication. Fresh named
+Set the private socket root described in [verification](verification.md)
+first. Also run one installed-entrypoint/shared-skill package check; the
+focused source checks add no dependency, browser suite, install or model
+session. Record exact results before publication. Fresh named
 Claude workflows and final cross-client/update checks remain open afterward.

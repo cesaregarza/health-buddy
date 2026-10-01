@@ -3,7 +3,7 @@
 CES-1068 supplies source packaging, a pinned binary-input context, one API/job
 image, Docker archive verification, Compose and a repeatable synthetic runtime
 qualification command. The presence of these files is not evidence that an
-image was built. Exact queue/build receipts establish tested commits and actual
+image was built. Exact check/build receipts establish tested commits and actual
 AMD64/ARM64 artifact bytes. Candidate artifacts remain private; this workflow
 neither publishes a registry image nor creates an external release.
 
@@ -103,8 +103,7 @@ count and URL bounds remain enforced. The entire download runs in an owned isola
 deadline covers connection, headers, redirects, chunk framing and body reads;
 on expiry the parent kills that process group and reaps it with a separate
 two-second cleanup bound. Socket timeouts/body checks are secondary controls,
-not a claimed absolute urllib deadline. The execution queue also applies an
-independent process deadline. Failed partial output is retained
+not a claimed absolute urllib deadline. Failed partial output is retained
 and never reused implicitly.
 
 A native maintainer can inspect source and create a bundle without Docker:
@@ -123,11 +122,13 @@ qualification captures those texts/hashes and exact installed versions; a
 wheel-shipped SBOM is not proof every listed crate is linked. Source notice
 closure alone does not establish complete final-image license closure.
 
-Only the coordinator's final controlled batch runs `runtime-candidate.yml`.
-It uses native `ubuntu-24.04` and `ubuntu-24.04-arm`, one matrix job at a time,
+`runtime-candidate.yml` runs only on manual dispatch or on a push to a
+`validation/ces1068-*` ref, under the publication policy in
+[AGENTS.md](../AGENTS.md#checks-and-publication). It uses native
+`ubuntu-24.04` and `ubuntu-24.04-arm`, one matrix job at a time,
 25-minute jobs and read-only repository permission. Ordinary branches and PRs
 cannot trigger it. The special `validation/ces1068-*` ref is a deliberate
-publication-batch gate, needed when the unmerged workflow is absent from the
+publication gate, needed when the unmerged workflow is absent from the
 default branch; it is not permission to merge. No Apple build or external image
 publication occurs. Artifacts expire after 14 days; download and retain the
 accepted manifest/archive/receipt set in the private release inventory before
@@ -243,8 +244,8 @@ cause Compose to restart a still-running process.
 ## Replacement, evidence and downstream gates
 
 `make runtime-test runtime-lint` and normal configured typing are repeatable
-source gates, executed by the shared queue in this project. The isolated native
-container driver additionally checks real readonly/nonroot/service limits,
+source gates. The isolated native container driver additionally checks real
+readonly/nonroot/service limits,
 actual host-visible UDS, protected dashboard/worker assets, same-image concurrent
 API/finite jobs, full container kill/recreate, service stop/recreate and personal
 source/config/assets/tests/notes survival. Its two synthetic interruption cases
