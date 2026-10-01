@@ -21,7 +21,7 @@ from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
 from health_buddy.production_server import serve
-from health_buddy.runtime_manifest import (
+from health_buddy.runtime.manifest import (
     ManifestError,
     native_directory,
     verify_source_identity,

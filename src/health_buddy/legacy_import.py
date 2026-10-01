@@ -21,7 +21,7 @@ from health_buddy.core.operations import Service
 from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.core.stores import RECORD_INDEX, ManualStore
 from health_buddy.core.workspace import initialize
-from health_buddy.runtime_manifest import SHA256, native_directory
+from health_buddy.runtime.manifest import SHA256, native_directory
 
 MAX_BYTES = 4 * 1024 * 1024
 MAX_RECORDS = 1000

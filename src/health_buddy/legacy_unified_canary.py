@@ -24,7 +24,7 @@ from health_buddy.legacy_import import MAX_BYTES, MAX_RECORDS, _path, _read
 from health_buddy.legacy_manual_canary import import_manual_canary
 from health_buddy.legacy_receiver_import import _checked, seed_adopted_receiver
 from health_buddy.legacy_sleepiq_import import daily_export
-from health_buddy.runtime_manifest import native_directory
+from health_buddy.runtime.manifest import native_directory
 
 RECEIPT = "operations/unified-import.json"
 ORIGINAL = "stores/imported-sleepiq-nightly.csv"

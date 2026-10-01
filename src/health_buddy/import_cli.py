@@ -18,7 +18,7 @@ from health_buddy.legacy_manual_canary import (
 from health_buddy.legacy_receiver_import import export_receiver, import_receiver
 from health_buddy.legacy_unified_canary import backup_readiness, import_canary
 from health_buddy.legacy_workout_import import export_workouts, import_workouts
-from health_buddy.runtime_manifest import native_directory
+from health_buddy.runtime.manifest import native_directory
 from health_buddy.security import SecurityAuthority
 from health_buddy.security_runtime import open_runtime, read_credential
 

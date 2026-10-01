@@ -27,7 +27,7 @@ from health_buddy.legacy_import import (
     _snapshot as measurement_snapshot,
 )
 from health_buddy.legacy_workout_import import _snapshot as workout_snapshot
-from health_buddy.runtime_manifest import GIT_SHA, SHA256
+from health_buddy.runtime.manifest import GIT_SHA, SHA256
 
 FAMILY = "manual-canary"
 INPUTS = ("measurements", "workouts", "intake", "plan", "preferences")

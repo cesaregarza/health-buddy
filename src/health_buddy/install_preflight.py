@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.operator_diagnostics import port_state
-from health_buddy.runtime_manifest import (
+from health_buddy.runtime.manifest import (
     SHA256,
     ManifestError,
     _json,
@@ -20,7 +20,7 @@ from health_buddy.runtime_manifest import (
     native_directory,
     verify_source_identity,
 )
-from health_buddy.runtime_release import docker_command, selected_artifact
+from health_buddy.runtime.release import docker_command, selected_artifact
 
 GIB = 1024**3
 GUIDANCE = {

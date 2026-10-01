@@ -22,11 +22,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from health_buddy.runtime_bundle import create_bundle
-from health_buddy.runtime_context import create_context
-from health_buddy.runtime_inputs import fetch_inputs, load_inputs
-from health_buddy.runtime_manifest import ManifestError, canonical, native_directory
-from health_buddy.runtime_release import (
+from health_buddy.runtime.bundle import create_bundle
+from health_buddy.runtime.context import create_context
+from health_buddy.runtime.inputs import fetch_inputs, load_inputs
+from health_buddy.runtime.manifest import ManifestError, canonical, native_directory
+from health_buddy.runtime.release import (
     docker_command,
     inspect_image,
     load_verified_archive,

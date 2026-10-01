@@ -24,7 +24,7 @@ from health_buddy.install_agent import actors, matches, owner
 from health_buddy.install_preflight import preflight
 from health_buddy.install_remove import container, serve_state
 from health_buddy.retry_paths import native_path
-from health_buddy.runtime_manifest import file_digest
+from health_buddy.runtime.manifest import file_digest
 from health_buddy.transport_limits import EnvelopeError
 from health_buddy.transport_security import request_payload
 

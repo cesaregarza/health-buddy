@@ -18,7 +18,7 @@ from health_buddy.core.files import read_file, read_json
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
-from health_buddy.runtime_release import docker_command, load_release, selected_artifact
+from health_buddy.runtime.release import docker_command, load_release, selected_artifact
 from health_buddy.upgrade import freshness, preflight
 
 COMPOSE = Path(__file__).absolute().parents[2] / "packaging/compose.yaml"

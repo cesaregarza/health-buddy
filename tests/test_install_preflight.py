@@ -9,9 +9,9 @@ from types import SimpleNamespace
 import pytest
 
 from health_buddy import install_preflight
-from health_buddy.runtime_bundle import create_bundle
-from health_buddy.runtime_manifest import verify_source_identity
-from health_buddy.runtime_release import create_release
+from health_buddy.runtime.bundle import create_bundle
+from health_buddy.runtime.manifest import verify_source_identity
+from health_buddy.runtime.release import create_release
 from tests.test_runtime_artifact import make_archive
 from tests.test_runtime_bundle import git
 from tests.test_runtime_context import context_fixture

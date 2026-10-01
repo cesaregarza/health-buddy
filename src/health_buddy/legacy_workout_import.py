@@ -22,7 +22,7 @@ from health_buddy.legacy_import import (
     _read,
     adopt_snapshot,
 )
-from health_buddy.runtime_manifest import SHA256
+from health_buddy.runtime.manifest import SHA256
 
 SESSIONS = "data/sessions.csv"
 SETS = "data/sets.csv"

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy.runtime_bundle import create_bundle
-from health_buddy.runtime_context import create_context
-from health_buddy.runtime_manifest import ManifestError, verify_source_identity
+from health_buddy.runtime.bundle import create_bundle
+from health_buddy.runtime.context import create_context
+from health_buddy.runtime.manifest import ManifestError, verify_source_identity
 from tests.test_runtime_bundle import git, source
 from tests.test_runtime_inputs import lock
 

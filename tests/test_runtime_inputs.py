@@ -12,15 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy import runtime_inputs
-from health_buddy.runtime_inputs import (
+from health_buddy.runtime import inputs as runtime_inputs
+from health_buddy.runtime.inputs import (
     InputFile,
     PlatformInputs,
     fetch_inputs,
     load_inputs,
     verify_inputs,
 )
-from health_buddy.runtime_manifest import ManifestError
+from health_buddy.runtime.manifest import ManifestError
 
 
 def lock(root: Path) -> Path:
@@ -174,15 +174,15 @@ def test_fetch_outer_deadline_kills_and_reaps_child_stalled_before_headers(
     selected = load_inputs(lock(tmp_path), "amd64")
     started = tmp_path / "opener-started"
     worker = tmp_path / "delayed-opener.py"
-    source = Path(runtime_inputs.__file__).parents[1]
+    source = Path(runtime_inputs.__file__).parents[2]
     # Real isolated subprocess invokes the actual maintained worker. Only its
     # opener is replaced: it records admission, then stalls before headers/body.
     worker.write_text(
         "import os, sys, time\n"
         "from pathlib import Path\n"
         f"sys.path.insert(0, {str(source)!r})\n"
-        "from health_buddy import runtime_inputs\n"
-        "from health_buddy.runtime_input_worker import main\n"
+        "from health_buddy.runtime import inputs as runtime_inputs\n"
+        "from health_buddy.runtime.input_worker import main\n"
         "class Opener:\n"
         "    def open(self, *args, **kwargs):\n"
         f"        Path({str(started)!r}).write_text(str(os.getpid()))\n"
@@ -242,12 +242,12 @@ def test_fixed_fetch_worker_success_verifies_original_pins(
 ) -> None:
     selected = load_inputs(lock(tmp_path), "amd64")
     worker = tmp_path / "synthetic-responses.py"
-    source = Path(runtime_inputs.__file__).parents[1]
+    source = Path(runtime_inputs.__file__).parents[2]
     worker.write_text(
         "import io, sys\n"
         f"sys.path.insert(0, {str(source)!r})\n"
-        "from health_buddy import runtime_inputs\n"
-        "from health_buddy.runtime_input_worker import main\n"
+        "from health_buddy.runtime import inputs as runtime_inputs\n"
+        "from health_buddy.runtime.input_worker import main\n"
         "class Opener:\n"
         "    def open(self, request, **kwargs):\n"
         "        return io.BytesIO(b'abc' if request.full_url.endswith('.whl') "

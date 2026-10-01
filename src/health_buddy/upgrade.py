@@ -19,14 +19,14 @@ from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.extension_registry import Registry
 from health_buddy.personal_workspace import forks_locked
-from health_buddy.runtime_manifest import (
+from health_buddy.runtime.manifest import (
     MAX_METADATA,
     SHA256,
     ManifestError,
     _json,
     file_digest,
 )
-from health_buddy.runtime_release import selected_artifact
+from health_buddy.runtime.release import selected_artifact
 from health_buddy.security_runtime import open_runtime
 
 

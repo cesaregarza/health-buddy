@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from health_buddy.runtime_manifest import (
+from health_buddy.runtime.manifest import (
     canonical,
     native_directory,
     verify_source_identity,

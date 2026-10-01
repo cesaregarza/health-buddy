@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy import runtime_release
-from health_buddy.runtime_manifest import ManifestError, verify_source_identity
-from health_buddy.runtime_release import (
+from health_buddy.runtime import release as runtime_release
+from health_buddy.runtime.manifest import ManifestError, verify_source_identity
+from health_buddy.runtime.release import (
     create_release,
     docker_command,
     load_verified_archive,

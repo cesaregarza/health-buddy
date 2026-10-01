@@ -12,11 +12,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from health_buddy.runtime_bundle import create_bundle
-from health_buddy.runtime_context import create_context
-from health_buddy.runtime_inputs import fetch_inputs, load_inputs, verify_inputs
-from health_buddy.runtime_manifest import ManifestError, verify_source_identity
-from health_buddy.runtime_release import create_release, inspect_image, load_release
+from health_buddy.runtime.bundle import create_bundle
+from health_buddy.runtime.context import create_context
+from health_buddy.runtime.inputs import fetch_inputs, load_inputs, verify_inputs
+from health_buddy.runtime.manifest import ManifestError, verify_source_identity
+from health_buddy.runtime.release import create_release, inspect_image, load_release
 
 
 def main() -> int:

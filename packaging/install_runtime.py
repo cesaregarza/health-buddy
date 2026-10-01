@@ -14,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, "/opt/health-buddy/source/src")
 
-from health_buddy.runtime_inputs import load_inputs
-from health_buddy.runtime_manifest import file_digest
+from health_buddy.runtime.inputs import load_inputs
+from health_buddy.runtime.manifest import file_digest
 
 SOURCE = Path("/opt/health-buddy/source")
 RELEASE = Path("/opt/health-buddy/release")

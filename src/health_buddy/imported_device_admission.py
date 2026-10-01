@@ -13,7 +13,7 @@ from health_buddy.core.domain import check_identity, decode, identifier, object_
 from health_buddy.core.files import read_file
 from health_buddy.core.security_api import SecurityReply
 from health_buddy.core.service_api import Identity, Principal, ServiceError
-from health_buddy.runtime_manifest import native_directory
+from health_buddy.runtime.manifest import native_directory
 from health_buddy.security_actions import _name
 
 if TYPE_CHECKING:

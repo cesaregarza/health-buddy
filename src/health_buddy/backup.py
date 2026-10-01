@@ -21,7 +21,7 @@ from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
 from health_buddy.core.workspace import create_file
-from health_buddy.runtime_manifest import native_directory
+from health_buddy.runtime.manifest import native_directory
 from health_buddy.security_runtime import _private_parent, open_runtime
 from health_buddy.security_store import SecurityStore
 

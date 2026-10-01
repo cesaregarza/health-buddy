@@ -28,8 +28,8 @@ from health_buddy.install_https import (
     unrelated,
 )
 from health_buddy.retry_paths import native_path
-from health_buddy.runtime_manifest import file_digest
-from health_buddy.runtime_release import docker_command, selected_artifact
+from health_buddy.runtime.manifest import file_digest
+from health_buddy.runtime.release import docker_command, selected_artifact
 from health_buddy.upgrade_activation import COMPOSE, compose
 
 FORMAT = (

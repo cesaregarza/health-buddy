@@ -11,10 +11,10 @@ neither publishes a registry image nor creates an external release.
 
 | Source | Responsibility |
 | --- | --- |
-| `runtime_bundle.py`, `runtime_manifest.py` | Exact Git commit/tree, complete bounded source archive, safe inventory and startup verification |
-| `packaging/runtime-inputs.json`, `runtime_inputs.py` | Fixed per-architecture base/wheel/Debian inputs and explicit hash-checked download |
-| `runtime_context.py`, `packaging/runtime.Dockerfile`, `install_runtime.py` | Complete build context and offline binary assembly |
-| `runtime_artifact.py`, `runtime_release.py` | Bounded Docker-save archive admission, actual artifact manifest and fixed-ID loading |
+| `runtime/bundle.py`, `runtime/manifest.py` | Exact Git commit/tree, complete bounded source archive, safe inventory and startup verification |
+| `packaging/runtime-inputs.json`, `runtime/inputs.py` | Fixed per-architecture base/wheel/Debian inputs and explicit hash-checked download |
+| `runtime/context.py`, `packaging/runtime.Dockerfile`, `install_runtime.py` | Complete build context and offline binary assembly |
+| `runtime/artifact.py`, `runtime/release.py` | Bounded Docker-save archive admission, actual artifact manifest and fixed-ID loading |
 | `packaged_runtime.py`, `scripts/runtime_entrypoint.py` | Explicit nonroot API/CLI/job/health entrypoints |
 | `runtime_listener.py`, `runtime_readiness.py` | Shared listener lifetime and read-only core readiness |
 | `packaging/compose.yaml` | Same immutable image for API and explicit finite jobs |

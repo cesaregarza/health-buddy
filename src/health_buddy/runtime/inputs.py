@@ -19,7 +19,7 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, cast
 
-from health_buddy.runtime_manifest import (
+from health_buddy.runtime.manifest import (
     SHA256,
     ManifestError,
     _json,
@@ -30,7 +30,7 @@ from health_buddy.runtime_manifest import (
 ARCHES = {"amd64", "arm64"}
 MAX_INPUT_BYTES = 128 * 1024 * 1024
 FETCH_SECONDS = 240.0
-_WORKER = Path(__file__).with_name("runtime_input_worker.py")
+_WORKER = Path(__file__).with_name("input_worker.py")
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+:%~-]{0,240}\Z")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 

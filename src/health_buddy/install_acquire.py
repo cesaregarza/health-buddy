@@ -24,8 +24,8 @@ from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.retry_paths import native_path
-from health_buddy.runtime_inputs import _Redirect
-from health_buddy.runtime_manifest import (
+from health_buddy.runtime.inputs import _Redirect
+from health_buddy.runtime.manifest import (
     MAX_METADATA,
     SHA256,
     ManifestError,
@@ -33,7 +33,7 @@ from health_buddy.runtime_manifest import (
     file_digest,
     verify_source_identity,
 )
-from health_buddy.runtime_release import selected_artifact
+from health_buddy.runtime.release import selected_artifact
 
 WORKER = Path(__file__).with_name("install_acquire_worker.py")
 SECONDS = 120

@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 
 # Fixed installed-source path, never a path from stdin or the owner workspace.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from health_buddy.runtime_inputs import _download_inputs, _wire_inputs
-from health_buddy.runtime_manifest import ManifestError
+from health_buddy.runtime.inputs import _download_inputs, _wire_inputs
+from health_buddy.runtime.manifest import ManifestError
 
 
 def main() -> int:
