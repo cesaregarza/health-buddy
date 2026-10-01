@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from health_buddy.app import App
+from health_buddy.client.app import App
 from health_buddy.cli import main
 from health_buddy.operator_diagnostics import report, source_findings, support_summary
 

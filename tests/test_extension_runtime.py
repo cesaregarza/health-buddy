@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from health_buddy.client_workflow import decoded
+from health_buddy.client.workflow import decoded
 from health_buddy.core.domain import digest
 from health_buddy.core.security_api import AgentGrant, BearerProof
 from health_buddy.core.service_api import Request, ServiceError

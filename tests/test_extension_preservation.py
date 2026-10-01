@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from health_buddy import personal_workspace
-from health_buddy.client_workflow import decoded
+from health_buddy.client.workflow import decoded
 from health_buddy.core import source_bundle
 from health_buddy.core.domain import digest
 from health_buddy.core.service_api import Request, ServiceError
@@ -305,7 +305,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(sys.argv[1]) / "src"))
 import health_buddy
 from health_buddy import personal_workspace
-from health_buddy.client_workflow import decoded
+from health_buddy.client.workflow import decoded
 from health_buddy.core.domain import digest
 from health_buddy.extension_jobs import run_event
 from health_buddy.core.security_api import BearerProof

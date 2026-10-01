@@ -12,7 +12,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from health_buddy.app import App
+from health_buddy.client.app import App
 from health_buddy.core import source_bundle
 from health_buddy.core.config import ConfigError, load
 from health_buddy.core.service_api import ServiceError

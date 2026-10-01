@@ -11,7 +11,7 @@ from typing import cast
 import anyio
 import httpx2
 
-from health_buddy.client_workflow import decoded, response_identity
+from health_buddy.client.workflow import decoded, response_identity
 from health_buddy.core.domain import (
     check_identity,
     encode,

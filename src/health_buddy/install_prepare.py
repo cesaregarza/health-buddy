@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.connect_agent import connect
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive
@@ -17,7 +18,6 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import initialize
 from health_buddy.install_preflight import preflight
 from health_buddy.mcp_settings import Settings
-from health_buddy.retry_paths import native_path
 from health_buddy.security.runtime import open_runtime
 from health_buddy.upgrade import preflight as upgrade_preflight
 

@@ -25,7 +25,7 @@ or incompatible dependencies and changed state schemas. It never migrates state.
 | `extension_runner`, `extension_worker` | Bounded schema/pure Python hook execution |
 | `extension_views` | Canonical caller-filtered metric inputs and exact reviewed view asset |
 | `extension_prepare`, `extension_jobs` | Explicit scoped preparation and retained source-event jobs |
-| `client_workflow` | Original request/receipt persistence shared with native clients |
+| `client/workflow` | Original request/receipt persistence shared with native clients |
 | `personal_workspace`, `extension_cli` | Native inventory, recorded fork metadata and maintenance commands |
 | dashboard `extension-worker.js` / template | JavaScript ViewSpec worker and escaped built-in rendering |
 

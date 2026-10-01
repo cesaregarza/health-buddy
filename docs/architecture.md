@@ -12,7 +12,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Source capture and scoped projections | `core/snapshots.py`, `core/views.py`, `core/projection.py`; canonical reads/extensions and portable workspace tests |
 | Maintained HTTP | `transport/` (`asgi.py`, `server.py`, `listener.py`, `limits.py`, `ingress.py`, `jobs.py`, `security.py`, `ui.py`); transport, wire and portable HTTP tests |
 | Security authority and native setup | `core/security_api.py`, `security/authority.py`, `security/store.py`, `security/actions.py`, `security/device_admission.py`, `security/readiness.py`, `security/runtime.py`; security authority/pairing/recovery/setup tests |
-| UI/native durable client workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
+| UI/native durable client workflows | `client/app.py`, `cli.py`, `client/workflow.py`, `client/auth.py`, dashboard template/feature scripts; client workflow/CLI and eight browser suites |
 | Scoped metric and connector examples | `extensions.py`; canonical extension conformance tests |
 | Personal registry, native jobs and reviewed views | `core/extension_api.py`, `extension_registry.py`, `extension_views.py`, `extension_prepare.py`, `extension_jobs.py`; `test_extension_*` and maintained reference tests |
 | Private discovery and recorded core forks | `personal_workspace.py`, `extension_cli.py`; preservation and native maintenance tests |

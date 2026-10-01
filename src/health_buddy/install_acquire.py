@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import IO, Any, cast
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.service_api import ServiceError
-from health_buddy.retry_paths import native_path
 from health_buddy.runtime.inputs import _Redirect
 from health_buddy.runtime.manifest import (
     MAX_METADATA,

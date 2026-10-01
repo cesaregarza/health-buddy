@@ -8,8 +8,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Never, cast
 
-from health_buddy.client_auth import AuthenticatedOperations
-from health_buddy.client_workflow import ClientWorkflow, decoded
+from health_buddy.client.auth import AuthenticatedOperations
+from health_buddy.client.workflow import ClientWorkflow, decoded
 from health_buddy.core import loggers, source_bundle
 from health_buddy.core.config import Config
 from health_buddy.core.domain import decode, digest, normalize

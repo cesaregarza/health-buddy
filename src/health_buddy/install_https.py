@@ -15,12 +15,12 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import digest, encode
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.packaged_runtime import managed_ingress
-from health_buddy.retry_paths import native_path
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.security.readiness import ready
 from health_buddy.upgrade_activation import running

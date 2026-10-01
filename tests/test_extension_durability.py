@@ -2,8 +2,9 @@
 
 import pytest
 
-from health_buddy import client_workflow, extension_registry
-from health_buddy.client_workflow import ClientWorkflow, WorkflowNamespace
+from health_buddy import extension_registry
+from health_buddy.client import workflow as client_workflow
+from health_buddy.client.workflow import ClientWorkflow, WorkflowNamespace
 from health_buddy.core import files
 from health_buddy.core.files import runtime_files
 from health_buddy.core.service_api import Principal, ServiceError

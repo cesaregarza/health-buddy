@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.connect_agent import (
     MANAGED,
     connect,
@@ -23,7 +24,6 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.install_agent import actors, matches, owner
 from health_buddy.install_preflight import preflight
 from health_buddy.install_remove import container, serve_state
-from health_buddy.retry_paths import native_path
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.transport.limits import EnvelopeError
 from health_buddy.transport.security import request_payload

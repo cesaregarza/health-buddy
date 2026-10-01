@@ -6,7 +6,7 @@ import time
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from health_buddy.client_workflow import ClientWorkflow, McpWorkflowNamespace, decoded
+from health_buddy.client.workflow import ClientWorkflow, McpWorkflowNamespace, decoded
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.security_api import ClientIdentity
 from health_buddy.core.service_api import JSON, Operation, Request, ServiceError

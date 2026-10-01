@@ -8,7 +8,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from health_buddy.client_workflow import decoded
+from health_buddy.client.workflow import decoded
 from health_buddy.core.config import load
 from health_buddy.core.domain import decode
 from health_buddy.core.extension_api import PrepareConnector

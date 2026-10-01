@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.connect_agent import connect
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive
@@ -26,7 +27,6 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
 from health_buddy.mcp_settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
-from health_buddy.retry_paths import native_path
 from health_buddy.security.runtime import open_runtime, read_credential
 from health_buddy.transport.limits import EnvelopeError
 from health_buddy.transport.security import request_payload

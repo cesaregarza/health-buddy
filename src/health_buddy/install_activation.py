@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.core.domain import encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive
 from health_buddy.core.files import read_file, read_json
@@ -19,7 +20,6 @@ from health_buddy.core.operations import Service
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install_preflight import preflight
 from health_buddy.packaged_runtime import managed_ingress
-from health_buddy.retry_paths import native_path
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.runtime.release import docker_command, load_release, selected_artifact
 from health_buddy.security.runtime import open_runtime

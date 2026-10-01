@@ -15,7 +15,7 @@ import pytest
 
 from health_buddy.core import config
 from health_buddy.core import snapshots
-from health_buddy.app import App
+from health_buddy.client.app import App
 from health_buddy.core.git_store import STORE_CONFIG, Store, StoreError, git
 from health_buddy.core.providers import Jev, ProviderUnavailable
 from health_buddy.core.service_api import Request, ServiceError

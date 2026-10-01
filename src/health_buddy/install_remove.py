@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from health_buddy.backup import private_path
+from health_buddy.client.retry_paths import native_path
 from health_buddy.connect_agent import connect
 from health_buddy.core.domain import digest, encode
 from health_buddy.core.durability import atomic_bytes, exclusive
@@ -27,7 +28,6 @@ from health_buddy.install_https import (
     route,
     unrelated,
 )
-from health_buddy.retry_paths import native_path
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.runtime.release import docker_command, selected_artifact
 from health_buddy.upgrade_activation import COMPOSE, compose

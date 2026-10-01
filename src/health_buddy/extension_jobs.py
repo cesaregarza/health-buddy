@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 from contextlib import AbstractContextManager
 
-from health_buddy.client_auth import AuthenticatedOperations
-from health_buddy.client_workflow import ClientWorkflow, WorkflowNamespace
+from health_buddy.client.auth import AuthenticatedOperations
+from health_buddy.client.workflow import ClientWorkflow, WorkflowNamespace
 from health_buddy.core.config import Config
 from health_buddy.core.domain import digest, instant, number, object_value, text
 from health_buddy.core.durability import check_deadline, exclusive

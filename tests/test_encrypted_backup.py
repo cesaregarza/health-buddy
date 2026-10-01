@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from health_buddy.app import App
+from health_buddy.client.app import App
 from health_buddy.backup import create, restore
 from health_buddy.backup_crypto import keygen
 from health_buddy.core.durability import atomic_bytes

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
+from health_buddy.client.retry_paths import RetryRoot, WorkflowPaths
 from health_buddy.core.domain import (
     MAX_RESPONSE,
     check_identity,
@@ -46,7 +47,6 @@ from health_buddy.core.service_api import (
     Response,
     ServiceError,
 )
-from health_buddy.retry_paths import RetryRoot, WorkflowPaths
 
 MAX_STATE = 8 * 1024 * 1024
 ROUTES = {

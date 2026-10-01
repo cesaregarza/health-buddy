@@ -11,6 +11,7 @@ import tomllib
 from importlib.resources import files
 from pathlib import Path
 
+from health_buddy.client.retry_paths import native_path
 from health_buddy.core.durability import (
     atomic_bytes,
     exclusive,
@@ -20,7 +21,6 @@ from health_buddy.core.durability import (
 from health_buddy.core.files import private_directory, read_file
 from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp_settings import Settings
-from health_buddy.retry_paths import native_path
 
 INTEGRATION_VERSION = "1.0.0"
 PACKAGE_VERSION = "0.1.0.dev0"

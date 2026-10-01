@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from health_buddy.client_workflow import decoded
+from health_buddy.client.workflow import decoded
 from health_buddy.core.plans import to_wire
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import Request
