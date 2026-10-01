@@ -11,7 +11,9 @@ model client automatically.
 Health Buddy is installed only when the activation stage prints
 `"runtimeActivated": true` and `health_buddy.install.status` then prints
 `"runtimeLastActive": true`. Development mode (`--development`) is never an
-installation, and an agent installing for an owner never uses it.
+installation, an agent installing for an owner never uses it, and it refuses a
+workspace an installation has prepared
+(`development_mode_refused_on_installed_workspace`).
 
 Verification uses synthetic host responses and real local workspace/authority/
 client files. Actual owner-host/HTTPS/phone acceptance remains unqualified, and

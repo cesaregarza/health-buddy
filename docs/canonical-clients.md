@@ -34,6 +34,10 @@ health-buddy --workspace /path/to/private-workspace --development pending show
 health-buddy --workspace /path/to/private-workspace --development pending retry
 ```
 
+On a workspace an installation has prepared, `--development` refuses with
+`development_mode_refused_on_installed_workspace`; use the owner's
+`--credential-file` form of the same commands instead.
+
 Dates and values above are fabricated. Logger flags retain their existing
 field meanings; caller-selected storage paths are rejected. Circumference
 logging previews a validated row until `--apply` is supplied. Completed workouts
