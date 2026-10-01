@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 
 from health_buddy.cli import main
-from health_buddy.legacy_receiver_import import import_receiver
+from health_buddy.legacy.receiver_import import import_receiver
 from health_buddy.security.authority import SecurityAuthority
 from health_buddy.core.security_api import AgentGrant, BearerProof
 from health_buddy.security.runtime import open_runtime, read_credential, setup_security

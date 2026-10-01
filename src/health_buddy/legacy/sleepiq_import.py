@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from health_buddy.core.git_store import csv_text, parse_csv
 from health_buddy.core.service_api import ServiceError
-from health_buddy.legacy_import import MAX_RECORDS
+from health_buddy.legacy.measurement_import import MAX_RECORDS
 
 
 def daily_export(raw: str, *, sleeper_id: str, timezone: str) -> tuple[str, int]:

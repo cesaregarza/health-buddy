@@ -9,7 +9,7 @@ from health_buddy.cli import main
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.core.git_store import csv_text, headers
-from health_buddy.legacy_workout_import import (
+from health_buddy.legacy.workout_import import (
     FAMILY,
     SESSIONS,
     SETS,

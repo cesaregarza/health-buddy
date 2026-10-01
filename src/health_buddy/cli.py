@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     from health_buddy.upgrade.cli import add_commands as add_upgrade_commands
 
     add_upgrade_commands(commands)
-    from health_buddy.import_cli import add_commands as add_import_commands
+    from health_buddy.legacy.cli import add_commands as add_import_commands
 
     add_import_commands(commands)
     commands.add_parser("init")
@@ -157,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
                 else 0
             )
         if args.command == "legacy-import":
-            from health_buddy.import_cli import handle as handle_import
+            from health_buddy.legacy.cli import handle as handle_import
 
             return handle_import(args)
         if args.command == "upgrade":

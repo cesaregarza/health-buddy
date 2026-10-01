@@ -20,10 +20,10 @@ from health_buddy.core.operations import Service
 from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import Principal, ServiceError
-from health_buddy.legacy_import import MAX_BYTES, MAX_RECORDS, _path, _read
-from health_buddy.legacy_manual_canary import import_manual_canary
-from health_buddy.legacy_receiver_import import _checked, seed_adopted_receiver
-from health_buddy.legacy_sleepiq_import import daily_export
+from health_buddy.legacy.manual_canary import import_manual_canary
+from health_buddy.legacy.measurement_import import MAX_BYTES, MAX_RECORDS, _path, _read
+from health_buddy.legacy.receiver_import import _checked, seed_adopted_receiver
+from health_buddy.legacy.sleepiq_import import daily_export
 from health_buddy.runtime.manifest import native_directory
 
 RECEIPT = "operations/unified-import.json"

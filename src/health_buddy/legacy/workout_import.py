@@ -15,7 +15,7 @@ from health_buddy.core.domain import decode, digest, encode, identifier
 from health_buddy.core.durability import atomic_bytes, fsync_path
 from health_buddy.core.git_store import csv_text, headers, parse_csv
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.legacy_import import (
+from health_buddy.legacy.measurement_import import (
     MAX_BYTES,
     MAX_RECORDS,
     _path,

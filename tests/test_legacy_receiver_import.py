@@ -11,7 +11,7 @@ import pytest
 
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes
-from health_buddy.legacy_receiver_import import export_receiver, import_receiver
+from health_buddy.legacy.receiver_import import export_receiver, import_receiver
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import BearerProof
 from health_buddy.security.runtime import open_runtime, setup_security

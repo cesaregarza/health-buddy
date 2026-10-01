@@ -24,6 +24,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | MCP adapter | `mcp_server.py` entry point and `mcp/` (stdio framing, HTTPS operations client, tool schemas, proposals, SDK runtime); MCP wire/tools/settings tests |
 | Owner backup and restore | `backup/` (sealed envelope, workspace archive, create/materialize/restore lifecycle, CLI); encrypted backup tests |
 | Recoverable upgrade | `upgrade/` (release preflight and staging, resumable activation, CLI); recoverable upgrade tests |
+| Legacy data import | `legacy/` (`legacy-import` CLI, measurement/workout/receiver/SleepIQ importers, canaries, entrypoints for `scripts/log_*.py`); legacy import/canary tests |
 | Normative contracts | `contracts/v1`, `scripts/validate_contracts.py`, contract tests |
 
 CSV/JSON manual records and the selected HealthKit SQLite store are authoritative.

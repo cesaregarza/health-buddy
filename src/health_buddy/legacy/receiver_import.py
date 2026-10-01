@@ -21,7 +21,7 @@ from health_buddy.core.operations import Service
 from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
 from health_buddy.core.service_api import JSON, ServiceError
 from health_buddy.core.workspace import initialize
-from health_buddy.legacy_import import MAX_BYTES, MAX_RECORDS, _path, _read
+from health_buddy.legacy.measurement_import import MAX_BYTES, MAX_RECORDS, _path, _read
 from health_buddy.runtime.manifest import SHA256
 from health_ingest.models import Batch, parse_batch
 

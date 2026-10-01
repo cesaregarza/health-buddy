@@ -9,15 +9,18 @@ from typing import Any
 
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
-from health_buddy.legacy_import import export_measurements, import_measurements
-from health_buddy.legacy_manual_canary import (
+from health_buddy.legacy.manual_canary import (
     INPUTS,
     export_manual_canary,
     import_manual_canary,
 )
-from health_buddy.legacy_receiver_import import export_receiver, import_receiver
-from health_buddy.legacy_unified_canary import backup_readiness, import_canary
-from health_buddy.legacy_workout_import import export_workouts, import_workouts
+from health_buddy.legacy.measurement_import import (
+    export_measurements,
+    import_measurements,
+)
+from health_buddy.legacy.receiver_import import export_receiver, import_receiver
+from health_buddy.legacy.unified_canary import backup_readiness, import_canary
+from health_buddy.legacy.workout_import import export_workouts, import_workouts
 from health_buddy.runtime.manifest import native_directory
 from health_buddy.security.authority import SecurityAuthority
 from health_buddy.security.runtime import open_runtime, read_credential

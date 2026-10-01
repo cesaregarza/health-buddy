@@ -15,7 +15,7 @@ from health_buddy.core.domain import MAX_PLAN_BODY, decode, digest, encode, iden
 from health_buddy.core.durability import atomic_bytes, fsync_path
 from health_buddy.core.git_store import headers, parse_csv
 from health_buddy.core.service_api import JSON, ServiceError
-from health_buddy.legacy_import import (
+from health_buddy.legacy.measurement_import import (
     MAX_BYTES,
     MAX_RECORDS,
     MEASUREMENTS,
@@ -23,10 +23,10 @@ from health_buddy.legacy_import import (
     _read,
     adopt_snapshot,
 )
-from health_buddy.legacy_import import (
+from health_buddy.legacy.measurement_import import (
     _snapshot as measurement_snapshot,
 )
-from health_buddy.legacy_workout_import import _snapshot as workout_snapshot
+from health_buddy.legacy.workout_import import _snapshot as workout_snapshot
 from health_buddy.runtime.manifest import GIT_SHA, SHA256
 
 FAMILY = "manual-canary"
