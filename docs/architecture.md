@@ -25,7 +25,10 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Owner backup and restore | `backup/` (sealed envelope, workspace archive, create/materialize/restore lifecycle, CLI); encrypted backup tests |
 | Recoverable upgrade | `upgrade/` (release preflight and staging, resumable activation, CLI); recoverable upgrade tests |
 | Legacy data import | `legacy/` (`legacy-import` CLI, measurement/workout/receiver/SleepIQ importers, canaries, entrypoints for `scripts/log_*.py`); legacy import/canary tests |
+| Native installer | `install/` stages acquire, preflight, prepare, owner, activation, https, agent, then status, remove and rearm (`python -m health_buddy.install.<stage>`); `test_install_*` |
 | Normative contracts | `contracts/v1`, `scripts/validate_contracts.py`, contract tests |
+
+The [v1 contract](v1-contract.md) boundaries map onto packages: `health_buddy/domain`, `health_buddy/operations` and `health_buddy/stores` live in `core/`; `health_buddy/identity` is `security/`; `health_buddy/extensions` is `extension/`, with its contract in `core/extension_api.py`.
 
 CSV/JSON manual records and the selected HealthKit SQLite store are authoritative.
 The canonical coordinator owns every supported health writer. The private Git

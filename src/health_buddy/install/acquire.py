@@ -35,7 +35,7 @@ from health_buddy.runtime.manifest import (
 )
 from health_buddy.runtime.release import selected_artifact
 
-WORKER = Path(__file__).with_name("install_acquire_worker.py")
+WORKER = Path(__file__).with_name("acquire_worker.py")
 SECONDS = 120
 ARCHIVE_LIMIT = 1024**3
 

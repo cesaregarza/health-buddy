@@ -6,10 +6,10 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from health_buddy.core.service_api import ServiceError
-from health_buddy.install_acquire import download
+from health_buddy.install.acquire import download
 
 
 def main() -> int:

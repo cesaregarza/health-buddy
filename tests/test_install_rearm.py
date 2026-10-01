@@ -9,13 +9,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import (
-    install_activation,
-    install_agent,
-    install_https,
-    install_rearm,
-    install_remove,
-)
+from health_buddy.install import activation as install_activation
+from health_buddy.install import agent as install_agent
+from health_buddy.install import https as install_https
+from health_buddy.install import rearm as install_rearm
+from health_buddy.install import remove as install_remove
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.core.security_api import BearerProof

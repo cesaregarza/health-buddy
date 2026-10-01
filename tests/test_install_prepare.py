@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy import install_prepare
+from health_buddy.install import prepare as install_prepare
 from health_buddy.core.domain import identity_value
 from health_buddy.security.runtime import open_runtime
 from health_buddy.core.service_api import ServiceError

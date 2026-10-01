@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import install_agent, install_remove, install_status
+from health_buddy.install import agent as install_agent
+from health_buddy.install import remove as install_remove
+from health_buddy.install import status as install_status
 from health_buddy.security.authority import SecurityAuthority
 from health_buddy.core.security_api import AgentGrant, SecurityRequest
 from health_buddy.core.service_api import ServiceError

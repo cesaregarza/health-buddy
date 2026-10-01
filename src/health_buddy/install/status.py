@@ -13,7 +13,7 @@ from health_buddy.core.durability import exclusive
 from health_buddy.core.files import read_json
 from health_buddy.core.security_api import BearerProof, SecurityRequest
 from health_buddy.core.service_api import ServiceError
-from health_buddy.install_agent import actors, owner
+from health_buddy.install.agent import actors, owner
 from health_buddy.security.runtime import read_credential
 
 

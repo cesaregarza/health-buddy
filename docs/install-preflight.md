@@ -26,7 +26,7 @@ archive integrity do not imply a publisher signature or qualified deployment.
 
 ```sh
 export PYTHONPATH="$SOURCE/src"
-"$PYTHON" -m health_buddy.install_acquire --manifest-url "$PUBLISHER_MANIFEST_URL" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --bundle "$BUNDLE" --staging "$ARTIFACTS"
+"$PYTHON" -m health_buddy.install.acquire --manifest-url "$PUBLISHER_MANIFEST_URL" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --bundle "$BUNDLE" --staging "$ARTIFACTS"
 ```
 
 The supported publisher origin serves `/.../runtime-manifest.json` and its three
@@ -83,9 +83,9 @@ loading, as described in [runtime packaging](runtime-packaging.md).
 
 ```sh
 export PYTHONPATH="$SOURCE/src"
-"$PYTHON" -m health_buddy.install_preflight --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER"
+"$PYTHON" -m health_buddy.install.preflight --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER"
 # Optional separate host listener check, not a published runtime port:
-"$PYTHON" -m health_buddy.install_preflight --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --port 8791
+"$PYTHON" -m health_buddy.install.preflight --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --port 8791
 ```
 
 The supported architecture mapping is x86_64→amd64 and aarch64/arm64→arm64, native
@@ -111,14 +111,14 @@ published by Compose. Phone/private HTTPS reachability remains unknown.
 
 ## Durable local preparation
 
-After preflight, `health_buddy.install_prepare` can prepare the real empty local
+After preflight, `health_buddy.install.prepare` can prepare the real empty local
 workspace and matching source references without loading/starting a runtime.
 The journal must be an explicit mode-0600 file in an existing private native
 mode-0700 directory **outside** the workspace and release bundle. Keep that
 journal and the originally pinned bundle/artifacts across restarts.
 
 ```sh
-"$PYTHON" -m health_buddy.install_prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER"
+"$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER"
 ```
 
 The first write durably binds the original workspace, source bundle, release pin
@@ -146,7 +146,7 @@ After the owner independently establishes the matching private origin/authority,
 an explicit reviewed MCP adapter/settings file and credential may be supplied:
 
 ```sh
-"$PYTHON" -m health_buddy.install_prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --client codex --client-config "$CONFIG" --skill-directory "$SKILL_DIRECTORY" --settings "$PRIVATE_SETUP/adapter.json" --python "$PYTHON"
+"$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --client codex --client-config "$CONFIG" --skill-directory "$SKILL_DIRECTORY" --settings "$PRIVATE_SETUP/adapter.json" --python "$PYTHON"
 ```
 
 Use `--client claude` with the `.mcp.json` private launcher and supported skill
@@ -176,7 +176,7 @@ credential-output directory. Stop other writers/editors during this action.
 
 The prepared default has HealthKit disabled with mode `read-only`. A reservation
 or private pairing proof does not prove redemption or ingest can work. Before
-`install_owner`, explicitly edit only the intended HealthKit configuration to
+`health_buddy.install.owner`, explicitly edit only the intended HealthKit configuration to
 `integrations.healthkit: {enabled:true,mode:"receiver"}` using the supported
 [owner configuration](configuration.md#owner-configuration), validate it through
 `health_buddy.core.config.load` via the native workspace command, and review it:
@@ -191,7 +191,7 @@ Phone setup remains the existing owner login and `/security` page headed
 
 
 ```sh
-"$PYTHON" -m health_buddy.install_owner --journal "$PRIVATE_INSTALL/install.json" --owner-token "$OWNER_WORKSPACE/secrets/native-owner-token" --origin "$PRIVATE_HTTPS_ORIGIN" --owner-subject "$EXACT_OWNER_SUBJECT" --confirm-owner-setup
+"$PYTHON" -m health_buddy.install.owner --journal "$PRIVATE_INSTALL/install.json" --owner-token "$OWNER_WORKSPACE/secrets/native-owner-token" --origin "$PRIVATE_HTTPS_ORIGIN" --owner-subject "$EXACT_OWNER_SUBJECT" --confirm-owner-setup
 ```
 
 This action accepts only the prepared workspace's default security fields. It
@@ -234,7 +234,7 @@ sign-in is an independent owner prerequisite; live client/phone acceptance stays
 
 ## Explicit runtime activation
 
-`health_buddy.install_activation` is the next owner-controlled action. It contacts
+`health_buddy.install.activation` is the next owner-controlled action. It contacts
 only the explicitly admitted native CLI and local Unix Docker socket. Preparation
 and preflight commands still perform no activation. No tool or check receipt here
 establishes an actual deployment: this source flow is verified with synthetic
@@ -258,7 +258,7 @@ socket access first; do not expose an engine remotely. Keep writers, editors and
 other operations on the selected project stopped during this action.
 
 ```sh
-"$PYTHON" -m health_buddy.install_activation --journal "$PRIVATE_INSTALL/install.json" --environment "$PRIVATE_INSTALL/runtime.env" --project health-buddy-personal --uid "$OWNER_UID" --gid "$OWNER_GID" --confirm-local-daemon --confirm-quiesced
+"$PYTHON" -m health_buddy.install.activation --journal "$PRIVATE_INSTALL/install.json" --environment "$PRIVATE_INSTALL/runtime.env" --project health-buddy-personal --uid "$OWNER_UID" --gid "$OWNER_GID" --confirm-local-daemon --confirm-quiesced
 ```
 
 The environment file must be new and outside both workspace and source bundle.
@@ -325,8 +325,8 @@ managed UDS socket. The read-only dry-run observes these states and Serve config
 it writes no journal or workspace files and creates no route:
 
 ```sh
-"$PYTHON" -m health_buddy.install_https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action dry-run --confirm-local-tailscale
-"$PYTHON" -m health_buddy.install_https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action setup --confirm-local-tailscale --confirm-serve --confirm-quiesced
+"$PYTHON" -m health_buddy.install.https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action dry-run --confirm-local-tailscale
+"$PYTHON" -m health_buddy.install.https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action setup --confirm-local-tailscale --confirm-serve --confirm-quiesced
 ```
 
 The mutation is exactly `serve --bg --https=443 --set-path=/ unix:/absolute/socket`.
@@ -352,7 +352,7 @@ for owner inspection and never resets/restores a whole configuration.
 Owned removal uses the exact original selection and explicit path flag:
 
 ```sh
-"$PYTHON" -m health_buddy.install_https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action remove --confirm-local-tailscale --confirm-serve --confirm-quiesced
+"$PYTHON" -m health_buddy.install.https --journal "$PRIVATE_INSTALL/install.json" --tailscale "$ADMITTED_NATIVE_TAILSCALE" --daemon-socket "$LOCAL_TAILSCALED_SOCKET" --action remove --confirm-local-tailscale --confirm-serve --confirm-quiesced
 ```
 
 The resulting command is `serve --bg --https=443 --set-path=/ off`. It removes no
@@ -387,8 +387,8 @@ owned local edits refuse further changes. Stop competing config/grant editors
 while running this explicit setup. No client process is launched:
 
 ```sh
-"$PYTHON" -m health_buddy.install_agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
-"$PYTHON" -m health_buddy.install_status --journal "$PRIVATE_INSTALL/install.json"
+"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
+"$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
 
 For Claude, choose `--client claude` and its supported project `.mcp.json`;
@@ -421,7 +421,7 @@ not live network, daemon or named-client observations. `connected:false` remains
 ## Explicit missing-secret recovery and retained-data removal
 
 Ordinary handoff retry never rotates credentials. If the retained pending grant
-has no credential output, explicitly repeat the original `install_agent` command
+has no credential output, explicitly repeat the original `health_buddy.install.agent` command
 with `--rotate-pending-missing-secret`. It uses canonical `grants.rotate` on that
 same recorded actor, revoking its previous credentials without changing the
 workspace identity, actor or security epoch. This flag refuses a new/unbound grant,
@@ -445,8 +445,8 @@ owner precondition, and unsafe drift stops subsequent actions without restoring
 an old whole configuration.
 
 ```sh
-"$PYTHON" -m health_buddy.install_remove --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --confirm-remove --confirm-local-daemon --confirm-serve --confirm-quiesced
-"$PYTHON" -m health_buddy.install_status --journal "$PRIVATE_INSTALL/install.json"
+"$PYTHON" -m health_buddy.install.remove --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --confirm-remove --confirm-local-daemon --confirm-serve --confirm-quiesced
+"$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
 
 The Docker mutations are only `stop --time 30 EXACT_ID` and `rm EXACT_ID`.
@@ -475,9 +475,9 @@ being maintained; the complete installer synthetic gate is:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_acquire.py tests/test_install_preflight.py tests/test_install_prepare.py tests/test_install_owner.py tests/test_install_activation.py tests/test_install_https.py tests/test_install_agent.py tests/test_install_remove.py tests/test_connect_removal.py tests/test_agent_guide.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install_*.py src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install_*.py src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
-"$PYTHON" -m mypy src/health_buddy/install_*.py src/health_buddy/connect_agent.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py
+"$PYTHON" -m mypy src/health_buddy/install src/health_buddy/connect_agent.py
 ```
 
 Fixtures cover pinned source/archive refusal, durable prepare/owner/activation,

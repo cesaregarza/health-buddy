@@ -89,7 +89,7 @@ be a venv symlink chain, including a uv-managed interpreter. PYTHON and the file
 it resolves to must both be absolute paths without `..` and outside `/mnt`.
 PYTHON must be named `python`, `python3` or `python3.12`; the resolved file
 must be an executable named `python`, `python3` or `python3.N` for any minor
-version N. Otherwise setup refuses; `install_agent` reports this as
+version N. Otherwise setup refuses; `health_buddy.install.agent` reports this as
 `invalid_codex_python`. The config records PYTHON unresolved, so the client
 starts Python inside the venv. From SOURCE:
 
