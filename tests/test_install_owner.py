@@ -5,6 +5,7 @@ import os
 
 import pytest
 
+from health_buddy import cli
 from health_buddy.install import activation as install_activation
 from health_buddy.install import owner as install_owner
 from health_buddy.core.domain import identity_value
@@ -258,3 +259,18 @@ def test_unready_workspace_names_readiness_and_a_plain_retry_completes(
     result = json.loads(capsys.readouterr().out)
     assert result["ownerSetupReady"] and "recovery" not in result
     assert arguments["owner_token"].read_bytes() == credential
+
+
+def test_development_mode_refuses_managed_ingress_without_the_prepare_profile(
+    tmp_path, monkeypatch, capsys
+):
+    selected, arguments, _original, _note = prepared_owner(tmp_path, monkeypatch)
+    assert install_owner.setup(**arguments)["ownerSetupReady"]
+    workspace = selected["workspace"]
+    (workspace / "personal/INSTALLATION.json").unlink()
+    command = "log measurement --measured-at-local 2030-01-01T08:00:00 --weight-lb 150"
+    argv = ["--workspace", str(workspace), "--development", *command.split()]
+    assert cli.main(argv) == 2
+    error = capsys.readouterr().err
+    assert "development_mode_refused_on_installed_workspace (HTTP 409)" in error
+    assert open_runtime(workspace).operations.journal.verify().revision == 0
