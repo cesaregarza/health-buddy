@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
-from health_buddy.app import App
+from health_buddy.client.app import App
 from tests.transport_process import running
 
 

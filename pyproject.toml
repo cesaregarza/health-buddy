@@ -43,12 +43,16 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "RUF"]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "RUF", "TID"]
 ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/sleepiq_exporter/migrations/versions/*.py" = ["E501"]
+"src/sleepiq_exporter/**/*.py" = ["TID252"]
 "tests/*.py" = ["S105", "S106"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.mypy]
 python_version = "3.12"

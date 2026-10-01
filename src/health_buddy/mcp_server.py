@@ -40,9 +40,9 @@ def main() -> int:
             return 1
         import anyio
 
-        from .mcp_runtime import run
-        from .mcp_settings import Settings
-        from .mcp_tools import ToolService
+        from health_buddy.mcp.runtime import run
+        from health_buddy.mcp.settings import Settings
+        from health_buddy.mcp.tools import ToolService
 
         settings = Settings.read(Path(sys.argv[2]))
         anyio.run(run, ToolService(settings), read_fd, write_fd)

@@ -2,7 +2,7 @@
 
 import pytest
 
-from health_buddy.config import ConfigError, defaults, validate
+from health_buddy.core.config import ConfigError, defaults, validate
 
 
 def test_existing_configuration_adds_denying_loopback_without_rewrite(tmp_path):

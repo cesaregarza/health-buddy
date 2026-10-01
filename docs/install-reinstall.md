@@ -1,7 +1,7 @@
 # Explicit reviewed reinstall with retained personal work
 
 Ordinary installer retries never reactivate a removed installation. The native
-`health_buddy.install_rearm` action admits one completed owned removal using its
+`health_buddy.install.rearm` action admits one completed owned removal using its
 exact reviewed private journal SHA256, matching source/release, unchanged owner
 configuration and retained owner authority. It refuses foreign/changed bindings,
 present owned components, incomplete removal or a non-revoked original agent.
@@ -17,7 +17,7 @@ grant remains revoked. This command requires fresh-grant and AI-egress consent,
 but creates no grant or credential itself and never rotates a retained token.
 
 ```sh
-"$PYTHON" -m health_buddy.install_rearm \
+"$PYTHON" -m health_buddy.install.rearm \
   --journal "$PRIVATE_INSTALL/install.json" \
   --original-policy "$PRIVATE_CLIENT/policy.json" \
   --expected-removed-sha256 REVIEWED_REMOVED_JOURNAL_SHA256 \
@@ -39,7 +39,7 @@ A later removal cycle requires separate owner reconciliation rather than silentl
 reusing this recorded review.
 
 Resume the existing [activation, private HTTPS and agent commands](install-preflight.md)
-with their original activation/HTTPS bindings. For `install_agent`, use the new
+with their original activation/HTTPS bindings. For `health_buddy.install.agent`, use the new
 reviewed policy/token/settings/retry-root paths and the original named client,
 client config, skill directory and Python. Its existing explicit grant/egress
 flags remain required. The agent stage refuses any selection outside the rearm

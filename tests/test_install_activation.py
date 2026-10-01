@@ -7,11 +7,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import install_activation, install_owner, install_prepare
-from health_buddy.domain import identity_value
-from health_buddy.runtime_release import selected_artifact
-from health_buddy.security_runtime import open_runtime, setup_security
-from health_buddy.service_api import ServiceError
+from health_buddy.install import activation as install_activation
+from health_buddy.install import owner as install_owner
+from health_buddy.install import prepare as install_prepare
+from health_buddy.core.domain import identity_value
+from health_buddy.runtime.release import selected_artifact
+from health_buddy.security.runtime import open_runtime, setup_security
+from health_buddy.core.service_api import ServiceError
 from tests.test_install_prepare import inputs
 
 

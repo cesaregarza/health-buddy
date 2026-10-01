@@ -178,7 +178,7 @@ def log_blood_pressure(
 
 def main(argv: Sequence[str] | None = None) -> int:
     try:
-        from health_buddy.legacy_entrypoints import delegate_logger
+        from health_buddy.legacy.entrypoints import delegate_logger
     except ImportError:
         print("Install Health Buddy and use an explicit --workspace; "
               "loose-file logging is retired.", file=sys.stderr)

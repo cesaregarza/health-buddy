@@ -12,11 +12,11 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy import operations
-from health_buddy.domain import MAX_HEALTH_BODY, MAX_MANIFEST, MAX_RESPONSE, encode
-from health_buddy.operations import Service
-from health_buddy.service_api import Request, Response, ServiceError
-from health_buddy.workspace import initialize
+from health_buddy.core import operations
+from health_buddy.core.domain import MAX_HEALTH_BODY, MAX_MANIFEST, MAX_RESPONSE, encode
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import Request, Response, ServiceError
+from health_buddy.core.workspace import initialize
 from health_ingest.models import DEVICE_KEYS, SOURCE_KEYS, parse_batch
 from tests.canonical_fixtures import (
     RegisteredPolicy,

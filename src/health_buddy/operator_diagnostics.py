@@ -12,14 +12,14 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from . import legacy
-from .app import App
-from .config import ConfigError, load
-from .discovery import source_identity
-from .extension_diagnostics import recent_failure
-from .extension_registry import Registry, status_json
-from .runtime_manifest import read_source_identity
-from .service_api import ServiceError
+from health_buddy.client.app import App
+from health_buddy.core import source_bundle
+from health_buddy.core.config import ConfigError, load
+from health_buddy.core.service_api import ServiceError
+from health_buddy.extension.diagnostics import recent_failure
+from health_buddy.extension.discovery import source_identity
+from health_buddy.extension.registry import Registry, status_json
+from health_buddy.runtime.manifest import read_source_identity
 
 GUIDANCE = {
     "config_invalid": (
@@ -129,7 +129,8 @@ def report(
         result["installation"]["versionEvidence"] = "package_metadata"
     except PackageNotFoundError:
         identity = read_source_identity(
-            legacy.RELEASE, legacy.RELEASE.parent / "release/source-manifest.json"
+            source_bundle.RELEASE,
+            source_bundle.RELEASE.parent / "release/source-manifest.json",
         )
         result["installation"]["source"] = source_identity(identity)
         result["installation"]["packageVersion"] = identity.package_version
@@ -138,7 +139,7 @@ def report(
             # The maintained source declaration supplies version only, not
             # proof of a release artifact or a clean working tree.
             try:
-                path = legacy.RELEASE / "pyproject.toml"
+                path = source_bundle.RELEASE / "pyproject.toml"
                 if path.stat().st_size <= 100_000:
                     with path.open("rb") as stream:
                         declared = tomllib.load(stream)["project"]["version"]

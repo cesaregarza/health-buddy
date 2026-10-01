@@ -4,18 +4,19 @@ import json
 
 import pytest
 
-from health_buddy import install_activation, install_owner
-from health_buddy.domain import identity_value
-from health_buddy.security_api import BearerProof
-from health_buddy.security_runtime import open_runtime, read_credential
-from health_buddy.service_api import ServiceError
+from health_buddy.install import activation as install_activation
+from health_buddy.install import owner as install_owner
+from health_buddy.core.domain import identity_value
+from health_buddy.core.security_api import BearerProof
+from health_buddy.security.runtime import open_runtime, read_credential
+from health_buddy.core.service_api import ServiceError
 from tests.test_install_activation import fixture, simulate_nonroot_owner
 from tests.test_install_prepare import inputs
 
 
 def prepared_owner(tmp_path, monkeypatch):
     selected = inputs(tmp_path, monkeypatch)
-    from health_buddy.install_prepare import prepare
+    from health_buddy.install.prepare import prepare
 
     prepare(**selected)
     root = selected["workspace"]

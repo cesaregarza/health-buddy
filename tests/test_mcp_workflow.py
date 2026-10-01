@@ -9,13 +9,13 @@ from dataclasses import replace
 
 import pytest
 
-from health_buddy.client_auth import AuthenticatedOperations
-from health_buddy.client_workflow import ClientWorkflow, McpWorkflowNamespace
-from health_buddy.domain import digest
-from health_buddy.retry_paths import RetryRoot
-from health_buddy.security_api import AgentGrant, BearerProof, ClientIdentity
-from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import Principal, ServiceError
+from health_buddy.client.auth import AuthenticatedOperations
+from health_buddy.client.retry_paths import RetryRoot
+from health_buddy.client.workflow import ClientWorkflow, McpWorkflowNamespace
+from health_buddy.core.domain import digest
+from health_buddy.core.security_api import AgentGrant, BearerProof, ClientIdentity
+from health_buddy.core.service_api import Principal, ServiceError
+from health_buddy.security.runtime import open_runtime
 from tests.security_fixtures import action, secured
 from tests.test_extension_workflow import IDENTITY, SyntheticOperations, emit
 
@@ -172,7 +172,7 @@ def test_capacity_refuses_new_intents_without_evicting_completed_receipts(tmp_pa
 def test_directory_barrier_failure_retries_existing_ancestors_before_send(
     tmp_path, monkeypatch
 ):
-    from health_buddy import client_workflow
+    from health_buddy.client import workflow as client_workflow
 
     root = RetryRoot.create(tmp_path / "adapter")
     operations = SyntheticOperations()

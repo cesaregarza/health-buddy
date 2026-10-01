@@ -10,15 +10,15 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy.security_api import (
+from health_buddy.core.security_api import (
     AgentGrant,
     BearerProof,
     PairingRedemption,
     PairingReservation,
     SecurityRequest,
 )
-from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.security.runtime import open_runtime
+from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded, intent
 from tests.security_fixtures import action, secured
 

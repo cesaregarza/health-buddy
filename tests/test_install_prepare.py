@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy import install_prepare
-from health_buddy.domain import identity_value
-from health_buddy.security_runtime import open_runtime
-from health_buddy.service_api import ServiceError
+from health_buddy.install import prepare as install_prepare
+from health_buddy.core.domain import identity_value
+from health_buddy.security.runtime import open_runtime
+from health_buddy.core.service_api import ServiceError
 from tests.test_install_preflight import prepared
 
 

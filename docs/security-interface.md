@@ -7,9 +7,9 @@ comes from recorded check runs, not from this source map.
 
 ## Ownership and factories
 
-Core owns `security_api.py`, configuration, durable security state/policy,
-`security_runtime.py`, canonical provisioning and CLI. Transport owns HTTP and
-`production_server.py`, `client_workflow.py`, App authentication adaptation,
+Core owns `core/security_api.py`, configuration, durable security state/policy,
+`security/runtime.py`, canonical provisioning and CLI. Transport owns HTTP and
+`transport/server.py`, `client/workflow.py`, App authentication adaptation,
 browser UI and its wire/browser tests. Shared files are edited by their named
 owner; there is no new authentication framework or dependency.
 

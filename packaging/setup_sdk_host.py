@@ -18,13 +18,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from health_buddy.runtime_inputs import (
+from health_buddy.runtime.inputs import (
     InputFile,
     PlatformInputs,
     fetch_inputs,
     load_inputs,
 )
-from health_buddy.runtime_manifest import ManifestError, canonical, native_directory
+from health_buddy.runtime.manifest import ManifestError, canonical, native_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 

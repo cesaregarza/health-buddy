@@ -15,7 +15,7 @@ REQUIRED_AGENT_REFERENCES = (
     "AGENTS.md",
     "CLAUDE.md",
     "docs/agent-guide.md",
-    "src/health_buddy/extension_api.py",
+    "src/health_buddy/core/extension_api.py",
     "src/health_buddy/extension_manifest.schema.json",
     "tests/test_extension_runtime.py",
     "packaging/dev-cp312-linux-x86_64.lock",

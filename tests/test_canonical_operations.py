@@ -11,9 +11,9 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy import plans
-from health_buddy.operations import Service
-from health_buddy.service_api import Principal, Request
+from health_buddy.core import plans
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import Principal, Request
 from tests.canonical_fixtures import (
     decoded,
     intent,

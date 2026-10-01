@@ -31,4 +31,4 @@ preview:
 runtime-test:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m pytest -p no:cacheprovider tests/test_runtime_*.py tests/test_packaged_runtime.py
 runtime-lint:
-	RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 $(PYTHON) -m ruff check src/health_buddy/runtime_*.py src/health_buddy/packaged_runtime.py scripts/package_runtime.py scripts/runtime_entrypoint.py packaging/*.py tests/test_runtime_*.py tests/test_packaged_runtime.py
+	RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 $(PYTHON) -m ruff check src/health_buddy/runtime src/health_buddy/packaged_runtime.py scripts/package_runtime.py scripts/runtime_entrypoint.py packaging/*.py tests/test_runtime_*.py tests/test_packaged_runtime.py

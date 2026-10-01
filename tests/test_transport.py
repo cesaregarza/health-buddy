@@ -11,10 +11,10 @@ from dataclasses import replace
 
 import pytest
 
-from health_buddy.service_api import Principal, Response
-from health_buddy.transport import ENDPOINTS, Transport, create_app
-from health_buddy.transport_jobs import Jobs
-from health_buddy.transport_limits import DEFAULT_LIMITS, EnvelopeError, json_object
+from health_buddy.core.service_api import Principal, Response
+from health_buddy.transport.asgi import ENDPOINTS, Transport, create_app
+from health_buddy.transport.jobs import Jobs
+from health_buddy.transport.limits import DEFAULT_LIMITS, EnvelopeError, json_object
 from health_ingest.models import parse_batch
 
 

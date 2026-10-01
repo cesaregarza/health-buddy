@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from health_buddy import connect_agent
-from health_buddy.service_api import ServiceError
+from health_buddy.core.service_api import ServiceError
 from tests import test_claude_integration as claude
 from tests import test_codex_integration as codex
 from tests.test_mcp_settings import settings_file

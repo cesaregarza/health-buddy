@@ -25,8 +25,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from health_buddy.domain import identity_value
-from health_buddy.security_api import AgentGrant
+from health_buddy.core.domain import identity_value
+from health_buddy.core.security_api import AgentGrant
 from tests.security_fixtures import action, secured
 from tests.test_transport_auth_wire import request, server
 from tests.transport_process import ROOT

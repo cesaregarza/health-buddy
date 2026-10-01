@@ -21,7 +21,7 @@ from http.client import HTTPConnection
 
 import pytest
 
-from health_buddy.transport_ingress import prepare_socket
+from health_buddy.transport.ingress import prepare_socket
 from tests.auth_transport_fixtures import ORIGIN, TOKEN, short_socket_directory
 from tests.transport_process import ROOT
 
@@ -92,7 +92,7 @@ def readiness_metadata(status, body):
 
 @contextmanager
 def server(folder, *, ready=True, workspace=None, listener_fault=None):
-    from health_buddy.config import load
+    from health_buddy.core.config import load
 
     path = (
         load(workspace).path(load(workspace).values["security"]["socketPath"])

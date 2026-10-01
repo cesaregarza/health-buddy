@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy import runtime_artifact
-from health_buddy.runtime_artifact import verify_docker_archive
-from health_buddy.runtime_manifest import ManifestError
+from health_buddy.runtime import artifact as runtime_artifact
+from health_buddy.runtime.artifact import verify_docker_archive
+from health_buddy.runtime.manifest import ManifestError
 
 COMMIT = "a" * 40
 SOURCE_ARCHIVE = "b" * 64

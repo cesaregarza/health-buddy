@@ -53,8 +53,8 @@ small dictionary when maintaining the existing examples:
 | tests/notes/migrations/state | Owner retains these beside editable code. Connector state retains the original request/key/receipt before send; retry reuses it. State and canonical health records are never rolled back by code revert. |
 | jobs and secrets | Native owner explicitly prepares/enables/runs jobs. Install/enable starts no scheduler. Host owns canonical write/retry; secrets remain private references outside hook input. External scheduling is a separate operator decision. |
 
-Interfaces: `src/health_buddy/extension_api.py`,
-`src/health_buddy/extension_manifest.schema.json`, `service_api.py`.
+Interfaces: `src/health_buddy/core/extension_api.py`,
+`src/health_buddy/extension_manifest.schema.json`, `src/health_buddy/core/service_api.py`.
 Abstract examples: `contracts/v1/examples/{weekly-mass,water-import}.json` and
 `contracts/v1/extension.schema.json`; these wrappers are conformance fixtures,
 **not** installable descriptors. Executable scaffolds: the two maintained
@@ -122,8 +122,8 @@ Run this focused check set from the matching source checkout
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider "$EXTENSION/tests" tests/test_extension_runtime.py tests/test_extension_registry.py tests/test_extension_workflow.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
-RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/discovery.py src/health_buddy/discovery_api.py src/health_buddy/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff check src/health_buddy/extension/discovery.py src/health_buddy/core/discovery_api.py src/health_buddy/extension/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
+RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 .venv/bin/python -m ruff format --check src/health_buddy/extension/discovery.py src/health_buddy/core/discovery_api.py src/health_buddy/extension/personal_workspace.py tests/test_extension_runtime.py tests/test_workspace_discovery.py tests/test_extension_preservation.py
 # View/config rendering only: separately admitted BROWSER_PYTHON/cache required.
 (cd health-runner/dashboard && "$BROWSER_PYTHON" scripts/check_extensions.py)
 ```

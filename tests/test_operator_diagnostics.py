@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from health_buddy.app import App
+from health_buddy.client.app import App
 from health_buddy.cli import main
 from health_buddy.operator_diagnostics import report, source_findings, support_summary
 
@@ -100,9 +100,9 @@ def test_support_bundle_excludes_tokens_and_personal_records():
 
 
 def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path):
-    from health_buddy.extension_diagnostics import observed_call, recent_failure
-    from health_buddy.extension_install import install
-    from health_buddy.service_api import ServiceError
+    from health_buddy.extension.diagnostics import observed_call, recent_failure
+    from health_buddy.extension.install import install
+    from health_buddy.core.service_api import ServiceError
 
     app = App.development(tmp_path / "owner")
     install(
@@ -124,7 +124,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
         app.config.root / "personal/extensions/local.weekly-mass/src/metric.py"
     ).read_bytes()
     with patch(
-        "health_buddy.extension_diagnostics.call",
+        "health_buddy.extension.diagnostics.call",
         side_effect=ServiceError(503, "extension_timeout"),
     ):
         with pytest.raises(ServiceError, match="extension_timeout"):
@@ -143,7 +143,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
     assert (
         recent_failure(app.config, "local.weekly-mass")["code"] == "extension_timeout"
     )
-    from health_buddy.extension_registry import Registry
+    from health_buddy.extension.registry import Registry
 
     Registry(app.config).disable("local.weekly-mass")
     assert (
@@ -155,7 +155,7 @@ def test_failed_worker_has_safe_diagnostic_and_preserves_personal_files(tmp_path
 
 
 def test_missing_worker_record_is_unknown(tmp_path):
-    from health_buddy.extension_diagnostics import recent_failure
+    from health_buddy.extension.diagnostics import recent_failure
 
     app = App.development(tmp_path / "owner")
     assert recent_failure(app.config, "local.weekly-mass")["state"] == "unknown"
@@ -179,7 +179,7 @@ def test_receiver_failure_and_private_phone_unknown(tmp_path):
 
 
 def test_partial_application_permissions_have_distinct_code(tmp_path):
-    from health_buddy.service_api import ServiceError
+    from health_buddy.core.service_api import ServiceError
 
     app = App.development(tmp_path / "owner")
     with patch.object(app, "_read", side_effect=ServiceError(403, "forbidden")):
@@ -233,7 +233,7 @@ def test_failed_source_is_error_and_status_returns_nonzero(tmp_path, capsys):
 def test_source_runtime_version_without_installed_product_wheel(tmp_path):
     from importlib.metadata import PackageNotFoundError
 
-    from health_buddy.release_identity import ReleaseIdentity
+    from health_buddy.core.release_identity import ReleaseIdentity
 
     app = App.development(tmp_path / "owner")
     with (

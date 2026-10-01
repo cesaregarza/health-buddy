@@ -13,11 +13,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from health_buddy.app import App
-from health_buddy.client_workflow import ClientWorkflow
-from health_buddy.domain import encode, envelope
-from health_buddy.service_api import Identity, Principal, Response, ServiceError
-from health_buddy.workspace import initialize
+from health_buddy.client.app import App
+from health_buddy.client.workflow import ClientWorkflow
+from health_buddy.core.domain import encode, envelope
+from health_buddy.core.service_api import Identity, Principal, Response, ServiceError
+from health_buddy.core.workspace import initialize
 from tests.synthetic_workspace import program
 
 IDENTITY = Identity(
@@ -343,7 +343,7 @@ def test_plan_duplicate_keys_rejected_before_send(fixture, tmp_path):
 def test_failure_to_persist_before_send_does_not_execute(fixture):
     _config, service, workflow = fixture
     with patch(
-        "health_buddy.client_workflow.atomic_bytes",
+        "health_buddy.client.workflow.atomic_bytes",
         side_effect=OSError("disk unavailable"),
     ):
         with pytest.raises(OSError):

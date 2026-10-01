@@ -5,7 +5,7 @@ import os
 from functools import partial
 from pathlib import Path
 
-from health_buddy.production_server import serve
+from health_buddy.transport.server import serve
 from tests.auth_transport_fixtures import fake_runtime
 
 
@@ -19,8 +19,8 @@ def main():
     )
     args = parser.parse_args()
     if args.workspace is not None:
-        from health_buddy.config import load
-        from health_buddy.security_runtime import open_runtime
+        from health_buddy.core.config import load
+        from health_buddy.security.runtime import open_runtime
 
         ingress = load(args.workspace).ingress()
         assert ingress.socket_path == args.socket

@@ -13,14 +13,14 @@ Owner-trusted Python is not a hostile-code sandbox.
 
 | Concern | Owner paths |
 | --- | --- |
-| Typed finite transport seam | `src/health_buddy/service_api.py`, `domain.py` |
-| Admission, canonical mutation, source registration and backup seam | `operations.py`, `policy.py` |
-| Durable decision, receipts, bootstrap and recovery | `journal.py`, `durability.py`, `stores.py`, `health_store.py` |
-| Retained logger and plan semantics | `loggers.py`, `records.py`, `plans.py` |
-| Source filtering, projections and private last-good inputs | `snapshots.py`, `views.py`, `projection.py` |
-| Native/browser durable pending workflows | `app.py`, `cli.py`, `client_workflow.py`, dashboard template |
-| Maintained HTTP, bounded admission and child factory | `transport.py`, `production_server.py` |
-| Scoped examples | `extensions.py` (`ScopedClient`, `latest_body_mass`, `water_connector`) |
+| Typed finite transport seam | `src/health_buddy/core/service_api.py`, `core/domain.py` |
+| Admission, canonical mutation, source registration and backup seam | `core/operations.py`, `core/policy.py` |
+| Durable decision, receipts, bootstrap and recovery | `core/journal.py`, `core/durability.py`, `core/stores.py`, `core/health_store.py` |
+| Retained logger and plan semantics | `core/loggers.py`, `core/records.py`, `core/plans.py` |
+| Source filtering, projections and private last-good inputs | `core/snapshots.py`, `core/views.py`, `core/projection.py` |
+| Native/browser durable pending workflows | `client/app.py`, `cli.py`, `client/workflow.py`, dashboard template |
+| Maintained HTTP, bounded admission and child factory | `transport/asgi.py`, `transport/server.py` |
+| Scoped examples | `extension/examples.py` (`ScopedClient`, `latest_body_mass`, `water_connector`) |
 | Executable synthetic evidence | `tests/test_canonical_*.py`, `tests/test_client_workflow.py`, transport/portable tests and six dashboard browser scripts |
 
 The fixed route table below defines the finite service route seam;
@@ -232,9 +232,9 @@ not silently interchanged by generic PUT.
 
 ```python
 from pathlib import Path
-from health_buddy.extensions import ScopedClient, latest_body_mass
-from health_buddy.operations import open_service
-from health_buddy.policy import DEVELOPMENT_PRINCIPAL
+from health_buddy.extension.examples import ScopedClient, latest_body_mass
+from health_buddy.core.operations import open_service
+from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL
 
 service = open_service(Path("/tmp/example-health-workspace"), development=True)
 client = ScopedClient(service, DEVELOPMENT_PRINCIPAL)

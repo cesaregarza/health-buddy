@@ -5,10 +5,10 @@ from dataclasses import replace
 
 import pytest
 
-from health_buddy.client_workflow import ClientWorkflow
-from health_buddy.security_api import ClientIdentity
-from health_buddy.service_api import Principal, ServiceError
-from health_buddy.workspace import initialize
+from health_buddy.client.workflow import ClientWorkflow
+from health_buddy.core.security_api import ClientIdentity
+from health_buddy.core.service_api import Principal, ServiceError
+from health_buddy.core.workspace import initialize
 from tests.test_client_workflow import IDENTITY, ScriptedOperations, write
 
 
@@ -116,7 +116,7 @@ def test_corrupt_resolution_fsync_failure_never_claims_durable_success(
     def fail_sync(_path):
         raise OSError("synthetic sync failure")
 
-    monkeypatch.setattr("health_buddy.client_workflow.fsync_path", fail_sync)
+    monkeypatch.setattr("health_buddy.client.workflow.fsync_path", fail_sync)
     with pytest.raises(ServiceError, match="client_resolution_outcome_unknown"):
         workflow.discard(acknowledge_possible_save=True)
     archives = list(directory.glob("native-client.resolved-*.json"))
@@ -132,8 +132,8 @@ def test_corrupt_resolution_fsync_failure_never_claims_durable_success(
 
 
 def test_authenticated_wrapper_rechecks_revoked_proof_before_each_operation(tmp_path):
-    from health_buddy.app import App
-    from health_buddy.security_api import BearerProof, Runtime
+    from health_buddy.client.app import App
+    from health_buddy.core.security_api import BearerProof, Runtime
     from tests.auth_transport_fixtures import TOKEN, FakeSecurity, fake_runtime
 
     config = initialize(tmp_path / "owner")
@@ -159,11 +159,11 @@ def test_real_authority_lost_ack_reopen_and_same_actor_rotation(tmp_path, monkey
     import base64
     from datetime import UTC, datetime
 
-    from health_buddy.app import App
-    from health_buddy.client_workflow import decoded
-    from health_buddy.security_api import AgentGrant, BearerProof
-    from health_buddy.security_runtime import open_runtime
-    from health_buddy.service_api import Request
+    from health_buddy.client.app import App
+    from health_buddy.client.workflow import decoded
+    from health_buddy.core.security_api import AgentGrant, BearerProof
+    from health_buddy.security.runtime import open_runtime
+    from health_buddy.core.service_api import Request
     from tests.security_fixtures import action, secured
 
     root = tmp_path / "owner"

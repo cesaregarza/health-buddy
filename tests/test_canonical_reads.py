@@ -7,9 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy import snapshots
-from health_buddy.operations import Service
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core import snapshots
+from health_buddy.core.operations import Service
+from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded, intent, receiver_principal, setup
 
 

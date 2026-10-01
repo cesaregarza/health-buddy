@@ -5,16 +5,16 @@ import json
 
 import pytest
 
-from health_buddy import plans
+from health_buddy.core import plans
 from health_buddy.cli import main
-from health_buddy.domain import encode
-from health_buddy.durability import atomic_bytes
-from health_buddy.legacy_manual_canary import export_manual_canary, import_manual_canary
-from health_buddy.legacy_store import csv_text, headers
-from health_buddy.legacy_workout_import import export_workouts
-from health_buddy.operations import Service
-from health_buddy.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.domain import encode
+from health_buddy.core.durability import atomic_bytes
+from health_buddy.legacy.manual_canary import export_manual_canary, import_manual_canary
+from health_buddy.core.git_store import csv_text, headers
+from health_buddy.legacy.workout_import import export_workouts
+from health_buddy.core.operations import Service
+from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
+from health_buddy.core.service_api import Request, ServiceError
 from tests.synthetic_workspace import program
 from tests.test_legacy_import import fixture as measurement_fixture
 from tests.test_legacy_workout_import import fixture as workout_fixture
@@ -213,8 +213,8 @@ def test_new_boundary_corruption_refused_before_publication(tmp_path, boundary):
     else:
         measurement = json.loads(document["inputs"]["measurements"])
         value = json.loads(document["inputs"]["workouts"])
-        from health_buddy.legacy_store import parse_csv
-        from health_buddy.legacy_workout_import import SESSIONS, SETS, _rows
+        from health_buddy.core.git_store import parse_csv
+        from health_buddy.legacy.workout_import import SESSIONS, SETS, _rows
 
         for path in (SESSIONS, SETS):
             rows = parse_csv(value["files"][path], headers()[path])

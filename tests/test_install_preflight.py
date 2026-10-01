@@ -8,10 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import install_preflight
-from health_buddy.runtime_bundle import create_bundle
-from health_buddy.runtime_manifest import verify_source_identity
-from health_buddy.runtime_release import create_release
+from health_buddy.install import preflight as install_preflight
+from health_buddy.runtime.bundle import create_bundle
+from health_buddy.runtime.manifest import verify_source_identity
+from health_buddy.runtime.release import create_release
 from tests.test_runtime_artifact import make_archive
 from tests.test_runtime_bundle import git
 from tests.test_runtime_context import context_fixture
@@ -20,7 +20,7 @@ from tests.test_runtime_context import context_fixture
 def prepared(tmp_path, monkeypatch, *, maintenance=False):
     bundle, _ = context_fixture(tmp_path)
     if maintenance:
-        from health_buddy.install_prepare import MAINTENANCE_REFERENCES
+        from health_buddy.install.prepare import MAINTENANCE_REFERENCES
 
         repository = tmp_path / "repository"
         root = Path(__file__).resolve().parents[1]

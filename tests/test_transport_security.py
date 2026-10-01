@@ -6,11 +6,11 @@ import socket
 
 import pytest
 
-from health_buddy.security_api import SecretDelivery
-from health_buddy.transport import create_app
-from health_buddy.transport_ingress import VerifiedSocket, prepare_socket
-from health_buddy.transport_limits import EnvelopeError
-from health_buddy.transport_security import COOKIE
+from health_buddy.core.security_api import SecretDelivery
+from health_buddy.transport.asgi import create_app
+from health_buddy.transport.ingress import VerifiedSocket, prepare_socket
+from health_buddy.transport.limits import EnvelopeError
+from health_buddy.transport.security import COOKIE
 from tests.auth_transport_fixtures import (
     CSRF,
     ORIGIN,

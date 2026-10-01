@@ -13,12 +13,13 @@ from unittest.mock import patch
 
 import pytest
 
-from health_buddy import config, snapshots
-from health_buddy.app import App
-from health_buddy.legacy_store import STORE_CONFIG, Store, StoreError, git
-from health_buddy.providers import Jev, ProviderUnavailable
-from health_buddy.service_api import Request, ServiceError
-from health_buddy.workspace import initialize
+from health_buddy.core import config
+from health_buddy.core import snapshots
+from health_buddy.client.app import App
+from health_buddy.core.git_store import STORE_CONFIG, Store, StoreError, git
+from health_buddy.core.providers import Jev, ProviderUnavailable
+from health_buddy.core.service_api import Request, ServiceError
+from health_buddy.core.workspace import initialize
 from tests.synthetic_workspace import START, program
 
 
@@ -218,7 +219,7 @@ def test_existing_repository_metadata_rejected_before_git_or_config_read(
     else:
         bad.parent.mkdir(parents=True, exist_ok=True)
         bad.write_text("fabricated")
-    with patch("health_buddy.legacy_store.git", side_effect=AssertionError("No Git")):
+    with patch("health_buddy.core.git_store.git", side_effect=AssertionError("No Git")):
         with pytest.raises(StoreError):
             store.snapshot()
 
@@ -243,7 +244,7 @@ def test_hostile_hooks_signing_and_config_never_execute(tmp_path, monkeypatch):
     store = manual_store(app)
     local_config = store.path / "config"
     local_config.write_text(STORE_CONFIG + "[include]\n path = /nonexistent\n")
-    with patch("health_buddy.legacy_store.git", side_effect=AssertionError("No Git")):
+    with patch("health_buddy.core.git_store.git", side_effect=AssertionError("No Git")):
         with pytest.raises(StoreError):
             store.snapshot()
 
@@ -506,7 +507,7 @@ def test_program_only_from_explicit_owner_file(tmp_path):
         def now(cls, tz=None):
             return now.astimezone(tz) if tz else now.replace(tzinfo=None)
 
-    with patch("health_buddy.snapshots.datetime", ProgramDatetime):
+    with patch("health_buddy.core.snapshots.datetime", ProgramDatetime):
         data = app.snapshot()
     assert len(data["training_detail"]["prescriptions"]) == 1
     assert (

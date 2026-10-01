@@ -14,15 +14,19 @@ from functools import partial
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import config
-from .cli import main as canonical_cli
-from .operations import open_service
-from .production_server import serve
-from .runtime_manifest import ManifestError, native_directory, verify_source_identity
-from .security_api import Runtime
-from .security_runtime import open_runtime
-from .service_api import ServiceError
-from .workspace import create_file
+from health_buddy.cli import main as canonical_cli
+from health_buddy.core import config
+from health_buddy.core.operations import open_service
+from health_buddy.core.security_api import Runtime
+from health_buddy.core.service_api import ServiceError
+from health_buddy.core.workspace import create_file
+from health_buddy.runtime.manifest import (
+    ManifestError,
+    native_directory,
+    verify_source_identity,
+)
+from health_buddy.security.runtime import open_runtime
+from health_buddy.transport.server import serve
 
 SOURCE = Path("/opt/health-buddy/source")
 MANIFEST = Path("/opt/health-buddy/release/source-manifest.json")

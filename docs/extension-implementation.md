@@ -2,7 +2,7 @@
 
 The installed descriptor is validated against
 [`extension_manifest.schema.json`](../src/health_buddy/extension_manifest.schema.json).
-[`extension_api.py`](../src/health_buddy/extension_api.py) declares finite DTOs and
+[`extension_api.py`](../src/health_buddy/core/extension_api.py) declares finite DTOs and
 limits. The `{manifest,cases}` documents under `contracts/v1/examples` and their
 wrapper schema remain abstract protocol conformance examples. They specify the
 metric, provenance, missingness and retry semantics; they are not installable
@@ -20,13 +20,13 @@ or incompatible dependencies and changed state schemas. It never migrates state.
 
 | Module | Responsibility |
 | --- | --- |
-| `extension_manifest`, `extension_files` | Strict descriptor and bounded nonfollowing file inventory |
-| `extension_registry` | Native reviewed activation, digest snapshots, compatibility, disable and revert |
-| `extension_runner`, `extension_worker` | Bounded schema/pure Python hook execution |
-| `extension_views` | Canonical caller-filtered metric inputs and exact reviewed view asset |
-| `extension_prepare`, `extension_jobs` | Explicit scoped preparation and retained source-event jobs |
-| `client_workflow` | Original request/receipt persistence shared with native clients |
-| `personal_workspace`, `extension_cli` | Native inventory, recorded fork metadata and maintenance commands |
+| `extension/manifest`, `core/files` | Strict descriptor and bounded nonfollowing file inventory |
+| `extension/registry` | Native reviewed activation, digest snapshots, compatibility, disable and revert |
+| `extension/runner`, `extension/worker` | Bounded schema/pure Python hook execution |
+| `extension/views` | Canonical caller-filtered metric inputs and exact reviewed view asset |
+| `extension/prepare`, `extension/jobs` | Explicit scoped preparation and retained source-event jobs |
+| `client/workflow` | Original request/receipt persistence shared with native clients |
+| `extension/personal_workspace`, `extension/cli` | Native inventory, recorded fork metadata and maintenance commands |
 | dashboard `extension-worker.js` / template | JavaScript ViewSpec worker and escaped built-in rendering |
 
 All owner code, assets, configuration, tests, notes, migrations and state live

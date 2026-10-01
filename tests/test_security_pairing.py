@@ -8,14 +8,14 @@ from uuid import uuid4
 
 import pytest
 
-from health_buddy.security_api import (
+from health_buddy.core.security_api import (
     AgentGrant,
     BearerProof,
     PairingRedemption,
     PairingReservation,
     SecurityRequest,
 )
-from health_buddy.service_api import Request, ServiceError
+from health_buddy.core.service_api import Request, ServiceError
 from tests.canonical_fixtures import decoded
 from tests.security_fixtures import action, secured
 from tests.test_health_ingest_models import batch_payload
@@ -142,7 +142,7 @@ def test_pairing_tuple_protocol_and_expiry_are_checked_before_consumption(
         == "ready"
     )
     now = time.time()
-    monkeypatch.setattr("health_buddy.security_store.time.time", lambda: now + 301)
+    monkeypatch.setattr("health_buddy.security.store.time.time", lambda: now + 301)
     with pytest.raises(ServiceError) as expired:
         runtime.security.execute(None, request)
     assert expired.value.status == 410
@@ -196,7 +196,7 @@ def test_reservations_are_bounded_and_cleanup_expired_proofs_without_secret_repl
     # Keep separate admission windows while reaching the explicit row bound.
     for offset in range(64):
         monkeypatch.setattr(
-            "health_buddy.security_store.time.time",
+            "health_buddy.security.store.time.time",
             lambda offset=offset: initial + offset,
         )
         action(
@@ -207,7 +207,7 @@ def test_reservations_are_bounded_and_cleanup_expired_proofs_without_secret_repl
             runtime, owner, "pairing.create", payload=PairingReservation("Synthetic")
         )
     assert full.value.code == "pairing_limit"
-    monkeypatch.setattr("health_buddy.security_store.time.time", lambda: initial + 1000)
+    monkeypatch.setattr("health_buddy.security.store.time.time", lambda: initial + 1000)
     action(runtime, owner, "pairing.create", payload=PairingReservation("After expiry"))
     with sqlite3.connect(tmp_path / "owner/security/authority.sqlite") as connection:
         assert connection.execute("SELECT count(*) FROM pairing").fetchone()[0] == 1

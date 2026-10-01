@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from health_buddy.app import App
+from health_buddy.client.app import App
 from tests.test_portable_workspace import workout
 from tests.transport_process import request, running
 
