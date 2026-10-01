@@ -11,6 +11,7 @@ import argparse
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Never, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -370,19 +371,7 @@ def _workout(
         raise ServiceError(409, "reconciliation_required")
     row: dict[str, str]
     if kind == "workout-start":
-        if args.duration_min is not None and args.duration_min < 0:
-            raise invalid()
-        if args.bodyweight_lb is not None and args.bodyweight_lb <= 0:
-            raise invalid()
-        row = {
-            "session_id": session_id,
-            "date": writer._date(args.date),
-            "workout_type": writer._nonempty("workout_type", args.workout_type),
-            "status": args.status,
-            "duration_min": "" if args.duration_min is None else str(args.duration_min),
-            "bodyweight_lb": writer._number(args.bodyweight_lb),
-            "notes": args.notes,
-        }
+        row = _session_row(writer, args, session_id)
         rows, duplicate = _append(sessions, row, ("session_id",))
         path, headers = "data/sessions.csv", writer.SESSION_FIELDS
     elif kind == "workout-finish":
@@ -405,29 +394,7 @@ def _workout(
         if not parents or parents[0]["date"] != session_date:
             raise invalid()
         if kind == "workout-set":
-            if (
-                args.set_number <= 0
-                or args.reps <= 0
-                or (args.set_count is not None and args.set_count <= 0)
-                or (args.load_lb is not None and args.load_lb < 0)
-                or (args.rir is not None and not 0 <= args.rir <= 10)
-            ):
-                raise invalid()
-            row = {
-                "session_id": session_id,
-                "session_date": session_date,
-                "exercise": writer._nonempty("exercise", args.exercise),
-                "equipment": writer._nonempty("equipment", args.equipment),
-                "set_number": str(args.set_number),
-                "set_count": "" if args.set_count is None else str(args.set_count),
-                "load_lb": writer._number(args.load_lb),
-                "load_basis": args.load_basis,
-                "reps": str(args.reps),
-                "rir": "" if args.rir is None else str(args.rir),
-                "form_quality": writer._nonempty("form_quality", args.form_quality),
-                "status": writer._nonempty("status", args.status),
-                "notes": args.notes,
-            }
+            row = _set_row(writer, args, session_id, session_date)
             equipment(config, [row])
             path, headers, keys = (
                 "data/sets.csv",
@@ -435,39 +402,7 @@ def _workout(
                 ("session_id", "exercise", "set_number"),
             )
         else:
-            duration = (
-                args.duration_seconds
-                if args.duration_seconds is not None
-                else int(
-                    (args.duration_minutes * 60).to_integral_value(
-                        rounding=ROUND_HALF_UP
-                    )
-                )
-            )
-            if args.segment_number <= 0 or duration <= 0:
-                raise invalid()
-            numeric = {
-                name: getattr(args, name)
-                for name in (
-                    "level steps_per_min speed_mph incline_percent distance_value "
-                    "vertical_feet floors_climbed calories avg_heart_rate_bpm "
-                    "max_heart_rate_bpm"
-                ).split()
-            }
-            if any(value is not None and value < 0 for value in numeric.values()):
-                raise invalid()
-            row = {
-                "session_id": session_id,
-                "session_date": session_date,
-                "activity": writer._nonempty("activity", args.activity),
-                "equipment": writer._nonempty("equipment", args.equipment),
-                "segment_number": str(args.segment_number),
-                "duration_seconds": str(duration),
-                **{name: writer._number(value) for name, value in numeric.items()},
-                "distance_unit": args.distance_unit,
-                "source": writer._nonempty("source", args.source),
-                "notes": args.notes,
-            }
+            row = _cardio_row(writer, args, session_id, session_date)
             path, headers, keys = (
                 "data/cardio.csv",
                 writer.CARDIO_FIELDS,
@@ -479,3 +414,83 @@ def _workout(
         {"saved": True, "sessionId": session_id, "duplicate": duplicate},
         {(path, digest(row))},
     )
+
+
+def _session_row(
+    writer: ModuleType, args: argparse.Namespace, session_id: str
+) -> dict[str, str]:
+    if args.duration_min is not None and args.duration_min < 0:
+        raise invalid()
+    if args.bodyweight_lb is not None and args.bodyweight_lb <= 0:
+        raise invalid()
+    return {
+        "session_id": session_id,
+        "date": writer._date(args.date),
+        "workout_type": writer._nonempty("workout_type", args.workout_type),
+        "status": args.status,
+        "duration_min": "" if args.duration_min is None else str(args.duration_min),
+        "bodyweight_lb": writer._number(args.bodyweight_lb),
+        "notes": args.notes,
+    }
+
+
+def _set_row(
+    writer: ModuleType, args: argparse.Namespace, session_id: str, session_date: str
+) -> dict[str, str]:
+    if (
+        args.set_number <= 0
+        or args.reps <= 0
+        or (args.set_count is not None and args.set_count <= 0)
+        or (args.load_lb is not None and args.load_lb < 0)
+        or (args.rir is not None and not 0 <= args.rir <= 10)
+    ):
+        raise invalid()
+    return {
+        "session_id": session_id,
+        "session_date": session_date,
+        "exercise": writer._nonempty("exercise", args.exercise),
+        "equipment": writer._nonempty("equipment", args.equipment),
+        "set_number": str(args.set_number),
+        "set_count": "" if args.set_count is None else str(args.set_count),
+        "load_lb": writer._number(args.load_lb),
+        "load_basis": args.load_basis,
+        "reps": str(args.reps),
+        "rir": "" if args.rir is None else str(args.rir),
+        "form_quality": writer._nonempty("form_quality", args.form_quality),
+        "status": writer._nonempty("status", args.status),
+        "notes": args.notes,
+    }
+
+
+def _cardio_row(
+    writer: ModuleType, args: argparse.Namespace, session_id: str, session_date: str
+) -> dict[str, str]:
+    duration = (
+        args.duration_seconds
+        if args.duration_seconds is not None
+        else int((args.duration_minutes * 60).to_integral_value(rounding=ROUND_HALF_UP))
+    )
+    if args.segment_number <= 0 or duration <= 0:
+        raise invalid()
+    numeric = {
+        name: getattr(args, name)
+        for name in (
+            "level steps_per_min speed_mph incline_percent distance_value "
+            "vertical_feet floors_climbed calories avg_heart_rate_bpm "
+            "max_heart_rate_bpm"
+        ).split()
+    }
+    if any(value is not None and value < 0 for value in numeric.values()):
+        raise invalid()
+    return {
+        "session_id": session_id,
+        "session_date": session_date,
+        "activity": writer._nonempty("activity", args.activity),
+        "equipment": writer._nonempty("equipment", args.equipment),
+        "segment_number": str(args.segment_number),
+        "duration_seconds": str(duration),
+        **{name: writer._number(value) for name, value in numeric.items()},
+        "distance_unit": args.distance_unit,
+        "source": writer._nonempty("source", args.source),
+        "notes": args.notes,
+    }
