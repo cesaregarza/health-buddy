@@ -460,7 +460,7 @@ def test_reused_signature_after_pre_marker_crash_is_not_old_ownership(
     expected = listener._signature(path)
     if old_socket_absent:
         path.unlink()
-    child = multiprocessing.get_context("fork").Process(
+    child = multiprocessing.get_context("spawn").Process(
         target=_crash_after_reused_bind, args=(root, expected)
     )
     child.start()

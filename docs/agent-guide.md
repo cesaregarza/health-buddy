@@ -68,7 +68,7 @@ Use Bash for the commands in this guide.
 From the selected source checkout, use the existing pinned development closure
 [packaging/dev-cp312-linux-x86_64.lock](../packaging/dev-cp312-linux-x86_64.lock).
 It reuses the accepted runtime/MCP + dev tools + SleepIQ-test dependency inventory,
-with 53 exact wheel hashes. It targets CPython 3.12 on Linux x86_64 with glibc
+with 55 exact wheel hashes. It targets CPython 3.12 on Linux x86_64 with glibc
 2.34 or newer; other platforms need a separately admitted closure. Git and the
 host IANA timezone database remain host prerequisites. No editable project
 install, package resolver or build backend is needed for the source checks.

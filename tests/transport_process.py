@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import signal
-import socket
 import subprocess
 import sys
 import time
@@ -49,16 +48,36 @@ def request(http, method, path, body=None, headers=None, timeout=15):
         connection.close()
 
 
+def _ready(process, evidence):
+    """factory.json names the port before Granian binds it; /livez says it serves."""
+    http = None
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise AssertionError(
+                "Production launcher exited; inspect synthetic server.log"
+            )
+        if http is None and evidence.exists():
+            port = json.loads(evidence.read_text())["port"]
+            http = RunningServer(port, process.pid)
+        if http is not None:
+            try:
+                if request(http, "GET", "/livez", timeout=0.3)[0] == 200:
+                    return http
+            except OSError:
+                pass
+        time.sleep(0.05)
+    raise AssertionError("Production launcher readiness exceeded 15 seconds")
+
+
 @contextmanager
 def running(folder, *, workspace=None, development=True, fail_startup=False):
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
-    args = [sys.executable, "-m", "tests.transport_runner", "--port", str(port)]
+    evidence = folder / "factory.json"
+    # A restart in the same folder must wait for its own port, not the last one.
+    evidence.unlink(missing_ok=True)
+    args = [sys.executable, "-m", "tests.transport_runner", "--evidence", str(evidence)]
     if workspace is not None:
         args += ["--workspace", str(workspace)]
-    else:
-        args += ["--evidence", str(folder / "factory.json")]
     if development:
         args += ["--development"]
     if fail_startup:
@@ -79,28 +98,11 @@ def running(folder, *, workspace=None, development=True, fail_startup=False):
             stderr=log,
             start_new_session=True,
         )
-        http = RunningServer(port, process.pid)
         try:
             (folder / "supervisor.json").write_text(
                 json.dumps({"supervisorPid": process.pid})
             )
-            deadline = time.monotonic() + 15
-            while time.monotonic() < deadline:
-                if process.poll() is not None:
-                    raise AssertionError(
-                        "Production launcher exited; inspect synthetic server.log"
-                    )
-                try:
-                    if request(http, "GET", "/livez", timeout=0.3)[0] == 200:
-                        break
-                except OSError:
-                    pass
-                time.sleep(0.05)
-            else:
-                raise AssertionError(
-                    "Production launcher readiness exceeded 15 seconds"
-                )
-            yield http
+            yield _ready(process, evidence)
         finally:
             # The fixture owns only this new process group, including Granian's
             # one child. Never leave a worker running after an assertion fails.
