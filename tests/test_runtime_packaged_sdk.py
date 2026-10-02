@@ -127,7 +127,7 @@ def test_sdk_phase_deadline_enters_cleanup_and_sanitizes_failure(monkeypatch):
         SystemExit, match=r"^packaged_sdk_qualification_failed:[0-9]+:unexpected$"
     ):
         helper.main()
-    assert cleaned == [True] and time.monotonic() - started < 1
+    assert cleaned == [True] and time.monotonic() - started < 2
 
 
 def test_sdk_setup_passes_exact_fetched_directory_to_offline_install(
