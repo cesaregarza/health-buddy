@@ -104,6 +104,27 @@ artifact identity unknown until an independently established binding exists.
 
 ## Build and local loading
 
+Runtime-candidate qualification requires Docker's **classic image store**.
+Fresh Docker Engine 29 installations default to the containerd image store;
+upgraded hosts can retain the classic store. Inspect the selected local daemon:
+
+```sh
+docker info --format '{{json .DriverStatus}}'
+```
+
+A `driver-type` entry of `io.containerd.snapshotter.v1` identifies the containerd
+store ([Docker documentation](https://docs.docker.com/engine/storage/containerd/)).
+`packaging/verify_runtime.py` refuses it with `classic_image_store_required`
+before fetching inputs or running `buildx build`: containerd-store save output
+includes descriptor annotations that the maintained archive validator refuses.
+Malformed DriverStatus or a failed info command also stops qualification.
+On an explicitly authorized isolated build runner, merge
+`"features": {"containerd-snapshotter": false}` into `/etc/docker/daemon.json`,
+restart Docker and inspect DriverStatus again before retrying. Switching stores
+hides the other store's images and containers; it does not delete them. The
+qualification script never edits daemon configuration or restarts Docker.
+The candidate workflow and owner-side archive validator remain unchanged.
+
 The lock pins CPython 3.12.14, the real multi-architecture base index/platform
 manifests and binary wheels, plus Git and its finite Debian package closure.
 Debian selection is backed by retained signed repository metadata for an explicit

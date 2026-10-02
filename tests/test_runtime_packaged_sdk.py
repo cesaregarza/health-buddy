@@ -2,10 +2,12 @@
 
 import importlib.util
 import json
+import stat
 import sys
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -336,3 +338,107 @@ def test_sdk_failure_diagnostic_keeps_authored_label_but_not_private_error(
         assert str(caught.value).endswith(":" + label)
         assert "synthetic-private-token" not in str(caught.value)
         assert "record=123" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        [["driver-type", "io.containerd.snapshotter.v1"]],
+        [
+            ["Backing Filesystem", "extfs"],
+            ["driver-type", "io.containerd.snapshotter.v1"],
+        ],
+    ],
+)
+def test_containerd_image_store_refuses_with_operator_recovery(status):
+    driver = module("verify_runtime")
+    qualification = driver.Qualification.__new__(driver.Qualification)
+    qualification.dc = lambda *args: json.dumps(status).encode()
+    with pytest.raises(
+        driver.ManifestError, match=r"^classic_image_store_required:"
+    ) as exc:
+        qualification.require_classic_image_store()
+    assert "features.containerd-snapshotter" in str(exc.value)
+    assert "/etc/docker/daemon.json" in str(exc.value)
+    assert "false" in str(exc.value) and "restart Docker" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "status", [[], [["Backing Filesystem", "extfs"], ["Supports d_type", "true"]]]
+)
+def test_classic_image_store_is_admitted(status):
+    driver = module("verify_runtime")
+    qualification = driver.Qualification.__new__(driver.Qualification)
+    qualification.dc = lambda *args: json.dumps(status).encode()
+    qualification.require_classic_image_store()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"",
+        b"unavailable",
+        b"null",
+        b"{}",
+        b"[[]]",
+        b'[["driver-type"]]',
+        b'[["driver-type", null]]',
+        b'[["driver-type", ""]]',
+        b"\xff",
+    ],
+)
+def test_malformed_image_store_info_refuses(raw):
+    driver = module("verify_runtime")
+    qualification = driver.Qualification.__new__(driver.Qualification)
+    qualification.dc = lambda *args: raw
+    with pytest.raises(driver.ManifestError, match=r"^docker_driver_status_invalid:"):
+        qualification.require_classic_image_store()
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_image_store_refusal_precedes_build_and_fetch(
+    tmp_path, monkeypatch, unavailable
+):
+    driver = module("verify_runtime")
+    qualification = driver.Qualification.__new__(driver.Qualification)
+    qualification.architecture = "amd64"
+    qualification.output = tmp_path
+    calls = []
+
+    def command(name, *arguments):
+        calls.append(name)
+        if name == "docker-version":
+            return b"29.8.1"
+        assert name == "docker-info", "qualification continued past image-store check"
+        assert arguments == ("info", "--format", "{{json .DriverStatus}}")
+        if unavailable:
+            raise driver.ManifestError(
+                "runtime_qualification_command_failed:docker-info"
+            )
+        return b'[["driver-type", "io.containerd.snapshotter.v1"]]'
+
+    def forbidden(*args):
+        pytest.fail(
+            "bundle creation or dependency fetch started before store admission"
+        )
+
+    qualification.dc = command
+    monkeypatch.setattr(driver.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(driver.os, "getegid", lambda: 1000)
+    monkeypatch.setattr(driver.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        driver.shutil, "disk_usage", lambda _: SimpleNamespace(free=8 * 1024**3)
+    )
+    monkeypatch.setattr(
+        driver.Path, "lstat", lambda _: SimpleNamespace(st_mode=stat.S_IFSOCK)
+    )
+    monkeypatch.setattr(driver, "create_bundle", forbidden)
+    monkeypatch.setattr(driver, "fetch_inputs", forbidden)
+    code = (
+        "runtime_qualification_command_failed:docker-info"
+        if unavailable
+        else "classic_image_store_required:"
+    )
+    with pytest.raises(driver.ManifestError, match=code):
+        qualification._execute()
+    assert calls == ["docker-version", "docker-info"]
