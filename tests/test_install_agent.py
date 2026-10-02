@@ -42,7 +42,13 @@ def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
                 "grants": ["records:read", "records:write"],
                 "sourceIds": ["manual"],
                 "readSources": ["manual"],
-                "readKinds": ["workout", "weight", "hydration"],
+                "readKinds": [
+                    "body-mass",
+                    "water-intake",
+                    "workout-session",
+                    "workout-set",
+                    "cardio-segment",
+                ],
                 "readFields": None,
             }
         )

@@ -23,11 +23,15 @@ from pathlib import Path
 
 import pytest
 
+from health_buddy.core.security_api import BearerProof
+from health_buddy.core.service_api import Request
 from health_buddy.install import acquire as install_acquire
 from health_buddy.install import agent as install_agent
 from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import inventory, verify_source_identity
+from health_buddy.security.runtime import read_credential
 from scripts import package_runtime
+from tests.canonical_fixtures import decoded, intent
 from tests.test_install_acquire import (
     NAMES,
     REAL_BUILD_OPENER,
@@ -37,6 +41,7 @@ from tests.test_install_acquire import (
     found,
     ok,
 )
+from tests.test_install_agent import connection_fixture
 from tests.test_runtime_artifact import make_archive
 from tests.test_runtime_bundle import git, source
 from tests.test_runtime_inputs import lock
@@ -234,6 +239,43 @@ def assert_private_bootstrap(home: Path, tools: Path, owner: dict[str, str]) -> 
     assert policy_path.stat().st_mode & 0o777 == 0o600
     _value, grant = install_agent.read_policy(policy_path, "invalid_doc_policy")
     assert grant.source_ids == ("manual",)
+
+
+def test_documented_policy_can_write_and_read_back_manual_weight(tmp_path, monkeypatch):
+    arguments, selected, _identity, _note = connection_fixture(
+        tmp_path, monkeypatch, private_https=False
+    )
+    policy, _setup = blocks("Explicit agent grant and redacted owner status")
+    # Use the exact owner-authored JSON, not a second copy of the policy.
+    policy_json = policy.split("<<'EOF'\n", 1)[1].split("\nEOF", 1)[0]
+    arguments["policy"].write_text(policy_json)
+    assert install_agent.setup(**arguments)["clientConfigurationPrepared"]
+    runtime, _owner = install_agent.owner(json.loads(selected["journal"].read_bytes()))
+    agent = runtime.security.authenticate(
+        BearerProof(read_credential(arguments["agent_token"]))
+    )
+    write = intent(
+        runtime.operations,
+        agent.principal,
+        record_id="synthetic-doc-weight",
+        value=72,
+    )
+    written = runtime.operations.execute(agent.principal, write)
+    assert written.status == 200, written.body
+    read = runtime.operations.execute(
+        agent.principal,
+        Request("records.list", query={"sourceIds": "manual", "kinds": "body-mass"}),
+    )
+    assert read.status == 200, read.body
+    (record,) = decoded(read)["data"]["records"]
+    assert record["id"] == "synthetic-doc-weight"
+    assert record["sourceId"] == "manual" and record["kind"] == "body-mass"
+    assert record["value"] == 72 and record["unit"] == "kg"
+    capabilities = runtime.operations.execute(agent.principal, Request("capabilities"))
+    assert capabilities.status == 200
+    assert set(json.loads(policy_json)["readKinds"]) <= set(
+        decoded(capabilities)["data"]["recordKinds"]
+    )
 
 
 VARIABLE = re.compile(r"\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*))")
