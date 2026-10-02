@@ -1,9 +1,10 @@
 # Native owner installer lifecycle
 
 The supported flow is bootstrap → pinned acquisition → preflight → prepare →
-explicit owner setup → API activation → private HTTPS Serve → scoped agent
-configuration/status → owned removal with retained data. Each mutation requires
-owner admission; preflight alone is read-only. Apart from the bootstrap's
+explicit owner setup → API activation → scoped agent configuration/status and,
+for the phone and browser, private HTTPS Serve → owned removal with retained
+data. Agent setup does not wait for HTTPS. Each mutation requires owner
+admission; preflight alone is read-only. Apart from the bootstrap's
 bundle and pinned Python packages and acquire's pinned release archives, no
 step downloads software, enrolls a host, signs in to Tailscale or launches a
 model client automatically.
@@ -485,8 +486,8 @@ An edited config, changed origin/subject/output or changed authority also refuse
 without overwriting it. `ownerSetupReady:true` means local managed config and
 native owner authentication/readiness are verified. It does not mean HTTPS,
 client or phone is connected. Continue with the separate admitted activation
-command below, followed by private HTTPS and agent configuration. Tailscale
-sign-in is an independent owner prerequisite; live client/phone acceptance stays open.
+command below, followed by agent configuration and private HTTPS. Tailscale
+sign-in is an independent owner prerequisite of HTTPS; live client/phone acceptance stays open.
 
 ## Explicit runtime activation
 
@@ -545,8 +546,8 @@ CLI failures expose fixed stage codes, such as
 `install_activation_project_not_empty` and
 `install_activation_environment_changed`, with no paths or captured daemon
 output. `runtimeActivated:true` records only the observed local API runtime.
-`connected:false` remains explicit: next configure private HTTPS and the scoped
-agent grant. Phone pairing and named-client qualification require live acceptance. The source
+`connected:false` remains explicit: next configure the scoped agent grant and,
+for the phone and browser, private HTTPS. Phone pairing and named-client qualification require live acceptance. The source
 profile's `runtimeActivated:false` remains its preparation-time description;
 current activation evidence lives in the private journal's `activation` record.
 
@@ -625,8 +626,12 @@ acceptance. The agent-grant slice below prepares configuration; live acceptance 
 
 ## Explicit agent grant and redacted owner status
 
-After owned runtime activation and private Serve configuration, review a private
-0600 policy file with exactly `name`, `grants`, `sourceIds`, `readSources`,
+Agent setup needs the active runtime, not private HTTPS: the configured client
+runs on this host and its MCP adapter reaches the API over the workspace's
+managed socket. Private HTTPS remains for the phone and browser, before or after
+this step. Until activation is `active`, setup refuses with
+`install_agent_requires_active_runtime`. After owned runtime activation, review a
+private 0600 policy file with exactly `name`, `grants`, `sourceIds`, `readSources`,
 `readKinds`, and `readFields`. For example, a synthetic manual-only policy is:
 
 ```json

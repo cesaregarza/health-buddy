@@ -224,11 +224,10 @@ def _configured_installation(journal: Path) -> dict[str, Any]:
     record: dict[str, Any] = dict(retained)
     if record.get("removal") is not None:
         raise ServiceError(409, "install_agent_removal_requires_owner_lifecycle_review")
-    if (
-        record.get("activation", {}).get("phase") != "active"
-        or record.get("privateHttps", {}).get("phase") != "enabled"
-    ):
-        raise ServiceError(409, "install_agent_requires_configured_private_runtime")
+    # The configured client runs on this host and reaches the API over its
+    # private socket, so private HTTPS is not a prerequisite.
+    if record.get("activation", {}).get("phase") != "active":
+        raise ServiceError(409, "install_agent_requires_active_runtime")
     return record
 
 
