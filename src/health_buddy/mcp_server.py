@@ -6,7 +6,52 @@ import fcntl
 import logging
 import os
 import sys
+from importlib import import_module
 from pathlib import Path
+
+DEPENDENCY_IMPORTS = (
+    ("opentelemetry.trace", ("NoOpTracerProvider", "set_tracer_provider")),
+    ("anyio", ("run",)),
+    ("httpx2", ("AsyncClient",)),
+    ("mcp_types.jsonrpc", ("JSONRPCError", "jsonrpc_message_adapter")),
+    ("mcp.server.lowlevel", ("Server",)),
+    ("mcp.server.context", ("ServerRequestContext",)),
+    ("mcp.shared.message", ("ServerMessageMetadata", "SessionMessage")),
+    ("health_buddy.mcp.runtime", ("run",)),
+)
+
+
+def _disable_tracing() -> None:
+    # The pinned SDK obtains a tracer during import. Never load an inherited
+    # provider/exporter entrypoint, including during the dependency probe.
+    for key in tuple(os.environ):
+        if key.startswith("OTEL_"):
+            os.environ.pop(key)
+    from opentelemetry.trace import (
+        NoOpTracerProvider,
+        get_tracer_provider,
+        set_tracer_provider,
+    )
+
+    provider = NoOpTracerProvider()
+    set_tracer_provider(provider)
+    if get_tracer_provider() is not provider:
+        raise RuntimeError("isolated_tracer_required")
+
+
+def dependency_status() -> int:
+    """Fixed exit codes only: no settings, credential, API or client activity."""
+    for index, (name, attributes) in enumerate(DEPENDENCY_IMPORTS):
+        try:
+            module = import_module(name)
+            for attribute in attributes:
+                getattr(module, attribute)
+            if index == 0:
+                _disable_tracing()
+        except Exception:
+            # Never return exception text or a dependency-controlled module name.
+            return 10 + index
+    return 0
 
 
 def main() -> int:
@@ -17,27 +62,13 @@ def main() -> int:
         with open(os.devnull, "r+b", buffering=0) as sink:
             for descriptor in (0, 1, 2):
                 os.dup2(sink.fileno(), descriptor)
+        logging.disable(sys.maxsize)
+        if sys.argv[1:] == ["--check-dependencies"]:
+            return dependency_status()
         # Deliberate fixed-argument CLI: no secret values in argv or diagnostics.
         if len(sys.argv) != 3 or sys.argv[1] != "--settings":
             return 2
-        logging.disable(sys.maxsize)
-        # The pinned SDK obtains a tracer during import, before middleware can
-        # be cleared. Never load an inherited provider/exporter entrypoint.
-        for key in tuple(os.environ):
-            if key.startswith("OTEL_"):
-                os.environ.pop(key)
-        from opentelemetry.trace import (
-            NoOpTracerProvider,
-            get_tracer_provider,
-            set_tracer_provider,
-        )
-
-        provider = NoOpTracerProvider()
-        set_tracer_provider(provider)
-        if get_tracer_provider() is not provider:
-            # A process preloaded with another provider is not this isolated
-            # adapter environment; do not run and hope that it stays dormant.
-            return 1
+        _disable_tracing()
         import anyio
 
         from health_buddy.mcp.runtime import run

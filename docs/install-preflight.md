@@ -795,6 +795,23 @@ while running this explicit setup. No client process is launched:
 ```
 
 Done: `agentGrantRetained: true` and `clientConfigurationPrepared: true`.
+Before journal progress, grant creation or managed-file writes, setup checks the
+exact selected `PYTHON` against the retained source's MCP imports. A ten-second
+import probe reads no settings or credentials, connects to no API or model, and
+writes no bytecode. It also runs for direct `connect_agent` setup; removal does
+not need a working SDK. This check does not establish a live client connection.
+
+`agent_python_not_ready` reports `python`, the failing `dependency` import and
+`reason` (`missing_or_incompatible`, `probe_timeout` or `probe_failed`). Use that
+same environment for [bootstrap step 6](#6-install-the-pinned-dependencies-into-that-environment),
+including the x86_64 `--require-hashes` install and `pip check`, then rerun the
+same setup command. A core-only install omits the MCP extra and is insufficient;
+do not substitute `pip install -e .` or remove hash checks. On other architectures
+follow step 6's separate owner approval and dependency guidance. Keep all retained
+journal, credential and client files while repairing the environment. Setup
+never installs dependencies for you. After setup succeeds, restart the named
+client and verify tool discovery and an authenticated read in a fresh session.
+
 `install_agent_unowned_handoff_or_grant` with `conflictingPath` names the actual
 pre-existing token/settings/retry path in this private owner CLI response; its
 contents are never printed. Retain the path and journal, inspect which files

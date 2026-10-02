@@ -16,7 +16,7 @@ sys.dont_write_bytecode = True
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
-from health_buddy.connect_agent import connect
+from health_buddy.connect_agent import McpReadinessError, check_mcp_readiness, connect
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import private_directory, read_file, read_json
@@ -146,11 +146,12 @@ def setup(
     value, grant = read_policy(policy, "install_agent_invalid_policy")
     with exclusive(journal.parent / ".health-buddy-install.lock"):
         record = _configured_installation(journal)
-        runtime, admitted = owner(record)
         workspace = Path(record["binding"]["workspace"])
         source = Path(record["binding"]["bundle"]) / "source"
         native_path(source)
         _validate_outside_runtime(outputs, source, workspace)
+        check_mcp_readiness(python, source)
+        runtime, admitted = owner(record)
         selected = _binding(runtime, admitted, value, outputs, client, python)
         _validate_reinstall_review(record.get("reviewedReinstall"), selected, policy)
         inventory = actors(runtime, admitted)
@@ -498,6 +499,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--acknowledge-ai-egress", action="store_true")
     try:
         value = setup(**vars(parser.parse_args(argv)))
+    except McpReadinessError as error:
+        print(json.dumps(error.summary(), sort_keys=True))
+        return 2
     except HandoffConflict as error:
         print(
             json.dumps(
