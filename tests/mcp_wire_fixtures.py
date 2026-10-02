@@ -34,6 +34,7 @@ class Bridge(socketserver.UnixStreamServer):
     responses = None
     seen = None
     hold_next = False
+    hold_read_path = None
     held = None
     release = None
 
@@ -75,6 +76,10 @@ class Proxy(BaseHTTPRequestHandler):
         status, raw, headers = request(
             bridge.uds, self.command, self.path, headers=values, body=body
         )
+        if self.command == "GET" and self.path == bridge.hold_read_path:
+            bridge.hold_read_path = None
+            bridge.held.set()
+            assert bridge.release.wait(5), "Synthetic read hold exceeded fixture bound"
         if self.command in {"PUT", "POST"}:
             bridge.responses.append((status, raw))
             if bridge.hold_next:
@@ -219,7 +224,7 @@ class Wire:
             self.buffer = bytearray(rest)
             return json.loads(line)
 
-    def call(self, method, params=None):
+    def submit(self, method, params=None):
         self.next_id += 1
         value = dict(params or {})
         if self.modern:
@@ -234,8 +239,12 @@ class Wire:
         self.send(
             {"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": value}
         )
+        return self.next_id
+
+    def call(self, method, params=None):
+        request_id = self.submit(method, params)
         reply = self.receive()
-        assert reply["id"] == self.next_id
+        assert reply["id"] == request_id
         return reply
 
     def tool(self, name, arguments):
