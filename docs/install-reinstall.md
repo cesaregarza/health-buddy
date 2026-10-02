@@ -30,16 +30,16 @@ but creates no grant or credential itself and never rotates a retained token.
 ```
 
 The durable transition retains the completed original removal and original agent
-binding in `reviewedReinstall`, rearms the existing activation/HTTPS stages, and
-pins the new handoff selection. It does not initialize or replace the workspace,
-source, canonical records, identity, config, personal assets/tests/notes/state,
-owner credential or security epoch. Repeat with the original review digest and
-selection is inert, including after completion; it does not issue another grant.
-A later removal cycle requires separate owner reconciliation rather than silently
-reusing this recorded review.
+binding in `reviewedReinstall`, rearms the existing activation stage and any
+recorded HTTPS stage, and pins the new handoff selection. It does not initialize
+or replace the workspace, source, canonical records, identity, config, personal
+assets/tests/notes/state, owner credential or security epoch. Repeat with the
+original review digest and selection is inert, including after completion; it
+does not issue another grant. A later removal cycle requires separate owner
+reconciliation rather than silently reusing this recorded review.
 
-Resume the existing [activation, private HTTPS and agent commands](install-preflight.md)
-with their original activation/HTTPS bindings. For `health_buddy.install.agent`, use the new
+Resume the existing [activation, agent and any recorded private HTTPS commands](install-preflight.md)
+with their original bindings. For `health_buddy.install.agent`, use the new
 reviewed policy/token/settings/retry-root paths and the original named client,
 client config, skill directory and Python. Its existing explicit grant/egress
 flags remain required. The agent stage refuses any selection outside the rearm

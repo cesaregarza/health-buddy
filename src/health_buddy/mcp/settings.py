@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import ssl
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -28,12 +27,12 @@ def private_path(value: object) -> Path:
 @dataclass(frozen=True)
 class Settings:
     origin: str
+    socket_path: Path
     identity: Identity
     credential_file: Path
     retry_root: Path
     client_id: str
     write_sources: tuple[str, ...]
-    ca_file: Path | None = None
 
     @classmethod
     def read(cls, path: Path) -> Settings:
@@ -44,6 +43,7 @@ class Settings:
                 {
                     "schemaVersion",
                     "origin",
+                    "socketPath",
                     "identity",
                     "credentialFile",
                     "retryRoot",
@@ -51,7 +51,6 @@ class Settings:
                     "writeSources",
                     "acknowledgeAiEgress",
                 },
-                {"caFile"},
             )
             if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
                 raise ValueError("version")
@@ -90,12 +89,12 @@ class Settings:
                 raise ValueError("sources")
             return cls(
                 origin,
+                private_path(value["socketPath"]),
                 identity,
                 private_path(value["credentialFile"]),
                 private_path(value["retryRoot"]),
                 client,
                 tuple(cast(list[str], sources)),
-                private_path(value["caFile"]) if "caFile" in value else None,
             )
         except (ServiceError, ConfigError, OSError, ValueError, TypeError):
             raise ServiceError(422, "invalid_adapter_settings") from None
@@ -106,15 +105,6 @@ class Settings:
             return valid_secret(raw.decode("ascii").removesuffix("\n"))
         except (ServiceError, OSError, UnicodeError):
             raise ServiceError(422, "credential_unavailable") from None
-
-    def tls(self) -> ssl.SSLContext | bool:
-        if self.ca_file is None:
-            return True
-        try:
-            raw = read_file(private_path(str(self.ca_file)), 65_536)
-            return ssl.create_default_context(cadata=raw.decode("ascii"))
-        except (ServiceError, OSError, UnicodeError, ValueError):
-            raise ServiceError(422, "certificate_unavailable") from None
 
     def state(self) -> RetryRoot:
         return RetryRoot.create(self.retry_root)

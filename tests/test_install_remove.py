@@ -16,8 +16,10 @@ from health_buddy.core.service_api import ServiceError
 from tests.test_install_agent import connection_fixture
 
 
-def removal_fixture(tmp_path, monkeypatch):
-    connection, selected, _identity, note = connection_fixture(tmp_path, monkeypatch)
+def removal_fixture(tmp_path, monkeypatch, *, private_https=True):
+    connection, selected, _identity, note = connection_fixture(
+        tmp_path, monkeypatch, private_https=private_https
+    )
     install_agent.setup(**connection)
     record = json.loads(selected["journal"].read_bytes())
     active = record["activation"]["binding"]
@@ -200,6 +202,25 @@ def test_owned_removal_resumes_retaining_data_and_private_recovery(
     ] == [False]
     with pytest.raises(ServiceError, match="removal_requires_owner_lifecycle_review"):
         install_agent.setup(**connection)
+
+
+def test_removal_without_private_https_records_serve_not_applicable(
+    tmp_path, monkeypatch
+):
+    arguments, connection, selected, _note, state = removal_fixture(
+        tmp_path, monkeypatch, private_https=False
+    )
+    assert "privateHttps" not in json.loads(selected["journal"].read_bytes())
+    assert install_remove.remove(**arguments)["removed"]
+    assert install_remove.remove(**arguments)["removed"]
+    record = json.loads(selected["journal"].read_bytes())
+    removal = record["removal"]
+    assert removal["phase"] == "removed" and removal["serve"] == "not_applicable"
+    assert "https" not in removal and "privateHttps" not in record
+    assert state["calls"] == [["stop", "--time", "30", "a" * 64], ["rm", "a" * 64]]
+    assert not (connection["skill_directory"] / "SKILL.md").exists()
+    summary = install_status.status(journal=selected["journal"])
+    assert summary["removalLastCompleted"] and not summary["agentGrantRetained"]
 
 
 @pytest.mark.parametrize("drift", ["mount", "service", "client"])

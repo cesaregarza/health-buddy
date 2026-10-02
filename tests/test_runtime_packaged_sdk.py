@@ -1,10 +1,7 @@
 """Qualification adapter boundaries; actual images remain a separate hosted gate."""
 
-import http.client
 import importlib.util
 import json
-import socket
-import ssl
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -13,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests import mcp_wire_fixtures as fixtures
+from tests.test_transport_auth_wire import request as wire_request
 from tests.test_transport_auth_wire import short_directory as short_directory
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,16 +25,14 @@ def module(name):
     return selected
 
 
-def test_existing_backend_reuses_owned_listener_without_source_backend(
-    tmp_path, monkeypatch
-):
+def test_relay_reaches_running_api_without_source_backend(short_directory, monkeypatch):
     def forbidden(*args, **kwargs):
         pytest.fail("A source backend or authority was started")
 
     monkeypatch.setattr(fixtures, "secured", forbidden)
     monkeypatch.setattr(fixtures, "server", forbidden)
     calls = []
-    selected = tmp_path / "already-running.sock"
+    selected = short_directory / "already-running.sock"
 
     def response(uds, method, path, *, headers, body):
         assert uds == selected and method == "GET" and path == "/v1/capabilities"
@@ -44,32 +40,17 @@ def test_existing_backend_reuses_owned_listener_without_source_backend(
         return 200, b'{"synthetic":true}', {"content-type": "application/json"}
 
     monkeypatch.setattr(fixtures, "request", response)
-    certs = fixtures.certificate(tmp_path)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
-        listener.bind(("127.0.0.1", 0))
-        listener.listen(8)
-        port = listener.getsockname()[1]
-        for _ in range(2):
-            with fixtures.existing_backend(
-                selected, listener.fileno(), certs
-            ) as bridge:
-                assert bridge.origin == f"https://127.0.0.1:{port}"
-                connection = http.client.HTTPSConnection(
-                    "127.0.0.1",
-                    port,
-                    timeout=3,
-                    context=ssl.create_default_context(cafile=str(certs[0])),
-                )
-                try:
-                    connection.request("GET", "/v1/capabilities")
-                    reply = connection.getresponse()
-                    assert (
-                        reply.status == 200 and reply.read(64) == b'{"synthetic":true}'
-                    )
-                finally:
-                    connection.close()
-            assert listener.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
-        assert calls == [f"127.0.0.1:{port}"] * 2
+    relay = short_directory / "relay.sock"
+    for _ in range(2):
+        with fixtures.bridged(selected, relay):
+            status, raw, _ = wire_request(
+                relay,
+                target="/v1/capabilities",
+                headers={"X-Forwarded-Host": "health.example.invalid"},
+            )
+            assert status == 200 and raw == b'{"synthetic":true}'
+        assert not relay.exists()
+    assert calls == ["health.example.invalid"] * 2
 
 
 def test_amd_sdk_required_and_arm_core_remains_explicit():
@@ -77,7 +58,6 @@ def test_amd_sdk_required_and_arm_core_remains_explicit():
     qualification = driver.Qualification.__new__(driver.Qualification)
     qualification.architecture = "amd64"
     qualification.sdk_python = None
-    qualification.sdk_listener = None
     with pytest.raises(
         driver.ManifestError, match="amd64_packaged_sdk_interpreter_required"
     ):
@@ -90,23 +70,6 @@ def test_amd_sdk_required_and_arm_core_remains_explicit():
     qualification.sdk_python = Path("/synthetic/sdk-python")
     with pytest.raises(driver.ManifestError, match="amd64_only"):
         qualification.execute()
-
-
-def test_owned_listener_closes_when_qualification_fails():
-    driver = module("verify_runtime")
-    qualification = driver.Qualification.__new__(driver.Qualification)
-    qualification.architecture = "arm64"
-    qualification.sdk_python = None
-    owned = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    qualification.sdk_listener = owned
-
-    def fail():
-        raise driver.ManifestError("synthetic failure")
-
-    qualification._execute = fail
-    with pytest.raises(driver.ManifestError, match="synthetic failure"):
-        qualification.execute()
-    assert owned.fileno() == -1
 
 
 def test_sdk_host_lock_is_exact_existing_runtime_and_five_fixture_wheels():
@@ -155,8 +118,6 @@ def test_sdk_phase_deadline_enters_cleanup_and_sanitizes_failure(monkeypatch):
             "/synthetic/bundle",
             "--state",
             "/synthetic/state",
-            "--listener-fd",
-            "99",
         ],
     )
     started = time.monotonic()
@@ -202,50 +163,6 @@ def test_sdk_setup_passes_exact_fetched_directory_to_offline_install(
     setup.setup(output)
     assert installed == [output / "inputs"]
     assert json.loads((output / "receipt.json").read_bytes())["wheelCount"] == 34
-
-
-@pytest.mark.parametrize("ending", ["handshake-timeout", "owner-shutdown"])
-def test_stalled_tls_peer_is_bounded_and_preserves_caller_listener(
-    tmp_path, monkeypatch, ending
-):
-    def forbidden(*args, **kwargs):
-        pytest.fail("A stalled handshake reached an HTTP/backend request")
-
-    monkeypatch.setattr(fixtures, "request", forbidden)
-    certs = fixtures.certificate(tmp_path)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
-        listener.bind(("127.0.0.1", 0))
-        listener.listen(8)
-        port = listener.getsockname()[1]
-        stalled = None
-        try:
-            with fixtures.existing_backend(
-                tmp_path / "unused.sock", listener.fileno(), certs
-            ) as bridge:
-                # The shutdown case must finish before the handshake timeout.
-                bridge.handshake_timeout = 0.15 if ending == "handshake-timeout" else 10
-                stalled = socket.create_connection(("127.0.0.1", port), timeout=1)
-                assert bridge.accepted.wait(1), "TLS peer was never accepted"
-                started = time.monotonic()
-                if ending == "handshake-timeout":
-                    try:
-                        assert stalled.recv(1) == b""
-                    except ConnectionResetError:
-                        pass
-            assert time.monotonic() - started < 2
-            assert listener.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
-        finally:
-            if stalled is not None:
-                stalled.close()
-        # A fresh bridge can still finish a real TLS handshake on the original
-        # caller descriptor and same origin after either cleanup path.
-        with fixtures.existing_backend(
-            tmp_path / "unused.sock", listener.fileno(), certs
-        ):
-            context = ssl.create_default_context(cafile=str(certs[0]))
-            raw = socket.create_connection(("127.0.0.1", port), timeout=1)
-            with context.wrap_socket(raw, server_hostname="127.0.0.1") as secured:
-                assert secured.version() is not None
 
 
 def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch):
@@ -316,8 +233,6 @@ def test_phase_expiry_during_sdk_cleanup_reaps_live_child(tmp_path, monkeypatch)
             "/synthetic/bundle",
             "--state",
             "/synthetic/state",
-            "--listener-fd",
-            "99",
         ],
     )
     try:
@@ -371,7 +286,7 @@ def test_sdk_measurement_reaches_dashboard_data_route(short_directory, tmp_path)
             assert saved["ok"] is True
             row_id, revision = helper.record(wire)
         checked = helper.dashboard_record(
-            bridge, grant.secret.value, settings["identity"], row_id, revision
+            bridge, settings, grant.secret.value, row_id, revision
         )
         assert checked == {
             "route": "/?format=json",
@@ -380,7 +295,7 @@ def test_sdk_measurement_reaches_dashboard_data_route(short_directory, tmp_path)
         }
         with pytest.raises(AssertionError, match="Dashboard data revision mismatch"):
             helper.dashboard_record(
-                bridge, grant.secret.value, settings["identity"], row_id, revision + 1
+                bridge, settings, grant.secret.value, row_id, revision + 1
             )
 
 
@@ -402,8 +317,6 @@ def test_sdk_failure_diagnostic_keeps_authored_label_but_not_private_error(
             "/synthetic",
             "--state",
             "/synthetic",
-            "--listener-fd",
-            "99",
         ],
     )
     for failure, label in (

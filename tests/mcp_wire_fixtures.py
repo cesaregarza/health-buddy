@@ -1,29 +1,23 @@
-"""Owned HTTPS bridge and real SDK subprocess; synthetic data, queue only.
+"""Owned socket relay and real SDK subprocess; synthetic data, queue only.
 
-This bridge exercises TLS and the actual private UDS/authority/service. It is a
-test proxy, not Tailscale or a deployable server. All descendants require the
-queue cgroup hard timeout; fixture cleanup covers ordinary assertion failures.
+The relay listens where the adapter settings name the API socket and forwards
+to the actual private UDS/authority/service, so a test can drop, hold or
+redirect one reply. It is a test proxy, not Tailscale or a deployable server.
+All descendants require the queue cgroup hard timeout; fixture cleanup covers
+ordinary assertion failures.
 """
 
-import ipaddress
 import json
 import os
 import selectors
 import signal
-import socket
-import ssl
+import socketserver
 import subprocess
 import sys
 import threading
 import time
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
-
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.x509.oid import NameOID
+from http.server import BaseHTTPRequestHandler
 
 from health_buddy.core.domain import identity_value
 from health_buddy.core.security_api import AgentGrant
@@ -32,42 +26,7 @@ from tests.test_transport_auth_wire import request, server
 from tests.transport_process import ROOT
 
 
-def certificate(folder):
-    key = ec.generate_private_key(ec.SECP256R1())
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "synthetic-test")])
-    now = datetime.now(UTC)
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(now - timedelta(minutes=1))
-        .not_valid_after(now + timedelta(hours=1))
-        .add_extension(
-            x509.SubjectAlternativeName(
-                [x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]
-            ),
-            critical=False,
-        )
-        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-        .sign(key, hashes.SHA256())
-    )
-    cert_path, key_path = folder / "synthetic-ca.pem", folder / "synthetic-key.pem"
-    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    key_path.write_bytes(
-        key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
-        )
-    )
-    cert_path.chmod(0o600)
-    key_path.chmod(0o600)
-    return cert_path, key_path
-
-
-class Bridge(HTTPServer):
+class Bridge(socketserver.UnixStreamServer):
     timeout = 0.1
     uds = None
     lose_next = False
@@ -103,23 +62,16 @@ class Proxy(BaseHTTPRequestHandler):
         if bridge.redirect_next:
             bridge.redirect_next = False
             self.send_response(307)
-            self.send_header("Location", bridge.origin + "/must-not-follow")
+            self.send_header("Location", "/must-not-follow")
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        # The adapter's own Host and forwarding headers replace request()'s defaults.
         values = {
             key: value
             for key, value in self.headers.items()
-            if key.lower()
-            not in {
-                "host",
-                "connection",
-                "content-length",
-                "x-forwarded-host",
-                "x-forwarded-proto",
-            }
+            if key.lower() not in {"connection", "content-length"}
         }
-        values["X-Forwarded-Host"] = bridge.origin.removeprefix("https://")
         status, raw, headers = request(
             bridge.uds, self.command, self.path, headers=values, body=body
         )
@@ -149,21 +101,32 @@ class Proxy(BaseHTTPRequestHandler):
 
 
 @contextmanager
-def actual_backend(folder, client_folder):
-    bridge = Bridge(("127.0.0.1", 0), Proxy)
-    bridge.origin = f"https://127.0.0.1:{bridge.server_port}"
+def bridged(uds, path, *, protect_cleanup=False):
+    """Relay a new socket at path to the running API socket uds."""
+    bridge = Bridge(str(path), Proxy)
+    bridge.uds = uds
     bridge.responses, bridge.seen = [], []
     bridge.held, bridge.release = threading.Event(), threading.Event()
-    cert, key = certificate(client_folder)
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(cert, key)
-    bridge.socket = context.wrap_socket(bridge.socket, server_side=True)
+    thread = threading.Thread(
+        target=bridge.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
+    thread.start()
+    try:
+        yield bridge
+    finally:
+        with defer_phase_signals(protect_cleanup):
+            bridge.release.set()
+            bridge.shutdown()
+            thread.join(5)
+            bridge.server_close()
+            path.unlink()
+        assert not thread.is_alive(), "Relay cleanup timeout"
+
+
+@contextmanager
+def actual_backend(folder, client_folder):
     root = folder / "w"
     runtime, owner, _ = secured(root, proxy=True)
-    config_path = root / "config.json"
-    config = json.loads(config_path.read_bytes())
-    config["security"]["externalOrigin"] = bridge.origin
-    config_path.write_text(json.dumps(config))
     grant = action(
         runtime,
         owner,
@@ -181,36 +144,23 @@ def actual_backend(folder, client_folder):
     token_path.write_text(grant.secret.value)
     token_path.chmod(0o600)
     identity = runtime.operations.journal.state().identity
+    relay = folder / "relay.sock"
     settings = {
         "schemaVersion": 1,
-        "origin": bridge.origin,
+        "origin": runtime.ingress.external_origin,
+        "socketPath": str(relay),
         "identity": identity_value(identity),
         "credentialFile": str(token_path),
         "retryRoot": str(client_folder / "retry"),
         "clientId": "synthetic-mcp",
         "writeSources": ["manual"],
         "acknowledgeAiEgress": True,
-        "caFile": str(cert),
     }
     settings_path = client_folder / "adapter.json"
     settings_path.write_text(json.dumps(settings))
     settings_path.chmod(0o600)
-    thread = None
-    try:
-        with server(folder, workspace=root) as (_, uds):
-            bridge.uds = uds
-            thread = threading.Thread(
-                target=bridge.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
-            )
-            thread.start()
-            yield bridge, settings_path, runtime, owner, grant
-    finally:
-        bridge.release.set()
-        if thread is not None:
-            bridge.shutdown()
-            thread.join(5)
-            assert not thread.is_alive()
-        bridge.server_close()
+    with server(folder, workspace=root) as (_, uds), bridged(uds, relay) as bridge:
+        yield bridge, settings_path, runtime, owner, grant
 
 
 @contextmanager
@@ -243,112 +193,6 @@ def defer_phase_signals(enabled):
         # the original helper handler raises the same safe timeout exception.
         if pending:
             signal.raise_signal(next(number for number in signals if number in pending))
-
-
-class ExistingBridge(Bridge):
-    """One owned TLS connection at a time, with cancellable bounded handshake."""
-
-    handshake_timeout = 3
-
-    def __init__(self, address):
-        super().__init__(address, Proxy, bind_and_activate=False)
-        self.stop_requested = threading.Event()
-        self.accepted = threading.Event()
-        self.connection_lock = threading.Lock()
-        self.active_connection = None
-        self.tls_context = None
-
-    def get_request(self):
-        connection, address = self.socket.accept()
-        try:
-            # Accepted TCP sockets do not inherit the listening socket timeout.
-            # Never perform a blocking TLS handshake in the listener's accept().
-            connection.settimeout(self.handshake_timeout)
-            with self.connection_lock:
-                connection = self.tls_context.wrap_socket(
-                    connection, server_side=True, do_handshake_on_connect=False
-                )
-                self.active_connection = connection
-            self.accepted.set()
-            connection.do_handshake()
-            return connection, address
-        except BaseException:
-            connection.close()
-            with self.connection_lock:
-                if self.active_connection is connection:
-                    self.active_connection = None
-            if self.stop_requested.is_set():
-                # Owner shutdown can race the next SSL operation after accept.
-                # BaseServer handles an OSError here as an abandoned connection.
-                raise OSError("owned_bridge_stopped") from None
-            raise
-
-    def shutdown_request(self, request):
-        try:
-            super().shutdown_request(request)
-        finally:
-            with self.connection_lock:
-                if self.active_connection is request:
-                    self.active_connection = None
-
-    def serve_owned(self):
-        # handle_request's listener wait is bounded by Bridge.timeout (0.1s).
-        # No blocking BaseServer.shutdown() precedes the owner's timed join.
-        while not self.stop_requested.is_set():
-            self.handle_request()
-
-    def stop_owned(self):
-        self.stop_requested.set()
-        with self.connection_lock:
-            if self.active_connection is not None:
-                try:
-                    self.active_connection.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-
-
-@contextmanager
-def existing_backend(uds, listener_fd, certificate_files):
-    """TLS fixture over an already-running packaged UDS; no source backend.
-
-    The caller retains the original listening descriptor to preserve its exact
-    origin between sessions. This context closes only its duplicated socket.
-    """
-    owned = socket.fromfd(listener_fd, socket.AF_INET, socket.SOCK_STREAM)
-    bridge = None
-    thread = None
-    try:
-        host, port = owned.getsockname()
-        assert host == "127.0.0.1" and 0 < port < 65536
-        assert owned.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
-        bridge = ExistingBridge((host, port))
-        bridge.socket.close()
-        bridge.socket = owned
-        bridge.server_address = (host, port)
-        bridge.origin = f"https://127.0.0.1:{port}"
-        bridge.uds = uds
-        bridge.responses, bridge.seen = [], []
-        bridge.held, bridge.release = threading.Event(), threading.Event()
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(*certificate_files)
-        bridge.tls_context = context
-        owned.settimeout(0.1)
-        thread = threading.Thread(target=bridge.serve_owned, daemon=True)
-        thread.start()
-        yield bridge
-    finally:
-        with defer_phase_signals(True):
-            if bridge is not None:
-                bridge.release.set()
-                bridge.stop_owned()
-                try:
-                    if thread is not None:
-                        thread.join(5)
-                        assert not thread.is_alive(), "Packaged bridge cleanup timeout"
-                finally:
-                    bridge.server_close()
-            else:
-                owned.close()
 
 
 class Wire:

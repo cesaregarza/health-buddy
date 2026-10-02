@@ -19,6 +19,7 @@ from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import private_directory, read_file, read_json
 from health_buddy.core.operations import Service
+from health_buddy.core.security_api import IngressConfig
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import initialize
 from health_buddy.install.preflight import preflight
@@ -150,9 +151,7 @@ def prepare(
         }
         if progress["client"] is not None and progress["client"] != selected_client:
             raise ServiceError(409, "install_client_resume_requires_original_binding")
-        _validate_client_settings(
-            settings, runtime.operations, runtime.ingress.external_origin
-        )
+        _validate_client_settings(settings, runtime.operations, runtime.ingress)
         if progress["phase"] != "client_prepared":
             progress["client"] = selected_client
             progress["phase"] = "client_preparing"
@@ -273,12 +272,13 @@ def _write_source_profile(
 
 
 def _validate_client_settings(
-    settings: Path, service: Service, origin: str | None
+    settings: Path, service: Service, ingress: IngressConfig
 ) -> None:
     admitted = Settings.read(settings)
     if (
         admitted.identity != service.journal.state().identity
-        or admitted.origin != origin
+        or admitted.origin != ingress.external_origin
+        or str(admitted.socket_path) != ingress.socket_path
     ):
         raise ServiceError(409, "install_client_requires_matching_owner_authority")
 

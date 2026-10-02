@@ -55,7 +55,6 @@ class Qualification:
         self.compose: list[str] = []
         self.origin = "https://health.example.invalid"
         self.sdk_python: Path | None = None
-        self.sdk_listener: socket.socket | None = None
 
     def run(
         self,
@@ -65,7 +64,7 @@ class Qualification:
         timeout: int = 60,
         expected: int = 0,
         cleanup: bool = False,
-        pass_fds: tuple[int, ...] = (),
+        start_new_session: bool = False,
     ) -> bytes:
         if not cleanup and shutil.disk_usage(self.output).free < MIN_FREE:
             raise ManifestError("runtime_qualification_disk_reserve")
@@ -77,8 +76,7 @@ class Qualification:
                 env=self.environment,
                 stdout=stream,
                 stderr=subprocess.STDOUT,
-                pass_fds=pass_fds,
-                start_new_session=bool(pass_fds),
+                start_new_session=start_new_session,
             )
             try:
                 while process.poll() is None:
@@ -166,14 +164,10 @@ class Qualification:
             raise ManifestError("amd64_packaged_sdk_interpreter_required")
         if self.architecture != "amd64" and self.sdk_python is not None:
             raise ManifestError("sdk_host_profile_is_amd64_only")
-        try:
-            self._execute()
-        finally:
-            if self.sdk_listener is not None:
-                self.sdk_listener.close()
+        self._execute()
 
     def sdk_phase(self, phase: str, workspace: Path, bundle: Path) -> None:
-        if self.sdk_python is None or self.sdk_listener is None:
+        if self.sdk_python is None:
             raise ManifestError("packaged_sdk_not_configured")
         raw = self.run(
             "sdk-" + phase,
@@ -190,11 +184,9 @@ class Qualification:
                 str(bundle),
                 "--state",
                 str(self.output / "sdk-private"),
-                "--listener-fd",
-                str(self.sdk_listener.fileno()),
             ],
             timeout=200,
-            pass_fds=(self.sdk_listener.fileno(),),
+            start_new_session=True,
         )
         result = json.loads(raw)
         if (
@@ -335,10 +327,6 @@ class Qualification:
             executable = self.sdk_python.lstat()
             if not stat.S_ISREG(executable.st_mode) or not executable.st_mode & 0o111:
                 raise ManifestError("sdk_interpreter_must_be_native_regular_executable")
-            self.sdk_listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sdk_listener.bind(("127.0.0.1", 0))
-            self.sdk_listener.listen(8)
-            self.origin = f"https://127.0.0.1:{self.sdk_listener.getsockname()[1]}"
         envfile = self.output / "runtime.env"
         envfile.write_text(
             f"HB_IMAGE={loaded_id}\nHB_UID={os.geteuid()}\nHB_GID={os.getegid()}\nHB_WORKSPACE={workspace}\n"

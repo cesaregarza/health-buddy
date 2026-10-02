@@ -19,6 +19,7 @@ def settings_file(tmp_path):
     value = {
         "schemaVersion": 1,
         "origin": "https://synthetic.example.invalid",
+        "socketPath": str(tmp_path / "http.sock"),
         "identity": identity_value(IDENTITY),
         "credentialFile": str(token),
         "retryRoot": str(tmp_path / "client-state"),
@@ -48,7 +49,8 @@ def test_explicit_state_is_not_a_local_backend(tmp_path, monkeypatch):
     root = settings.state()
     assert root.root == settings.retry_root and not list(root.root.iterdir())
     assert not (root.root / "config.json").exists()
-    assert settings.origin == value["origin"] and settings.tls() is True
+    assert settings.origin == value["origin"]
+    assert str(settings.socket_path) == value["socketPath"]
 
 
 @pytest.mark.parametrize(
@@ -62,6 +64,9 @@ def test_explicit_state_is_not_a_local_backend(tmp_path, monkeypatch):
         {"extra": "private"},
         {"writeSources": [True]},
         {"clientId": "../escape"},
+        {"socketPath": "relative/http.sock"},
+        {"socketPath": None},
+        {"caFile": "/private/ca.pem"},
     ],
 )
 def test_config_refuses_ambient_or_ambiguous_shapes(tmp_path, change):
@@ -69,6 +74,20 @@ def test_config_refuses_ambient_or_ambiguous_shapes(tmp_path, change):
     path.write_text(json.dumps({**value, **change}))
     with pytest.raises(ServiceError, match="invalid_adapter_settings"):
         Settings.read(path)
+
+
+def test_settings_require_an_owner_private_api_socket(tmp_path):
+    path, value = settings_file(tmp_path)
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o755)
+    for selected in (None, str(shared / "http.sock")):
+        changed = {key: item for key, item in value.items() if key != "socketPath"}
+        if selected is not None:
+            changed["socketPath"] = selected
+        path.write_text(json.dumps(changed))
+        with pytest.raises(ServiceError, match="invalid_adapter_settings"):
+            Settings.read(path)
 
 
 def test_broad_credential_and_duplicate_config_keys_refuse(tmp_path):

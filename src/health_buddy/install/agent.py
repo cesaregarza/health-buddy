@@ -224,11 +224,10 @@ def _configured_installation(journal: Path) -> dict[str, Any]:
     record: dict[str, Any] = dict(retained)
     if record.get("removal") is not None:
         raise ServiceError(409, "install_agent_removal_requires_owner_lifecycle_review")
-    if (
-        record.get("activation", {}).get("phase") != "active"
-        or record.get("privateHttps", {}).get("phase") != "enabled"
-    ):
-        raise ServiceError(409, "install_agent_requires_configured_private_runtime")
+    # The configured client runs on this host and reaches the API over its
+    # private socket, so private HTTPS is not a prerequisite.
+    if record.get("activation", {}).get("phase") != "active":
+        raise ServiceError(409, "install_agent_requires_active_runtime")
     return record
 
 
@@ -267,6 +266,7 @@ def _binding(
         "skill": str(skill_directory),
         "python": str(python),
         "origin": runtime.ingress.external_origin,
+        "socketPath": runtime.ingress.socket_path,
     }
 
 
@@ -287,8 +287,8 @@ def _validate_reinstall_review(
             selected[key] != request[key] for key in ("token", "settings", "retryRoot")
         )
         or any(
-            selected[key] != old[key]
-            for key in ("client", "config", "skill", "python", "origin")
+            selected[key] != old.get(key)
+            for key in ("client", "config", "skill", "python", "origin", "socketPath")
         )
     ):
         raise ServiceError(409, "install_agent_reinstall_requires_original_review")
@@ -443,6 +443,7 @@ def _adapter_settings(selected: dict[str, Any], grant: AgentGrant) -> bytes:
         {
             "schemaVersion": 1,
             "origin": selected["origin"],
+            "socketPath": selected["socketPath"],
             "identity": selected["identity"],
             "credentialFile": selected["token"],
             "retryRoot": selected["retryRoot"],

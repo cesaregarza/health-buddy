@@ -27,7 +27,7 @@ from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, matches, owner, read_policy
 from health_buddy.install.preflight import preflight
-from health_buddy.install.remove import container, serve_state
+from health_buddy.install.remove import container, serve_binding, serve_state
 from health_buddy.runtime.manifest import file_digest
 
 
@@ -107,12 +107,13 @@ def rearm(
                 "binding": record["binding"],
                 "ownerSetup": record["ownerSetup"],
                 "activationBinding": record["activation"]["binding"],
-                "httpsBinding": record["privateHttps"]["binding"],
+                "httpsBinding": serve_binding(record),
                 "removedAgent": record.pop("agentSetup"),
                 "removal": record.pop("removal"),
             }
             record["activation"]["phase"] = "admitting"
-            record["privateHttps"]["phase"] = "setting"
+            if "privateHttps" in record:
+                record["privateHttps"]["phase"] = "setting"
             atomic_bytes(journal, encode(record))
             return _rearmed(duplicate=False)
 
@@ -130,14 +131,17 @@ def _rearmed(*, duplicate: bool) -> dict[str, Any]:
 def _repeated_review_actor(
     existing: object, request: dict[str, Any], record: dict[str, Any]
 ) -> Any:
-    """A repeat must restate the reviewed request against an unchanged journal."""
+    """A repeat must restate the reviewed request against an unchanged journal.
+
+    A review without a Serve route admits a later first private HTTPS setup.
+    """
     if (
         not isinstance(existing, dict)
         or existing.get("request") != request
         or existing.get("binding") != record["binding"]
         or existing.get("ownerSetup") != record["ownerSetup"]
         or existing.get("activationBinding") != record["activation"]["binding"]
-        or existing.get("httpsBinding") != record["privateHttps"]["binding"]
+        or existing.get("httpsBinding") not in (None, serve_binding(record))
         or record.get("removal") is not None
     ):
         raise ServiceError(409, "install_rearm_repeat_requires_original_review")
@@ -154,17 +158,18 @@ def _removed_agent_actor(
     if file_digest(journal, 32768)[1] != expected_removed_sha256:
         raise ServiceError(409, "install_rearm_removed_state_changed")
     removal, agent = record.get("removal"), record.get("agentSetup")
+    https = record.get("privateHttps")
     if (
         not isinstance(removal, dict)
         or removal.get("phase") != "removed"
         or not isinstance(agent, dict)
         or agent.get("phase") != "configured"
         or record["activation"]["phase"] != "removed"
-        or record["privateHttps"]["phase"] != "removed"
+        or (https is not None and https["phase"] != "removed")
         or removal.get("actorId") != agent.get("actorId")
         or removal.get("agent") != agent["binding"]
         or removal.get("activation") != record["activation"]["binding"]
-        or removal.get("https") != record["privateHttps"]["binding"]
+        or removal.get("https") != serve_binding(record)
         or digest(read_json(original_policy, 16384)) != agent["binding"]["policySha256"]
     ):
         raise ServiceError(409, "install_rearm_requires_original_removed_binding")

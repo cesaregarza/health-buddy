@@ -42,7 +42,6 @@ SAFE_CODES = frozenset(
         "proposal_unavailable",
         "proposal_review_required",
         "invalid_adapter_settings",
-        "certificate_unavailable",
     }
 )
 

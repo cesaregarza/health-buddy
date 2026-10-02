@@ -137,8 +137,16 @@ def container(record: dict[str, Any], expected: str | None) -> tuple[str, bool]:
     return ids[0], rows[2] == "true"
 
 
+def serve_binding(record: dict[str, Any]) -> Any:
+    """The recorded Serve route binding, or None if HTTPS was never configured."""
+    https = record.get("privateHttps")
+    return None if https is None else https["binding"]
+
+
 def serve_state(record: dict[str, Any]) -> None:
-    https = record["privateHttps"]
+    https = record.get("privateHttps")
+    if https is None:
+        return
     binding = https["binding"]
     cli, daemon = Path(binding["tailscale"]), Path(binding["daemonSocket"])
     for path in (cli, daemon):
@@ -265,14 +273,19 @@ def _admit_removal(
     expected = progress["containerId"] if isinstance(progress, dict) else None
     cid, _running = container(retained, expected)
     if progress is None:
-        retained["removal"] = {
+        removal: dict[str, Any] = {
             "phase": "serve_pending",
             "containerId": cid,
             "actorId": agent["actorId"],
             "activation": retained["activation"]["binding"],
             "agent": agent["binding"],
-            "https": retained["privateHttps"]["binding"],
         }
+        if "privateHttps" in retained:
+            removal["https"] = retained["privateHttps"]["binding"]
+        else:
+            # No Serve route was ever configured: record that, skip its step.
+            removal.update(phase="client_pending", serve="not_applicable")
+        retained["removal"] = removal
         atomic_bytes(journal, encode(retained))
     else:
         _validate_resume(progress, agent, retained)
@@ -307,7 +320,7 @@ def _validate_resume(
         or progress.get("actorId") != agent["actorId"]
         or progress.get("agent") != agent["binding"]
         or progress.get("activation") != retained["activation"]["binding"]
-        or progress.get("https") != retained["privateHttps"]["binding"]
+        or progress.get("https") != serve_binding(retained)
     ):
         raise ServiceError(409, "install_remove_resume_requires_original_binding")
 

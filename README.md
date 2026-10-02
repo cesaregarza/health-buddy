@@ -14,8 +14,8 @@ bundle from URLs and SHA-256s the owner supplies; never take a hash from
 downloaded files. Then each step is done when this field is `true`: acquire
 (`artifactsVerified`), preflight (`preflightPassed`), prepare
 (`workspacePrepared`), owner setup (`ownerSetupReady`), activate
-(`runtimeActivated`), private HTTPS (`privateRouteConfigured`), agent setup
-(`clientConfigurationPrepared`). Installed means activation reported
+(`runtimeActivated`), agent setup (`clientConfigurationPrepared`), private HTTPS
+for the phone and browser (`privateRouteConfigured`). Installed means activation reported
 `runtimeActivated: true` and `install.status` confirms
 `runtimeLastActive: true`; `connected: false` is expected throughout. On a
 refusal, keep the journal and inputs, then follow the printed `recovery` and

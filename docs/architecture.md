@@ -21,7 +21,7 @@ owner's private workspace; no personal profile or training plan ships as a defau
 | Dashboard/context calculations | dashboard `build_dashboard.py`, `context_pack.py`, scripts summaries/planning/progression; retained calculation tests |
 | Optional SleepIQ export | `src/sleepiq_exporter`; exporter/migration tests; selected local export projection |
 | Immutable runtime packaging | `runtime/`, `packaged_runtime.py`, `packaging/`, `scripts/package_runtime.py`; runtime input/archive/listener/readiness/CLI tests |
-| MCP adapter | `mcp_server.py` entry point and `mcp/` (stdio framing, HTTPS operations client, tool schemas, proposals, SDK runtime); MCP wire/tools/settings tests |
+| MCP adapter | `mcp_server.py` entry point and `mcp/` (stdio framing, API-socket operations client, tool schemas, proposals, SDK runtime); MCP wire/tools/settings tests |
 | Owner backup and restore | `backup/` (sealed envelope, workspace archive, create/materialize/restore lifecycle, CLI); encrypted backup tests |
 | Recoverable upgrade | `upgrade/` (release preflight and staging, resumable activation, CLI); recoverable upgrade tests |
 | Legacy data import | `legacy/` (`legacy-import` CLI, measurement/workout/receiver/SleepIQ importers, canaries, entrypoints for `scripts/log_*.py`); legacy import/canary tests |

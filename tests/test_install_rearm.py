@@ -22,8 +22,10 @@ from tests.canonical_fixtures import decoded, intent
 from tests.test_install_remove import removal_fixture
 
 
-def fixture(tmp_path, monkeypatch):
-    removal, connection, selected, note, host = removal_fixture(tmp_path, monkeypatch)
+def fixture(tmp_path, monkeypatch, *, private_https=True):
+    removal, connection, selected, note, host = removal_fixture(
+        tmp_path, monkeypatch, private_https=private_https
+    )
     workspace = selected["workspace"]
     personal = workspace / "personal/synthetic-owner"
     personal.mkdir(mode=0o700)
@@ -195,6 +197,57 @@ def test_reviewed_reinstall_preserves_personal_owner_revocation_and_inert_repeat
     install_agent.setup(**fresh)
     assert selected["journal"].read_bytes() == current
     assert runtime.operations.journal.verify() == original_state
+
+
+def test_rearm_without_private_https_reconnects_the_reviewed_agent(
+    tmp_path, monkeypatch
+):
+    _, connection, selected, _, _, record, request, original_state, _, _ = fixture(
+        tmp_path, monkeypatch, private_https=False
+    )
+    assert "privateHttps" not in record
+    assert record["removal"]["serve"] == "not_applicable"
+    assert install_rearm.rearm(**request)["rearmed"]
+    rearmed = json.loads(selected["journal"].read_bytes())
+    assert rearmed["reviewedReinstall"]["httpsBinding"] is None
+    assert rearmed["activation"]["phase"] == "admitting"
+    assert "privateHttps" not in rearmed
+    assert install_rearm.rearm(**request)["duplicate"]
+    active = record["activation"]["binding"]
+    original_run = subprocess.run
+    state = {"started": False}
+
+    def response(command, **kwargs):
+        if command[0] == active["docker"] and command[3] == "compose":
+            if command[10] == "ps":
+                return SimpleNamespace(
+                    returncode=0, stdout=b"b" * 64 + b"\n" if state["started"] else b""
+                )
+            if command[10] == "up":
+                state["started"] = True
+        return original_run(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", response)
+    assert install_activation.activate(
+        journal=selected["journal"],
+        environment=Path(active["environment"]),
+        project=active["project"],
+        uid=active["uid"],
+        gid=active["gid"],
+        confirm_local_daemon=True,
+        confirm_quiesced=True,
+    )["runtimeActivated"]
+    fresh = dict(
+        connection,
+        policy=request["policy"],
+        agent_token=request["agent_token"],
+        settings=request["settings"],
+        retry_root=request["retry_root"],
+    )
+    assert install_agent.setup(**fresh)["clientConfigurationPrepared"]
+    runtime, _owner = install_agent.owner(json.loads(selected["journal"].read_bytes()))
+    assert runtime.operations.journal.verify() == original_state
+    assert install_rearm.rearm(**request)["duplicate"]
 
 
 @pytest.mark.parametrize(

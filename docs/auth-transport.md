@@ -36,7 +36,8 @@ finite spelling (also integer0/None for equivalent ASGI representations). Direct
 Funnel, duplicate forwarding headers, wrong subjects and encoded/non-ASCII subjects
 are rejected. Only explicit session creation maps the configured proxy owner;
 health routes always require current cookie or app bearer credentials. Tagged
-clients use bearer credentials without a Tailscale user header.
+clients use bearer credentials without a Tailscale user header; so does the
+same-host MCP adapter, which sends the configured forwarded host/proto itself.
 
 Granian 2.8.3's private `_unlink_pidfile` hook otherwise removes any current UDS
 pathname. The launcher narrowly overrides this hook with PID files disabled,

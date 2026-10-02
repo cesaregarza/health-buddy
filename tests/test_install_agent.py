@@ -6,19 +6,27 @@ from pathlib import Path
 
 import pytest
 
+from health_buddy.core.security_api import PairingReservation, SecurityRequest
+from health_buddy.core.service_api import ServiceError
+from health_buddy.install import activation as install_activation
 from health_buddy.install import agent as install_agent
 from health_buddy.install import https as install_https
 from health_buddy.install import status as install_status
-from health_buddy.core.security_api import PairingReservation, SecurityRequest
-from health_buddy.core.service_api import ServiceError
+from tests.test_install_activation import fixture as activation_fixture
 from tests.test_install_https import serve_fixture
 
 
-def connection_fixture(tmp_path, monkeypatch):
-    https, _state, selected, identity, note, _engine = serve_fixture(
-        tmp_path, monkeypatch
-    )
-    install_https.route(**https)
+def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
+    if private_https:
+        https, _state, selected, identity, note, _engine = serve_fixture(
+            tmp_path, monkeypatch
+        )
+        install_https.route(**https)
+    else:
+        activation, _engine, selected, identity, note = activation_fixture(
+            tmp_path, monkeypatch, guided_owner=True
+        )
+        install_activation.activate(**activation)
     private = tmp_path / "private-client"
     private.mkdir(mode=0o700)
     skills = private / "skills"
@@ -112,6 +120,29 @@ def test_default_install_connection_repeats_with_same_authority_and_redacted_sta
     ):
         assert private_value not in redacted
     assert json.loads(retained)["agentSetup"]["binding"]["identity"] == identity
+
+
+def test_agent_setup_needs_only_the_active_runtime(tmp_path, monkeypatch):
+    arguments, selected, identity, _note = connection_fixture(
+        tmp_path, monkeypatch, private_https=False
+    )
+    record = json.loads(selected["journal"].read_bytes())
+    assert record["activation"]["phase"] == "active" and "privateHttps" not in record
+    result = install_agent.setup(**arguments)
+    assert result["clientConfigurationPrepared"] and not result["connected"]
+    socket = str(selected["workspace"] / "security/runtime/http.sock")
+    settings = json.loads(arguments["settings"].read_bytes())
+    assert settings["socketPath"] == socket and settings["identity"] == identity
+    assert settings["origin"] == "https://synthetic.example.test"
+    record = json.loads(selected["journal"].read_bytes())
+    assert record["agentSetup"]["binding"]["socketPath"] == socket
+    summary = install_status.status(journal=selected["journal"])
+    assert summary["clientConfigurationLastPrepared"]
+    assert not summary["privateHttpsLastConfigured"]
+    record["activation"]["phase"] = "starting"
+    selected["journal"].write_text(json.dumps(record))
+    with pytest.raises(ServiceError, match=r"^install_agent_requires_active_runtime$"):
+        install_agent.setup(**arguments)
 
 
 @pytest.mark.parametrize("edited", ["settings", "client_config"])
