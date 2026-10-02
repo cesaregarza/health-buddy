@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
@@ -37,6 +38,9 @@ def _rows(
     if not sessions or not sets or len(sessions) + len(sets) > MAX_RECORDS:
         raise ServiceError(422, "import_requires_bounded_session_set_pair")
     settings = config.Config(Path("/nonexistent"), config.defaults())
+    # These transitions only validate a snapshot. Adoption assigns receivedAt
+    # separately; this inspection time is never written into exported records.
+    inspected_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     parents: dict[str, dict[str, str]] = {}
     identities: dict[str, tuple[str, dict[str, str]]] = {}
     for row in sessions:
@@ -58,6 +62,7 @@ def _rows(
             {"sourceId": "manual", "fields": fields},
             {SESSIONS: csv_text(headers()[SESSIONS], [])},
             settings,
+            received_at=inspected_at,
         )
         records.row_time(row, settings.zone.key)
         parents[session_id] = row
@@ -84,6 +89,7 @@ def _rows(
             {"sourceId": "manual", "fields": fields},
             {SESSIONS: files[SESSIONS]},
             settings,
+            received_at=inspected_at,
         )
         records.row_time(row, settings.zone.key)
         record_id = str(
