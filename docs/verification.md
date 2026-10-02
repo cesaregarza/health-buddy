@@ -266,9 +266,15 @@ before collecting its independent evidence.
 For a real client check, set `PRIVATE_JOURNAL` to that run's absolute install-journal
 path and supply the private OAuth credential file. `client-check.sh` launches a
 second fresh Claude session with only the recorded MCP configuration, asks for
-`sync_status` and `get_context` (weight scope, days 1, limit 20), and saves its
-raw tool transcript and exact read-back of the same record. It refuses an unfinished agent
-stage; do not complete it by hand and call that agent success.
+`sync_status`, `get_context` (weight scope, days 1, limit 20), and `list_records`
+(`sourceIds: [manual]`, `kinds: [body-mass]`, limit 20). Before that observer session,
+it reads the target host's UTC clock and records `client-observer-window.json`:
+`from` is the previous UTC day's midnight and `to` is the current UTC day's
+23:59:59Z. This window covers midnight crossings and a record dated today at noon.
+It belongs only to the post-run observer and is never added to the unattended
+install prompt. Keep that window and the exact raw tool requests/results with the
+receipt. Context provides a date summary; it cannot prove the exact `observedAt`.
+The helper refuses an unfinished agent stage; do not complete it by hand and call that agent success.
 
 ```sh
 read -r -p 'Target journal path: ' PRIVATE_JOURNAL
@@ -277,9 +283,18 @@ export PRIVATE_JOURNAL PRIVATE_MODEL_TOKEN_FILE
 "$REHEARSAL_KIT/client-check.sh" "$RUN"
 ```
 
-Require an actual MCP tool call and its successful API result, with no shell/file
-shortcut. This checks Claude → adapter → managed socket → API; converting a Codex
-config to Claude's MCP shape does not prove a named Codex session or skill discovery.
+Require successful MCP results for all three calls, with no shell/file shortcut.
+Compare the raw `list_records` record's value, unit and `observedAt` to the
+unassisted write, including any unit conversion; an empty result, absent
+`list_records` call or missing exact timestamp leaves record read-back unproven.
+A context summary or successful sync status alone is not that evidence.
+The no-shell instruction has previously allowed an `echo` shortcut. Inspect the
+raw transcript for every tool call and report such deviations even if harmless.
+`client-observer-check.json` records required MCP call presence, non-MCP tool
+names and malformed transcript lines; the helper refuses missing required calls
+or non-MCP tool use. This check records invocation evidence only: the operator
+must still assess exact API results and record matching. These calls check
+Claude → adapter → managed socket → API; converting a Codex config to Claude's MCP shape does not prove a named Codex session or skill discovery.
 Record those as separate checks when required. Generated configuration alone is
 not client evidence. The helper keeps its temporary MCP config on the host rather
 than copying it into receipts; check receipts for credentials before sharing.

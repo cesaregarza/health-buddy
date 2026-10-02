@@ -51,7 +51,21 @@ PYCONF"
 cat "$TOKEN_FILE" | ssh -o BatchMode=yes "root@$IP" \
   "umask 077; IFS= read -r k; printf '%s\n' \"\$k\" > $S/env2; chown owner:owner $S/env2"
 
-PROMPT='You have Health Buddy MCP tools available in this session. Using ONLY those tools (no shell commands, no file reads, no web): first list the tool names you see, then call sync_status and get_context with scopes weight, days 1 and limit 20. Print the exact JSON results, including the synthetic 150 lb measurement and its timestamp, or state clearly if it is missing. If a call fails, print the exact error. Keep your answer to those facts.'
+# This clock/window belongs only to the post-run observer, never the install prompt.
+read -r HOST_CLOCK WINDOW_FROM WINDOW_TO < <(
+  ssh -o BatchMode=yes "root@$IP" "python3 - <<'PYCLOCK'
+from datetime import UTC, datetime, timedelta
+now = datetime.now(UTC)
+start = (now - timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z')
+end = now.strftime('%Y-%m-%dT23:59:59Z')
+print(now.strftime('%Y-%m-%dT%H:%M:%SZ'), start, end)
+PYCLOCK"
+)
+[[ "$HOST_CLOCK" =~ ^[0-9TZ:-]+$ && "$WINDOW_FROM" =~ ^[0-9TZ:-]+$ && "$WINDOW_TO" =~ ^[0-9TZ:-]+$ ]] || exit 2
+printf '{"hostObservedAt":"%s","from":"%s","to":"%s","kinds":["body-mass"],"sourceIds":["manual"],"limit":20}\n' \
+  "$HOST_CLOCK" "$WINDOW_FROM" "$WINDOW_TO" > "$RUN/client-observer-window.json"
+
+PROMPT="You have Health Buddy MCP tools available in this session. Using ONLY those tools (no shell commands, no file reads, no web): first list the tool names you see, then call sync_status and get_context with scopes weight, days 1 and limit 20. Also call list_records with from $WINDOW_FROM, to $WINDOW_TO, kinds [body-mass], sourceIds [manual] and limit 20. This bounded UTC window was derived from the host clock $HOST_CLOCK and covers the previous UTC day through the end of the current UTC day. Print the exact JSON results of all three calls, preserving the returned record value, unit and observedAt. Do not substitute the context date summary for list_records. If a call fails or the synthetic 150 lb record is missing, print the exact error or state clearly that it is missing. Keep your answer to those facts."
 
 ssh -o BatchMode=yes "root@$IP" "sudo -u owner -i bash -s" <<RUNEOF
 IFS= read -r token < $S/env2
@@ -68,4 +82,35 @@ for f in client-transcript.jsonl client.stderr client-exit.txt; do
   scp -q "root@$IP:$S/$f" "$RUN/" 2>/dev/null || true
 done
 ssh -o BatchMode=yes "root@$IP" "rm -f $S/env2 $S/mcp.json"
+# Observed tool names detect shortcuts; raw results still require operator review.
+python3 - "$RUN/client-transcript.jsonl" > "$RUN/client-observer-check.json" <<'PYCHECK'
+import json, sys
+required = {name: False for name in ('sync_status', 'get_context', 'list_records')}
+non_mcp = []
+invalid = 0
+with open(sys.argv[1], encoding='utf-8') as transcript:
+    for line in transcript:
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            invalid += 1
+            continue
+        if event.get('type') != 'assistant':
+            continue
+        for block in (event.get('message') or {}).get('content') or []:
+            if not isinstance(block, dict) or block.get('type') != 'tool_use':
+                continue
+            name = block.get('name') or ''
+            if not name.startswith('mcp__'):
+                non_mcp.append(name)
+            for tool in required:
+                if name.endswith('__' + tool):
+                    required[tool] = True
+print(json.dumps({'requiredMcpCallsObserved': required, 'nonMcpTools': non_mcp,
+                  'invalidTranscriptLines': invalid, 'rawResultReviewRequired': True}))
+if non_mcp or invalid or not all(required.values()):
+    sys.exit(1)
+PYCHECK
 echo "client receipts saved privately under $RUN"
