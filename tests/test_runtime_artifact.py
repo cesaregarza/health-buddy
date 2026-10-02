@@ -1,25 +1,30 @@
-"""Docker image-save archive inspection; no Docker daemon is required.
+r"""Docker image-save archive inspection; no Docker daemon is required.
 
-make_archive synthesizes most cases. tests/fixtures holds two real saves of a
-one-byte image, captured once on a fresh Ubuntu 24.04 droplet with docker-ce
-29.8.2. Under Docker's default containerd image store:
+make_archive synthesizes most cases. tests/fixtures holds real saves of a
+one-byte image, taken with docker-ce 29.8.2 on a fresh Ubuntu 24.04 droplet:
+each pair first under Docker's default containerd image store, then under the
+classic store after writing {"features": {"containerd-snapshotter": false}} to
+/etc/docker/daemon.json and restarting Docker.
+
+The by-id pair is saved as packaging/verify_runtime.py saves, by image ID for one
+platform, from an image carrying LABELS:
+
+    printf 'x' > one
+    # Dockerfile: FROM scratch, COPY one /one, one LABEL key=value per LABELS entry
+    docker buildx build --builder default --platform linux/amd64 --load \
+        --provenance=false --sbom=false --iidfile iid .
+    docker image save --platform linux/amd64 \
+        --output docker29-<store>-store-by-id.tar "$(cat iid)"
+
+The by-tag pair is a plain save by name, of the image without labels:
 
     printf 'x' > one
     echo 'FROM scratch' > Dockerfile
     echo 'COPY one /one' >> Dockerfile
     docker build -t hb-fixture:1 .
-    docker image save hb-fixture:1 -o docker29-containerd-store.tar
+    docker image save hb-fixture:1 -o docker29-<store>-store-by-tag.tar
 
-Then, under the classic store:
-
-    echo '{"features": {"containerd-snapshotter": false}}' > /etc/docker/daemon.json
-    systemctl restart docker
-    docker build -t hb-fixture:1 .
-    docker image save hb-fixture:1 -o docker29-classic-store.tar
-
-Both were saved by tag from an image without the source labels, so the classic
-save is refused for its tag and no real save is shown accepted here. A capture
-is replaced only by another real save, never by a synthesized one.
+A capture is replaced only by another real save, never by a synthesized one.
 """
 
 from __future__ import annotations
@@ -486,10 +491,30 @@ def test_unreferenced_legacy_blob_digest_must_match_bytes(tmp_path):
         inspect(path)
 
 
-def test_containerd_store_save_is_refused_naming_the_snapshotter_setting(
+def test_classic_store_save_by_id_is_accepted_with_loader_ids_from_its_index(
     tmp_path: Path,
 ) -> None:
-    archive = captured(tmp_path, "docker29-containerd-store.tar")
+    archive = captured(tmp_path, "docker29-classic-store-by-id.tar")
+    with tarfile.open(archive) as saved:
+        (descriptor,) = json.load(saved.extractfile("index.json"))["manifests"]
+        (record,) = json.load(saved.extractfile("manifest.json"))
+    config = "sha256:" + record["Config"].removeprefix("blobs/sha256/")
+    result = inspect(archive)
+    assert result.config_digest == config
+    assert result.loader_ids == (descriptor["digest"], config)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("docker29-containerd-store-by-id.tar", id="config-digest"),
+        pytest.param("docker29-containerd-store-by-tag.tar", id="annotated-index"),
+    ],
+)
+def test_containerd_store_save_is_refused_naming_the_snapshotter_setting(
+    tmp_path: Path, name: str
+) -> None:
+    archive = captured(tmp_path, name)
     with pytest.raises(
         ManifestError, match=r"^artifact_from_containerd_image_store: "
     ) as refused:
@@ -505,6 +530,7 @@ def test_containerd_store_save_is_refused_naming_the_snapshotter_setting(
 def test_tagged_classic_store_save_is_refused_for_its_tag_not_its_store(
     tmp_path: Path,
 ) -> None:
-    archive = captured(tmp_path, "docker29-classic-store.tar")
+    archive = captured(tmp_path, "docker29-classic-store-by-tag.tar")
     with pytest.raises(ManifestError, match=r"^artifact_repository_tags_refused$"):
         inspect(archive)
+

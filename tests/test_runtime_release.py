@@ -230,7 +230,7 @@ def pinned_release(directory: Path, amd64_archive: bytes) -> Path:
 def test_selecting_a_pinned_containerd_store_save_refuses_naming_the_store(
     tmp_path: Path,
 ) -> None:
-    archive = (FIXTURES / "docker29-containerd-store.tar").read_bytes()
+    archive = (FIXTURES / "docker29-containerd-store-by-id.tar").read_bytes()
     manifest = pinned_release(tmp_path, archive)
     with pytest.raises(
         ManifestError, match=r"^artifact_from_containerd_image_store: "

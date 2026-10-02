@@ -361,15 +361,18 @@ def _descriptor(
 def _containerd_store_save(
     descriptor: int, entries: dict[str, tarfile.TarInfo]
 ) -> bool:
-    """Whether index.json names an annotated image index, as only containerd does.
+    """Whether index.json holds a descriptor only Docker's containerd store writes.
 
-    Docker's classic store names image manifests from index.json, never an index.
-    Its containerd store names the image as stored: for a BuildKit build, an index
-    pairing the platform manifest with its provenance attestation
-    (tests/fixtures/docker29-containerd-store.tar). The graph rules refuse every
-    annotated descriptor, so this chooses the code a refused save reports and never
-    refuses a save by itself; an unannotated single-platform index stays
-    admissible. An unreadable index.json is left to those rules.
+    The classic store names image manifests, annotated at most with the name and
+    tag they were saved under. The containerd store names the image as stored;
+    tests/fixtures holds both real shapes. Saved by ID, a manifest keeps BuildKit's
+    config.digest annotation (docker29-containerd-store-by-id); saved by tag, an
+    annotated index pairs the platform manifest with its provenance attestation
+    (docker29-containerd-store-by-tag). Only annotated descriptors count, and the
+    graph rules refuse every one of them, so this chooses the code a refused save
+    reports and never refuses a save itself: an unannotated index can still be
+    the single-platform graph those rules admit. An unreadable index.json is left
+    to those rules.
     """
     member = entries.get("index.json")
     if member is None or not member.isfile():
@@ -380,9 +383,13 @@ def _containerd_store_save(
         return False
     children = index.get("manifests") if isinstance(index, dict) else None
     for child in children if isinstance(children, list) else []:
-        media = child.get("mediaType") if isinstance(child, dict) else None
-        index_named = isinstance(media, str) and media in _INDEX_TYPES
-        if index_named and child.get("annotations"):
+        annotations = child.get("annotations") if isinstance(child, dict) else None
+        if not annotations:
+            continue
+        media = child.get("mediaType")
+        if isinstance(media, str) and media in _INDEX_TYPES:
+            return True
+        if isinstance(annotations, dict) and "config.digest" in annotations:
             return True
     return False
 
