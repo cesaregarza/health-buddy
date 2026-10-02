@@ -66,7 +66,6 @@ class Handler:
             Limits(
                 service_jobs=1,
                 active_requests=1,
-                admission_seconds=0.05,
                 shutdown_seconds=50,
             )
         )
@@ -108,8 +107,8 @@ class Handler:
                 partial(self.tools.call, params.name, params.arguments or {}),
                 deadline=time.monotonic() + 35,
             )
-        except EnvelopeError:
-            result = failure(ServiceError(503, "outcome_unknown"))
+        except EnvelopeError as error:
+            result = failure(ServiceError(error.status, error.code))
         except Exception as error:
             result = failure(error)
         return types.CallToolResult(
