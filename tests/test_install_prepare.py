@@ -139,8 +139,12 @@ def test_other_refusals_keep_the_generic_preparation_code(
     assert output["code"] == "install_preparation_refused"
 
 
-@pytest.mark.parametrize("docker_args", [[], ["--docker"], ["--docker", ""]])
-@pytest.mark.parametrize("resume", [False, True])
+# A bare --docker parses to None like an omitted one; an empty value parses to
+# the relative path ".", which the native-executable check refuses.
+@pytest.mark.parametrize(
+    "docker_args", [[], ["--docker", ""]], ids=["omitted_none", "empty_relative"]
+)
+@pytest.mark.parametrize("resume", [False, True], ids=["first_run", "resumed"])
 def test_missing_docker_names_the_input_without_creating_or_changing_intent(
     tmp_path, monkeypatch, capsys, docker_args, resume
 ):
@@ -239,13 +243,15 @@ def test_client_config_repeats_without_live_connection(tmp_path, monkeypatch, na
     assert client_config.read_bytes() == before
 
 
+# One guard refuses every command before dispatch: log stands for the app
+# commands, and serve must refuse before a server opens its socket.
 @pytest.mark.parametrize(
     "command",
     [
         "log measurement --measured-at-local 2030-01-01T08:00:00 --weight-lb 150",
-        "context",
         "serve",
     ],
+    ids=["log_app_command", "serve_no_socket"],
 )
 def test_development_mode_refuses_the_prepared_workspace(
     tmp_path, monkeypatch, capsys, command
