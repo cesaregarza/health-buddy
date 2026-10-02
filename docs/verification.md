@@ -186,7 +186,8 @@ silently; record any such operator change as a different host scenario.
 Copy `prompt.template.md` to `prompt.md` in the private kit. Replace `__BASE__`
 with the public candidate directory URL and `__BUNDLE_SHA256__` and
 `__MANIFEST_SHA256__` with the two independently trusted pins. Check there are no
-unfilled placeholders. The message gives only the README entry point and linked
+unfilled placeholders; `run.sh` refuses a missing, empty or unfilled prompt before
+contacting the host. The message gives only the README entry point and linked
 docs, URLs/pins, host facts, a synthetic task and a stall-log request. It supplies
 no Docker executable, origin, owner-subject, client-directory or policy answers:
 the agent must derive them from the install docs. Run 6 after CES-1114 uses this
@@ -308,5 +309,7 @@ CES-1104 comments consider criterion 1 met by runs 3–4 (and report run 5 as an
 install). Preserve those historical claims separately: run 4 used `--development`,
 while run 5 needed operator client follow-through and its agent read-back was
 metadata, not an API read. Judge the next docs-only attempt from host/API evidence.
+If the agent again chooses a future timestamp, retain the raw write/read results
+and report that behavior as a finding; do not add a corrective prompt hint.
 Run 6 acceptance after CES-1114 remains pending until it is actually performed and
 reviewed; this documentation change closes no live acceptance gate.

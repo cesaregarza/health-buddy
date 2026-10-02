@@ -7,6 +7,14 @@
 # or apikey. Never use shell tracing. Raw receipts can contain credentials.
 set -euo pipefail
 D=$(dirname "$(realpath "$0")")
+if [[ ! -f "$D/prompt.md" || ! -s "$D/prompt.md" ]]; then
+  echo "prompt.md is missing or empty; render prompt.template.md before running" >&2
+  exit 2
+fi
+if grep -Eq '__[A-Z][A-Z0-9_]*__' "$D/prompt.md"; then
+  echo "prompt.md contains unfilled template placeholders; complete it before running" >&2
+  exit 2
+fi
 IP=$(cat "$D/.droplet-ip")
 AUTH=${AUTH:?set AUTH to oauth or apikey}
 TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}

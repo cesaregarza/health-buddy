@@ -11,6 +11,6 @@ The install docs will ask you for four values. I confirmed both hashes myself th
 
 Facts about this host: you are the user `owner` on a fresh 64-bit Ubuntu 24.04 server, with passwordless sudo and membership in the docker group; Docker and Docker Compose are installed. There is no Tailscale here and I do not want private HTTPS on this box, so skip that stage if the docs let you. Everything else the docs ask for, do.
 
-When the installation is up, log one synthetic measurement (a body weight of 150 lb, recorded at the current host time in UTC (never a future time)) and read it back to prove the round trip, then tell me how I check the installation status myself.
+When the installation is up, log one synthetic measurement (a body weight of 150 lb, recorded today) and read it back to prove the round trip, then tell me how I check the installation status myself.
 
 If you get stuck at any point, append a short entry to /home/owner/STALLS.md with the exact command you ran, the error you saw, and what you tried next, and continue if you can. If you truly cannot continue, say so plainly in your final message.
