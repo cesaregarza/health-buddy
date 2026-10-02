@@ -151,8 +151,9 @@ OAuth; provide that credential separately if the first session used an API key.
 Never put credentials into the prompt, arguments, Git, shared logs or examples.
 The harness transfers the value via SSH stdin, exports it without shell evaluation
 and removes its temporary remote file before starting Claude. Do not enable shell
-tracing. Revoke scoped credentials after the run; deleting their file is not
-revocation. The credential's availability, budget and SSH reachability are operator
+tracing. Follow the credential cleanup rules in Teardown and verdict below;
+deleting a credential file is not revocation. The credential's availability,
+budget and SSH reachability are operator
 prerequisites, not install successes or agent stalls.
 
 Use a private operator directory so credentials, raw transcripts, host addresses
@@ -309,8 +310,10 @@ created numeric ID; it never selects a host by a guessed name. Verify that exact
 ID is absent in an independently refreshed provider inventory before declaring
 cleanup complete; an API/auth/network error is not absence. The scripts remove
 remote temporary model-credential files on exit where SSH remains reachable;
-host deletion handles an unreachable target. Revoke the run's credentials, remove
-any temporary publisher assets under their separately approved lifecycle, and
+host deletion handles an unreachable target. Revoke credentials created solely
+for the run where applicable. Remove temporary copies of borrowed shared model
+credentials without revoking unrelated shared authority. Remove any temporary
+publisher assets under their separately approved lifecycle, and
 retain only the private evidence required for review. Do not delete a shared
 publisher or unrelated hosts.
 
@@ -328,5 +331,6 @@ while run 5 needed operator client follow-through and its agent read-back was
 metadata, not an API read. Judge the next docs-only attempt from host/API evidence.
 If the agent again chooses a future timestamp, retain the raw write/read results
 and report that behavior as a finding; do not add a corrective prompt hint.
-Run 6 acceptance after CES-1114 remains pending until it is actually performed and
-reviewed; this documentation change closes no live acceptance gate.
+Run 6 after CES-1114 passed installation and setup, but its authenticated record
+round-trip failed. CES-1118 owns that repair. Current acceptance is tracked on
+CES-1104; this documentation change closes no live acceptance gate.
