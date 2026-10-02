@@ -203,6 +203,37 @@ def captured(tmp_path: Path, name: str) -> Path:
     return copy
 
 
+def nest_in_index(archive: Path) -> str:
+    """Re-pack a save one level deeper: its index.json becomes an unannotated
+    image index blob that a new index.json names. Returns that index's digest."""
+    with tarfile.open(archive) as source:
+        members = source.getmembers()
+        payloads = {
+            member.name: source.extractfile(member).read()
+            for member in members
+            if member.isfile()
+        }
+    inner = payloads["index.json"]
+    digest = "sha256:" + hashlib.sha256(inner).hexdigest()
+    media = "application/vnd.oci.image.index.v1+json"
+    payloads["index.json"] = json.dumps(
+        {
+            "schemaVersion": 2,
+            "mediaType": media,
+            "manifests": [{"mediaType": media, "digest": digest, "size": len(inner)}],
+        }
+    ).encode()
+    with tarfile.open(archive, "w", format=tarfile.USTAR_FORMAT) as output:
+        for member in members:
+            if member.isfile():
+                member.size = len(payloads[member.name])
+                output.addfile(member, io.BytesIO(payloads[member.name]))
+            else:
+                output.addfile(member)
+        _entry(output, "blobs/sha256/" + digest[7:], inner)
+    return digest
+
+
 def inspect(path: Path, architecture: str = "amd64"):
     return verify_docker_archive(
         path,
@@ -534,3 +565,13 @@ def test_tagged_classic_store_save_is_refused_for_its_tag_not_its_store(
     with pytest.raises(ManifestError, match=r"^artifact_repository_tags_refused$"):
         inspect(archive)
 
+
+def test_unannotated_index_around_an_admitted_manifest_stays_admitted(
+    tmp_path: Path,
+) -> None:
+    # A synthetic shape: no capture names an unannotated index from index.json.
+    # It pins that the store check never refuses a save the graph rules admit.
+    archive = captured(tmp_path, "docker29-classic-store-by-id.tar")
+    admitted = inspect(archive).loader_ids
+    index = nest_in_index(archive)
+    assert inspect(archive).loader_ids == (index, *admitted)
