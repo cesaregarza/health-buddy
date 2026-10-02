@@ -26,7 +26,7 @@ SLOW = frozenset(
         "test_security_recovery",
         "test_transport_auth_wire",
         "test_transport_wire",
-        # Single cases of fast modules: real processes, sockets or bulk data.
+        # Single cases of fast modules that start real processes or load bulk data.
         "test_canonical_extensions::test_adopt_more_than_thousand_observations_then_write_and_paginate",
         "test_claude_integration::test_claude_configured_sdk_reads_codex_record_replays_and_diagnoses",
         "test_codex_integration::test_configured_stdio_discovers_context_and_records_workout_once",
@@ -34,13 +34,10 @@ SLOW = frozenset(
         "test_encrypted_backup::test_restored_connector_rekeys_explicitly_and_keeps_retry_evidence",
         "test_extension_boundaries::test_real_http_authority_filters_views_and_has_no_code_activation",
         "test_extension_registry::test_dense_acyclic_dependency_graph_remains_ready_at_maximum_size",
-        "test_runtime_inputs::test_fetch_outer_deadline_kills_and_reaps_child_stalled_before_headers",
-        "test_runtime_inputs::test_fixed_fetch_worker_success_verifies_original_pins",
         "test_runtime_listener::test_real_managed_listener_restart_retains_records_authority_and_personal_files",
         "test_runtime_listener::test_real_full_process_kill_reclaims_only_recorded_socket",
         "test_runtime_listener::test_real_competing_launcher_and_parent_only_kill_preserve_live_worker",
         "test_runtime_listener::test_real_bind_before_marker_crash_is_fail_closed",
-        "test_runtime_packaged_sdk::test_relay_reaches_running_api_without_source_backend",
         "test_runtime_packaged_sdk::test_sdk_measurement_reaches_dashboard_data_route",
     }
 )

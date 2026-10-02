@@ -118,7 +118,7 @@ architecture:
 uname -m
 ```
 
-On `x86_64`, install the repository's hash-locked wheels, the 53-package
+On `x86_64`, install the repository's hash-locked wheels, the 55-package
 closure the [canonical guide](agent-guide.md) also uses. Nothing is resolved,
 and every wheel must match its recorded SHA-256:
 
