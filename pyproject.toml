@@ -35,6 +35,10 @@ exclude = ["**/__pycache__/**", "**/*.pyc", "**/.env*", "**/*.db", "**/*.sqlite*
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 asyncio_mode = "auto"
+markers = [
+    "slow: real servers, SDK clients, venvs, spawned interpreters or bulk data (make test-slow)",
+    "needs_root: launches a fixture process as uid 65534; skips unless pytest is root",
+]
 pythonpath = [".", "src"]
 testpaths = ["tests"]
 

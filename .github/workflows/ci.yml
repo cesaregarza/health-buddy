@@ -1,6 +1,12 @@
 name: Controlled verification
 on:
   workflow_dispatch:
+    inputs:
+      tier:
+        description: "Test tier: test (fast), test-slow or test-all"
+        type: choice
+        options: [test, test-slow, test-all]
+        default: test
 permissions:
   contents: read
 concurrency:
@@ -28,8 +34,9 @@ jobs:
         env:
           HEALTH_BUDDY_TEST_SOCKET_ROOT: ${{ runner.temp }}/hb-uds
         run: mkdir -m 0700 -- "$HEALTH_BUDDY_TEST_SOCKET_ROOT"
-      - run: make contracts test dashboard-test lint typecheck package
+      - run: make contracts "$TIER" dashboard-test lint typecheck package
         env:
+          TIER: ${{ inputs.tier }}
           HEALTH_BUDDY_TEST_SOCKET_ROOT: ${{ runner.temp }}/hb-uds
       - run: python scripts/audit_distribution.py --root . --archives dist
       - run: git diff --check

@@ -9,8 +9,9 @@ Use native Linux and Python 3.12+. Core extracted ingest/render code uses the
 standard library. SleepIQ, PostgreSQL and browser tooling are optional extras.
 No health account, agent provider key or private repository is needed for the
 synthetic checks. Never import personal data to repair a failing test.
-`make test` includes both maintained extension examples; `make extension-test`
-is the focused personal-extension suite. The private socket-root prerequisite
+`make test` is the fast tier and includes both maintained extension examples;
+`make test-slow` runs the slow tier and `make extension-test` the
+focused personal-extension suite. The private socket-root prerequisite
 and exact commands are in [verification](docs/verification.md).
 
 Run the checks yourself under the policy in
