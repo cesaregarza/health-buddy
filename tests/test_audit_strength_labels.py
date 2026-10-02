@@ -1,3 +1,5 @@
+"""scripts/audit_strength_labels.py: legacy CLI that no product path calls."""
+
 import csv
 import sys
 from pathlib import Path

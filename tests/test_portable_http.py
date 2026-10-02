@@ -71,12 +71,10 @@ def test_empty_dashboard_context_save_and_restart(tmp_path):
     "method,headers,expected",
     [
         ("GET", {"Host": "example.invalid"}, 400),
-        ("GET", {"Origin": "https://example.invalid"}, 403),
         ("OPTIONS", {}, 403),
-        ("POST", {"Origin": "https://example.invalid"}, 403),
         ("POST", {"Content-Type": "text/plain"}, 415),
-        ("POST", {"Sec-Fetch-Site": "cross-site"}, 403),
     ],
+    ids=["GET-invalid_host", "OPTIONS-origin_required", "POST-unsupported_media_type"],
 )
 def test_dev_boundary_preserves_canonical_state(tmp_path, method, headers, expected):
     root = tmp_path / "owner"

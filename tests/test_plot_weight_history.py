@@ -1,3 +1,5 @@
+"""scripts/plot_weight_history.py: legacy CLI that no product path calls."""
+
 from datetime import date
 from pathlib import Path
 import pytest

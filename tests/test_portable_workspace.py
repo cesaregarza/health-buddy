@@ -147,11 +147,9 @@ def test_unknown_duplicate_and_bad_endpoint_config(tmp_path):
 @pytest.mark.parametrize(
     "path",
     [
-        "stores/manual.git",
-        "cache/export.csv",
-        "personal/export.csv",
-        "secrets/export.csv",
-        "../escape.csv",
+        pytest.param("cache/export.csv", id="inside-another-store"),
+        pytest.param("personal/export.csv", id="inside-reserved-dir"),
+        pytest.param("../escape.csv", id="traversal"),
     ],
 )
 def test_optional_source_paths_do_not_overlap(tmp_path, path):

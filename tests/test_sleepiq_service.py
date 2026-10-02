@@ -1,3 +1,5 @@
+"""sleepiq_exporter.service: run by the optional sleepiq-exporter console script."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
