@@ -14,10 +14,12 @@ The fixture oracle specifies examples; it is not a production implementation.
   already-running 64-bit Linux x86-64 host or ARM64 Raspberry Pi is the v1
   implementation target. Supported OS/version, minimum RAM/disk and physical
   Pi qualification remain installer/release gates, not verified support claims.
-- Host and clients join an owner-controlled Tailscale network. The agent may
-  run on a different host. Private connectivity, DNS/HTTPS reachability, clock
-  validity and application authorization must pass installer preflight.
-  Tailscale access alone does not grant application access.
+- Host and clients join an owner-controlled Tailscale network. The agent client
+  runs on the API host as the workspace owner and reaches the API over the
+  managed socket; a client on another host is not supported in v1. Private
+  connectivity, DNS/HTTPS reachability, clock validity and application
+  authorization must pass installer preflight. Tailscale access alone does not
+  grant application access.
 - Public documentation hostname is **unselected**. CES-1078 may build relative
   links; CES-1079 deployment and Apple privacy/setup distribution are blocked
   until the operator selects and verifies a hostname and immutable site
