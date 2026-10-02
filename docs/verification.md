@@ -13,10 +13,20 @@ product configuration defaults to UTC.
 Root pytest has two tiers, marked from one list in `tests/conftest.py`.
 `make test` is the fast tier: it deselects both markers. `make test-slow` runs
 the rest: `slow` covers real servers, SDK clients, venvs, spawned interpreters
-and bulk data, and the two `needs_root` tests launch a fixture process as uid
-65534 and skip unless pytest runs as root. `make test-all` runs both tiers at
-once. Each target uses `--dist loadfile`, which keeps a module's tests on one
-worker, so a module-scoped server starts once.
+and bulk data. Two `needs_root` tests launch a fixture process as uid 65534 and
+skip unless pytest runs as root; the third runs one install stage under `sudo`.
+`make test-all` runs both tiers at once. Each target uses `--dist loadfile`,
+which keeps a module's tests on one worker, so a module-scoped server starts
+once.
+
+The owner-host tests in `tests/test_owner_host.py` run the install stages the
+way an owner's shell does: as an unprivileged user under umask 002, on a host
+where `/run/docker.sock` exists (preflight inspects it). As root they fail by
+name instead of skipping, because root makes the stages refuse or pass for
+reasons an owner never meets, so run the slow tier as such a user; the gate
+runner, `hb-check-nonroot.sh`, runs pytest as the user `hb`. The case that runs
+a stage as root needs passwordless `sudo` for `/usr/bin/env` and fails by name
+without it.
 
 Native Linux socket tests require `HEALTH_BUDDY_TEST_SOCKET_ROOT` to name an
 existing, short, private directory owned by the current user with mode `0700`.
