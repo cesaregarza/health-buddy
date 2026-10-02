@@ -21,10 +21,10 @@ H=$(ssh -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
 [[ "$H" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 2
 [[ "$JOURNAL" == "$H/"* && "$JOURNAL" =~ ^/[a-zA-Z0-9_./-]+$ && "/$JOURNAL/" != */../* ]] || exit 2
 S=$H/.hb-rehearsal
-trap 'ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2" >/dev/null 2>&1 || true' EXIT
+trap 'ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2 $S/mcp.json" >/dev/null 2>&1 || true' EXIT
 
 ssh -o BatchMode=yes "root@$IP" "sudo -u owner -i python3 - <<'PYCONF'
-import json, os, sys, tomllib
+import json, os, subprocess, sys, tomllib
 home = os.path.expanduser('~')
 record = json.load(open('$JOURNAL'))
 agent = record.get('agentSetup') or {}
@@ -39,8 +39,21 @@ if config.endswith('.toml'):
     mcp = {'mcpServers': {name: {k: v for k, v in s.items() if k in ('command', 'args', 'env')} for name, s in servers.items()}}
 else:
     mcp = json.load(open(config))
-if len(mcp.get('mcpServers', {})) != 1:
-    sys.exit('expected exactly one configured Health Buddy MCP server')
+if set(mcp.get('mcpServers', {})) != {'health_buddy'}:
+    sys.exit('expected exactly the configured health_buddy MCP server')
+# Inspect schema metadata only; never query product state to prepare the observer.
+server = mcp['mcpServers']['health_buddy']
+query = 'from health_buddy.mcp.schemas import CATALOG; import json; print(json.dumps(sorted(CATALOG)))'
+catalog = json.loads(subprocess.check_output(
+    [server['command'], '-c', query], env={**os.environ, **server.get('env', {})},
+    text=True, timeout=10))
+expected = {'discover_workspace', 'get_context', 'list_records', 'get_plan',
+            'sync_status', 'record_workout', 'log_health', 'propose_plan',
+            'apply_plan', 'write_status', 'retry_write'}
+if set(catalog) != expected or len(catalog) != len(expected):
+    sys.exit('unexpected MCP catalog; review observer restrictions before launching')
+with open(os.path.join(home, '.hb-rehearsal', 'client-observer-catalog.json'), 'w') as f:
+    json.dump({'server': 'health_buddy', 'catalog': catalog}, f)
 out = os.path.join(home, '.hb-rehearsal', 'mcp.json')
 with open(out, 'w') as f:
     json.dump(mcp, f, indent=1)
@@ -74,11 +87,14 @@ unset token
 rm -f $S/env2
 cd $H
 timeout 600 claude -p "$PROMPT" --model $MODEL --max-turns 12 --mcp-config $S/mcp.json --strict-mcp-config \
-  --dangerously-skip-permissions --output-format stream-json --verbose < /dev/null > $S/client-transcript.jsonl 2> $S/client.stderr
+  --tools ToolSearch --disable-slash-commands --setting-sources "" --permission-mode dontAsk \
+  --allowedTools ToolSearch,mcp__health_buddy__sync_status,mcp__health_buddy__get_context,mcp__health_buddy__list_records \
+  --disallowedTools mcp__health_buddy__discover_workspace,mcp__health_buddy__get_plan,mcp__health_buddy__record_workout,mcp__health_buddy__log_health,mcp__health_buddy__propose_plan,mcp__health_buddy__apply_plan,mcp__health_buddy__write_status,mcp__health_buddy__retry_write \
+  --output-format stream-json --verbose < /dev/null > $S/client-transcript.jsonl 2> $S/client.stderr
 echo "client exit=\$?" > $S/client-exit.txt
 RUNEOF
 
-for f in client-transcript.jsonl client.stderr client-exit.txt; do
+for f in client-transcript.jsonl client.stderr client-exit.txt client-observer-catalog.json; do
   scp -q "root@$IP:$S/$f" "$RUN/" 2>/dev/null || true
 done
 ssh -o BatchMode=yes "root@$IP" "rm -f $S/env2 $S/mcp.json"
@@ -87,6 +103,7 @@ python3 - "$RUN/client-transcript.jsonl" > "$RUN/client-observer-check.json" <<'
 import json, sys
 required = {name: False for name in ('sync_status', 'get_context', 'list_records')}
 non_mcp = []
+unexpected_mcp = []
 metadata_discovery = []
 invalid = 0
 with open(sys.argv[1], encoding='utf-8') as transcript:
@@ -108,13 +125,15 @@ with open(sys.argv[1], encoding='utf-8') as transcript:
                 metadata_discovery.append(name)
             elif not name.startswith('mcp__'):
                 non_mcp.append(name)
+            elif name.removeprefix('mcp__health_buddy__') not in required:
+                unexpected_mcp.append(name)
             for tool in required:
-                if name.endswith('__' + tool):
+                if name == 'mcp__health_buddy__' + tool:
                     required[tool] = True
 print(json.dumps({'requiredMcpCallsObserved': required, 'nonMcpTools': non_mcp,
-                  'metadataDiscoveryTools': metadata_discovery,
+                  'metadataDiscoveryTools': metadata_discovery, 'unexpectedMcpTools': unexpected_mcp,
                   'invalidTranscriptLines': invalid, 'rawResultReviewRequired': True}))
-if non_mcp or invalid or not all(required.values()):
+if non_mcp or unexpected_mcp or invalid or not all(required.values()):
     sys.exit(1)
 PYCHECK
 echo "client receipts saved privately under $RUN"

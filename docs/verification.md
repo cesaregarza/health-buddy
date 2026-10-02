@@ -266,7 +266,8 @@ before collecting its independent evidence.
 
 For a real client check, set `PRIVATE_JOURNAL` to that run's absolute install-journal
 path and supply the private OAuth credential file. `client-check.sh` launches a
-second fresh Claude session with only the recorded MCP configuration, asks for
+second fresh Claude session with only the recorded MCP configuration and the
+capability restrictions below, asks for
 `sync_status`, `get_context` (weight scope, days 1, limit 20), and `list_records`
 (`sourceIds: [manual]`, `kinds: [body-mass]`, limit 20). Before that observer session,
 it reads the target host's UTC clock and records `client-observer-window.json`:
@@ -284,6 +285,27 @@ export PRIVATE_JOURNAL PRIVATE_MODEL_TOKEN_FILE
 "$REHEARSAL_KIT/client-check.sh" "$RUN"
 ```
 
+The next observer revision uses `--tools ToolSearch` to remove other built-in
+capabilities, bare `--disallowedTools` names to remove the eight other MCP tools,
+and `--permission-mode dontAsk` with an explicit allowlist for ToolSearch and the
+three reads. `--allowedTools` alone grants permission; it does not restrict tool
+availability. Empty `--setting-sources`, disabled slash commands and strict MCP
+configuration prevent inherited settings, skills or other servers from expanding
+this check. The helper checks the configured server's schema catalog before
+launch and refuses an unexpected catalog; retain `client-observer-catalog.json`.
+This reads schema metadata, not owner data, and supplies no install-stage hint.
+Claude retains its own EndConversation session-control tool when MCP is present.
+The [official tools reference](https://code.claude.com/docs/en/tools-reference#endconversation-tool-behavior)
+describes it for rare abusive-input termination or explicit demonstrations, not
+normal turn completion. Its invocation still fails this observer gate.
+
+These flag semantics were checked against installed Pi Claude Code **2.1.284**
+help and the [official CLI reference](https://code.claude.com/docs/en/cli-reference).
+Frozen runs 8 and 9 used **2.1.197**; this inspection does not establish that older
+version's behavior. Record the actual CLI version and inspect the next session's
+raw exposed-tool metadata and tool calls; local checks alone do not prove the
+fresh client's capability restriction.
+
 Require successful MCP results for all three calls, with no shell/file shortcut.
 Compare the raw `list_records` record's value, unit and `observedAt` to the
 unassisted write, including any unit conversion; an empty result, absent
@@ -294,8 +316,9 @@ raw transcript for every tool call and report such deviations even if harmless.
 `client-observer-check.json` records required MCP call presence, non-MCP tool
 names and malformed transcript lines. Claude's `ToolSearch` discovers deferred
 MCP tools; the checker records it separately as metadata discovery and admits it.
-It still requires all three actual MCP calls and refuses malformed lines or other
-non-MCP use, including Bash, file and web shortcuts. This check records invocation evidence only: the operator
+It still requires all three exact `mcp__health_buddy__` read calls and refuses
+unexpected MCP calls, malformed lines or other non-MCP use, including Bash, file
+and web shortcuts. This check records invocation evidence only: the operator
 must still assess exact API results and record matching. These calls check
 Claude → adapter → managed socket → API; converting a Codex config to Claude's MCP shape does not prove a named Codex session or skill discovery.
 Record those as separate checks when required. Generated configuration alone is
@@ -334,3 +357,12 @@ and report that behavior as a finding; do not add a corrective prompt hint.
 Run 6 after CES-1114 passed installation and setup, but its authenticated record
 round-trip failed. CES-1118 owns that repair. Current acceptance is tracked on
 CES-1104; this documentation change closes no live acceptance gate.
+
+Frozen run 8 passed the unattended install/write/read and separate observer,
+including all three successful MCP reads with an identical record. Frozen run 9
+failed acceptance: its install/write/read succeeded, but observer `get_context`
+returned `503 outcome_unknown` while the other two reads succeeded, and a Bash
+announcement violated the observer gate. Preserve those original outcomes and
+transcripts; the next observer restriction does not retroactively pass run 9.
+CES-1120 owns the admission repair. Current CES-1104 acceptance remains open for
+a new consecutive Haiku pair followed by Sonnet under the reviewed next harness.
