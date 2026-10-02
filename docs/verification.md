@@ -291,8 +291,10 @@ A context summary or successful sync status alone is not that evidence.
 The no-shell instruction has previously allowed an `echo` shortcut. Inspect the
 raw transcript for every tool call and report such deviations even if harmless.
 `client-observer-check.json` records required MCP call presence, non-MCP tool
-names and malformed transcript lines; the helper refuses missing required calls
-or non-MCP tool use. This check records invocation evidence only: the operator
+names and malformed transcript lines. Claude's `ToolSearch` discovers deferred
+MCP tools; the checker records it separately as metadata discovery and admits it.
+It still requires all three actual MCP calls and refuses malformed lines or other
+non-MCP use, including Bash, file and web shortcuts. This check records invocation evidence only: the operator
 must still assess exact API results and record matching. These calls check
 Claude → adapter → managed socket → API; converting a Codex config to Claude's MCP shape does not prove a named Codex session or skill discovery.
 Record those as separate checks when required. Generated configuration alone is

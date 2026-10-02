@@ -87,6 +87,7 @@ python3 - "$RUN/client-transcript.jsonl" > "$RUN/client-observer-check.json" <<'
 import json, sys
 required = {name: False for name in ('sync_status', 'get_context', 'list_records')}
 non_mcp = []
+metadata_discovery = []
 invalid = 0
 with open(sys.argv[1], encoding='utf-8') as transcript:
     for line in transcript:
@@ -103,12 +104,15 @@ with open(sys.argv[1], encoding='utf-8') as transcript:
             if not isinstance(block, dict) or block.get('type') != 'tool_use':
                 continue
             name = block.get('name') or ''
-            if not name.startswith('mcp__'):
+            if name == 'ToolSearch':
+                metadata_discovery.append(name)
+            elif not name.startswith('mcp__'):
                 non_mcp.append(name)
             for tool in required:
                 if name.endswith('__' + tool):
                     required[tool] = True
 print(json.dumps({'requiredMcpCallsObserved': required, 'nonMcpTools': non_mcp,
+                  'metadataDiscoveryTools': metadata_discovery,
                   'invalidTranscriptLines': invalid, 'rawResultReviewRequired': True}))
 if non_mcp or invalid or not all(required.values()):
     sys.exit(1)
