@@ -64,6 +64,7 @@ class Qualification:
         timeout: int = 60,
         expected: int = 0,
         cleanup: bool = False,
+        start_new_session: bool = False,
     ) -> bytes:
         if not cleanup and shutil.disk_usage(self.output).free < MIN_FREE:
             raise ManifestError("runtime_qualification_disk_reserve")
@@ -75,6 +76,7 @@ class Qualification:
                 env=self.environment,
                 stdout=stream,
                 stderr=subprocess.STDOUT,
+                start_new_session=start_new_session,
             )
             try:
                 while process.poll() is None:
@@ -184,6 +186,7 @@ class Qualification:
                 str(self.output / "sdk-private"),
             ],
             timeout=200,
+            start_new_session=True,
         )
         result = json.loads(raw)
         if (
