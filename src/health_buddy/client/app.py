@@ -103,6 +103,9 @@ class App:
             raise ServiceError(503, "invalid_response", retryable=True)
         return cast(str, value["text"])
 
+    def records(self, **query: str) -> JSON:
+        return self._read("records.list", **query)
+
     def workout(
         self,
         payload: dict[str, Any],

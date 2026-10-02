@@ -80,6 +80,17 @@ replay the saved status/body/revision bytes; changed intent conflicts. Receipt
 headers may add the documented replay marker without altering the original
 saved receipt. Revocation/epoch change is checked even for a known old key.
 
+For `logs.write` kind `measurement`, a normalized observed instant strictly
+after the transaction's `receivedAt` is accepted without timestamp rewriting.
+Its receipt adds `data.warnings` with code `future_measurement_timestamp`, field
+`fields.measuredAtLocal`, original `value`, effective `timezone`, UTC `observedAt`,
+`serverTime` and `recovery`. Warning calculation occurs only for a new transaction
+after idempotency lookup, so a retry preserves the original warning bytes.
+Current and historical receipts omit this field. Explicit-offset timestamps
+determine the instant; otherwise the field's timezone (defaulting to the
+workspace zone) does. A future record is available through `records.list` with
+an explicit containing window but is excluded from current context.
+
 HealthKit keeps the retained schema-v1 batch protocol on the canonical receiver:
 current authenticated device/stream binding plus exact receiver tuple and
 `X-Health-Device-ID` agreement. Its duplicate acknowledgement is the documented

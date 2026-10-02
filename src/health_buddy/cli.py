@@ -159,6 +159,17 @@ def _add_canonical_commands(commands: Any) -> None:
     context.add_argument("--scopes", default="all")
     context.add_argument("--days", default=30, type=int)
     context.add_argument("--ask", default="")
+    records = commands.add_parser("records", help="Read canonical observations as JSON")
+    records.add_argument("--from", dest="from_time", required=True)
+    records.add_argument("--to", required=True)
+    records.add_argument(
+        "--kinds", required=True, help="Comma-separated canonical kinds"
+    )
+    records.add_argument(
+        "--source-ids", required=True, help="Comma-separated source IDs"
+    )
+    records.add_argument("--limit", type=int, default=100)
+    records.add_argument("--cursor")
     server = commands.add_parser("serve")
     server.add_argument("--port", default=8791, type=int)
     log = commands.add_parser("log")
@@ -280,6 +291,17 @@ def _run_app_command(app: App, args: argparse.Namespace) -> None:
         print(output)
     elif args.command == "context":
         print(app.context(args.scopes, args.days, args.ask), end="")
+    elif args.command == "records":
+        query = {
+            "from": args.from_time,
+            "to": args.to,
+            "kinds": args.kinds,
+            "sourceIds": args.source_ids,
+            "limit": str(args.limit),
+        }
+        if args.cursor is not None:
+            query["cursor"] = args.cursor
+        print(json.dumps(app.records(**query)))
     elif args.command == "plan":
         print(json.dumps(app.set_plan(args.file, new_write=args.new_write)))
     elif args.command == "log":
