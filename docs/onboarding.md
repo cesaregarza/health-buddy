@@ -63,6 +63,8 @@ Notes the stages depend on:
   the host and client values (`INSPECTED_NATIVE_DOCKER`, `PRIVATE_HTTPS_ORIGIN`,
   `EXACT_OWNER_SUBJECT`, `PRIVATE_CLIENT`) are chosen and saved in `env.sh`.
   Without Tailscale, keep the guide's local-only origin and subject.
+- Stage 4 takes no `--client` arguments in the guided install; the client is
+  configured in stage 7.
 - Stage 6 loads the runtime image and can take several minutes on a small
   host. Do not interrupt it; if it is interrupted, rerun the identical command
   until it reports `runtimeActivated: true`. Activation creates `runtime.env`
@@ -70,7 +72,10 @@ Notes the stages depend on:
 - Stage 7 is required even when private HTTPS is skipped: the agent client runs
   on this host and reaches the API over the managed socket. A healthy container
   without this stage is not an installation. The policy file is the only input
-  you write for this stage; use the guide's block.
+  you write for this stage; use the guide's block. The guide gives two command
+  blocks: use the Codex block if the client is Codex, the Claude Code block if
+  the client is Claude Code. The client and config path are bound by the first
+  run, so pick the right block before running it.
 - Stage 9 uses the owner credential file and the guide's exact block. The write
   must report `saved: true`; the read must come from the `records` command (or
   the `list_records` tool), never from a CSV or Git file.
@@ -86,9 +91,18 @@ section entirely; nothing in stages 1–9 depends on it.
 
 Report the installation as complete only when all of these hold:
 
-1. `health_buddy.install.status` reports `runtimeLastActive: true`,
-   `ownerAuthenticated: true`, `agentGrantRetained: true` and
-   `clientConfigurationLastPrepared: true`. `connected: false` is expected.
+1. This command prints `true` for all four of `runtimeLastActive`,
+   `ownerAuthenticated`, `agentGrantRetained` and
+   `clientConfigurationLastPrepared` (`connected: false` is expected):
+
+   ```sh
+   . "$HOME/health-buddy/env.sh"
+   "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
+   ```
+
+   A `false` names the stage that is not done: `ownerAuthenticated` is stage 5,
+   `runtimeLastActive` is stage 6, the other two are stage 7. Fix that stage;
+   do not report completion around it.
 2. The stage-9 read returned the record you wrote, with the printed timestamp.
 3. A fresh session of the configured client (Codex or Claude Code) lists the
    Health Buddy tools and a read such as `sync_status` returns `ok: true`.

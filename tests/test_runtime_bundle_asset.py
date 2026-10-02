@@ -342,7 +342,11 @@ def undefined_variables(shell_blocks: list[str]) -> list[str]:
 
 
 def test_install_commands_define_and_reload_every_shell_variable():
-    guide = GUIDE.read_text() + (ROOT / "docs/install-reinstall.md").read_text()
+    guide = (
+        GUIDE.read_text()
+        + (ROOT / "docs/install-reinstall.md").read_text()
+        + (ROOT / "docs/onboarding.md").read_text()
+    )
     shell_blocks = re.findall(r"^```sh\n(.*?)^```$", guide, re.MULTILINE | re.DOTALL)
     assert shell_blocks
     assert undefined_variables(shell_blocks) == []
