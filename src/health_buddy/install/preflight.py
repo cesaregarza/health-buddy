@@ -17,6 +17,7 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 from health_buddy.core.durability import private_umask
+from health_buddy.core.service_api import ServiceError
 from health_buddy.operator_diagnostics import port_state
 from health_buddy.runtime.manifest import (
     SHA256,
@@ -44,7 +45,11 @@ GUIDANCE = {
     "release_untrusted": "Obtain the manifest SHA256 through a trusted channel.",
     "release_invalid": "Retain artifacts and inspect immutable verification failure.",
     "source_mismatch": "Select the verified source bundle matching this release.",
-    "docker_cli_unavailable": "Have the operator inspect a native Docker executable.",
+    "docker_cli_unavailable": (
+        "Set --docker from INSPECTED_NATIVE_DOCKER in env.sh to an inspected "
+        "native executable, for example /usr/bin/docker (command -v docker). "
+        "A socket such as /var/run/docker.sock is not an executable."
+    ),
     "docker_socket_unavailable": "Inspect the local daemon/socket; do not auto-start.",
     "port_conflict": "Inspect the listener; never kill unknown services.",
 }
@@ -89,7 +94,7 @@ def preflight(
     manifest: Path,
     trusted_manifest_sha256: str,
     workspace: Path,
-    docker: Path,
+    docker: Path | None,
     port: int | None = None,
 ) -> dict[str, Any]:
     facts = host_facts()
@@ -274,13 +279,24 @@ def _verify_release(
         return None, "release_invalid"
 
 
-def _inspect_docker(docker: Path) -> tuple[dict[str, str], list[str]]:
+def require_docker(docker: Path | None) -> Path:
+    """Validate the selected CLI before a missing argument can become intent."""
+    try:
+        if docker is None:
+            raise ManifestError("docker_cli_unavailable")
+        docker_command(docker)
+    except (OSError, ManifestError):
+        raise ServiceError(422, "docker_cli_unavailable") from None
+    return docker
+
+
+def _inspect_docker(docker: Path | None) -> tuple[dict[str, str], list[str]]:
     state: dict[str, str] = {}
     refusals = []
     try:
-        docker_command(docker)
+        require_docker(docker)
         state["cli"] = "native_executable_not_invoked"
-    except (OSError, ManifestError):
+    except ServiceError:
         refusals.append("docker_cli_unavailable")
     state["socket"] = docker_socket_state()
     state["compose"] = "not_executed_or_qualified"
@@ -296,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--trusted-manifest-sha256", required=True)
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--docker", type=Path, required=True)
+    parser.add_argument("--docker", type=Path, nargs="?")
     parser.add_argument("--port", type=int, choices=range(1, 65536), metavar="PORT")
     args = parser.parse_args(argv)
     result = preflight(

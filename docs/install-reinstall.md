@@ -17,6 +17,7 @@ grant remains revoked. This command requires fresh-grant and AI-egress consent,
 but creates no grant or credential itself and never rotates a retained token.
 
 ```sh
+. "$HOME/health-buddy/env.sh"
 "$PYTHON" -m health_buddy.install.rearm \
   --journal "$PRIVATE_INSTALL/install.json" \
   --original-policy "$PRIVATE_CLIENT/policy.json" \

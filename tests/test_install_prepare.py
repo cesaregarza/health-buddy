@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from health_buddy import cli
-from health_buddy.install import prepare as install_prepare
 from health_buddy.core.domain import identity_value
-from health_buddy.security.runtime import open_runtime
 from health_buddy.core.service_api import ServiceError
+from health_buddy.install import prepare as install_prepare
+from health_buddy.security.runtime import open_runtime
 from tests.test_install_preflight import prepared
 
 
@@ -137,6 +137,33 @@ def test_other_refusals_keep_the_generic_preparation_code(
     assert install_prepare.main(command_line(selected)) == 2
     output = json.loads(capsys.readouterr().out)
     assert output["code"] == "install_preparation_refused"
+
+
+@pytest.mark.parametrize("docker_args", [[], ["--docker"], ["--docker", ""]])
+@pytest.mark.parametrize("resume", [False, True])
+def test_missing_docker_names_the_input_without_creating_or_changing_intent(
+    tmp_path, monkeypatch, capsys, docker_args, resume
+):
+    selected = inputs(tmp_path, monkeypatch)
+    if resume:
+        install_prepare.prepare(**selected)
+    before = selected["journal"].read_bytes() if selected["journal"].exists() else None
+    arguments = command_line(
+        {key: value for key, value in selected.items() if key != "docker"}
+    )
+    assert install_prepare.main([*arguments, *docker_args]) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "docker_cli_unavailable"
+    assert "--docker" in output["recovery"]
+    assert "INSPECTED_NATIVE_DOCKER" in output["recovery"]
+    assert "/usr/bin/docker" in output["recovery"]
+    assert "socket" in output["recovery"]
+    assert str(selected["workspace"]) not in json.dumps(output)
+    if before is None:
+        assert not selected["journal"].exists()
+        assert not any(selected["workspace"].iterdir())
+    else:
+        assert selected["journal"].read_bytes() == before
 
 
 @pytest.mark.parametrize("name", ["codex", "claude"])

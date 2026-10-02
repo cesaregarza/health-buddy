@@ -53,6 +53,7 @@ never use a hash computed from a downloaded file as the expected value.
 Replace the placeholder with the bundle URL, then run:
 
 ```sh
+umask 077
 mkdir -m 0700 "$HOME/health-buddy"
 curl -fL -o "$HOME/health-buddy/health-buddy-bundle.tar" '<bundle URL from the owner>'
 ```
@@ -148,9 +149,12 @@ never use `pip install -e`.
 
 Agent shells often forget variables between commands, so the rest of the
 installation reads them from one file. Replace the two placeholders with the
-manifest URL and SHA-256, then run:
+manifest URL and SHA-256, then create it once. On a resumed installation, keep
+the existing `env.sh` and run only its source/verification commands; recreating
+it would discard reviewed selections saved later:
 
 ```sh
+umask 077
 cat > "$HOME/health-buddy/env.sh" <<'EOF'
 umask 077
 export HB_HOME="$(realpath "$HOME")/health-buddy"
@@ -160,6 +164,12 @@ export PYTHON="$HB_HOME/venv/bin/python"
 export ARTIFACTS="$HB_HOME/artifacts"
 export PRIVATE_INSTALL="$HB_HOME/install"
 export OWNER_WORKSPACE="$HB_HOME/workspace"
+export PRIVATE_CLIENT="$HB_HOME/client"
+export PRIVATE_HTTPS_ORIGIN='https://health-buddy.local'
+export EXACT_OWNER_SUBJECT='owner'
+export OWNER_UID="$(id -u)"
+export OWNER_GID="$(id -g)"
+export NEW_PRIVATE_RECOVERY_TOKEN="$PRIVATE_INSTALL/recovered-owner-token"
 export PUBLISHER_MANIFEST_URL='<manifest URL from the owner>'
 export TRUSTED_MANIFEST_SHA256='<manifest SHA-256 from the owner>'
 export PYTHONPATH="$SOURCE/src"
@@ -170,7 +180,9 @@ EOF
 "$PYTHON" -m health_buddy.install.acquire --help
 ```
 
-`umask 077` keeps every file the installer and Git create private to you:
+Step 2's `umask 077` makes the downloaded archive private; repeating it before
+writing `env.sh` protects that file even in a fresh shell. The saved setting
+keeps every file the installer and Git create private to you:
 Ubuntu's default `002` would leave Git refs group-writable, which the runtime's
 readiness check refuses.
 
@@ -183,11 +195,15 @@ prints `runtime packaging operation completed; publication and qualification
 remain separate` and the second a usage line starting `usage: acquire.py`. A
 `ModuleNotFoundError` means step 6 did not finish: run it again. If the first
 check prints `runtime_packaging_failed`, the bundle has changed since
-extraction: move it aside as in step 4, then repeat steps 4 and 7.
+extraction: move it aside as in step 4, then repeat extraction and the two
+checks above using the retained `env.sh`.
 
-Start every later command block with `. "$HOME/health-buddy/env.sh"`. Later
-stages name further values the owner chooses, such as `INSPECTED_NATIVE_DOCKER`;
-add each to `env.sh` as one more `export` line once you have it.
+Start every later installation command block with
+`. "$HOME/health-buddy/env.sh"`. An `export` in a previous agent shell is not
+retained; save choices in this file before starting a stage. `HOME` is the
+owner shell's existing native home directory. `OWNER_UID` and `OWNER_GID` come
+from `id -u` and `id -g`; both must be nonzero for activation. Do not run these
+commands as root or substitute a different user's IDs.
 
 Keep the bundle byte-exact. Never run `pip install -e`; never install into,
 edit, format, test or build inside `$BUNDLE`; never run Python against it
@@ -195,30 +211,87 @@ without `env.sh` loaded. Acquire, preflight and prepare verify the bundle
 before they act and refuse one that differs from its manifest; the cure is to
 re-extract it from the checked archive (steps 4 and 7).
 
-### 8. Create the staging, journal and workspace directories
+### 8. Choose and persist the host and client values
+
+Review this table before preflight or owner setup. The bootstrap above selects
+the working local-only origin/subject example; it does not discover or guess
+the owner's Tailscale identity.
+
+| Variable | Exact rule and example | Discovery or owner choice |
+| --- | --- | --- |
+| `INSPECTED_NATIVE_DOCKER` | Absolute native path to a regular executable with no symlinks in the path, for example `/usr/bin/docker`. `/var/run/docker.sock` is a socket, not the CLI. | Run `command -v docker`, inspect the result and `stat` its ownership/mode. If it is a link, inspect the native target from `readlink -f` before selecting that target. No Docker daemon is contacted by preflight. |
+| `PRIVATE_HTTPS_ORIGIN` | Canonical HTTPS origin, at most 500 ASCII characters: lowercase DNS host, no trailing dot, whitespace, credentials, path (even `/`), query, fragment, backslash, percent escapes or `:443`. Canonical IPv4/bracketed IPv6 and nondefault ports are supported by config; this Serve flow uses port 443, omitted from the origin. Local-only example: `https://health-buddy.local`. Synthetic HTTPS example: `https://health-buddy.example.test`; replace it with the real Serve DNS origin. | For local-only use, keep the saved example. For phone/browser access, inspect `tailscale status --json` on the admitted host: use `https://` plus `Self.DNSName` without its trailing dot; confirm the machine's HTTPS name in the Tailscale admin console. |
+| `EXACT_OWNER_SUBJECT` | Exact, case-sensitive owner subject: 1–254 printable ASCII characters, no spaces/control characters and no `=?` sequence. Local-only example: `owner`. Tailscale login example: `user@github`; it is not an agent/client name. | For local-only use, keep `owner`. For Serve, inspect `tailscale whois <owner-device-tailnet-IP>` and use the owner's exact login identity, or read it from the Tailscale admin console. Do not use the device name or display name. |
+| `PRIVATE_CLIENT` | Native owner-controlled 0700 directory **outside** the workspace and bundle: `$HB_HOME/client`. | The saved path is beside the workspace. Step 9 creates only this directory and its `skills` parent. The owner later writes `policy.json`; the agent stage writes its own outputs. |
+
+Discover the Docker executable:
+
+```sh
+. "$HOME/health-buddy/env.sh"
+command -v docker
+```
+
+Done: an absolute executable path, commonly `/usr/bin/docker`. If none is
+printed, stop and have the owner install/admit native Docker and Compose.
+After inspecting that executable, replace `/usr/bin/docker` below if necessary
+and persist it with this exact append-and-reload step:
+
+```sh
+. "$HOME/health-buddy/env.sh"
+echo 'export INSPECTED_NATIVE_DOCKER=/usr/bin/docker' >> "$HOME/health-buddy/env.sh"
+. "$HOME/health-buddy/env.sh"
+```
+
+For a host without Tailscale, keep the saved `https://health-buddy.local` / `owner`
+pair and proceed through owner setup, activation and agent setup. These are
+stored origin/identity expectations, **not a configured HTTPS route**. The
+same-host MCP adapter uses `security/runtime/http.sock` and its scoped bearer
+token; this connection requires neither Tailscale nor a network HTTPS request.
+Phone/browser access waits for a real private HTTPS route.
+
+If the owner already knows the real future origin and subject, replace those
+two exports in `env.sh` with the reviewed values **before owner setup**, reload
+the file, and then proceed; the Tailscale daemon may still be deferred. Owner
+setup binds both values and retries require the original selection. Changing
+them afterwards requires a separately reviewed lifecycle/migration procedure;
+there is no supported installer rebinding command, and reinstall/rearm does
+not change them. Never edit a bound config or journal to force a new selection.
+
+### 9. Create only the staging, journal, workspace and client parents
 
 ```sh
 . "$HOME/health-buddy/env.sh"
 mkdir -m 0700 "$ARTIFACTS" "$PRIVATE_INSTALL" "$OWNER_WORKSPACE"
-stat -c '%a %U %n' "$ARTIFACTS" "$PRIVATE_INSTALL" "$OWNER_WORKSPACE"
+mkdir -m 0700 "$PRIVATE_CLIENT" "$PRIVATE_CLIENT/skills"
+stat -c '%a %U %n' "$ARTIFACTS" "$PRIVATE_INSTALL" "$OWNER_WORKSPACE" "$PRIVATE_CLIENT" "$PRIVATE_CLIENT/skills"
 printf '%s\n' "$OWNER_WORKSPACE" | grep -Ex '/[A-Za-z0-9_./-]+'
 ```
 
-Done: three lines starting with `700` and your user name, then the workspace
-path once more. Create them only with this command: plain `mkdir` or
-`mkdir -p` leaves a mode the stages refuse, reported by acquire as
+Done: five lines starting with `700` and your user name, then the workspace
+path once more. Use these explicit modes even if a fresh shell has forgotten
+the private umask. Plain `mkdir` or `mkdir -p` under the default `002` leaves
+a mode the stages refuse, reported by acquire as
 `install_acquire_staging_unavailable` for the staging directory, by preflight
 as `permissions_partial` for the workspace and by prepare as
 `install_preparation_refused` for the journal directory. `File exists` on a
-rerun is fine when all three lines still show `700` and your user; otherwise
+rerun is fine when all five lines still show `700` and your user; otherwise
 stop and ask the owner, and never change the mode, owner or contents of an
 existing directory. If the last command prints nothing, the path holds
 characters activation refuses (anything but letters, digits and `_./-`): stop
 and ask the owner where to install.
 
-Leave all three empty. Acquire downloads the manifest and image archives into
-`$ARTIFACTS` itself and refuses files it did not put there, and preflight
-treats a non-empty workspace as an existing installation.
+Leave staging, journal and workspace empty. Acquire downloads the manifest and
+image archives into `$ARTIFACTS` itself and refuses files it did not put there,
+and preflight treats a non-empty workspace as an existing installation.
+
+Under `$PRIVATE_CLIENT`, only the empty `skills` parent may exist at this point.
+Do not precreate `agent-token`, `adapter.json`, `retries`, `config.toml` or
+`skills/health-buddy`. The policy block in the agent section creates the one
+owner-authored input, `policy.json`, after review. The agent stage creates the
+token, settings, client configuration and managed skill files; the adapter
+creates `retries` when it needs durable retry state. It must also be absent on
+the first handoff. For this fresh-client example, nothing else goes under
+`PRIVATE_CLIENT` before that stage.
 
 | Variable | Path | Used as |
 | --- | --- | --- |
@@ -228,6 +301,7 @@ treats a non-empty workspace as an existing installation.
 | `ARTIFACTS` | `$HB_HOME/artifacts` | acquire's `--staging`; holds `runtime-manifest.json` afterwards |
 | `PRIVATE_INSTALL` | `$HB_HOME/install` | the `install.json` journal and `runtime.env` |
 | `OWNER_WORKSPACE` | `$HB_HOME/workspace` | the owner's data, `--workspace` |
+| `PRIVATE_CLIENT` | `$HB_HOME/client` | owner-authored policy and stage-created client outputs |
 
 `HB_HOME` is `$HOME/health-buddy` with symbolic links resolved. Next, run the
 acquire stage.
@@ -252,7 +326,7 @@ Done: it prints `"artifactsVerified": true`. Do not download the manifest or the
 image archives yourself; this command fetches them. These refusals come before
 any network activity and point back to the bootstrap:
 `install_acquire_staging_unavailable` means `$ARTIFACTS` is missing or is not
-a mode-0700 directory you own (step 8);
+a mode-0700 directory you own (step 9);
 `install_acquire_source_identity_mismatch` means the bundle no longer matches
 its manifest, so re-extract it from the checked archive (steps 4 and 7);
 `install_acquire_unowned_staging_entries` means something other than acquire
@@ -369,8 +443,12 @@ journal and the originally pinned bundle/artifacts across restarts.
 ```
 
 A source tree that no longer matches its manifest refuses as
-`install_preparation_source_identity_mismatch` before the first write; every
-other refusal is `install_preparation_refused`.
+`install_preparation_source_identity_mismatch` before the first write.
+Both preflight and prepare report `docker_cli_unavailable` for a missing,
+empty or invalid `--docker`: reload `env.sh` and select the inspected native
+executable, for example `/usr/bin/docker`, not `/var/run/docker.sock`.
+Prepare checks that argument before writing any intent. Other preparation
+refusals are `install_preparation_refused`.
 
 The first write durably binds the original workspace, source bundle, release pin
 and inspected Docker path before invoking the existing create-only initializer.
@@ -393,12 +471,15 @@ workspace config remains local/native until the owner separately configures the
 reviewed private ingress/security workflow. The owner setup and runtime activation steps below supply the next explicit
 admissions; preparation starts no service.
 
-After the owner independently establishes the matching private origin/authority,
-an explicit reviewed MCP adapter/settings file and credential may be supplied:
+Optional existing-credential workflow: skip this variant for the default guided
+install, which uses the agent stage below to create its grant and settings.
+After the owner independently establishes matching origin/authority and authors
+an explicit reviewed `$PRIVATE_CLIENT/adapter.json` plus credential, prepare can
+connect that existing profile. It does not create those inputs:
 
 ```sh
 . "$HOME/health-buddy/env.sh"
-"$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --client codex --client-config "$CONFIG" --skill-directory "$SKILL_DIRECTORY" --settings "$PRIVATE_SETUP/adapter.json" --python "$PYTHON"
+"$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --settings "$PRIVATE_CLIENT/adapter.json" --python "$PYTHON"
 ```
 
 Use `--client claude` with the `.mcp.json` private launcher and supported skill
@@ -421,10 +502,12 @@ health tools, public logs or chat.
 ## Guided native owner setup
 
 After default preparation, admit an exact HTTPS origin and exact owner subject
-for managed UDS ingress. Supplying them configures local trust expectations; it
-does not sign in to Tailscale, provision HTTPS or verify a remote identity. Run as
-the existing nonroot workspace owner, with its nonzero group and private native
-credential-output directory. Stop other writers/editors during this action.
+from step 8 for managed UDS ingress. On a no-Tailscale host the saved local-only
+pair is sufficient for activation and same-host agent setup. Supplying it
+configures local trust expectations; it does not sign in to Tailscale, provision
+HTTPS or verify a remote identity. Run as the existing nonroot workspace owner,
+with its nonzero group and private native credential-output directory. Stop
+other writers/editors during this action.
 
 The prepared default has HealthKit disabled with mode `read-only`. A reservation
 or private pairing proof does not prove redemption or ingest can work. Before
@@ -475,6 +558,10 @@ An empty output or incomplete/mismatched authority refuses with
 `install_owner_partial_requires_explicit_recovery`. Keep the checkpoint and
 partial files for inspection. Deliberate existing OS-owner recovery uses a **new**
 private credential output and revokes every previous credential:
+
+`NEW_PRIVATE_RECOVERY_TOKEN` is already saved in `env.sh` as
+`$PRIVATE_INSTALL/recovered-owner-token`. It must be absent; review a different
+new native path and persist it before recovery if that path already exists.
 
 ```sh
 . "$HOME/health-buddy/env.sh"
@@ -555,6 +642,12 @@ current activation evidence lives in the private journal's `activation` record.
 
 ## Scoped private HTTPS Serve
 
+Skip this section for the local-only origin/subject selection and continue with
+agent setup below. If owner setup already bound the real Tailscale values,
+private HTTPS may be configured now or later without replacing the agent grant.
+The local-only example does not match a Tailscale Serve DNS name; see step 8's
+lifecycle review requirement before changing a bound selection.
+
 This first Serve path targets the exact Tailscale **1.102.5** CLI/daemon interface
 from immutable upstream source
 [5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115](https://github.com/tailscale/tailscale/tree/5fb2a81b065b0a0bbbfc67ab20a0d9c6a1108115).
@@ -581,7 +674,22 @@ owner-action codes without raw auth URLs or daemon logs.
 
 Use explicit native executable and local daemon-socket paths. The local API must
 already have an owned healthy activation, ready security authority and existing
-managed UDS socket. The read-only dry-run observes these states and Serve config;
+managed UDS socket. Discover the CLI with `command -v tailscale`; inspect its
+native executable target and the daemon's `--socket` setting (for a systemd
+installation, `systemctl cat tailscaled`). The usual native paths are
+`/usr/bin/tailscale` and `/run/tailscale/tailscaled.sock`. Replace them below if
+the admitted installation differs, then save them once before the dry-run:
+
+```sh
+. "$HOME/health-buddy/env.sh"
+cat >> "$HOME/health-buddy/env.sh" <<'EOF'
+export ADMITTED_NATIVE_TAILSCALE=/usr/bin/tailscale
+export LOCAL_TAILSCALED_SOCKET=/run/tailscale/tailscaled.sock
+EOF
+. "$HOME/health-buddy/env.sh"
+```
+
+The read-only dry-run observes these states and Serve config;
 it writes no journal or workspace files and creates no route:
 
 ```sh
@@ -634,11 +742,36 @@ managed socket. Private HTTPS remains for the phone and browser, before or after
 this step. Until activation is `active`, setup refuses with
 `install_agent_requires_active_runtime`. After owned runtime activation, review a
 private 0600 policy file with exactly `name`, `grants`, `sourceIds`, `readSources`,
-`readKinds`, and `readFields`. For example, a synthetic manual-only policy is:
+`readKinds`, and `readFields`. Review the manual-only example below, changing its
+name/scopes to the owner's selection before running it once. The subshell's
+`noclobber` refuses an existing policy instead of overwriting it; on a retry,
+keep and review the original policy rather than recreating it:
 
-```json
-{"name":"Synthetic Health Buddy agent","grants":["records:read","records:write"],"sourceIds":["manual"],"readSources":["manual"],"readKinds":["workout","weight","hydration"],"readFields":null}
+```sh
+. "$HOME/health-buddy/env.sh"
+(
+  set -o noclobber
+  cat > "$PRIVATE_CLIENT/policy.json" <<'EOF'
+{
+  "name": "Health Buddy manual agent",
+  "grants": ["records:read", "records:write"],
+  "sourceIds": ["manual"],
+  "readSources": ["manual"],
+  "readKinds": ["body-mass", "water-intake", "workout-session", "workout-set", "cardio-segment"],
+  "readFields": null
+}
+EOF
+)
+stat -c '%a %U %n' "$PRIVATE_CLIENT/policy.json"
 ```
+
+Done: `600` and your user name. This policy is the owner-authored input.
+
+`readKinds` uses canonical record names: `body-mass` for weight,
+`water-intake` for hydration, and `workout-session`, `workout-set` and
+`cardio-segment` for workout records. These are the names reported by
+`capabilities.recordKinds`; display labels such as `weight` or `workout` do not
+match them. This example does not authorize reading other manual record kinds.
 
 `null` read fields deliberately authorizes all fields within those selected
 sources/kinds. Select only the scopes you want to disclose to the AI client;
@@ -646,10 +779,13 @@ sources/kinds. Select only the scopes you want to disclose to the AI client;
 `grants.create/list` validator and current native owner token authentication.
 No new authority or source registration is created by the installer.
 
-Choose absent private token/settings/retry paths, a native client config and the
-supported standalone `health-buddy` skill directory. Parent directories must be
-0700. Existing unrelated client settings are preserved by `connect_agent`;
-owned local edits refuse further changes. Stop competing config/grant editors
+Use the saved external `PRIVATE_CLIENT` and its 0700 `skills` parent from step 9.
+Keep token/settings/retry paths and the fresh example's client config and
+`skills/health-buddy` directory absent. Do not `mkdir retries` or create empty
+token/settings files; the installer/adapter owns those outputs. Existing unrelated
+client settings, when deliberately selecting an existing native config instead,
+are preserved by `connect_agent`; owned local edits refuse further changes.
+Stop competing config/grant editors
 while running this explicit setup. No client process is launched:
 
 ```sh
@@ -657,6 +793,15 @@ while running this explicit setup. No client process is launched:
 "$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
+
+Done: `agentGrantRetained: true` and `clientConfigurationPrepared: true`.
+`install_agent_unowned_handoff_or_grant` with `conflictingPath` names the actual
+pre-existing token/settings/retry path in this private owner CLI response; its
+contents are never printed. Retain the path and journal, inspect which files
+belong to an earlier installation, then select new absent outputs for a first
+handoff or move unrelated files only after owner review. Do not delete recovery
+material to force progress. A same-name grant conflict keeps that code without
+a path and needs owner grant reconciliation. Keep path-bearing output private.
 
 To log from the owner's shell, run
 `"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local <YYYY-MM-DDTHH:MM:SS> --weight-lb <lb>`;
@@ -682,7 +827,7 @@ first slice does not automatically adopt a replacement credential or epoch.
 Status authenticates existing owner/agent authority and lists canonical devices;
 it does not create pairings or fetch health records. Authentication can update
 existing security budgets, so this is not a byte-for-byte read-only workspace
-operation. Optional `--pairing-id "$PRIVATE_PAIRING_ID"` reports only the finite
+operation. Optional `--pairing-id <reviewed-pairing-ID>` reports only the finite
 pairing status, omitting identifiers, approval paths, names and secret values.
 Log in as owner and open `/security` (heading “Connect a phone”) for deliberate owner approval
 and private short-lived proof delivery to the phone. No installer log includes
@@ -744,10 +889,13 @@ removed only after config and all owned files are durably removed.
 
 ## Synthetic checks and acceptance boundary
 
-Use the canonical guide's pinned setup. Select relevant checks for the component
-being maintained; the complete installer synthetic gate is:
+Use the canonical guide's pinned setup in a separate native development
+checkout, never in the installed bundle. Select relevant checks for the component
+being maintained; from that checkout with its `.venv`, the installer synthetic
+gate is:
 
 ```sh
+PYTHON="$(realpath .venv/bin/python)"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m pytest -p no:cacheprovider tests/test_install_acquire.py tests/test_install_preflight.py tests/test_install_prepare.py tests/test_install_owner.py tests/test_install_activation.py tests/test_install_https.py tests/test_install_agent.py tests/test_install_remove.py tests/test_connect_removal.py tests/test_agent_guide.py tests/test_runtime_bundle_asset.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff check src/health_buddy/install src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py tests/test_runtime_bundle_asset.py
 RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/health_buddy/install src/health_buddy/connect_agent.py tests/test_install_*.py tests/test_connect_removal.py tests/test_runtime_bundle_asset.py

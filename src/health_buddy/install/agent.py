@@ -44,6 +44,14 @@ PENDING = (
 )
 
 
+class HandoffConflict(ServiceError):
+    """Native-owner CLI context, kept out of transport-safe error details."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(409, "install_agent_unowned_handoff_or_grant")
+        self.path = path
+
+
 def owner(record: dict[str, Any]) -> tuple[Runtime, Authenticated]:
     retained = record.get("ownerSetup")
     if not isinstance(retained, dict) or retained.get("phase") != "ready":
@@ -306,9 +314,10 @@ def _first_progress(
         raise ServiceError(
             409, "install_agent_rotation_requires_pending_missing_secret"
         )
-    if any(path.exists() for path in handoff) or any(
-        actor.get("name") == grant.name for actor in inventory
-    ):
+    for path in handoff:
+        if path.exists():
+            raise HandoffConflict(path)
+    if any(actor.get("name") == grant.name for actor in inventory):
         raise ServiceError(409, "install_agent_unowned_handoff_or_grant")
     return {
         "binding": selected,
@@ -489,6 +498,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--acknowledge-ai-egress", action="store_true")
     try:
         value = setup(**vars(parser.parse_args(argv)))
+    except HandoffConflict as error:
+        print(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "code": error.code,
+                    "connected": False,
+                    "conflictingPath": str(error.path),
+                    "recovery": (
+                        "Keep the existing path and journal for owner inspection. "
+                        "Before a first handoff, choose absent token/settings/retry "
+                        "outputs; create only their private parent directories. "
+                        "Move unrelated files only after owner review; never "
+                        "delete recovery material to force setup."
+                    ),
+                }
+            )
+        )
+        return 2
     except ServiceError as error:
         print(
             json.dumps(

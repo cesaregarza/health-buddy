@@ -42,7 +42,13 @@ def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
                 "grants": ["records:read", "records:write"],
                 "sourceIds": ["manual"],
                 "readSources": ["manual"],
-                "readKinds": ["workout", "weight", "hydration"],
+                "readKinds": [
+                    "body-mass",
+                    "water-intake",
+                    "workout-session",
+                    "workout-set",
+                    "cardio-segment",
+                ],
                 "readFields": None,
             }
         )
@@ -205,4 +211,42 @@ def test_settings_create_race_refuses_unowned_valid_profile(tmp_path, monkeypatc
     monkeypatch.setattr(install_agent, "create_file", create)
     with pytest.raises(ServiceError, match="settings_locally_changed"):
         install_agent.setup(**arguments)
+    assert not arguments["skill_directory"].exists()
+
+
+@pytest.mark.parametrize("existing", ["agent_token", "settings", "retry_root"])
+def test_first_handoff_conflict_names_the_path_and_preserves_unowned_content(
+    tmp_path, monkeypatch, capsys, existing
+):
+    arguments, selected, _identity, _note = connection_fixture(
+        tmp_path, monkeypatch, private_https=False
+    )
+    path = arguments[existing]
+    sentinel = "synthetic-private-content-never-print"
+    if existing == "retry_root":
+        path.mkdir(mode=0o700)
+        retained = path / "pending.json"
+    else:
+        retained = path
+    retained.write_text(sentinel)
+    retained.chmod(0o600)
+    before = selected["journal"].read_bytes()
+    argv = [
+        f"--{key.replace('_', '-')}={value}"
+        for key, value in arguments.items()
+        if not isinstance(value, bool)
+    ]
+    argv += ["--confirm-grant", "--acknowledge-ai-egress"]
+    assert install_agent.main(argv) == 2
+    output = capsys.readouterr().out
+    result = json.loads(output)
+    assert result["code"] == "install_agent_unowned_handoff_or_grant"
+    assert result["conflictingPath"] == str(path)
+    assert "absent token/settings/retry" in result["recovery"]
+    assert "owner review" in result["recovery"]
+    assert sentinel not in output
+    assert retained.read_text() == sentinel
+    assert selected["journal"].read_bytes() == before
+    runtime, admitted = install_agent.owner(json.loads(before))
+    assert install_agent.actors(runtime, admitted) == []
     assert not arguments["skill_directory"].exists()
