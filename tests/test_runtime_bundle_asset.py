@@ -233,7 +233,7 @@ def assert_private_bootstrap(home: Path, tools: Path, owner: dict[str, str]) -> 
         "owner",
         str(root / "client"),
     ]
-    policy, _setup = blocks("Explicit agent grant and redacted owner status")
+    policy, _setup, *_variants = blocks("Explicit agent grant and redacted owner status")
     run(policy, home, tools, owner)
     policy_path = root / "client/policy.json"
     assert policy_path.stat().st_mode & 0o777 == 0o600
@@ -245,7 +245,7 @@ def test_documented_policy_can_write_and_read_back_manual_weight(tmp_path, monke
     arguments, selected, _identity, _note = connection_fixture(
         tmp_path, monkeypatch, private_https=False
     )
-    policy, _setup = blocks("Explicit agent grant and redacted owner status")
+    policy, _setup, *_variants = blocks("Explicit agent grant and redacted owner status")
     # Use the exact owner-authored JSON, not a second copy of the policy.
     policy_json = policy.split("<<'EOF'\n", 1)[1].split("\nEOF", 1)[0]
     arguments["policy"].write_text(policy_json)
