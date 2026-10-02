@@ -12,7 +12,9 @@ model client automatically.
 Health Buddy is installed only when the activation stage prints
 `"runtimeActivated": true` and `health_buddy.install.status` then prints
 `"runtimeLastActive": true`. Development mode (`--development`) is never an
-installation, and an agent installing for an owner never uses it.
+installation, an agent installing for an owner never uses it, and it refuses a
+workspace an installation has prepared
+(`development_mode_refused_on_installed_workspace`).
 
 Verification uses synthetic host responses and real local workspace/authority/
 client files. Actual owner-host/HTTPS/phone acceptance remains unqualified, and
@@ -655,6 +657,10 @@ while running this explicit setup. No client process is launched:
 "$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
+
+To log from the owner's shell, run
+`"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local <YYYY-MM-DDTHH:MM:SS> --weight-lb <lb>`;
+`log measurement --help` lists the fields it accepts.
 
 For Claude, choose `--client claude` and its supported project `.mcp.json`;
 see [Codex integration](codex-integration.md) and
