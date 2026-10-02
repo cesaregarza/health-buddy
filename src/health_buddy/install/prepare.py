@@ -22,7 +22,7 @@ from health_buddy.core.operations import Service
 from health_buddy.core.security_api import IngressConfig
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import initialize
-from health_buddy.install.preflight import preflight
+from health_buddy.install.preflight import GUIDANCE, preflight, require_docker
 from health_buddy.mcp.settings import Settings
 from health_buddy.security.runtime import open_runtime
 from health_buddy.upgrade.staging import preflight as upgrade_preflight
@@ -59,6 +59,7 @@ WORKSPACE_ENTRIES = (
 # Recovery for each refusal main reports. Only a cause the owner can act on
 # directly is named; every other failure stays the fixed generic refusal.
 RECOVERY = {
+    "docker_cli_unavailable": GUIDANCE["docker_cli_unavailable"],
     "install_preparation_refused": (
         "Retain the journal and original inputs; "
         "inspect private ownership and source/client checks."
@@ -96,7 +97,7 @@ def prepare(
     manifest: Path,
     trusted_manifest_sha256: str,
     workspace: Path,
-    docker: Path,
+    docker: Path | None,
     client: str | None = None,
     client_config: Path | None = None,
     skill_directory: Path | None = None,
@@ -104,6 +105,7 @@ def prepare(
     python: Path | None = None,
 ) -> dict[str, Any]:
     """Bind before first write; resume identical input, preserve owner additions."""
+    docker = require_docker(docker)
     journal = private_path(journal)
     native_path(journal)
     private_directory(journal.parent)
@@ -286,8 +288,9 @@ def _validate_client_settings(
 @private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("journal", "bundle", "manifest", "workspace", "docker"):
+    for name in ("journal", "bundle", "manifest", "workspace"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--docker", type=Path, nargs="?")
     parser.add_argument("--trusted-manifest-sha256", required=True)
     parser.add_argument("--client", choices=("codex", "claude"))
     for name in ("client-config", "skill-directory", "settings", "python"):

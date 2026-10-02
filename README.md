@@ -22,6 +22,11 @@ refusal, keep the journal and inputs, then follow the printed `recovery` and
 the doc's notes on that `code`. Rerunning the identical command resumes an
 interrupted step.
 
+Without Tailscale, use the guide's explicit local-only origin/subject values and
+connect a same-host agent through the managed Unix socket. Those values do not
+configure HTTPS. If future phone/browser values are known, choose them before
+owner setup; changing that bound selection later needs lifecycle review.
+
 ## Status
 
 Private pre-release: no release or tag exists. Manually dispatched CI builds

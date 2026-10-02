@@ -145,9 +145,7 @@ def test_changed_source_names_the_file_to_re_extract(tmp_path, monkeypatch):
     assert str(inputs["bundle"]) not in json.dumps(result)
 
 
-def test_bytecode_from_running_the_bundle_in_place_still_passes(
-    tmp_path, monkeypatch
-):
+def test_bytecode_from_running_the_bundle_in_place_still_passes(tmp_path, monkeypatch):
     inputs = prepared(tmp_path, monkeypatch)
     plant_bytecode(inputs["bundle"] / "source")
     result = install_preflight.preflight(**inputs)
@@ -191,6 +189,40 @@ def test_unsupported_resources_and_missing_docker_have_stable_refusals(
         "docker_socket_unavailable",
     } <= codes(result)
     assert not result["preflightPassed"]
+
+
+@pytest.mark.parametrize("docker_args", [[], ["--docker"], ["--docker", ""]])
+def test_missing_or_empty_docker_cli_names_the_required_executable(
+    tmp_path, monkeypatch, capsys, docker_args
+):
+    inputs = prepared(tmp_path, monkeypatch)
+    arguments = [
+        f"--{key.replace('_', '-')}={value}"
+        for key, value in inputs.items()
+        if key != "docker"
+    ]
+    assert install_preflight.main([*arguments, *docker_args]) == 2
+    result = json.loads(capsys.readouterr().out)
+    (diagnostic,) = result["diagnostics"]
+    assert diagnostic["code"] == "docker_cli_unavailable"
+    assert "--docker" in diagnostic["recovery"]
+    assert "INSPECTED_NATIVE_DOCKER" in diagnostic["recovery"]
+    assert "/usr/bin/docker" in diagnostic["recovery"]
+    assert "socket" in diagnostic["recovery"]
+    assert not result["preflightPassed"]
+    assert not any(inputs["workspace"].iterdir())
+
+
+def test_docker_socket_is_refused_as_an_executable(tmp_path, monkeypatch):
+    inputs = prepared(tmp_path, monkeypatch)
+    with socket.socket(socket.AF_UNIX) as daemon:
+        path = tmp_path / "docker.sock"
+        daemon.bind(str(path))
+        path.chmod(0o700)
+        result = install_preflight.preflight(**{**inputs, "docker": path})
+    assert "docker_cli_unavailable" in codes(result)
+    assert not result["preflightPassed"]
+    assert str(path) not in json.dumps(result)
 
 
 def test_linked_target_refuses_before_personal_inventory(tmp_path, monkeypatch):
