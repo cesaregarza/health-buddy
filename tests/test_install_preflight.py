@@ -1,22 +1,24 @@
 """Synthetic pinned release dry-run; no Docker/host mutation or health reads.
 
-prepared(maintenance=True) adds a real bundle of this checkout's packages: each
-test process commits and packs it once, keeps that original read-only and
-copies it for every test. It also memoizes the MCP readiness probe, which
-starts an interpreter that imports the SDK: once the real probe has passed for
-this interpreter and these source bytes, the same probe is not run again in
-this process. Every other probe, and every failure, is real.
+prepared(maintenance=True) adds a real bundle of this checkout's packages and
+its pinned release: each test process builds them once, keeps that original
+read-only and copies it for every test. It also memoizes the MCP readiness
+probe, which starts an interpreter that imports the SDK: once the real probe
+has passed for this interpreter and these source bytes, the same probe is not
+run again in this process. Every other probe, and every failure, is real.
 """
 
 import contextlib
 import functools
 import hashlib
 import json
+import os
 import shutil
 import socket
 import stat
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -44,47 +46,104 @@ ROOT = Path(__file__).resolve().parents[1]
 READY_SOURCES: set[bytes] = set()
 
 
+def pinned_release(bundle: Path, artifacts: Path) -> Path:
+    """Both architecture archives, labelled for the bundle's source, pinned."""
+    identity = verify_source_identity(
+        bundle / "source", bundle / "release/source-manifest.json"
+    )
+    artifacts.mkdir()
+    labels = {
+        "org.opencontainers.image.revision": identity.source_commit,
+        "org.opencontainers.image.version": identity.package_version,
+        "io.health-buddy.source-archive-sha256": identity.source_archive_sha256,
+        "io.health-buddy.input-lock-sha256": hashlib.sha256(
+            (bundle / "source/packaging/runtime-inputs.json").read_bytes()
+        ).hexdigest(),
+    }
+    for architecture in ("amd64", "arm64"):
+        make_archive(
+            artifacts / f"health-buddy-linux-{architecture}.docker.tar",
+            architecture=architecture,
+            config_override={"config": {"Labels": labels}},
+        )
+    return create_release(bundle, artifacts)
+
+
+def entries(root: Path) -> list[str]:
+    """root and every entry under it, without pathlib's cost per entry."""
+    paths = [str(root)]
+    for folder, folders, files in os.walk(root):
+        paths += [os.path.join(folder, name) for name in (*folders, *files)]
+    return paths
+
+
+def change_times(root: Path) -> dict[str, int]:
+    """Any write, rename, chmod or new entry under root moves one of these."""
+    return {path: os.lstat(path).st_ctime_ns for path in entries(root)}
+
+
+def chmod_tree(root: Path, change: Callable[[int], int]) -> None:
+    for path in entries(root):
+        os.chmod(path, change(stat.S_IMODE(os.lstat(path).st_mode)))
+
+
 @functools.cache
-def maintenance_original(base: Path) -> Path:
-    """Built once per test process, under base: the parent of every tmp_path."""
+def maintenance_original(base: Path) -> tuple[Path, dict[str, int]]:
+    """The read-only maintenance bundle and release, and their change times.
+
+    Built once per test process under base, the parent of every tmp_path.
+    """
     # A fresh directory per attempt, so a failed build repeats its own error.
     work = Path(tempfile.mkdtemp(prefix="maintenance-original-", dir=base))
-    # context_fixture's repository holds the synthetic packaging contract; add
-    # the files prepare and the bootstrap read, and this checkout's packages.
-    context_fixture(work)
-    repository = work / "repository"
-    for name in (
-        *MAINTENANCE_REFERENCES,
-        "packaging/compose.yaml",
-        "scripts/package_runtime.py",
-    ):
-        destination = repository / name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes((ROOT / name).read_bytes())
-    shutil.copytree(
-        ROOT / "src",
-        repository / "src",
-        dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-    )
-    git(repository, "add", ".")
-    git(repository, "commit", "--quiet", "-m", "Synthetic maintenance references")
-    original = work / "maintenance-bundle"
-    create_bundle(repository, git(repository, "rev-parse", "HEAD"), original)
-    for path in (original, *original.rglob("*")):
-        path.chmod(stat.S_IMODE(path.lstat().st_mode) & ~0o222)
-    return original
+    previous = os.umask(0o022)  # The same modes whichever test builds it.
+    try:
+        # context_fixture's repository holds the synthetic packaging contract;
+        # add the files prepare and the bootstrap read, and the packages the
+        # stages import.
+        context_fixture(work)
+        repository = work / "repository"
+        for package in ("health_buddy", "health_ingest"):
+            shutil.copytree(
+                ROOT / "src" / package,
+                repository / "src" / package,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+            )
+        for name in (
+            *MAINTENANCE_REFERENCES,
+            "packaging/compose.yaml",
+            "scripts/package_runtime.py",
+        ):
+            destination = repository / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((ROOT / name).read_bytes())
+        git(repository, "add", ".")
+        git(repository, "commit", "--quiet", "-m", "Synthetic maintenance references")
+        original = work / "original"
+        original.mkdir()
+        bundle = original / "maintenance-bundle"
+        create_bundle(repository, git(repository, "rev-parse", "HEAD"), bundle)
+        pinned_release(bundle, original / "artifacts")
+    finally:
+        os.umask(previous)
+    chmod_tree(original, lambda mode: mode & ~0o222)
+    return original, change_times(original)
+
+
+def maintenance_copy(tmp_path: Path, name: str) -> Path:
+    """This test's own writable copy of one directory of the original."""
+    # pytest makes every tmp_path in the session's (or xdist worker's) base.
+    original, built = maintenance_original(tmp_path.parent)
+    # Root ignores the read-only modes, so a change must still be caught here.
+    assert change_times(original) == built, "a test changed the shared original"
+    copy = tmp_path / name
+    shutil.copytree(original / name, copy)
+    # Under umask 022 the builders granted write to the owner only.
+    chmod_tree(copy, lambda mode: mode | 0o200)
+    return copy
 
 
 def maintenance_bundle(tmp_path: Path) -> Path:
-    """This test's own writable copy of the process's read-only original."""
-    bundle = tmp_path / "maintenance-bundle"
-    # pytest makes every tmp_path in the session's (or xdist worker's) base.
-    shutil.copytree(maintenance_original(tmp_path.parent), bundle)
-    # create_bundle grants write to the owner only; this restores its modes.
-    for path in (bundle, *bundle.rglob("*")):
-        path.chmod(stat.S_IMODE(path.lstat().st_mode) | 0o200)
-    return bundle
+    return maintenance_copy(tmp_path, "maintenance-bundle")
 
 
 def readiness_once(python: Path, source: Path) -> None:
@@ -106,33 +165,13 @@ def readiness_once(python: Path, source: Path) -> None:
 def prepared(tmp_path, monkeypatch, *, maintenance=False):
     if maintenance:
         bundle = maintenance_bundle(tmp_path)
+        manifest = maintenance_copy(tmp_path, "artifacts") / "runtime-manifest.json"
         # agent.setup probes, then connect() probes again.
         monkeypatch.setattr(install_agent, "check_mcp_readiness", readiness_once)
         monkeypatch.setattr(connect_agent, "check_mcp_readiness", readiness_once)
     else:
         bundle, _ = context_fixture(tmp_path)
-    # For a copy, this also names the first file an earlier test changed in the
-    # original.
-    identity = verify_source_identity(
-        bundle / "source", bundle / "release/source-manifest.json"
-    )
-    artifacts = tmp_path / "artifacts"
-    artifacts.mkdir()
-    labels = {
-        "org.opencontainers.image.revision": identity.source_commit,
-        "org.opencontainers.image.version": identity.package_version,
-        "io.health-buddy.source-archive-sha256": identity.source_archive_sha256,
-        "io.health-buddy.input-lock-sha256": hashlib.sha256(
-            (bundle / "source/packaging/runtime-inputs.json").read_bytes()
-        ).hexdigest(),
-    }
-    for architecture in ("amd64", "arm64"):
-        make_archive(
-            artifacts / f"health-buddy-linux-{architecture}.docker.tar",
-            architecture=architecture,
-            config_override={"config": {"Labels": labels}},
-        )
-    manifest = create_release(bundle, artifacts)
+        manifest = pinned_release(bundle, tmp_path / "artifacts")
     workspace = tmp_path / "persistent-owner"
     workspace.mkdir(mode=0o700)
     docker = tmp_path / "docker"
