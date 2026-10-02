@@ -159,6 +159,32 @@ class Qualification:
                 raise ManifestError("runtime_wire_limit")
         return bytes(result)
 
+    def require_classic_image_store(self) -> None:
+        raw = self.dc("docker-info", "info", "--format", "{{json .DriverStatus}}")
+        try:
+            status = json.loads(raw)
+        except ValueError:
+            status = None
+        if not isinstance(status, list) or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) or not value for value in pair)
+            for pair in status
+        ):
+            raise ManifestError(
+                "docker_driver_status_invalid: docker info .DriverStatus must be "
+                "a JSON list of string pairs; inspect the daemon before retrying"
+            )
+        if any(
+            key == "driver-type" and value.startswith("io.containerd.snapshotter.")
+            for key, value in status
+        ):
+            raise ManifestError(
+                "classic_image_store_required: set features.containerd-snapshotter "
+                "to false in /etc/docker/daemon.json and restart Docker on the "
+                "isolated runner before retrying"
+            )
+
     def execute(self) -> None:
         if self.architecture == "amd64" and self.sdk_python is None:
             raise ManifestError("amd64_packaged_sdk_interpreter_required")
@@ -218,7 +244,7 @@ class Qualification:
         if not stat.S_ISSOCK(peer.st_mode):
             raise ManifestError("local_docker_socket_required")
         self.dc("docker-version", "version", "--format", "{{.Server.Version}}")
-        self.dc("docker-info", "info", "--format", "{{json .DriverStatus}}")
+        self.require_classic_image_store()
         self.dc("compose-version", "compose", "version", "--short")
         self.dc("buildx-version", "buildx", "version")
         selected = self.dc("builder", "buildx", "inspect", "default").decode()
