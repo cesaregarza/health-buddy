@@ -699,7 +699,9 @@ explicit flag; ordinary retries continue to refuse. No other actor is rotated.
 Removal requires deliberate owner consent and quiesced external Docker/Serve/
 client/grant editors. It removes the recorded private root route, managed client
 entry and managed skill files, revokes only the recorded grant, then stops and
-removes only the exact admitted API container ID. Before its first mutation,
+removes only the exact admitted API container ID. If private HTTPS was never
+configured there is no route to remove: the journal records Serve removal as
+`not_applicable` and every other step runs unchanged. Before its first mutation,
 the private journal binds that ID and existing activation/agent/HTTPS selections.
 The API inspection checks immutable image, writable workspace bind mount,
 nonroot UID/GID and Compose project/service labels whether running or stopped.
