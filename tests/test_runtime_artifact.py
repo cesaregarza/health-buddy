@@ -1,4 +1,31 @@
-"""Synthetic Docker-save archive inspection cases; no Docker daemon required."""
+r"""Docker image-save archive inspection; no Docker daemon is required.
+
+make_archive synthesizes most cases. tests/fixtures holds real saves of a
+one-byte image, taken with docker-ce 29.8.2 on a fresh Ubuntu 24.04 droplet:
+each pair first under Docker's default containerd image store, then under the
+classic store after writing {"features": {"containerd-snapshotter": false}} to
+/etc/docker/daemon.json and restarting Docker.
+
+The by-id pair is saved as packaging/verify_runtime.py saves, by image ID for one
+platform, from an image carrying LABELS:
+
+    printf 'x' > one
+    # Dockerfile: FROM scratch, COPY one /one, one LABEL key=value per LABELS entry
+    docker buildx build --builder default --platform linux/amd64 --load \
+        --provenance=false --sbom=false --iidfile iid .
+    docker image save --platform linux/amd64 \
+        --output docker29-<store>-store-by-id.tar "$(cat iid)"
+
+The by-tag pair is a plain save by name, of the image without labels:
+
+    printf 'x' > one
+    echo 'FROM scratch' > Dockerfile
+    echo 'COPY one /one' >> Dockerfile
+    docker build -t hb-fixture:1 .
+    docker image save hb-fixture:1 -o docker29-<store>-store-by-tag.tar
+
+A capture is replaced only by another real save, never by a synthesized one.
+"""
 
 from __future__ import annotations
 
@@ -164,6 +191,47 @@ def make_archive(
         for name, data, kind in extra_entries:
             _entry(archive, name, data, kind)
     return image_id, layer_ids
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def captured(tmp_path: Path, name: str) -> Path:
+    """Copied out: the validator refuses an archive under /mnt or a linked parent."""
+    copy = tmp_path / name
+    copy.write_bytes((FIXTURES / name).read_bytes())
+    return copy
+
+
+def nest_in_index(archive: Path) -> str:
+    """Re-pack a save one level deeper: its index.json becomes an unannotated
+    image index blob that a new index.json names. Returns that index's digest."""
+    with tarfile.open(archive) as source:
+        members = source.getmembers()
+        payloads = {
+            member.name: source.extractfile(member).read()
+            for member in members
+            if member.isfile()
+        }
+    inner = payloads["index.json"]
+    digest = "sha256:" + hashlib.sha256(inner).hexdigest()
+    media = "application/vnd.oci.image.index.v1+json"
+    payloads["index.json"] = json.dumps(
+        {
+            "schemaVersion": 2,
+            "mediaType": media,
+            "manifests": [{"mediaType": media, "digest": digest, "size": len(inner)}],
+        }
+    ).encode()
+    with tarfile.open(archive, "w", format=tarfile.USTAR_FORMAT) as output:
+        for member in members:
+            if member.isfile():
+                member.size = len(payloads[member.name])
+                output.addfile(member, io.BytesIO(payloads[member.name]))
+            else:
+                output.addfile(member)
+        _entry(output, "blobs/sha256/" + digest[7:], inner)
+    return digest
 
 
 def inspect(path: Path, architecture: str = "amd64"):
@@ -452,3 +520,58 @@ def test_unreferenced_legacy_blob_digest_must_match_bytes(tmp_path):
     )
     with pytest.raises(ManifestError, match="unreferenced_artifact_content"):
         inspect(path)
+
+
+def test_classic_store_save_by_id_is_accepted_with_loader_ids_from_its_index(
+    tmp_path: Path,
+) -> None:
+    archive = captured(tmp_path, "docker29-classic-store-by-id.tar")
+    with tarfile.open(archive) as saved:
+        (descriptor,) = json.load(saved.extractfile("index.json"))["manifests"]
+        (record,) = json.load(saved.extractfile("manifest.json"))
+    config = "sha256:" + record["Config"].removeprefix("blobs/sha256/")
+    result = inspect(archive)
+    assert result.config_digest == config
+    assert result.loader_ids == (descriptor["digest"], config)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("docker29-containerd-store-by-id.tar", id="config-digest"),
+        pytest.param("docker29-containerd-store-by-tag.tar", id="annotated-index"),
+    ],
+)
+def test_containerd_store_save_is_refused_naming_the_snapshotter_setting(
+    tmp_path: Path, name: str
+) -> None:
+    archive = captured(tmp_path, name)
+    with pytest.raises(
+        ManifestError, match=r"^artifact_from_containerd_image_store: "
+    ) as refused:
+        inspect(archive)
+    recovery = str(refused.value)
+    assert (
+        "set features.containerd-snapshotter to false in /etc/docker/daemon.json"
+        in recovery
+    )
+    assert "restart Docker" in recovery
+
+
+def test_tagged_classic_store_save_is_refused_for_its_tag_not_its_store(
+    tmp_path: Path,
+) -> None:
+    archive = captured(tmp_path, "docker29-classic-store-by-tag.tar")
+    with pytest.raises(ManifestError, match=r"^artifact_repository_tags_refused$"):
+        inspect(archive)
+
+
+def test_unannotated_index_around_an_admitted_manifest_stays_admitted(
+    tmp_path: Path,
+) -> None:
+    # A synthetic shape: no capture names an unannotated index from index.json.
+    # It pins that the store check never refuses a save the graph rules admit.
+    archive = captured(tmp_path, "docker29-classic-store-by-id.tar")
+    admitted = inspect(archive).loader_ids
+    index = nest_in_index(archive)
+    assert inspect(archive).loader_ids == (index, *admitted)

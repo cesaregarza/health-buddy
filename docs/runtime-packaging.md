@@ -123,7 +123,11 @@ On an explicitly authorized isolated build runner, merge
 restart Docker and inspect DriverStatus again before retrying. Switching stores
 hides the other store's images and containers; it does not delete them. The
 qualification script never edits daemon configuration or restarts Docker.
-The candidate workflow and owner-side archive validator remain unchanged.
+The candidate workflow is unchanged. The archive validator also names the
+store: a containerd-store save, whose `index.json` holds a manifest annotated
+with `config.digest` for the fixed-ID save described above, or an annotated
+image index for a BuildKit image saved by tag, is refused as
+`artifact_from_containerd_image_store` with the same recovery.
 
 The lock pins CPython 3.12.14, the real multi-architecture base index/platform
 manifests and binary wheels, plus Git and its finite Debian package closure.
