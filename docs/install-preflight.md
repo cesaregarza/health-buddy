@@ -653,6 +653,10 @@ while running this explicit setup. No client process is launched:
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
 
+To log from the owner's shell, run
+`"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local <YYYY-MM-DDTHH:MM:SS> --weight-lb <lb>`;
+`log measurement --help` lists the fields it accepts.
+
 For Claude, choose `--client claude` and its supported project `.mcp.json`;
 see [Codex integration](codex-integration.md) and
 [Claude integration](claude-integration.md) for exact supported client versions,

@@ -87,7 +87,9 @@ def test_measurement_wrapper_is_canonical_and_rejects_storage_override(
     assert log_measurement.main(args) == 0
     assert capsys.readouterr().out == first
     outside = tmp_path / "never-created.csv"
-    assert log_measurement.main([*args, "--data-file", str(outside)]) == 2
+    with pytest.raises(SystemExit) as refused:
+        log_measurement.main([*args, "--data-file", str(outside)])
+    assert refused.value.code == 2
     assert not outside.exists()
     app = App.development(workspace)
     response = app.operations.execute(app.principal, Request("capabilities"))

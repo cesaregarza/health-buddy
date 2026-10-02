@@ -18,7 +18,7 @@ from health_buddy.core.config import ConfigError, load
 from health_buddy.core.domain import decode
 from health_buddy.core.durability import private_umask
 from health_buddy.core.git_store import StoreError
-from health_buddy.core.loggers import FIELDS
+from health_buddy.core.loggers import FIELDS, flag_parser
 from health_buddy.core.operations import open_service
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import JSON, ServiceError
@@ -162,8 +162,12 @@ def _add_canonical_commands(commands: Any) -> None:
     server = commands.add_parser("serve")
     server.add_argument("--port", default=8791, type=int)
     log = commands.add_parser("log")
-    log.add_argument("kind", choices=(*FIELDS, "workout"))
-    log.add_argument("arguments", nargs=argparse.REMAINDER)
+    log.add_argument(
+        "kind",
+        choices=(*FIELDS, "workout"),
+        help="'log KIND --help' lists the flags of that kind",
+    )
+    log.add_argument("arguments", nargs=argparse.REMAINDER, action=_LoggerArguments)
     pending = commands.add_parser("pending")
     pending.add_argument(
         "action", choices=("show", "retry", "discard"), nargs="?", default="show"
@@ -284,11 +288,42 @@ def _run_app_command(app: App, args: argparse.Namespace) -> None:
         print(json.dumps(_pending(app, args)))
 
 
+class _LoggerArguments(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        # The kind's own flags answer --help and name a missing or unknown flag
+        # while the command line is parsed, before any credential or workspace.
+        workout = namespace.kind == "workout"
+        flags = argparse.ArgumentParser(
+            prog=f"{parser.prog} {namespace.kind}",
+            description=(
+                "Reads one completed workout as schema-v1 JSON on standard input."
+                if workout
+                else None
+            ),
+            parents=[] if workout else [flag_parser(namespace.kind)],
+            allow_abbrev=False,
+        )
+        try:
+            flags.parse_args(values)
+        except SystemExit as exited:
+            if exited.code:
+                print(
+                    "Health Buddy: invalid_logger_arguments (HTTP 422).",
+                    file=sys.stderr,
+                )
+            raise
+        setattr(namespace, self.dest, values)
+
+
 def _log(app: App, args: argparse.Namespace) -> dict[str, JSON]:
     if args.kind != "workout":
         return app.log_record(args.kind, args.arguments, new_write=args.new_write)
-    if args.arguments:
-        raise ServiceError(422, "workout_requires_json_stdin")
     raw = sys.stdin.read(65537)
     if len(raw.encode("utf-8")) > 65536:
         raise ServiceError(413, "request_too_large")

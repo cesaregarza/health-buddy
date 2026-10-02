@@ -2,13 +2,20 @@
 
 import io
 import json
-from datetime import UTC, datetime
+import re
+import shlex
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
-from health_buddy.client.app import App
 from health_buddy.cli import main
+from health_buddy.client.app import App
+from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
+from health_buddy.security.runtime import read_credential
+
+GUIDE = Path(__file__).resolve().parents[1] / "docs/install-preflight.md"
 
 
 def arguments(root, *command):
@@ -114,3 +121,66 @@ def test_cli_duplicate_json_fields_rejected_before_write(tmp_path, capsys, monke
     app = App.development(root)
     assert app.snapshot()["meta"]["dataRevision"] == 0
     assert app.workflow.inspect()["state"] == "empty"
+
+
+def test_log_help_needs_no_credential_or_workspace(tmp_path, capsys):
+    root = tmp_path / "owner"
+
+    def shown(*command):
+        with pytest.raises(SystemExit) as exited:
+            main(["--workspace", str(root), "log", *command, "--help"])
+        assert exited.value.code == 0
+        return capsys.readouterr().out
+
+    measurement = shown("measurement")
+    assert "--measured-at-local" in measurement and "--weight-lb" in measurement
+    # The usage line brackets only the optional flags.
+    assert "[--weight-lb" not in measurement and "[--timezone" in measurement
+    assert "JSON on standard input" in shown("workout")
+    assert "log KIND --help" in shown()
+    assert not root.exists()
+
+
+def test_log_flag_errors_name_the_flag_before_any_credential(tmp_path, capsys):
+    root = tmp_path / "owner"
+    weight = ["measurement", "--weight-lb", "150"]
+    for command, named in (
+        (
+            [*weight, "--measured-at-local", "2030-01-01T08:00:00", "--value-lb", "1"],
+            "unrecognized arguments: --value-lb",
+        ),
+        (weight, "required: --measured-at-local"),
+        (["circumference", "--site", "neck"], "invalid choice: 'neck'"),
+    ):
+        with pytest.raises(SystemExit) as exited:
+            main(["--workspace", str(root), "log", *command])
+        assert exited.value.code == 2
+        error = capsys.readouterr().err
+        assert error.startswith("usage: ") and named in error
+        assert error.endswith("Health Buddy: invalid_logger_arguments (HTTP 422).\n")
+    assert not root.exists()
+
+
+def test_documented_owner_log_command_saves_a_measurement(tmp_path, capsys):
+    (command,) = re.findall(
+        r'`"\$PYTHON" -m health_buddy\.cli ([^`]* log measurement [^`]*)`',
+        GUIDE.read_text(),
+    )
+    root = tmp_path / "owner"
+    token = root / "secrets/native-owner-token"
+    assert main(["--workspace", str(root), "init"]) == 0
+    bootstrap = ["security", "bootstrap", "--owner-token-file", str(token)]
+    assert main(["--workspace", str(root), *bootstrap]) == 0
+    capsys.readouterr()
+    # Inside the dashboard's trailing window, so the snapshot shows the record.
+    yesterday = datetime.now(UTC) - timedelta(days=1)
+    for placeholder, value in (
+        ("$OWNER_WORKSPACE", str(root)),
+        ("<YYYY-MM-DDTHH:MM:SS>", yesterday.strftime("%Y-%m-%dT%H:%M:%S")),
+        ("<lb>", "150"),
+    ):
+        command = command.replace(placeholder, value)
+    assert main(shlex.split(command)) == 0
+    assert json.loads(capsys.readouterr().out)["data"]["saved"] is True
+    owner = App.authenticated(root, proof=BearerProof(read_credential(token)))
+    assert owner.snapshot()["weight"][0]["lb"] == 150

@@ -106,34 +106,57 @@ def _circumference_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _validator(kind: str) -> argparse.ArgumentParser:
+    if kind == "circumference":
+        return _circumference_parser()
+    if not kind.startswith("workout-"):
+        module = source_bundle.module("log_" + kind.replace("-", "_"))
+        return cast(argparse.ArgumentParser, module._parser())
+    workout = source_bundle.module("log_workout")._parser()
+    (commands,) = [
+        action
+        for action in workout._actions
+        if isinstance(action, argparse._SubParsersAction)
+    ]
+    return cast(
+        argparse.ArgumentParser, commands.choices[kind.removeprefix("workout-")]
+    )
+
+
+def flag_parser(kind: str) -> argparse.ArgumentParser:
+    """One manual logger's flags, with its validator's required flags and choices."""
+    retained = {action.dest: action for action in _validator(kind)._actions}
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    for name in FIELDS[kind].split():
+        # An omitted timezone is the workspace zone; see _arguments.
+        required = retained[name].required and name != "timezone"
+        parser.add_argument(
+            "--" + name.replace("_", "-"),
+            action="append" if name == "reading" else "store",
+            default=argparse.SUPPRESS,
+            required=required,
+            choices=retained[name].choices,
+            help="required" if required else None,
+        )
+    parser.add_argument("--replace-existing", action="store_true")
+    if kind == "circumference":
+        parser.add_argument("--apply", action="store_true")
+    return parser
+
+
 def namespace(kind: str, fields: dict[str, JSON], config: Config) -> argparse.Namespace:
     if kind not in FIELDS:
         raise invalid()
     argv = _arguments(kind, fields, config)
-    if kind == "circumference":
-        parser = _circumference_parser()
-    else:
-        module = (
-            "log_workout"
-            if kind.startswith("workout-")
-            else "log_" + kind.replace("-", "_")
-        )
-        parser = cast(argparse.ArgumentParser, source_bundle.module(module)._parser())
-        if kind.startswith("workout-"):
-            argv.insert(0, kind.split("-", 1)[1])
+    parser = _validator(kind)
 
     def reject(message: str) -> Never:
         raise invalid()
 
     # Parser diagnostics can contain supplied values. Convert to a safe typed
-    # error before argparse prints anything, including in subcommand parsers.
+    # error before argparse prints anything.
     parser.error = reject  # type: ignore[method-assign]
     parser.allow_abbrev = False
-    for action in parser._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            for child in action.choices.values():
-                child.error = reject
-                child.allow_abbrev = False
     try:
         result = parser.parse_args(argv)
         for value in vars(result).values():
