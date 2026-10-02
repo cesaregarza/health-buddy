@@ -1,4 +1,26 @@
-"""Synthetic Docker-save archive inspection cases; no Docker daemon required."""
+"""Docker image-save archive inspection; no Docker daemon is required.
+
+make_archive synthesizes most cases. tests/fixtures holds two real saves of a
+one-byte image, captured once on a fresh Ubuntu 24.04 droplet with docker-ce
+29.8.2. Under Docker's default containerd image store:
+
+    printf 'x' > one
+    echo 'FROM scratch' > Dockerfile
+    echo 'COPY one /one' >> Dockerfile
+    docker build -t hb-fixture:1 .
+    docker image save hb-fixture:1 -o docker29-containerd-store.tar
+
+Then, under the classic store:
+
+    echo '{"features": {"containerd-snapshotter": false}}' > /etc/docker/daemon.json
+    systemctl restart docker
+    docker build -t hb-fixture:1 .
+    docker image save hb-fixture:1 -o docker29-classic-store.tar
+
+Both were saved by tag from an image without the source labels, so the classic
+save is refused for its tag and no real save is shown accepted here. A capture
+is replaced only by another real save, never by a synthesized one.
+"""
 
 from __future__ import annotations
 
@@ -164,6 +186,16 @@ def make_archive(
         for name, data, kind in extra_entries:
             _entry(archive, name, data, kind)
     return image_id, layer_ids
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def captured(tmp_path: Path, name: str) -> Path:
+    """Copied out: the validator refuses an archive under /mnt or a linked parent."""
+    copy = tmp_path / name
+    copy.write_bytes((FIXTURES / name).read_bytes())
+    return copy
 
 
 def inspect(path: Path, architecture: str = "amd64"):
@@ -452,3 +484,27 @@ def test_unreferenced_legacy_blob_digest_must_match_bytes(tmp_path):
     )
     with pytest.raises(ManifestError, match="unreferenced_artifact_content"):
         inspect(path)
+
+
+def test_containerd_store_save_is_refused_naming_the_snapshotter_setting(
+    tmp_path: Path,
+) -> None:
+    archive = captured(tmp_path, "docker29-containerd-store.tar")
+    with pytest.raises(
+        ManifestError, match=r"^artifact_from_containerd_image_store: "
+    ) as refused:
+        inspect(archive)
+    recovery = str(refused.value)
+    assert (
+        "set features.containerd-snapshotter to false in /etc/docker/daemon.json"
+        in recovery
+    )
+    assert "restart Docker" in recovery
+
+
+def test_tagged_classic_store_save_is_refused_for_its_tag_not_its_store(
+    tmp_path: Path,
+) -> None:
+    archive = captured(tmp_path, "docker29-classic-store.tar")
+    with pytest.raises(ManifestError, match=r"^artifact_repository_tags_refused$"):
+        inspect(archive)

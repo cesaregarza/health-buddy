@@ -10,14 +10,25 @@ from pathlib import Path
 import pytest
 
 from health_buddy.runtime import release as runtime_release
-from health_buddy.runtime.manifest import ManifestError, verify_source_identity
+from health_buddy.runtime.manifest import (
+    INTERFACES,
+    ManifestError,
+    verify_source_identity,
+)
 from health_buddy.runtime.release import (
     create_release,
     docker_command,
     load_verified_archive,
     selected_artifact,
 )
-from tests.test_runtime_artifact import inspect, make_archive
+from tests.test_runtime_artifact import (
+    COMMIT,
+    FIXTURES,
+    INPUT_LOCK,
+    VERSION,
+    inspect,
+    make_archive,
+)
 from tests.test_runtime_context import context_fixture
 
 
@@ -167,3 +178,62 @@ def test_manifest_parent_is_checked_before_reading_or_following(
     assert (
         target / "runtime-manifest.json"
     ).read_bytes() == b"synthetic unchanged bytes"
+
+
+def pinned_release(directory: Path, amd64_archive: bytes) -> Path:
+    """A runtime manifest whose amd64 record pins these bytes by digest and size.
+
+    Selection verifies the pinned archive before comparing any receipt field, so
+    the receipt fields and the unselected arm64 record are placeholders.
+    """
+    source = b"synthetic source archive"
+    (directory / "health-buddy-source.tar").write_bytes(source)
+    (directory / "health-buddy-linux-amd64.docker.tar").write_bytes(amd64_archive)
+    pins = {
+        "amd64": (hashlib.sha256(amd64_archive).hexdigest(), len(amd64_archive)),
+        "arm64": ("0" * 64, 1),
+    }
+    value = {
+        "manifestVersion": 1,
+        "status": "private-verification-candidate",
+        "format": "docker-image-save",
+        "packageVersion": VERSION,
+        "sourceCommit": COMMIT,
+        "sourceTree": COMMIT,
+        "sourceArchive": {
+            "file": "health-buddy-source.tar",
+            "bytes": len(source),
+            "sha256": hashlib.sha256(source).hexdigest(),
+        },
+        "inputLockSha256": INPUT_LOCK,
+        "interfaces": INTERFACES,
+        "artifacts": [
+            {
+                "file": f"health-buddy-linux-{architecture}.docker.tar",
+                "architecture": architecture,
+                "config_digest": "sha256:" + "0" * 64,
+                "loader_ids": [],
+                "archive_sha256": digest,
+                "archive_bytes": size,
+                "layer_digests": [],
+                "diff_ids": [],
+            }
+            for architecture, (digest, size) in pins.items()
+        ],
+        "qualification": "synthetic",
+    }
+    manifest = directory / "runtime-manifest.json"
+    manifest.write_text(json.dumps(value))
+    return manifest
+
+
+def test_selecting_a_pinned_containerd_store_save_refuses_naming_the_store(
+    tmp_path: Path,
+) -> None:
+    archive = (FIXTURES / "docker29-containerd-store.tar").read_bytes()
+    manifest = pinned_release(tmp_path, archive)
+    with pytest.raises(
+        ManifestError, match=r"^artifact_from_containerd_image_store: "
+    ) as refused:
+        selected_artifact(manifest, "amd64")
+    assert "features.containerd-snapshotter" in str(refused.value)
