@@ -13,4 +13,4 @@ Facts about this host: you are the user `owner` on a fresh 64-bit Ubuntu 24.04 s
 
 When the installation is up, log one synthetic measurement (a body weight of 150 lb, recorded today) and read it back to prove the round trip, then tell me how I check the installation status myself.
 
-If you get stuck at any point, append a short entry to /home/owner/STALLS.md with the exact command you ran, the error you saw, and what you tried next, and continue if you can. If you truly cannot continue, say so plainly in your final message.
+If you get stuck at any point, append a short entry to ~/STALLS.md with the exact command you ran, the error you saw, and what you tried next, and continue if you can. If you truly cannot continue, say so plainly in your final message.

@@ -30,7 +30,8 @@ WALL=${WALL:-3600}
 RUN=$D/runs/$(date -u +%Y%m%dT%H%M%SZ)-${MODEL##claude-}-$AUTH
 mkdir -p "$RUN"
 cp "$D/prompt.md" "$RUN/prompt.md"
-H=/home/owner
+H=$(ssh -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
+[[ "$H" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 2
 S=$H/.hb-rehearsal
 trap 'ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2" >/dev/null 2>&1 || true' EXIT
 

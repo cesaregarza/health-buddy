@@ -12,13 +12,14 @@ RUN=${1:?run directory}
 MODEL=${MODEL:-claude-haiku-4-5-20251001}
 TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}
 JOURNAL=${PRIVATE_JOURNAL:?absolute journal path from this run}
-[[ "$JOURNAL" =~ ^/home/owner/[a-zA-Z0-9_./-]+$ ]] || exit 2
 test -f "$TOKEN_FILE" && test ! -L "$TOKEN_FILE"
 test "$(stat -c %a "$TOKEN_FILE")" = 600
 test "$(stat -c %u "$TOKEN_FILE")" = "$(id -u)"
 umask 077
 [[ "$MODEL" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 2
-H=/home/owner
+H=$(ssh -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
+[[ "$H" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 2
+[[ "$JOURNAL" == "$H/"* && "$JOURNAL" =~ ^/[a-zA-Z0-9_./-]+$ && "/$JOURNAL/" != */../* ]] || exit 2
 S=$H/.hb-rehearsal
 trap 'ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2" >/dev/null 2>&1 || true' EXIT
 

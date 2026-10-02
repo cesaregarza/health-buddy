@@ -25,7 +25,8 @@ npm install -g @anthropic-ai/claude-code
 # Record the version; fail instead of silently testing a different Docker major.
 docker version --format '{{.Server.Version}}' | grep -q '^29\.'
 id owner >/dev/null 2>&1 || { useradd -m -s /bin/bash -G docker owner; echo 'owner ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/owner; chmod 0440 /etc/sudoers.d/owner; }
-printf '\numask 002\n' >> /home/owner/.profile
+owner_home=$(getent passwd owner | cut -d: -f6)
+printf '\numask 002\n' >> "$owner_home/.profile"
 echo "--- host ready ---"
 python3 --version; docker --version; docker compose version; node --version; claude --version; id owner
 df -h / | tail -1
