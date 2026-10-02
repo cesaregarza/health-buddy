@@ -15,7 +15,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -27,7 +26,6 @@ from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import Request
 from health_buddy.install import acquire as install_acquire
 from health_buddy.install import agent as install_agent
-from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import inventory, verify_source_identity
 from health_buddy.security.runtime import read_credential
 from scripts import package_runtime
@@ -42,9 +40,8 @@ from tests.test_install_acquire import (
     ok,
 )
 from tests.test_install_agent import connection_fixture
+from tests.test_install_preflight import maintenance_bundle
 from tests.test_runtime_artifact import make_archive
-from tests.test_runtime_bundle import git, source
-from tests.test_runtime_inputs import lock
 
 ROOT = Path(__file__).resolve().parents[1]
 GUIDE = ROOT / "docs/install-preflight.md"
@@ -61,21 +58,7 @@ LAUNCHER = f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n'
 
 def release(tmp_path: Path) -> tuple[Path, Path]:
     """A bundle carrying the real installer, released as the manifest job does."""
-    repository, _ = source(tmp_path)
-    (repository / "packaging").mkdir()
-    lock(repository / "packaging").rename(repository / "packaging/runtime-inputs.json")
-    shutil.copytree(
-        ROOT / "src",
-        repository / "src",
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-        dirs_exist_ok=True,
-    )
-    (repository / "scripts").mkdir()
-    shutil.copy(ROOT / "scripts/package_runtime.py", repository / "scripts")
-    git(repository, "add", ".")
-    git(repository, "commit", "--quiet", "-m", "Synthetic installer source")
-    bundle = tmp_path / "bundle"
-    create_bundle(repository, git(repository, "rev-parse", "HEAD"), bundle)
+    bundle = maintenance_bundle(tmp_path)
     identity = verify_source_identity(
         bundle / "source", bundle / "release/source-manifest.json"
     )
@@ -105,10 +88,22 @@ def checksums(artifacts: Path) -> dict[str, str]:
     return {name: digest for digest, name in (line.split("  ") for line in lines)}
 
 
+# A fence may sit inside a list item; its closing fence has the same indent.
+FENCE = re.compile(r"^( *)```sh\n(.*?)^\1```$", re.MULTILINE | re.DOTALL)
+
+
+def sh_blocks(markdown: str) -> list[str]:
+    """Every sh block, in order, without the indentation of its fence."""
+    return [
+        "".join(line.removeprefix(indent) for line in body.splitlines(True))
+        for indent, body in FENCE.findall(markdown)
+    ]
+
+
 def blocks(heading: str) -> list[str]:
     """The sh blocks under one level-two heading of the install guide, in order."""
     section = GUIDE.read_text().split(f"\n## {heading}\n", 1)[1].split("\n## ", 1)[0]
-    return re.findall(r"^```sh\n(.*?)^```$", section, re.MULTILINE | re.DOTALL)
+    return sh_blocks(section)
 
 
 def run(script: str, home: Path, tools: Path, owner: dict[str, str]) -> str:
@@ -346,14 +341,13 @@ def undefined_variables(shell_blocks: list[str]) -> list[str]:
 
 
 def test_install_commands_define_and_reload_every_shell_variable():
-    guide = (
-        GUIDE.read_text()
-        + (ROOT / "docs/install-reinstall.md").read_text()
-        + (ROOT / "docs/onboarding.md").read_text()
+    documents = ("install-preflight.md", "install-reinstall.md", "onboarding.md")
+    guide, reinstall, onboarding = (
+        sh_blocks((ROOT / "docs" / name).read_text()) for name in documents
     )
-    shell_blocks = re.findall(r"^```sh\n(.*?)^```$", guide, re.MULTILINE | re.DOTALL)
-    assert shell_blocks
-    assert undefined_variables(shell_blocks) == []
+    # Onboarding's completion command is fenced inside a numbered list item.
+    assert guide and reinstall and onboarding
+    assert undefined_variables(guide + reinstall + onboarding) == []
 
 
 @pytest.mark.parametrize(
@@ -367,8 +361,8 @@ def test_install_commands_define_and_reload_every_shell_variable():
 )
 def test_removing_a_required_saved_choice_breaks_the_documented_commands(name):
     guide = re.sub(rf"^.*export {name}=.*\n", "", GUIDE.read_text(), flags=re.MULTILINE)
-    shell_blocks = re.findall(r"^```sh\n(.*?)^```$", guide, re.MULTILINE | re.DOTALL)
-    assert any(item.endswith(f": {name}") for item in undefined_variables(shell_blocks))
+    missing = undefined_variables(sh_blocks(guide))
+    assert any(item.endswith(f": {name}") for item in missing)
 
 
 @pytest.mark.parametrize(
