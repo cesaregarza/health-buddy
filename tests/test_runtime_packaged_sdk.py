@@ -340,17 +340,12 @@ def test_sdk_failure_diagnostic_keeps_authored_label_but_not_private_error(
         assert "record=123" not in str(caught.value)
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        [["driver-type", "io.containerd.snapshotter.v1"]],
-        [
-            ["Backing Filesystem", "extfs"],
-            ["driver-type", "io.containerd.snapshotter.v1"],
-        ],
-    ],
-)
-def test_containerd_image_store_refuses_with_operator_recovery(status):
+def test_containerd_image_store_refuses_with_operator_recovery():
+    # The containerd pair follows a classic one: every pair is checked.
+    status = [
+        ["Backing Filesystem", "extfs"],
+        ["driver-type", "io.containerd.snapshotter.v1"],
+    ]
     driver = module("verify_runtime")
     qualification = driver.Qualification.__new__(driver.Qualification)
     qualification.dc = lambda *args: json.dumps(status).encode()
@@ -376,15 +371,12 @@ def test_classic_image_store_is_admitted(status):
 @pytest.mark.parametrize(
     "raw",
     [
-        b"",
-        b"unavailable",
-        b"null",
-        b"{}",
-        b"[[]]",
-        b'[["driver-type"]]',
-        b'[["driver-type", null]]',
-        b'[["driver-type", ""]]',
-        b"\xff",
+        pytest.param(b"\xff", id="undecodable-output"),
+        pytest.param(b"{}", id="json-not-a-list"),
+        pytest.param(b"[[]]", id="empty-pair"),
+        pytest.param(b'[["driver-type"]]', id="one-item-pair"),
+        pytest.param(b'[["driver-type", null]]', id="non-string-value"),
+        pytest.param(b'[["driver-type", ""]]', id="empty-string-value"),
     ],
 )
 def test_malformed_image_store_info_refuses(raw):

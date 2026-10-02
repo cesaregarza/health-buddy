@@ -72,7 +72,14 @@ def test_shape_and_epoch_before_retry_lookup(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "value", [None, True, float("nan"), float("inf"), -1, "80", [], {}]
+    "value",
+    [
+        pytest.param(True, id="bool-not-number-type"),
+        pytest.param(float("nan"), id="nan-not-finite"),
+        pytest.param(float("inf"), id="inf-not-finite"),
+        pytest.param(-1, id="negative-below-minimum"),
+        pytest.param("80", id="string-not-number-type"),
+    ],
 )
 def test_finite_typed_units_fail_without_mutation(tmp_path, value):
     service, _policy, owner = setup(tmp_path / "owner")

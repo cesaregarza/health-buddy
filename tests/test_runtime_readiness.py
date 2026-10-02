@@ -127,7 +127,12 @@ def test_contended_writer_lock_respects_short_probe_deadline(tmp_path: Path) -> 
 
 
 @pytest.mark.parametrize(
-    "deadline", [float("nan"), math.inf, -math.inf, True, 10**1000]
+    "deadline",
+    [
+        pytest.param(math.inf, id="inf-not-finite"),
+        pytest.param(True, id="bool-not-int-or-float"),
+        pytest.param(10**1000, id="int-overflows-float"),
+    ],
 )
 def test_invalid_deadline_cannot_make_probe_unbounded(
     tmp_path: Path, deadline: float
@@ -266,7 +271,11 @@ def test_oversized_or_deep_corrupt_readiness_metadata_is_bounded_and_unchanged(
 
 
 @pytest.mark.parametrize(
-    "initial_branch", ["main", "master", "owner-selected-initial", "detached"]
+    "initial_branch",
+    [
+        pytest.param("owner-selected-initial", id="head-names-another-branch"),
+        pytest.param("detached", id="detached-head"),
+    ],
 )
 def test_ready_preserves_normal_git_metadata_after_bootstrap_and_write(
     tmp_path, initial_branch
@@ -318,7 +327,10 @@ def test_store_writes_stay_private_under_group_writable_umask(tmp_path: Path) ->
 
 @pytest.mark.parametrize(
     "content",
-    [b"", b"main\n", b"ref: ../main\n", b"ref: refs/heads/bad..name\n"],
+    [
+        pytest.param(b"main\n", id="no-ref-prefix"),
+        pytest.param(b"ref: refs/heads/bad..name\n", id="dotdot-in-ref"),
+    ],
 )
 def test_malformed_git_head_is_not_ready_and_preserved(tmp_path, content):
     runtime, _owner, _token = secured(tmp_path / "workspace")

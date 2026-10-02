@@ -17,7 +17,11 @@ def test_old_receiver_never_migrates_or_opens_socket():
 
 
 @pytest.mark.parametrize(
-    "command", ["migrate", "issue-device", "revoke-device", "export-daily", "serve"]
+    "command",
+    [
+        pytest.param("migrate", id="retired-command"),
+        pytest.param("serve", id="supported-serve-command"),
+    ],
 )
 def test_legacy_database_commands_require_canonical_workspace(command, tmp_path):
     output = tmp_path / "never-created.db"

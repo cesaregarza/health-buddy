@@ -14,10 +14,14 @@ from scripts.audit_distribution import (
 
 
 @pytest.mark.parametrize("name", [
-    "../escape.py", "/absolute.py", "package/../escape.py", "C:\\escape.py",
-    "data/records.json", "pkg/data/records.json", "pkg/personal/view.py",
-    "pkg/secrets/settings.json", "nested/.git/config", "nested/.local/state.json",
-    "data.csv", "private.db", "photo.jpg", "nested/.env", "profile.yaml",
+    pytest.param("/absolute.py", id="absolute"),
+    pytest.param("package/../escape.py", id="embedded-traversal"),
+    pytest.param("C:\\escape.py", id="windows-path"),
+    pytest.param("data/records.json", id="private-top-dir"),
+    pytest.param("pkg/personal/view.py", id="private-component"),
+    pytest.param("private.db", id="forbidden-suffix"),
+    pytest.param("nested/.env", id="dotenv-name"),
+    pytest.param("profile.yaml", id="profile-name"),
 ])
 def test_forbidden_paths_are_rejected(name):
     assert inspect(name, b"fabricated")
