@@ -1,3 +1,5 @@
+"""scripts/publish_training_day.py: legacy CLI that no product path calls."""
+
 import json
 import tempfile
 import unittest

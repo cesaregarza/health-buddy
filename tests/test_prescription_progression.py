@@ -1,3 +1,5 @@
+"""scripts/prescription_progression.py: loaded by core/plans.py to validate plans."""
+
 import copy
 import csv
 import tempfile

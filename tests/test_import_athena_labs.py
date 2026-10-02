@@ -1,3 +1,5 @@
+"""scripts/import_athena_labs.py: legacy CLI that no product path calls."""
+
 from __future__ import annotations
 
 import csv

@@ -1,3 +1,5 @@
+"""sleepiq_exporter CLI, settings and logs: the optional sleepiq-exporter script."""
+
 from __future__ import annotations
 
 import io

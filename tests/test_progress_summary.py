@@ -1,3 +1,5 @@
+"""scripts/progress_summary.py: loaded by core/projection.py for the weight trend."""
+
 import csv
 import tempfile
 import unittest

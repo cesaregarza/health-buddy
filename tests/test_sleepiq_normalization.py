@@ -1,3 +1,5 @@
+"""sleepiq_exporter.normalization: exporter service and legacy/sleepiq_import.py."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
