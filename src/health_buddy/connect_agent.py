@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import tomllib
 from importlib.resources import files
 from pathlib import Path
@@ -23,6 +24,7 @@ from health_buddy.core.durability import (
 from health_buddy.core.files import private_directory, read_file
 from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp.settings import Settings
+from health_buddy.mcp_server import DEPENDENCY_IMPORTS
 
 INTEGRATION_VERSION = "1.0.0"
 PACKAGE_VERSION = "0.1.0.dev0"
@@ -33,6 +35,35 @@ PYTHON_NAMES = frozenset({"python", "python3", "python3.12"})
 # A venv resolves to its base interpreter, which can be any python3.N: the
 # Raspberry Pi OS Python is 3.13. Only the configured name stays fixed.
 RESOLVED_PYTHON_NAME = re.compile(r"python(3(\.[0-9]+)?)?")
+DEPENDENCY_TIMEOUT_SECONDS = 10
+
+
+class McpReadinessError(ServiceError):
+    """Native setup diagnosis; never include child output or credential context."""
+
+    def __init__(self, python: Path, dependency: str, reason: str) -> None:
+        super().__init__(422, "agent_python_not_ready")
+        self.python = python
+        self.dependency = dependency
+        self.reason = reason
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "schemaVersion": 1,
+            "code": self.code,
+            "connected": False,
+            "python": str(self.python),
+            "dependency": self.dependency,
+            "reason": self.reason,
+            "recovery": (
+                "Use this selected Python environment for docs/install-preflight.md"
+                "#6-install-the-pinned-dependencies-into-that-environment. "
+                "On x86_64 run its --require-hashes dependency install and pip check; "
+                "other architectures require the documented owner-approved closure. "
+                "Then rerun the same setup command. Keep the journal, credentials "
+                "and managed files; setup never installs packages automatically."
+            ),
+        }
 
 
 def checksum(raw: bytes) -> str:
@@ -72,6 +103,41 @@ def native_interpreter(python: Path) -> None:
         or not os.access(resolved, os.X_OK)
     ):
         raise ServiceError(422, "invalid_codex_python")
+
+
+def check_mcp_readiness(python: Path, source: Path) -> None:
+    """Import the selected source's adapter in its actual, admitted interpreter."""
+    native_interpreter(python)
+    _validate_source(source)
+    try:
+        # No inherited Python/OTel/proxy/credential environment or captured output.
+        result = subprocess.run(  # noqa: S603
+            [
+                str(python),
+                "-B",
+                "-s",
+                "-P",
+                "-m",
+                "health_buddy.mcp_server",
+                "--check-dependencies",
+            ],
+            cwd=source,
+            env={"PYTHONPATH": str(source / "src")},
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=DEPENDENCY_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        raise McpReadinessError(python, "MCP adapter", "probe_timeout") from None
+    except OSError:
+        raise McpReadinessError(python, "MCP adapter", "probe_failed") from None
+    if 10 <= result.returncode < 10 + len(DEPENDENCY_IMPORTS):
+        dependency, _attributes = DEPENDENCY_IMPORTS[result.returncode - 10]
+        raise McpReadinessError(python, dependency, "missing_or_incompatible")
+    if result.returncode != 0:
+        raise McpReadinessError(python, "MCP adapter", "probe_failed")
 
 
 def partition(raw: bytes) -> tuple[str, str, str]:
@@ -360,7 +426,11 @@ def _validate_setup(
     for path in (source, workspace):
         native_path(path)
     private_directory(workspace)
-    native_interpreter(python)
+    check_mcp_readiness(python, source)
+
+
+def _validate_source(source: Path) -> None:
+    native_path(source)
     for relative in ("pyproject.toml", "docs/agent-guide.md", "src"):
         native_path(source / relative)
     project = tomllib.loads((source / "pyproject.toml").read_text())
@@ -475,6 +545,9 @@ def main(argv: list[str] | None = None) -> int:
             remove=args.remove,
             client=args.client,
         )
+    except McpReadinessError as error:
+        print(json.dumps(error.summary(), sort_keys=True))
+        return 2
     except (ServiceError, OSError, ValueError, TypeError, KeyError):
         print("Agent setup refused; inspect private paths and managed-file ownership.")
         return 2

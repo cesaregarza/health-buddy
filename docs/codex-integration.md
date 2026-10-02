@@ -93,6 +93,12 @@ version N. Otherwise setup refuses; `health_buddy.install.agent` reports this as
 `invalid_codex_python`. The config records PYTHON unresolved, so the client
 starts Python inside the venv. From SOURCE:
 
+Before writing configuration, setup runs a bounded import check in that exact
+interpreter and source. `agent_python_not_ready` reports the interpreter and
+failing import; follow the [dependency recovery](install-preflight.md#explicit-agent-grant-and-redacted-owner-status)
+and rerun setup. No dependency is installed automatically. Import readiness is
+separate from the fresh-client acceptance below; removal does not run this check.
+
 ```sh
 export PYTHONPATH="$SOURCE/src"
 "$PYTHON" -m health_buddy.connect_agent codex --config-file "$CONFIG" --skill-directory "$SKILL_DIRECTORY" --settings "$PRIVATE_SETUP/adapter.json" --python "$PYTHON" --source "$SOURCE" --workspace "$WORKSPACE"

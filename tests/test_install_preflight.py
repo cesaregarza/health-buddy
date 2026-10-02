@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import shutil
 import socket
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,6 +29,13 @@ def prepared(tmp_path, monkeypatch, *, maintenance=False):
             destination = repository / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes((root / name).read_bytes())
+        # Client readiness executes the adapter from this verified source tree.
+        shutil.copytree(
+            root / "src/health_buddy",
+            repository / "src/health_buddy",
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+        )
         git(repository, "add", ".")
         git(repository, "commit", "--quiet", "-m", "Synthetic maintenance references")
         bundle = tmp_path / "maintenance-bundle"

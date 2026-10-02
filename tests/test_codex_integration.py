@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from health_buddy.connect_agent import connect
+from health_buddy.connect_agent import connect, native_interpreter
 from health_buddy.core.service_api import ServiceError
 from tests import test_transport_auth_wire as uds_fixtures
 from tests.mcp_wire_fixtures import actual_backend, client
@@ -211,10 +211,17 @@ def uv_interpreter(tmp_path, version):
 
 # 3.13 is the Raspberry Pi OS Python that venvs there resolve to.
 @pytest.mark.parametrize("version", ["3.12", "3.13"])
-def test_uv_interpreter_behind_linked_version_directory_connects(tmp_path, version):
+def test_uv_interpreter_behind_linked_version_directory_is_admitted(tmp_path, version):
+    # Path admission accepts native minor-version links; this is not an SDK check.
+    native_interpreter(uv_interpreter(tmp_path, version))
+
+
+def test_complete_interpreter_behind_linked_directory_connects(tmp_path):
     config, skill, workspace = targets(tmp_path)
     settings, _ = settings_file(tmp_path)
-    python = uv_interpreter(tmp_path, version)
+    alias = tmp_path / "retained-python"
+    alias.symlink_to(Path(sys.executable).parent.parent, target_is_directory=True)
+    python = alias / "bin/python"
     connect(
         config,
         skill,
