@@ -830,7 +830,7 @@ and private short-lived proof delivery to the phone. No installer log includes
 that proof. Recorded runtime/Serve/client stages are labeled as last configured,
 not live network, daemon or named-client observations. `connected:false` remains.
 
-### Log and verify a measurement
+## Log and verify a measurement
 
 From the owner's shell, capture the actual current instant for a measurement
 taken now. `150` is a synthetic example in pounds; replace it with the intended
