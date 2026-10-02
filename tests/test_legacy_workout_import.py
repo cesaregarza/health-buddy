@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from datetime import UTC, datetime
 
 import pytest
 
@@ -9,6 +10,9 @@ from health_buddy.cli import main
 from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes
 from health_buddy.core.git_store import csv_text, headers
+from health_buddy.core.operations import Service
+from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
+from health_buddy.core.service_api import Request, ServiceError
 from health_buddy.legacy.workout_import import (
     FAMILY,
     SESSIONS,
@@ -16,9 +20,6 @@ from health_buddy.legacy.workout_import import (
     export_workouts,
     import_workouts,
 )
-from health_buddy.core.operations import Service
-from health_buddy.core.policy import DEVELOPMENT_PRINCIPAL, DevelopmentPolicy
-from health_buddy.core.service_api import Request, ServiceError
 
 
 def sha(path):
@@ -76,6 +77,55 @@ def export(sessions, sets, snapshot):
         expected_sessions_sha256=sha(sessions),
         expected_sets_sha256=sha(sets),
     )
+
+
+def test_validation_clock_does_not_change_export_or_adoption_time(
+    tmp_path, monkeypatch
+):
+    class Clock(datetime):
+        value = "2030-01-02T02:00:00Z"
+
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat(cls.value).astimezone(tz)
+
+    monkeypatch.setattr("health_buddy.legacy.workout_import.datetime", Clock)
+    _source, sessions, sets, first, _before = fixture(tmp_path)
+    export(sessions, sets, first)
+    Clock.value = "2030-01-04T02:00:00Z"
+    second = tmp_path / "later-workout-pair.json"
+    export(sessions, sets, second)
+    assert first.read_bytes() == second.read_bytes()
+
+    class AdoptionClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2030, 2, 1, 3, 0, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(
+        "health_buddy.legacy.measurement_import.datetime", AdoptionClock
+    )
+    target = tmp_path / "canary"
+    imported = import_workouts(target, first, expected_snapshot_sha256=sha(first))
+    assert imported["records"] == 2
+    service = Service(target, DevelopmentPolicy())
+    response = service.execute(
+        DEVELOPMENT_PRINCIPAL,
+        Request(
+            "records.list",
+            query={
+                "kinds": "workout-session,workout-set",
+                "sourceIds": "manual",
+                "from": "2030-01-03T00:00:00Z",
+                "to": "2030-01-03T00:00:00Z",
+            },
+        ),
+    )
+    assert response.status == 200, response.body
+    records = json.loads(response.body)["data"]["records"]
+    assert len(records) == 2
+    assert {row["observedAt"] for row in records} == {"2030-01-03T00:00:00Z"}
+    assert {row["receivedAt"] for row in records} == {"2030-02-01T03:00:00Z"}
 
 
 @pytest.mark.parametrize("status", ["complete", "partial"])

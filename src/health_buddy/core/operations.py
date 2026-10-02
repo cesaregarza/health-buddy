@@ -487,7 +487,7 @@ class Service:
                 authority, files, payload, text(request.resource_id)
             )
             changes, result, targets = loggers.transition(
-                text(request.resource_id), payload, files, self.config
+                text(request.resource_id), payload, files, self.config, received_at
             )
         elif request.operation == "workouts.write":
             changes, result, targets = loggers.completed(

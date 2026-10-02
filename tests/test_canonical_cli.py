@@ -4,16 +4,16 @@ import io
 import json
 import re
 import shlex
-from datetime import UTC, datetime, timedelta
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from health_buddy.cli import main
 from health_buddy.client.app import App
-from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
-from health_buddy.security.runtime import read_credential
+from tests.test_runtime_bundle_asset import run
 
 GUIDE = Path(__file__).resolve().parents[1] / "docs/install-preflight.md"
 
@@ -161,26 +161,108 @@ def test_log_flag_errors_name_the_flag_before_any_credential(tmp_path, capsys):
     assert not root.exists()
 
 
-def test_documented_owner_log_command_saves_a_measurement(tmp_path, capsys):
-    (command,) = re.findall(
-        r'`"\$PYTHON" -m health_buddy\.cli ([^`]* log measurement [^`]*)`',
-        GUIDE.read_text(),
-    )
+def test_documented_owner_measurement_round_trip(tmp_path, capsys):
+    (block,) = [
+        block
+        for block in re.findall(r"```sh\n(.*?)```", GUIDE.read_text(), re.DOTALL)
+        if 'MEASURED_AT_UTC="$(date -u ' in block
+    ]
     root = tmp_path / "owner"
     token = root / "secrets/native-owner-token"
     assert main(["--workspace", str(root), "init"]) == 0
     bootstrap = ["security", "bootstrap", "--owner-token-file", str(token)]
     assert main(["--workspace", str(root), *bootstrap]) == 0
     capsys.readouterr()
-    # Inside the dashboard's trailing window, so the snapshot shows the record.
-    yesterday = datetime.now(UTC) - timedelta(days=1)
-    for placeholder, value in (
-        ("$OWNER_WORKSPACE", str(root)),
-        ("<YYYY-MM-DDTHH:MM:SS>", yesterday.strftime("%Y-%m-%dT%H:%M:%S")),
-        ("<lb>", "150"),
-    ):
-        command = command.replace(placeholder, value)
-    assert main(shlex.split(command)) == 0
-    assert json.loads(capsys.readouterr().out)["data"]["saved"] is True
-    owner = App.authenticated(root, proof=BearerProof(read_credential(token)))
-    assert owner.snapshot()["weight"][0]["lb"] == 150
+    home = tmp_path / "shell-owner"
+    env = home / "health-buddy/env.sh"
+    env.parent.mkdir(parents=True)
+    env.write_text(
+        "\n".join(
+            f"export {name}={shlex.quote(str(value))}"
+            for name, value in {
+                "PYTHON": sys.executable,
+                "OWNER_WORKSPACE": root,
+                "PYTHONPATH": GUIDE.parents[1] / "src",
+            }.items()
+        )
+    )
+    before = datetime.now(UTC).replace(microsecond=0)
+    stamp_line, receipt, listed = run(block, home, tmp_path, {}).splitlines()
+    stamp = stamp_line.removeprefix("Measurement UTC timestamp: ")
+    assert before <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
+    assert json.loads(receipt)["data"]["saved"] is True
+    assert "warnings" not in json.loads(receipt)["data"]
+    (record,) = json.loads(listed)["records"]
+    assert (record["value"], record["unit"], record["observedAt"]) == (150, "lb", stamp)
+    assert (record["sourceId"], record["kind"]) == ("manual", "body-mass")
+
+
+def test_credentialed_records_reads_future_measurement_and_retains_warning(
+    tmp_path, capsys, monkeypatch
+):
+    root = tmp_path / "owner"
+    token = root / "secrets/native-owner-token"
+    assert main(["--workspace", str(root), "init"]) == 0
+    assert (
+        main(
+            [
+                "--workspace",
+                str(root),
+                "security",
+                "bootstrap",
+                "--owner-token-file",
+                str(token),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    monkeypatch.setattr(
+        "health_buddy.core.operations._now", lambda: "2026-10-02T02:44:00Z"
+    )
+    base = ["--workspace", str(root), "--credential-file", str(token)]
+    stamp = "2026-10-02T12:00:00Z"
+    assert (
+        main(
+            [
+                *base,
+                "log",
+                "measurement",
+                "--measured-at-local",
+                stamp,
+                "--timezone",
+                "UTC",
+                "--weight-lb",
+                "150",
+            ]
+        )
+        == 0
+    )
+    saved = json.loads(capsys.readouterr().out)
+    assert saved["data"]["warnings"][0]["code"] == "future_measurement_timestamp"
+    read = [
+        "records",
+        "--source-ids",
+        "manual",
+        "--kinds",
+        "body-mass",
+        "--from",
+        stamp,
+        "--to",
+        stamp,
+        "--limit",
+        "10",
+    ]
+    assert main(["--workspace", str(root), *read]) == 2
+    assert "explicit_credential_file_required" in capsys.readouterr().err
+    assert main([*base, *read]) == 0
+    (record,) = json.loads(capsys.readouterr().out)["records"]
+    assert (record["value"], record["unit"], record["observedAt"]) == (150, "lb", stamp)
+    # These limits are enforced by the existing canonical reader.
+    assert main([*base, *read[:-1], "501"]) == 2
+    capsys.readouterr()
+    monkeypatch.setattr(
+        "health_buddy.core.operations._now", lambda: "2026-10-03T02:44:00Z"
+    )
+    assert main([*base, "pending", "retry"]) == 0
+    assert json.loads(capsys.readouterr().out) == saved

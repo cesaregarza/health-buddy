@@ -203,6 +203,9 @@ def test_directory_barrier_failure_retries_existing_ancestors_before_send(
 def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(
     tmp_path, monkeypatch
 ):
+    monkeypatch.setattr(
+        "health_buddy.core.operations._now", lambda: "2026-10-02T02:44:00Z"
+    )
     backend = tmp_path / "backend"
     runtime, owner, _ = secured(backend)
     grant = action(
@@ -244,6 +247,12 @@ def test_real_authority_rotation_and_reopen_preserve_separate_retry_root(
                 "logs.write", lambda: payload, intent=payload, resource_id="measurement"
             )
     pending = state_path(root).read_bytes()
+    (warning,) = json.loads(sent[0][1].body)["data"]["warnings"]
+    assert warning["code"] == "future_measurement_timestamp"
+    assert warning["observedAt"] == "2030-01-01T08:00:00Z"
+    monkeypatch.setattr(
+        "health_buddy.core.operations._now", lambda: "2030-01-02T02:44:00Z"
+    )
     rotated = action(runtime, owner, "grants.rotate", resource=grant.data["id"])
     with pytest.raises(ServiceError) as denied:
         client.retry()

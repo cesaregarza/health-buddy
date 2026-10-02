@@ -8,14 +8,14 @@ file. Typed JSON fields are translated to the same known argument validators.
 from __future__ import annotations
 
 import argparse
-from datetime import date
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Never, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from health_buddy.core import source_bundle
+from health_buddy.core import records, source_bundle
 from health_buddy.core.config import Config
 from health_buddy.core.domain import digest, identifier, invalid, object_value
 from health_buddy.core.git_store import csv_text, parse_csv
@@ -291,7 +291,7 @@ def completed(
 
 
 def transition(
-    kind: str, intent: JSON, files: dict[str, str], config: Config
+    kind: str, intent: JSON, files: dict[str, str], config: Config, received_at: str
 ) -> Transition:
     body = object_value(intent, {"sourceId", "fields"}, {"replaceExisting"})
     identifier(body["sourceId"])
@@ -368,9 +368,12 @@ def transition(
                 rows.append(row)
             if kind == "intake":
                 rows.sort(key=lambda old: old[timestamp])
+        result: dict[str, JSON] = {"saved": True, "duplicate": duplicate}
+        if kind == "measurement":
+            result.update(_measurement_time_feedback(row, fields, received_at))
         return (
             {path: csv_text(headers, rows)},
-            {"saved": True, "duplicate": duplicate},
+            result,
             {(path, digest(row))},
         )
     except (
@@ -381,6 +384,32 @@ def transition(
         argparse.ArgumentTypeError,
     ) as exc:
         raise invalid() from exc
+
+
+def _measurement_time_feedback(
+    row: dict[str, str], fields: dict[str, JSON], received_at: str
+) -> dict[str, JSON]:
+    observed_at = records.row_time(row, row["timezone"])
+    if datetime.fromisoformat(observed_at) <= datetime.fromisoformat(received_at):
+        return {}
+    return {
+        "warnings": [
+            {
+                "code": "future_measurement_timestamp",
+                "field": "fields.measuredAtLocal",
+                "value": fields["measuredAtLocal"],
+                "timezone": row["timezone"],
+                "observedAt": observed_at,
+                "serverTime": received_at,
+                "recovery": (
+                    "Saved with the supplied timestamp. Verify the time and timezone; "
+                    "do not resubmit just to make it visible. Read records.list with "
+                    "an explicit from/to window containing observedAt. Current context "
+                    "excludes future observations."
+                ),
+            }
+        ]
+    }
 
 
 def _workout(

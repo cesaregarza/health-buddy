@@ -10,6 +10,16 @@ authority and reauthenticates before each operation. The CLI accepts only an
 explicit private `--credential-file`, never token argv or ambient credentials.
 See [private owner setup](authorization.md).
 
+For an installed owner, follow the executable
+[current-time measurement and canonical read-back](install-preflight.md#log-and-verify-a-measurement).
+`records --source-ids manual --kinds body-mass --from TIMESTAMP --to TIMESTAMP`
+uses that same explicit `--credential-file` and prints canonical values and
+`observedAt` timestamps. The existing service enforces the 366-day window and
+1–500 row limit (`--limit` defaults to 100); `--cursor` continues a page using
+the same filters and exact returned window. MCP exposes this as `list_records`.
+Reading a future observation requires an explicit window containing its instant;
+current context excludes future observations.
+
 The historical `scripts/log_*.py` command names now require `--workspace` and
 delegate to that same CLI; `log_workout.py` retains its start/set/cardio/finish
 subcommands. Explicit loose-file output flags are refused. Pure legacy row,
@@ -61,6 +71,15 @@ original revision plus one, matching resource ID and ETag. Replaying a completed
 action rechecks server policy and must preserve its original status/body.
 The fixed receipt may say projection is pending even after projection catches
 up; clients read the current projection separately.
+
+Measurement writes whose normalized timestamp is strictly after receipt time
+are accepted unchanged with `data.warnings[].code` equal to
+`future_measurement_timestamp`. The warning includes the offending
+`fields.measuredAtLocal` value, effective timezone, UTC `observedAt`, `serverTime`
+and recovery text. This is saved write feedback, not a promise of current-context
+visibility. Current and historical measurements receive no such warning.
+The warning is retained in the original receipt on retry, even when the clock
+has since advanced; native, HTTP and MCP clients share that receipt.
 
 Identical completed actions replay by default. Use global `--new-write` for an
 intentionally repeated action. A changed plan file is a different intent even

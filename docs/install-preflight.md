@@ -803,10 +803,6 @@ handoff or move unrelated files only after owner review. Do not delete recovery
 material to force progress. A same-name grant conflict keeps that code without
 a path and needs owner grant reconciliation. Keep path-bearing output private.
 
-To log from the owner's shell, run
-`"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local <YYYY-MM-DDTHH:MM:SS> --weight-lb <lb>`;
-`log measurement --help` lists the fields it accepts.
-
 For Claude, choose `--client claude` and its supported project `.mcp.json`;
 see [Codex integration](codex-integration.md) and
 [Claude integration](claude-integration.md) for exact supported client versions,
@@ -833,6 +829,48 @@ Log in as owner and open `/security` (heading “Connect a phone”) for deliber
 and private short-lived proof delivery to the phone. No installer log includes
 that proof. Recorded runtime/Serve/client stages are labeled as last configured,
 not live network, daemon or named-client observations. `connected:false` remains.
+
+## Log and verify a measurement
+
+From the owner's shell, capture the actual current instant for a measurement
+taken now. `150` is a synthetic example in pounds; replace it with the intended
+value before writing. This uses the saved installation environment and owner
+credential, then reads the canonical record at that exact instant:
+
+```sh
+. "$HOME/health-buddy/env.sh"
+MEASURED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'Measurement UTC timestamp: %s\n' "$MEASURED_AT_UTC"
+"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local "$MEASURED_AT_UTC" --timezone UTC --weight-lb 150
+"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" records --source-ids manual --kinds body-mass --from "$MEASURED_AT_UTC" --to "$MEASURED_AT_UTC" --limit 10
+```
+
+The write receipt must report `data.saved: true`. In the read response, verify
+the `records` entry's `value: 150`, `unit: "lb"`, `kind: "body-mass"`,
+`sourceId: "manual"` and `observedAt` equal to the printed UTC timestamp.
+`records` uses the authenticated `records.list` operation; its bounded window
+includes both endpoints and can explicitly include a future timestamp. It
+returns exact values and timestamps, unlike a context date summary. An agent
+uses the same operation through MCP `list_records` with `sourceIds: ["manual"]`,
+`kinds: ["body-mass"]`, and the same `from`/`to` timestamp. Use these canonical
+reads to verify a write; private storage files are not the client read API.
+
+`log measurement --help` lists accepted fields. A timestamp with `Z` or a numeric
+UTC offset identifies an instant; the offset takes precedence over the timezone
+field. A timestamp without an offset uses `--timezone` (an IANA zone such as
+`America/Chicago`), or the workspace's configured timezone when omitted. For a
+historical measurement, supply its actual time and zone. Do not substitute noon
+or another guessed clock time for "today".
+
+A normalized measurement timestamp strictly after the server's receipt time is
+saved unchanged with `data.warnings[].code: "future_measurement_timestamp"`.
+The warning identifies `fields.measuredAtLocal`, the supplied value, timezone,
+normalized `observedAt`, `serverTime` and a recovery hint. Check the time and
+timezone and use an explicit read window containing `observedAt`; current
+context excludes future observations. A warning does not mean the write failed.
+If the write reply is lost, use the same credentialed CLI with `pending retry`;
+do not rerun the block to generate a new timestamp. Retries return the original
+receipt and warning even after the server clock passes that measurement time.
 
 ## Explicit missing-secret recovery and retained-data removal
 

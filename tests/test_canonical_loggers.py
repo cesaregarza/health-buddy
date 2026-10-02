@@ -6,9 +6,19 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
+
 from health_buddy.core.git_store import parse_csv
 from health_buddy.core.service_api import Request
 from tests.canonical_fixtures import decoded, metadata, setup
+
+SERVER_TIME = "2026-10-02T02:44:00Z"
+
+
+class MeasurementClock(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return datetime.fromisoformat(SERVER_TIME).astimezone(tz)
 
 
 def log(service, owner, kind, fields, *, replace_existing=False):
@@ -230,3 +240,104 @@ def test_record_timezone_and_shape_validation_precede_replay(tmp_path):
     rows = decoded(response)["data"]["records"]
     assert rows[0]["observedAt"] == "2026-09-02T06:30:00Z"
     assert rows[0]["timezone"] == "America/Los_Angeles"
+
+
+@pytest.mark.parametrize(
+    ("stamp", "timezone", "observed", "future"),
+    [
+        ("2026-10-02T02:44:00", "UTC", SERVER_TIME, False),
+        ("2026-10-01T12:00:00Z", "UTC", "2026-10-01T12:00:00Z", False),
+        ("2026-10-02T12:00:00", "UTC", "2026-10-02T12:00:00Z", True),
+        ("2026-10-01T21:44:00", None, SERVER_TIME, False),
+        ("2026-10-01T22:00:00", None, "2026-10-02T03:00:00Z", True),
+        ("2026-01-01T21:00:00", None, "2026-01-02T03:00:00Z", False),
+        ("2026-10-02T11:44:00+09:00", "America/Chicago", SERVER_TIME, False),
+        ("2026-10-02T11:45:00", "Asia/Tokyo", "2026-10-02T02:45:00Z", True),
+        ("2026-10-02T02:44:01.999Z", "UTC", "2026-10-02T02:44:01Z", True),
+    ],
+)
+def test_measurement_warning_uses_canonical_instant_and_server_clock(
+    tmp_path, monkeypatch, stamp, timezone, observed, future
+):
+    monkeypatch.setattr("health_buddy.core.operations._now", lambda: SERVER_TIME)
+    monkeypatch.setattr("health_buddy.core.snapshots.datetime", MeasurementClock)
+    service, _, owner = setup(tmp_path / "owner")
+    service.config.values["timezone"] = "America/Chicago"
+    fields = {"measuredAtLocal": stamp, "weightLb": 150}
+    if timezone is not None:
+        fields["timezone"] = timezone
+    receipt = log(service, owner, "measurement", fields)
+    assert receipt.status == 200, receipt.body
+    data = decoded(receipt)["data"]
+    assert data["saved"] is True
+    if future:
+        (warning,) = data["warnings"]
+        assert warning["code"] == "future_measurement_timestamp"
+        assert warning["field"] == "fields.measuredAtLocal"
+        assert warning["value"] == stamp
+        assert warning["timezone"] == (timezone or "America/Chicago")
+        assert warning["observedAt"] == observed
+        assert warning["serverTime"] == SERVER_TIME
+        assert "Saved" in warning["recovery"] and "from/to" in warning["recovery"]
+    else:
+        assert "warnings" not in data
+    listed = service.execute(
+        owner,
+        Request(
+            "records.list",
+            query={
+                "from": observed,
+                "to": observed,
+                "kinds": "body-mass",
+                "sourceIds": "manual",
+            },
+        ),
+    )
+    (record,) = decoded(listed)["data"]["records"]
+    assert (record["value"], record["unit"], record["observedAt"]) == (
+        150,
+        "lb",
+        observed,
+    )
+    assert record["timezone"] == (timezone or "America/Chicago")
+    current = decoded(
+        service.execute(owner, Request("dashboard.read", query={"format": "json"}))
+    )["data"]["observations"]
+    assert (record["id"] in {item["id"] for item in current}) is (not future)
+
+
+@pytest.mark.parametrize(
+    ("first_time", "retry_time", "warned"),
+    [
+        (SERVER_TIME, "2026-10-03T02:44:00Z", True),
+        ("2026-10-03T02:44:00Z", SERVER_TIME, False),
+    ],
+)
+def test_measurement_retry_preserves_original_time_feedback(
+    tmp_path, monkeypatch, first_time, retry_time, warned
+):
+    monkeypatch.setattr("health_buddy.core.operations._now", lambda: first_time)
+    service, _, owner = setup(tmp_path / "owner")
+    identity, revision = metadata(service, owner)
+    request = Request(
+        "logs.write",
+        resource_id="measurement",
+        payload={
+            "sourceId": "manual",
+            "fields": {
+                "measuredAtLocal": "2026-10-02T12:00:00Z",
+                "timezone": "UTC",
+                "weightLb": 150,
+            },
+        },
+        identity=identity,
+        if_match=revision,
+        idempotency_key="measurement-time-replay",
+    )
+    original = service.execute(owner, request)
+    assert original.status == 200
+    assert ("warnings" in decoded(original)["data"]) is warned
+    monkeypatch.setattr("health_buddy.core.operations._now", lambda: retry_time)
+    replay = service.execute(owner, request)
+    assert (replay.status, replay.body) == (original.status, original.body)
+    assert service.journal.state().revision == 1

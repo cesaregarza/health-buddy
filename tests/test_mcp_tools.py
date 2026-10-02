@@ -9,14 +9,16 @@ from dataclasses import replace
 
 import pytest
 
+from health_buddy.client.auth import AuthenticatedOperations
 from health_buddy.core.domain import encode, envelope, identity_value
 from health_buddy.core.plans import to_wire
-from health_buddy.core.security_api import ClientIdentity
+from health_buddy.core.security_api import BearerProof, ClientIdentity
 from health_buddy.core.service_api import ServiceError
 from health_buddy.mcp.proposals import Proposals
 from health_buddy.mcp.schemas import SPECS, validate
 from health_buddy.mcp.settings import Settings
 from health_buddy.mcp.tools import ToolService
+from tests.security_fixtures import secured
 from tests.synthetic_workspace import program
 from tests.test_extension_workflow import IDENTITY
 from tests.test_mcp_settings import settings_file
@@ -96,6 +98,52 @@ def intent():
             "weightLb": 180,
         },
     }
+
+
+def test_measurement_warning_and_exact_readback_through_tools(tmp_path, monkeypatch):
+    runtime, _, token = secured(tmp_path / "backend")
+    admitted = AuthenticatedOperations(runtime, BearerProof(token))
+    _, settings, api = setup(tmp_path)
+    settings = replace(settings, identity=admitted.describe().identity)
+    tools = ToolService(settings, api)
+    # Keep the existing in-process dispatch fixture, but use real authority and
+    # canonical transactions for discovery, writes, reads and receipt validation.
+    for method in ("describe", "preflight", "execute"):
+        monkeypatch.setattr(api, method, getattr(admitted, method))
+    monkeypatch.setattr(
+        "health_buddy.core.operations._now", lambda: "2026-10-02T02:44:00Z"
+    )
+    args = intent()
+    args["identity"] = identity_value(admitted.describe().identity)
+    args["fields"].update(measuredAtLocal="2026-10-02T12:00:00Z", weightLb=150)
+    saved = tools.call("log_health", args)
+    assert saved["ok"] is True
+    warning = saved["result"]["data"]["warnings"][0]
+    assert warning["code"] == "future_measurement_timestamp"
+    assert warning["value"] == warning["observedAt"] == "2026-10-02T12:00:00Z"
+    listed = tools.call(
+        "list_records",
+        {
+            "sourceIds": ["manual"],
+            "kinds": ["body-mass"],
+            "from": warning["observedAt"],
+            "to": warning["observedAt"],
+            "limit": 10,
+        },
+    )
+    assert listed["ok"] is True
+    (record,) = listed["result"]["data"]["records"]
+    assert (record["value"], record["unit"], record["observedAt"]) == (
+        150,
+        "lb",
+        "2026-10-02T12:00:00Z",
+    )
+    monkeypatch.setattr(
+        "health_buddy.core.operations._now", lambda: "2026-10-03T02:44:00Z"
+    )
+    reopened = ToolService(settings, api)
+    assert reopened.call("retry_write", {"intentId": args["intentId"]}) == saved
+    assert runtime.operations.journal.state().revision == 1
 
 
 def test_lost_ack_restart_preserves_body_key_revision_and_rechecks_actor(tmp_path):
