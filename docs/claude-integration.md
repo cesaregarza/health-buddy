@@ -77,9 +77,8 @@ Review each requested write and native shell permission in the chosen client.
 Retain SOURCE/PYTHON and the private launcher across fresh sessions. For separately
 authorized native customization, launch with `claude --add-dir "$SOURCE"
 --add-dir "$WORKSPACE"` from CLAUDE_PROJECT or use `/add-dir` interactively.
-Filesystem access remains separate from a health grant. On a remote owner host,
-arrange the native maintenance session explicitly; MCP exposes logical references,
-not native filesystem authorization. Read matching CLAUDE.md and the canonical
+Filesystem access remains separate from a health grant; MCP exposes logical
+references, not native filesystem authorization. Read matching CLAUDE.md and the canonical
 guide even when additional-directory automatic instruction loading is disabled.
 
 After updating helper/source/skill, repeat setup, restart and repeat discovery.
@@ -106,7 +105,7 @@ intake/blood-pressure corrections require reviewed fields/current CAS; arbitrary
 record correction/deletion remains in the canonical owner workflow.
 
 `tests/test_claude_integration.py` uses two helper-generated configurations with
-the real SDK/HTTPS/canonical authority. The Codex-configured adapter records one
+the real SDK/API socket/canonical authority. The Codex-configured adapter records one
 fabricated workout; the Claude-configured adapter reads its exact scoped set and
 unit, handles an injected refused redirect and recovers with current sync_status.
 Its separate clientId/retry state records another authorized fabricated workout

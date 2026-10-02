@@ -1,8 +1,8 @@
 """Actual pinned MCP SDK against the already-running packaged API; queue only.
 
-No source backend or native authority is constructed. The synthetic TLS bridge
-owns a duplicate of the driver's listener, and every SDK client is a new process.
-Only the finite safe summary reaches stdout. Private retry/settings/TLS material
+No source backend or native authority is constructed. A synthetic relay socket
+stands in front of the packaged API socket, and every SDK client is a new process.
+Only the finite safe summary reaches stdout. Private retry/settings material
 stays below the driver's private state directory and is never an artifact input.
 """
 
@@ -28,7 +28,7 @@ from health_buddy.runtime.manifest import (
     native_directory,
     verify_source_identity,
 )
-from tests.mcp_wire_fixtures import certificate, client, existing_backend, request
+from tests.mcp_wire_fixtures import bridged, client, request
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -148,13 +148,14 @@ def record(wire):
     return rows[0]["id"], listed["result"]["meta"]["dataRevision"]
 
 
-def dashboard_record(bridge, token, identity, row_id, revision):
+def dashboard_record(bridge, settings, token, row_id, revision):
+    identity = settings["identity"]
     status, raw, _ = request(
         bridge.uds,
         target=DASHBOARD_ROUTE,
         headers={
             "Authorization": "Bearer " + token,
-            "X-Forwarded-Host": bridge.origin.removeprefix("https://"),
+            "X-Forwarded-Host": settings["origin"].removeprefix("https://"),
             "X-Installation-ID": identity["installationId"],
             "X-Dataset-ID": identity["datasetId"],
             "X-Restore-Epoch": identity["restoreEpoch"],
@@ -193,18 +194,14 @@ def dashboard_record(bridge, token, identity, row_id, revision):
     }
 
 
-def run_phase(
-    phase: str, workspace: Path, bundle: Path, folder: Path, listener_fd: int
-):
+def run_phase(phase: str, workspace: Path, bundle: Path, folder: Path):
     versions = profile()
     native_directory(workspace)
     native_directory(folder.parent)
     if phase == "initial":
         folder.mkdir(mode=0o700)
-        certs = certificate(folder)
     else:
         native_directory(folder)
-        certs = folder / "synthetic-ca.pem", folder / "synthetic-key.pem"
     identity = verify_source_identity(
         bundle / "source", bundle / "release/source-manifest.json"
     )
@@ -219,13 +216,16 @@ def run_phase(
     token_path = workspace / "secrets/synthetic-sdk-token"
     private_token = token_path.read_text().strip()
     settings_path = folder / "adapter.json"
-    with existing_backend(
-        workspace / "security/runtime/http.sock", listener_fd, certs
+    relay = folder / "relay.sock"
+    with bridged(
+        workspace / "security/runtime/http.sock", relay, protect_cleanup=True
     ) as bridge:
         if phase == "initial":
+            config = read_json(workspace / "config.json")
             settings = {
                 "schemaVersion": 1,
-                "origin": bridge.origin,
+                "origin": config["security"]["externalOrigin"],
+                "socketPath": str(relay),
                 "identity": read_json(
                     workspace
                     / "personal/state/container-qualification/sdk-identity.json"
@@ -235,7 +235,6 @@ def run_phase(
                 "clientId": "synthetic-packaged-mcp",
                 "writeSources": ["manual"],
                 "acknowledgeAiEgress": True,
-                "caFile": str(certs[0]),
             }
             settings_path.write_bytes(canonical(settings))
             settings_path.chmod(0o600)
@@ -326,7 +325,6 @@ def run_phase(
             (folder / "baseline.json").write_bytes(canonical(baseline))
         else:
             settings = read_json(settings_path)
-            require(settings["origin"] == bridge.origin, "Reserved SDK origin changed")
             before = read_json(folder / "baseline.json")
             retained_path = state_file(folder)
             require(
@@ -363,9 +361,7 @@ def run_phase(
                 == before["receiptSha256"],
                 "Recreated replay wire receipt changed",
             )
-        dashboard = dashboard_record(
-            bridge, private_token, settings["identity"], row_id, revision
-        )
+        dashboard = dashboard_record(bridge, settings, private_token, row_id, revision)
         require(
             private_token not in retained_path.read_text(),
             "Credential leaked into retry state",
@@ -389,7 +385,6 @@ def main() -> None:
     parser.add_argument("--workspace", required=True, type=Path)
     parser.add_argument("--bundle", required=True, type=Path)
     parser.add_argument("--state", required=True, type=Path)
-    parser.add_argument("--listener-fd", required=True, type=int)
     args = parser.parse_args()
     os.umask(0o077)
 
@@ -400,9 +395,7 @@ def main() -> None:
     termination = signal.signal(signal.SIGTERM, expired)
     signal.setitimer(signal.ITIMER_REAL, PHASE_SECONDS)
     try:
-        result = run_phase(
-            args.phase, args.workspace, args.bundle, args.state, args.listener_fd
-        )
+        result = run_phase(args.phase, args.workspace, args.bundle, args.state)
     except Exception as exc:
         # Retain our source line and authored assertion label, never arbitrary
         # exception text, traceback locals, settings or private fixture values.

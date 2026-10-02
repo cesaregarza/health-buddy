@@ -1,4 +1,4 @@
-"""Finite HTTPS Operations adapter; no store, cookie, redirect or ambient proxy."""
+"""Finite API-socket Operations adapter; no store, cookie, redirect or ambient proxy."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import cast
+from urllib.parse import urlsplit
 
 import anyio
 import httpx2
@@ -104,7 +105,6 @@ class HttpOperations:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._token = settings.token()
-        self._verify = settings.tls()
         self._deadline: float | None = None
 
     @contextmanager
@@ -137,18 +137,20 @@ class HttpOperations:
         try:
             with anyio.fail_after(remaining):
                 async with httpx2.AsyncClient(
-                    verify=self._verify,
+                    transport=httpx2.AsyncHTTPTransport(
+                        uds=str(self.settings.socket_path),
+                        trust_env=False,
+                        limits=httpx2.Limits(
+                            max_connections=1, max_keepalive_connections=0
+                        ),
+                    ),
                     trust_env=False,
                     follow_redirects=False,
-                    http2=False,
                     timeout=httpx2.Timeout(min(10.0, remaining)),
-                    limits=httpx2.Limits(
-                        max_connections=1, max_keepalive_connections=0
-                    ),
                 ) as client:
                     async with client.stream(
                         method,
-                        self.settings.origin + path,
+                        "http://localhost" + path,
                         headers=headers,
                         params=dict(request.query) if request else None,
                         content=body,
@@ -171,7 +173,11 @@ class HttpOperations:
         self, request: Request | None, body: bytes | None, maximum: int
     ) -> dict[str, str]:
         identity = self.settings.identity
+        # The socket admits only requests forwarded for the configured HTTPS
+        # origin, as Serve sends them; the bearer token still authenticates.
         headers = {
+            "X-Forwarded-Host": urlsplit(self.settings.origin).netloc,
+            "X-Forwarded-Proto": "https",
             "Authorization": "Bearer " + self._token,
             "Accept": "application/json",
             "Accept-Encoding": "identity",

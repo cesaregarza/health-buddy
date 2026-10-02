@@ -267,6 +267,7 @@ def _binding(
         "skill": str(skill_directory),
         "python": str(python),
         "origin": runtime.ingress.external_origin,
+        "socketPath": runtime.ingress.socket_path,
     }
 
 
@@ -287,8 +288,8 @@ def _validate_reinstall_review(
             selected[key] != request[key] for key in ("token", "settings", "retryRoot")
         )
         or any(
-            selected[key] != old[key]
-            for key in ("client", "config", "skill", "python", "origin")
+            selected[key] != old.get(key)
+            for key in ("client", "config", "skill", "python", "origin", "socketPath")
         )
     ):
         raise ServiceError(409, "install_agent_reinstall_requires_original_review")
@@ -443,6 +444,7 @@ def _adapter_settings(selected: dict[str, Any], grant: AgentGrant) -> bytes:
         {
             "schemaVersion": 1,
             "origin": selected["origin"],
+            "socketPath": selected["socketPath"],
             "identity": selected["identity"],
             "credentialFile": selected["token"],
             "retryRoot": selected["retryRoot"],

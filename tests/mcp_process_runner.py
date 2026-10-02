@@ -5,12 +5,11 @@ import json
 import os
 import sys
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from opentelemetry import trace
 
 settings = Path(sys.argv[2])
-origin = urlsplit(json.loads(settings.read_bytes())["origin"])
+api_socket = json.loads(settings.read_bytes())["socketPath"]
 marker = settings.parent / "unexpected-activity"
 observed = settings.parent / "mcp-runtime-import-observed"
 
@@ -27,7 +26,7 @@ trace.NoOpTracer.start_as_current_span = forbidden
 def audit(event, arguments):
     if event == "socket.connect":
         address = arguments[1]
-        if address != ("127.0.0.1", origin.port):
+        if address != api_socket:
             marker.write_text("unexpected network activity")
             raise RuntimeError("synthetic-private-network-canary")
 

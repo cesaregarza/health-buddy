@@ -1,7 +1,7 @@
-"""Real MCP SDK, HTTPS, Granian UDS and canonical security/storage integration.
+"""Real MCP SDK, Granian UDS and canonical security/storage integration.
 
-No real AI host or Tailscale deployment is exercised. TLS certificates and
-health observations are synthetic. The queue must supply its bounded cgroup.
+No real AI host or Tailscale deployment is exercised. Health observations are
+synthetic. The queue must supply its bounded cgroup.
 """
 
 import base64
@@ -16,6 +16,8 @@ from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import Request
 from health_buddy.extension.personal_workspace import describe
 from health_buddy.extension.registry import Registry
+from health_buddy.mcp.api import HttpOperations
+from health_buddy.mcp.settings import Settings
 from tests import test_transport_auth_wire as uds_fixtures
 from tests.canonical_fixtures import intent
 from tests.extension_fixtures import example
@@ -24,6 +26,19 @@ from tests.security_fixtures import action
 from tests.synthetic_workspace import program
 
 short_directory = uds_fixtures.short_directory
+
+
+def test_adapter_reaches_the_actual_api_over_its_private_socket(
+    short_directory, tmp_path
+):
+    with actual_backend(short_directory, tmp_path) as (bridge, settings, _, _, grant):
+        values = json.loads(settings.read_bytes())
+        values["socketPath"] = str(bridge.uds)
+        settings.write_text(json.dumps(values))
+        api = HttpOperations(Settings.read(settings))
+        assert api.describe().actor_binding == grant.data["id"]
+        assert api.execute(None, Request("capabilities")).status == 200
+        assert bridge.seen == []
 
 
 @pytest.mark.parametrize("modern", [False, True])

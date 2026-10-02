@@ -25,10 +25,10 @@ or other servers. A plugin-directory release is not required or claimed.
 
 Use Bash and native Linux. Select an independently verified, retained source
 bundle and a reachable persistent owner WORKSPACE outside the source tree.
-Health tools connect to the owner's canonical HTTPS origin; native extension
-maintenance also needs separate OS-owner authorization/access to that workspace.
-If the workspace lives on another host, arrange that native session separately;
-a remote health token does not grant filesystem access or expose private paths.
+Health tools connect to the API over that workspace's managed socket, so Codex
+runs on the API host as the workspace's OS owner; native extension maintenance
+also needs separate OS-owner authorization/access to that workspace. A health
+token does not grant filesystem access or expose private paths.
 
 Create private setup/skill-parent directories with `umask 077`; each parent must
 already exist as an owned mode-0700 native directory. The helper never adopts
@@ -72,11 +72,11 @@ on connection. Owner reconciliation/rotation/revocation uses the existing
 `/v1/grants` interface, never automatic grant creation by connect-agent.
 
 Write the private mode-0600 adapter.json with the [existing version-1
-settings](mcp-adapter.md). Set actual `origin`, exact receiver tuple from the
-capabilities envelope, absolute `credentialFile`, external private `retryRoot`,
-stable `clientId: "codex-health-buddy"`, `writeSources: ["manual"]` and explicit
-`acknowledgeAiEgress: true`. Use an independently trusted optional caFile if
-needed. No TLS bypass, credential environment fallback or provider key exists.
+settings](mcp-adapter.md). Set the configured `origin`, the managed API
+`socketPath`, exact receiver tuple from the capabilities envelope, absolute
+`credentialFile`, external private `retryRoot`, stable
+`clientId: "codex-health-buddy"`, `writeSources: ["manual"]` and explicit
+`acknowledgeAiEgress: true`. No credential environment fallback or provider key exists.
 Selected health responses will reach the AI host the operator chooses.
 
 ## Connect, repeat and update
@@ -137,7 +137,7 @@ For an authorized completed synthetic workout, call `record_workout` with the
 returned identity/revision, stable intentId and validated workout JSON. The
 maintained fixture in `tests/test_codex_integration.py` supplies a fabricated
 completed set from `tests/test_portable_workspace.py`. It verifies the actual
-configured stdio adapter over HTTPS/canonical authority, one canonical revision
+configured stdio adapter over the API socket/canonical authority, one canonical revision
 increment, a fresh-process identical replay and changed-content conflict.
 It is an SDK client test, not a Codex model simulation or named-client receipt.
 
@@ -146,7 +146,7 @@ record management uses supported log_health/record_workout and reviewed plan
 proposals. Explicit intake/blood-pressure corrections may use supported log_health
 replaceExisting with reviewed fields and current CAS. For other corrections or
 deletions use the canonical owner workflow rather than inventing an operation. Diagnose connection failures
-from paths/permissions, HTTPS origin/CA and exact receiver identity; use current
+from paths/permissions, the API socket/origin and exact receiver identity; use current
 sync_status to distinguish empty/missing/disabled/restricted sources. Ambiguous
 writes keep intentId/body and use write_status/retry_write. Never bypass a stale
 CAS, revoked token or changed epoch by generating a fresh key.

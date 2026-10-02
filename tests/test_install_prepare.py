@@ -158,6 +158,7 @@ def test_client_config_repeats_without_live_connection(tmp_path, monkeypatch, na
             {
                 "schemaVersion": 1,
                 "origin": "https://synthetic.example.test",
+                "socketPath": runtime.ingress.socket_path,
                 "identity": identity_value(runtime.operations.journal.state().identity),
                 "credentialFile": str(token),
                 "retryRoot": str(selected["journal"].parent / "retry"),
@@ -198,9 +199,13 @@ def test_client_config_repeats_without_live_connection(tmp_path, monkeypatch, na
     )
     assert token.read_text() == "q" * 43
     assert not (selected["journal"].parent / "retry").exists()
-    mismatch = json.loads(settings.read_bytes())
-    mismatch["identity"]["restoreEpoch"] = "00000000-0000-4000-8000-000000000099"
-    settings.write_text(json.dumps(mismatch))
-    with pytest.raises(ServiceError, match="matching_owner_authority"):
-        install_prepare.prepare(**selected)
+    original = json.loads(settings.read_bytes())
+    epoch = dict(
+        original["identity"], restoreEpoch="00000000-0000-4000-8000-000000000099"
+    )
+    other = str(selected["journal"].parent / "other.sock")
+    for change in ({"identity": epoch}, {"socketPath": other}):
+        settings.write_text(json.dumps({**original, **change}))
+        with pytest.raises(ServiceError, match="matching_owner_authority"):
+            install_prepare.prepare(**selected)
     assert client_config.read_bytes() == before

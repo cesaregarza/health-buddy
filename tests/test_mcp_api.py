@@ -43,24 +43,29 @@ def configured(tmp_path, monkeypatch, *, status=200, body=None, headers=None, de
 
     def client(**kwargs):
         options.append(kwargs)
-        return original(**kwargs, transport=httpx2.MockTransport(reply))
+        return original(**{**kwargs, "transport": httpx2.MockTransport(reply)})
 
     monkeypatch.setattr("health_buddy.mcp.api.httpx2.AsyncClient", client)
     return HttpOperations(Settings.read(path)), calls, options
 
 
-def test_fixed_origin_headers_no_proxy_cookie_or_redirect_policy(tmp_path, monkeypatch):
+def test_socket_request_names_configured_origin_no_proxy_cookie_or_redirect(
+    tmp_path, monkeypatch
+):
     api, calls, options = configured(tmp_path, monkeypatch)
     result = api.execute(None, Request("capabilities"))
     assert result.status == 200 and len(calls) == 1
-    assert str(calls[0].url) == "https://synthetic.example.invalid/v1/capabilities"
+    assert str(calls[0].url) == "http://localhost/v1/capabilities"
+    assert calls[0].headers["host"] == "localhost"
+    assert calls[0].headers["x-forwarded-host"] == "synthetic.example.invalid"
+    assert calls[0].headers["x-forwarded-proto"] == "https"
     assert calls[0].headers["authorization"] == "Bearer " + "a" * 43
     assert (
         "cookie" not in calls[0].headers
         and calls[0].headers["accept-encoding"] == "identity"
     )
     assert options[0]["trust_env"] is False and options[0]["follow_redirects"] is False
-    assert options[0]["verify"] is True and options[0]["http2"] is False
+    assert isinstance(options[0]["transport"], httpx2.AsyncHTTPTransport)
 
 
 @pytest.mark.parametrize(

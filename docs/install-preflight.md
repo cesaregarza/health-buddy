@@ -400,8 +400,8 @@ an explicit reviewed MCP adapter/settings file and credential may be supplied:
 
 Use `--client claude` with the `.mcp.json` private launcher and supported skill
 location from [Claude setup](claude-integration.md), or [Codex setup](codex-integration.md).
-Preparation verifies the settings receiver tuple/origin matches this retained
-workspace before reusing the accepted connect-agent helper; it does not create
+Preparation verifies the settings receiver tuple, origin and API socket match this
+retained workspace before reusing the accepted connect-agent helper; it does not create
 agent grants, read bearer bytes, call a model or authenticate the configured token.
 The private journal binds that one chosen client configuration; a later change of
 client/target requires deliberate lifecycle review rather than silent adoption.

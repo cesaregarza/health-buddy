@@ -12,15 +12,19 @@ The SDK handles protocol versions and cancellation through its public stream
 API; the adapter adds bounded strict UTF-8 framing and isolates protocol stdout.
 
 The operator supplies a private, owned settings file (0600, parent 0700). Its
-version-1 fields are `schemaVersion`, canonical HTTPS `origin`, exact `identity`
+version-1 fields are `schemaVersion`, the installation's canonical HTTPS
+`origin`, absolute `socketPath` of the API's managed socket
+(`security/runtime/http.sock` in the workspace), exact `identity`
 (`installationId`, `datasetId`, `restoreEpoch`), absolute `credentialFile`,
 absolute `retryRoot`, stable `clientId`, explicit `writeSources` and
-`acknowledgeAiEgress: true`. Optional `caFile` supplies a private PEM trust anchor.
+`acknowledgeAiEgress: true`. The adapter runs on the API host as the workspace's
+OS owner and sends every request over that socket, naming `origin` as the
+forwarded host the API admits there; the socket's directory must be owner-only.
 The credential is an agent bearer token in a separate private file; owner and
 phone credentials are refused. There are no credential argv/env fallbacks.
-TLS verification is required, redirects/cookies/compression and ambient proxy
-settings are refused. The endpoint and receiver tuple are fixed by these
-operator settings; tool arguments cannot change them.
+Redirects/cookies/compression and ambient proxy settings are refused. The
+endpoint and receiver tuple are fixed by these operator settings; tool
+arguments cannot change them.
 
 Selected health tool responses reach the AI host the user chose. That host's
 handling of the supplied context is outside this local adapter. Reads require
