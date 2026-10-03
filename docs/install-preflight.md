@@ -613,10 +613,15 @@ other operations on the selected project stopped during this action.
 "$PYTHON" -m health_buddy.install.activation --journal "$PRIVATE_INSTALL/install.json" --environment "$PRIVATE_INSTALL/runtime.env" --project health-buddy-personal --uid "$OWNER_UID" --gid "$OWNER_GID" --confirm-local-daemon --confirm-quiesced
 ```
 
-The environment file must be new and outside both workspace and source bundle.
-If that path already exists at first admission, activation reports its path. If
-it is yours, remove only that file and rerun this identical command; otherwise
-stop and inspect it without changing it. The journal remains available for retry.
+Activation creates `$PRIVATE_INSTALL/runtime.env` itself from the pinned manifest.
+The path must not exist before the first run and must lie outside the workspace
+and the source bundle; never create or edit it. If the path already exists at
+first admission, activation refuses with `install_activation_environment_unowned`
+and names it in `conflictingPath`: if you created it, remove only that file and
+rerun the identical command; otherwise stop and inspect it without changing it.
+The first activation loads the image archive and can take several minutes on a
+small host; do not interrupt it. After an interruption, repeat the identical
+command until the output reports `runtimeActivated: true`.
 The original preparation journal supplies the pinned manifest, native Docker
 path and persistent workspace. Before any daemon observation/action, activation
 retains the workspace receiver identity, immutable target, selected project,
