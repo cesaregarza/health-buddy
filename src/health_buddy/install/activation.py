@@ -336,9 +336,9 @@ def main(argv: list[str] | None = None) -> int:
                 "install_activation_requires_ready_owner_authority",
             ):
                 recovery = (
-                    "Use the existing OS-owner managed-ingress configuration and explicit "
-                    "security setup; retain the workspace and retry after local readiness "
-                    "admission."
+                    "Use the existing OS-owner managed-ingress configuration and "
+                    "explicit security setup; retain the workspace and retry after "
+                    "local readiness admission."
                 )
         print(
             json.dumps(

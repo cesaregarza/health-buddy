@@ -42,7 +42,7 @@ SLOW = frozenset(
         "test_runtime_packaged_sdk::test_sdk_measurement_reaches_dashboard_data_route",
     }
 )
-# Root pytest: one test runs three sudo stages; two launch uid 65534.
+# Two UID tests need root pytest; owner-host needs nonroot pytest and sudo.
 NEEDS_ROOT = frozenset(
     {
         "test_owner_host::test_install_stages_run_as_root_are_refused_by_identity",  # three sudo stages

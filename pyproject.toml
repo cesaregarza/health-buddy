@@ -37,7 +37,7 @@ addopts = "-ra --strict-config --strict-markers"
 asyncio_mode = "auto"
 markers = [
     "slow: real servers, SDK clients, venvs, spawned interpreters or bulk data (make test-slow)",
-    "needs_root: root pytest; owner-host runs hb plus three sudo stages, two tests launch uid 65534",
+    "needs_root: two UID tests need root pytest; owner-host needs nonroot pytest and sudo",
 ]
 pythonpath = [".", "src"]
 testpaths = ["tests"]
