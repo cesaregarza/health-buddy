@@ -125,7 +125,7 @@ def prepare(
             raise ServiceError(
                 422,
                 "install_client_arguments_required",
-                details={"missingArguments": missing},
+                details={"missingArguments": [name for name in missing]},
             )
     docker = require_docker(docker)
     journal = private_path(journal)
@@ -321,7 +321,7 @@ def main(argv: list[str] | None = None) -> int:
         code = "install_preparation_refused"
         if isinstance(error, ServiceError) and error.code in RECOVERY:
             code = error.code
-        result: dict[str, Any] = {
+        failure: dict[str, Any] = {
             "schemaVersion": 1,
             "code": code,
             "recovery": RECOVERY[code],
@@ -331,8 +331,8 @@ def main(argv: list[str] | None = None) -> int:
         ):
             details = error.details if isinstance(error.details, dict) else {}
             missing = details.get("missingArguments", [])
-            result["missingArguments"] = missing if isinstance(missing, list) else []
-        print(json.dumps(result, sort_keys=True))
+            failure["missingArguments"] = missing if isinstance(missing, list) else []
+        print(json.dumps(failure, sort_keys=True))
         return 2
     print(json.dumps(result, sort_keys=True))
     return 0
