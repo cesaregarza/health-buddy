@@ -128,3 +128,120 @@ Directory-fsync failure/retry ordering, bounded child cleanup, registry graph
 limits, capacity-before-lock allocation and actual backup/job exclusion have
 separate cases. Exact raw check output must establish which assertions ran;
 source authorship alone is not verification.
+
+## Fresh-agent install rehearsal
+Repeat this owner-host gate after onboarding, bootstrap, installer or credentialed-CLI changes. Source tests do not replace it. Use synthetic data on a fresh disposable host;
+provisioning, downloads, model sessions and teardown require operator authorization.
+
+### Inputs and private setup
+
+Select a clean candidate and canonical onboarding Markdown page through the trusted publisher path. Require raw HTTPS, current release/trust instructions and resolved placeholders.
+Never compute pins from downloads, switch publisher or alter the served URL. Prompt protocol `one-url/2` gives the agent only that URL, the synthetic install and round-trip task,
+and the owner's local-only/no-private-HTTPS decision. The agent must discover host facts; provide no artifact URLs/hashes, host facts, stage answers or command hints.
+Supplied-input prompts are historical, not `one-url/2` evidence.
+
+Use a private native Linux kit, authenticated `doctl`, OpenSSH, Bash and Python 3. The fresh host needs at least 2 vCPU/4 GB; the helper prepares Docker Compose and Claude Code,
+records versions and creates ordinary `owner`. It seeds no workspace, checkout, credential, receipts or stage answers. Record actual OS/architecture and Claude Code version. Enter
+operator inputs once:
+
+```sh
+umask 077
+REHEARSAL_KIT="$(mktemp -d /tmp/hb-rehearsal.XXXXXXXX)"
+cp -a tools/rehearsal/. "$REHEARSAL_KIT/"
+read -r -p 'Unique disposable host name: ' REHEARSAL_NAME
+read -r -p 'Authorized SSH key ID: ' DO_SSH_KEY_ID
+read -r -p 'Cloud region: ' DO_REGION
+read -r -p 'Host size (at least 2 vCPU/4 GB): ' DO_SIZE
+read -r -p 'Private one-line model credential file: ' PRIVATE_MODEL_TOKEN_FILE
+read -r -p 'Credential kind (oauth or apikey): ' AUTH
+read -r -p 'Canonical onboarding Markdown URL: ' ONBOARDING_URL
+export DO_SSH_KEY_ID DO_REGION DO_SIZE PRIVATE_MODEL_TOKEN_FILE AUTH
+```
+
+Credential file must be owner-owned, non-symlink, mode 0600, one line plus newline. Keep credentials out of prompts, arguments, Git and shared logs; the harness transfers them over
+SSH stdin and removes remote temporary copies. Never enable shell tracing. If `AUTH=apikey`, the later client check needs a separate OAuth file. Record source / published-doc
+commits, URLs/pins, host and tool versions, umask, times, limits and auth kind privately. Inspect `prepare.log`; do not silently alter the host scenario.
+
+### 1. Provision
+
+Provision failure is not an install result; retain its host ID for teardown.
+
+```sh
+"$REHEARSAL_KIT/provision.sh" "$REHEARSAL_NAME" > "$REHEARSAL_KIT/prepare.log" 2>&1
+```
+
+### 2. Render `one-url/2`
+
+Render with the sole canonical page URL. The helper rejects non-HTTPS or credentialed, query/fragment URLs; review for the single URL and no host facts or hints.
+
+```sh
+python3 "$REHEARSAL_KIT/render-prompt.py" "$ONBOARDING_URL"
+```
+
+### 3. Run a fresh unassisted install
+
+No resume, prior conversation, personal files, checkout or operator skills. The helper runs as `owner`, uses `umask 002`, clears Python path/bytecode overrides and retains `<
+/dev/null`; do not alter those conditions. Default is Haiku, 250 turns, 3600 seconds. Record explicit model/limit changes. Preserve transcript, stderr, exit record and `STALLS.md`;
+timeout or zero exit alone is not success. Do not intervene; if needed, record before/after actions, mark assisted and retry on a new host.
+
+```sh
+"$REHEARSAL_KIT/run.sh"
+```
+
+### 4. Build evidence views and review the raw run
+
+```sh
+read -r -p 'Private run directory: ' RUN
+python3 "$REHEARSAL_KIT/stages.py" "$RUN/transcript.jsonl" > "$RUN/stages.txt"
+python3 "$REHEARSAL_KIT/summarize.py" "$RUN/transcript.jsonl" > "$RUN/summary.md"
+```
+
+Ledger and summary are lossy. Keep raw prompt/transcript immutable; review every stage, command, refusal, retry, final claim and stall, with full error and next attempt. Link
+stalls to fix commits/issues. Keep receipts private; redact before sharing.
+
+### 5. Independently check host state and authenticated read-back
+
+From the target host's ordinary `owner` shell, use retained `env.sh`; do not repair first. Enter the exact write instant from the transcript and save results.
+
+```sh
+read -r -p 'Written UTC instant from transcript: ' MEASURED_AT_UTC
+. "$HOME/health-buddy/env.sh"
+"$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
+"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" status --json
+"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" records --source-ids manual --kinds body-mass --from "$MEASURED_AT_UTC" --to "$MEASURED_AT_UTC" --limit 10
+find "$OWNER_WORKSPACE" -perm /022 -print
+docker ps -a --format '{{.ID}} {{.Status}} {{.Image}}'
+```
+
+Require ready owner, active activation, configured agent, `ownerAuthenticated`, `runtimeLastActive` and `agentGrantRetained`; the last flag is retained journal state, not live
+health. Preserve write response/revision and authenticated read response; match kind `body-mass`, source `manual` and exact `observedAt`; compare returned value/unit with the write response, allowing canonical unit conversion. Context summaries or
+private files are not exact read-back. Report any development-mode use separately; it cannot replace credentialed installed-runtime success.
+
+### 6. Check the fresh client and observer calls
+
+Back in the operator kit shell, supply the target's absolute install-journal path. The helper refuses an unfinished agent stage; never complete it by hand.
+With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Retain observer window/catalog, transcript and results.
+
+```sh
+read -r -p 'Absolute install-journal path: ' PRIVATE_JOURNAL
+export PRIVATE_JOURNAL
+"$REHEARSAL_KIT/client-check.sh" "$RUN"
+```
+
+Allow only `ToolSearch` metadata discovery and MCP `sync_status`, `get_context` and `list_records`. Require all three successful calls and no shell/file/web shortcut; compare exact
+record value/unit/time to the authenticated write. The checker verifies invocation shape, not result semantics; inspect raw calls and results. Its strict config/allowlist limits
+tools, whereas `--allowedTools` alone does not. Flag semantics were checked on Claude Code 2.1.284. Record actual version and exposed tools/calls;
+generated config alone is not client proof.
+
+### 7. Teardown and verdict
+
+Preserve receipts, then remove only the recorded numeric host ID:
+
+```sh
+"$REHEARSAL_KIT/teardown.sh"
+```
+
+Require a refreshed provider inventory confirming that ID absent; API/auth/network failure is not proof. Revoke credentials created only for this run when appropriate; remove
+borrowed temporary copies without revoking shared authority. Report installation, authenticated write/read-back, client check, stalls/intervention, skipped checks and teardown
+separately. Acceptance needs two consecutive unassisted Haiku runs with raw evidence and linked stall fixes, then Sonnet repetition. No run qualifies release, physical-device or
+cross-agent behavior. Preserve history unchanged; do not retroactively pass older prompt protocols.
