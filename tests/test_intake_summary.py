@@ -1,3 +1,5 @@
+"""scripts/intake_summary.py: legacy CLI that no product path calls."""
+
 import csv
 from pathlib import Path
 

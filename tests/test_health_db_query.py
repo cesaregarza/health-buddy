@@ -1,3 +1,5 @@
+"""scripts/health_db_query.py: legacy CLI that no product path calls."""
+
 from __future__ import annotations
 
 import json

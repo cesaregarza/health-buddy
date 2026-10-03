@@ -3,11 +3,30 @@
 The recorded output of an actual run, not this document, establishes observed
 outcomes. Who runs these checks, and what must pass, is set in
 [AGENTS.md](../AGENTS.md#checks-and-publication). Use an exact clean candidate
-and Python 3.12+. Run one check job and one test process at a time; limit
-numerical-library threads to one, and set `RAYON_NUM_THREADS=1` and
+and Python 3.12+. Run one check job at a time; its pytest targets start four
+pytest-xdist workers (`WORKERS=8` on a larger host). Limit numerical-library
+threads to one, and set `RAYON_NUM_THREADS=1` and
 `RUFF_NUM_THREADS=1` for Ruff. Synthetic fixtures use an
 explicit `America/Chicago` timezone to retain date-boundary regression cases;
 product configuration defaults to UTC.
+
+Root pytest has two tiers, marked from one list in `tests/conftest.py`.
+`make test` is the fast tier: it deselects both markers. `make test-slow` runs
+the rest: `slow` covers real servers, SDK clients, venvs, spawned interpreters
+and bulk data. Two `needs_root` tests launch a fixture process as uid 65534 and
+skip unless pytest runs as root; the third runs one install stage under `sudo`.
+`make test-all` runs both tiers at once. Each target uses `--dist loadfile`,
+which keeps a module's tests on one worker, so a module-scoped server starts
+once.
+
+The owner-host tests in `tests/test_owner_host.py` run the install stages the
+way an owner's shell does: as an unprivileged user under umask 002, on a host
+where `/run/docker.sock` exists (preflight inspects it). As root they fail by
+name instead of skipping, because root makes the stages refuse or pass for
+reasons an owner never meets, so run the slow tier as such a user; the gate
+runner, `hb-check-nonroot.sh`, runs pytest as the user `hb`. The case that runs
+a stage as root needs passwordless `sudo` for `/usr/bin/env` and fails by name
+without it.
 
 Native Linux socket tests require `HEALTH_BUDDY_TEST_SOCKET_ROOT` to name an
 existing, short, private directory owned by the current user with mode `0700`.
@@ -30,9 +49,10 @@ removes only that empty directory afterward:
 The manual-only workflow creates `${{ runner.temp }}/hb-uds` with mode `0700`
 before its test/build step. Cleanup uses `rmdir` under `always()` only if that
 create-only step succeeded; an existing directory is never adopted or removed.
-The UID/GID `65534` permission-negative case intentionally skips on a non-root
-hosted runner. Only a run as root exercises it; hosted validation does not
-provide equivalent evidence for it.
+Its `tier` input selects `test`, `test-slow` or `test-all`.
+The UID/GID `65534` permission-negative cases (`needs_root`) intentionally skip
+on a non-root hosted runner. Only a run as root exercises them; hosted
+validation does not provide equivalent evidence for them.
 
 1. Install `.[dev,sleepiq,mcp]` in a native venv; record package versions
    and installed license metadata. No credentials or live sources are required.
@@ -56,9 +76,10 @@ provide equivalent evidence for it.
 5. Record exact commands, SHA, dependency versions, failures, raw logs and skipped
    checks. Package/browser/fixture failures require repair before acceptance.
 
-Root pytest includes exact generic/HK replay, source collisions, stable IDs,
-scoped extension conformance, direct-ID/window/cache behavior, >1,000-row adoption,
-separate-process writer/read/backup exclusion and hard-exit recovery. Record
+Root pytest, across both tiers, includes exact generic/HK replay, source
+collisions, stable IDs, scoped extension conformance, direct-ID/window/cache
+behavior, >1,000-row adoption, separate-process writer/read/backup exclusion
+and hard-exit recovery. Record
 actual request/manifest lengths for the maximal-schema500+500case from pytest
 JUnit properties. This case proves a >1MiB recoverable manifest below the request
 cap; it does not claim to fill the 4MiB wire budget.
@@ -78,9 +99,10 @@ survival on arbitrary filesystems. The receipt records exact tested commit and
 raw outcomes; this document does not imply those gates have passed.
 
 Personal extension checks are part of the repeatable entrypoints: `make test`
-runs root tests plus both packaged reference suites without bytecode/cache
-writes; `make extension-test` selects the focused extension suites and those
-same reference cases. `make lint` retains its existing source scope and adds
+runs the fast tier of root tests plus both packaged reference suites without
+bytecode/cache writes; `make extension-test` selects the focused extension
+suites and those same reference cases. `make lint` retains its existing source
+scope and adds
 extension test/support and browser files, plus the MCP tests/support and
 workspace discovery and canonical source-status regression tests. Full
 verification installs the optional `mcp` extra

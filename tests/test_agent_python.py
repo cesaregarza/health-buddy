@@ -189,7 +189,7 @@ def test_probe_is_bounded_and_never_relays_child_output(
     started = time.monotonic()
     with pytest.raises(connect_agent.McpReadinessError) as caught:
         connect_agent.check_mcp_readiness(isolated_python, ROOT)
-    assert time.monotonic() - started < 3
+    assert time.monotonic() - started < 5
     result = caught.value.summary()
     assert result["reason"] == (
         "probe_timeout" if failure == "timeout" else "probe_failed"

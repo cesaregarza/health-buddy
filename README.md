@@ -7,6 +7,10 @@ built for Codex or Claude Code to install, maintain and extend.
 
 ## Install
 
+Coding agents start at [docs/onboarding.md](docs/onboarding.md): the ordered
+stage checklist with its completion test, linking each stage to the guide
+below.
+
 Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
 Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
 every command. Step zero, its "Before the first stage" section, gets the source
@@ -53,6 +57,7 @@ commands with the owner's `--credential-file` instead of `--development`.
 
 ### Use
 
+- [Install with a coding agent: stage checklist and completion test](docs/onboarding.md)
 - [Local first run and owner configuration](docs/configuration.md)
 - [Command-line client and pending writes](docs/canonical-clients.md)
 - [Owner, agent and device authorization](docs/authorization.md)

@@ -81,7 +81,7 @@ Selected health responses will reach the AI host the operator chooses.
 
 ## Connect, repeat and update
 
-Use the pinned source-check setup and 53-package wheel lock in the canonical
+Use the pinned source-check setup and 55-package wheel lock in the canonical
 [agent guide](agent-guide.md#first-runnable-change-weekly-mass-display). PYTHON
 names that Python 3.12 environment; the helper pins the source package version
 and points the adapter at SOURCE/src, not ambient installed modules. PYTHON may

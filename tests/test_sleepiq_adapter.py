@@ -1,3 +1,5 @@
+"""sleepiq_exporter.adapter: run by the optional sleepiq-exporter console script."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

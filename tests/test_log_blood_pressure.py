@@ -1,3 +1,5 @@
+"""scripts/log_blood_pressure.py: loaded by core/loggers.py for blood-pressure logs."""
+
 import csv
 
 from scripts.log_blood_pressure import FIELDNAMES, log_blood_pressure

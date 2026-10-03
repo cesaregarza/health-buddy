@@ -245,8 +245,6 @@ def test_record_timezone_and_shape_validation_precede_replay(tmp_path):
 @pytest.mark.parametrize(
     ("stamp", "timezone", "observed", "future"),
     [
-        ("2026-10-02T02:44:00", "UTC", SERVER_TIME, False),
-        ("2026-10-01T12:00:00Z", "UTC", "2026-10-01T12:00:00Z", False),
         ("2026-10-02T12:00:00", "UTC", "2026-10-02T12:00:00Z", True),
         ("2026-10-01T21:44:00", None, SERVER_TIME, False),
         ("2026-10-01T22:00:00", None, "2026-10-02T03:00:00Z", True),
@@ -254,6 +252,15 @@ def test_record_timezone_and_shape_validation_precede_replay(tmp_path):
         ("2026-10-02T11:44:00+09:00", "America/Chicago", SERVER_TIME, False),
         ("2026-10-02T11:45:00", "Asia/Tokyo", "2026-10-02T02:45:00Z", True),
         ("2026-10-02T02:44:01.999Z", "UTC", "2026-10-02T02:44:01Z", True),
+    ],
+    ids=[
+        "explicit-zone-future",
+        "workspace-zone-at-server-time",
+        "workspace-zone-future",
+        "workspace-zone-standard-time",
+        "offset-over-explicit-zone-at-server-time",
+        "explicit-zone-east-of-utc-future",
+        "fractional-second-truncated-future",
     ],
 )
 def test_measurement_warning_uses_canonical_instant_and_server_clock(

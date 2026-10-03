@@ -118,7 +118,7 @@ architecture:
 uname -m
 ```
 
-On `x86_64`, install the repository's hash-locked wheels, the 53-package
+On `x86_64`, install the repository's hash-locked wheels, the 55-package
 closure the [canonical guide](agent-guide.md) also uses. Nothing is resolved,
 and every wheel must match its recorded SHA-256:
 
@@ -284,7 +284,8 @@ Leave staging, journal and workspace empty. Acquire downloads the manifest and
 image archives into `$ARTIFACTS` itself and refuses files it did not put there,
 and preflight treats a non-empty workspace as an existing installation.
 
-Under `$PRIVATE_CLIENT`, only the empty `skills` parent may exist at this point.
+Under `$PRIVATE_CLIENT`, only the empty `skills` parent may exist at this point
+(the Claude Code variant of the agent stage adds its launcher directory then).
 Do not precreate `agent-token`, `adapter.json`, `retries`, `config.toml` or
 `skills/health-buddy`. The policy block in the agent section creates the one
 owner-authored input, `policy.json`, after review. The agent stage creates the
@@ -441,6 +442,10 @@ journal and the originally pinned bundle/artifacts across restarts.
 . "$HOME/health-buddy/env.sh"
 "$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER"
 ```
+
+The guided install passes no `--client` arguments here: the agent stage below
+configures the client. `--client` is only for the optional existing-credential
+variant further down, and then needs all four of its companion arguments.
 
 A source tree that no longer matches its manifest refuses as
 `install_preparation_source_identity_mismatch` before the first write.
@@ -793,6 +798,21 @@ while running this explicit setup. No client process is launched:
 "$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
+
+That block is the Codex variant. If the client on this host is Claude Code, run
+this variant instead. Its config must be a file named `.mcp.json` inside a
+private launcher directory that Claude Code is started from; the client and the
+config path are bound by the first run and cannot be corrected by rerunning, so
+choose them before running it:
+
+```sh
+. "$HOME/health-buddy/env.sh"
+mkdir -m 0700 "$PRIVATE_CLIENT/claude"
+"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client claude --client-config "$PRIVATE_CLIENT/claude/.mcp.json" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
+"$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
+```
+
+Start Claude Code from `$PRIVATE_CLIENT/claude` so it reads that `.mcp.json`.
 
 Done: `agentGrantRetained: true` and `clientConfigurationPrepared: true`.
 Before journal progress, grant creation or managed-file writes, setup checks the

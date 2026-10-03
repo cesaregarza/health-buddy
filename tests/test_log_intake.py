@@ -1,3 +1,5 @@
+"""scripts/log_intake.py: loaded by core/loggers.py and core/git_store.py for intake."""
+
 import csv
 
 from scripts.log_intake import FIELDNAMES, LEGACY_FIELDNAMES, log_intake

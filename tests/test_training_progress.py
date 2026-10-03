@@ -1,3 +1,5 @@
+"""training_progress.py has no caller; build_dashboard.py uses strength_identity."""
+
 import csv
 import tempfile
 import unittest

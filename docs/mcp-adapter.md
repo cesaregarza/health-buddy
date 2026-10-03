@@ -80,9 +80,17 @@ Once a partial line begins, it has a two-second idle and ten-second total input
 deadline. An otherwise idle connection with no partial frame may stay open.
 Protocol slots are retired when the SDK settles an unanswered cancellation,
 with a per-admission guard for reused request IDs. This does not release the
-separate durable service-job slot. Only one service job runs at a time. Its
-waiter has a 35-second deadline; an
-already admitted job is not abandoned when the caller disconnects or cancels.
+separate durable service-job slot. Only one service job runs at a time. Each
+request waits up to two seconds for that slot, within its 35-second waiter
+deadline; the eight protocol IDs bound the executing and queued requests
+together. A queued cancellation releases its waiter without dispatching work.
+An already admitted job is not abandoned when the caller disconnects or cancels.
+Tool calls refused before dispatch return `service_busy`, `admission_timeout`
+or `service_unavailable`; `outcome_unknown` denotes an uncertain dispatched
+outcome, including a job that exceeds its waiter deadline. A busy `tools/list`
+returns a safe protocol error. After the active job settles, discovery and reads
+may be retried. Preserve a write's
+intent ID when retrying, including after cancellation or an ambiguous outcome.
 Shutdown allows 50 seconds for retained jobs; a forced process termination can
 leave a pending outcome for replay. Ordinary API writes are limited to 64 KiB,
 plans to 256 KiB, API responses to 4 MiB, tool results to 64 KiB and selected

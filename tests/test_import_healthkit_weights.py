@@ -1,3 +1,5 @@
+"""scripts/import_healthkit_weights.py: legacy CLI that no product path calls."""
+
 from __future__ import annotations
 
 import csv

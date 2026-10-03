@@ -1,4 +1,5 @@
 PYTHON ?= python3
+WORKERS ?= 4
 LEGACY_TYPED = src scripts/next_workout.py scripts/publish_training_day.py scripts/prescription_progression.py
 REFERENCE_TESTS = src/health_buddy/reference_extensions/local.weekly-mass/tests src/health_buddy/reference_extensions/local.water-import/tests
 EXTENSION_TESTS = tests/test_extension_*.py
@@ -7,12 +8,19 @@ EXTENSION_LINT = $(EXTENSION_TESTS) tests/extension_fixtures.py health-runner/da
 MCP_LINT = tests/test_mcp_*.py tests/test_workspace_discovery.py tests/mcp_wire_fixtures.py tests/mcp_process_runner.py
 CANONICAL_READ_LINT = tests/test_canonical_reads.py
 AGENT_GUIDE_LINT = tests/test_agent_guide.py tests/test_codex_integration.py tests/test_claude_integration.py
+# Tiers come from the marker list in tests/conftest.py; loadfile keeps each
+# module on one worker, so a module-scoped server starts once.
+SUITE = PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m pytest -p no:cacheprovider -n $(WORKERS) --dist loadfile tests $(REFERENCE_TESTS)
 
-.PHONY: contracts test extension-test dashboard-test lint typecheck package preview
+.PHONY: contracts test test-slow test-all extension-test dashboard-test lint typecheck package preview
 contracts:
 	$(PYTHON) scripts/validate_contracts.py
 test:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m pytest -p no:cacheprovider tests $(REFERENCE_TESTS)
+	$(SUITE) -m "not slow and not needs_root"
+test-slow:
+	$(SUITE) -m "slow or needs_root"
+test-all:
+	$(SUITE)
 extension-test:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m pytest -p no:cacheprovider $(EXTENSION_TESTS) $(REFERENCE_TESTS)
 dashboard-test:

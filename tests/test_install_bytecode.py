@@ -8,17 +8,17 @@ from __future__ import annotations
 import argparse
 import ast
 import importlib
+import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from health_buddy.runtime.bundle import create_bundle
 from health_buddy.runtime.manifest import verify_source_identity
-from tests.test_runtime_bundle import git
+from tests.test_install_preflight import maintenance_bundle
+from tests.test_install_prepare import command_line, inputs
 
 SOURCE = Path(__file__).resolve().parents[1] / "src"
 PACKAGE = SOURCE / "health_buddy"
@@ -107,41 +107,25 @@ def test_entry_point_runs_under_the_private_umask(
     assert seen == [0o077]
 
 
-def package_bundle(tmp_path: Path) -> Path:
-    """A real verified bundle whose source carries this checkout's packages."""
-    repository = tmp_path / "repository"
-    repository.mkdir(mode=0o700)
-    git(repository, "init", "--quiet")
-    (repository / "pyproject.toml").write_text(
-        '[project]\nname="health-buddy"\nversion="0.1.0.dev0"\n'
-    )
-    shutil.copytree(
-        SOURCE,
-        repository / "src",
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-    )
-    git(repository, "add", ".")
-    git(repository, "commit", "--quiet", "-m", "Synthetic package source")
-    bundle = tmp_path / "bundle"
-    create_bundle(repository, git(repository, "rev-parse", "HEAD"), bundle)
-    return bundle
+def run_from_bundle(
+    bundle: Path, stage: str, *arguments: str
+) -> subprocess.CompletedProcess[str]:
+    """Run one stage as documented and check it left its bundle as it found it.
 
-
-def test_documented_stage_command_leaves_the_bundle_verifiable(tmp_path: Path) -> None:
-    bundle = package_bundle(tmp_path)
+    The documented form is PYTHONPATH="$SOURCE/src" "$PYTHON" -m <stage>, without
+    -B or PYTHONDONTWRITEBYTECODE (which the test runner itself exports).
+    """
     source, manifest = bundle / "source", bundle / "release/source-manifest.json"
     before = verify_source_identity(source, manifest)
-    # The documented form, PYTHONPATH="$SOURCE/src" "$PYTHON" -m <stage>, without
-    # -B or PYTHONDONTWRITEBYTECODE (which the test runner itself exports).
     completed = subprocess.run(  # noqa: S603 - fixed interpreter, module and bundle.
-        [sys.executable, "-m", "health_buddy.install.preflight", "--help"],
-        cwd=tmp_path,
+        [sys.executable, "-m", f"health_buddy.install.{stage}", *arguments],
+        cwd=bundle.parent,
         env={"PATH": os.defpath, "PYTHONPATH": str(source / "src")},
         capture_output=True,
+        text=True,
         timeout=60,
         check=False,
     )
-    assert completed.returncode == 0, completed.stderr
     written = {
         path.relative_to(source).as_posix()
         for path in source.rglob("*")
@@ -156,10 +140,29 @@ def test_documented_stage_command_leaves_the_bundle_verifiable(tmp_path: Path) -
         package_cache,
         "src/health_buddy/install/__pycache__",
         f"src/health_buddy/install/__pycache__/__init__.{tag}.pyc",
-        f"src/health_buddy/install/__pycache__/preflight.{tag}.pyc",
+        f"src/health_buddy/install/__pycache__/{stage}.{tag}.pyc",
     }
     # The package's own cache shows the child imported this bundle with writes
     # enabled, so an empty result cannot pass by accident.
-    assert package_cache in written
+    assert package_cache in written, completed.stderr
     assert written <= unavoidable
     assert verify_source_identity(source, manifest) == before
+    return completed
+
+
+def test_documented_stage_command_leaves_the_bundle_verifiable(tmp_path: Path) -> None:
+    completed = run_from_bundle(maintenance_bundle(tmp_path), "preflight", "--help")
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_documented_prepare_run_leaves_the_bundle_verifiable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Unlike preflight, prepare imports connect_agent and mcp_server, and it
+    # verifies the bundle it runs from. An unrelated owner file makes every
+    # host refuse after that check; otherwise the outcome would follow Docker.
+    selected = inputs(tmp_path, monkeypatch)
+    (selected["workspace"] / "owner-note").write_text("synthetic unrelated file")
+    completed = run_from_bundle(selected["bundle"], "prepare", *command_line(selected))
+    assert completed.returncode == 2, completed.stderr
+    assert json.loads(completed.stdout)["code"] == "install_preparation_refused"

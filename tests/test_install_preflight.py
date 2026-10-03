@@ -1,49 +1,56 @@
-"""Synthetic pinned release dry-run; no Docker/host mutation or health reads."""
+"""Synthetic pinned release dry-run; no Docker/host mutation or health reads.
 
+prepared(maintenance=True) adds a real bundle of this checkout's packages and
+its pinned release: each test process builds them once, keeps that original
+read-only and copies it for every test. It also memoizes the MCP readiness
+probe, which starts an interpreter that imports the SDK: once the real probe
+has passed for this interpreter and these source bytes, the same probe is not
+run again in this process. Every other probe, and every failure, is real.
+"""
+
+import contextlib
+import functools
 import hashlib
 import json
+import os
 import shutil
 import socket
+import stat
+import sys
+import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from health_buddy import connect_agent
+from health_buddy.connect_agent import check_mcp_readiness
+from health_buddy.install import agent as install_agent
 from health_buddy.install import preflight as install_preflight
+from health_buddy.install.prepare import MAINTENANCE_REFERENCES
 from health_buddy.runtime.bundle import create_bundle
-from health_buddy.runtime.manifest import verify_source_identity
+from health_buddy.runtime.manifest import (
+    ManifestError,
+    canonical,
+    inventory,
+    verify_source_identity,
+)
 from health_buddy.runtime.release import create_release
 from tests.test_runtime_artifact import make_archive
 from tests.test_runtime_bundle import git, plant_bytecode
 from tests.test_runtime_context import context_fixture
 
+ROOT = Path(__file__).resolve().parents[1]
+# Canonical source inventories this interpreter's real probe passed against.
+READY_SOURCES: set[bytes] = set()
 
-def prepared(tmp_path, monkeypatch, *, maintenance=False):
-    bundle, _ = context_fixture(tmp_path)
-    if maintenance:
-        from health_buddy.install.prepare import MAINTENANCE_REFERENCES
 
-        repository = tmp_path / "repository"
-        root = Path(__file__).resolve().parents[1]
-        for name in (*MAINTENANCE_REFERENCES, "packaging/compose.yaml"):
-            destination = repository / name
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes((root / name).read_bytes())
-        # Client readiness executes the adapter from this verified source tree.
-        shutil.copytree(
-            root / "src/health_buddy",
-            repository / "src/health_buddy",
-            dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-        )
-        git(repository, "add", ".")
-        git(repository, "commit", "--quiet", "-m", "Synthetic maintenance references")
-        bundle = tmp_path / "maintenance-bundle"
-        create_bundle(repository, git(repository, "rev-parse", "HEAD"), bundle)
+def pinned_release(bundle: Path, artifacts: Path) -> Path:
+    """Both architecture archives, labelled for the bundle's source, pinned."""
     identity = verify_source_identity(
         bundle / "source", bundle / "release/source-manifest.json"
     )
-    artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
     labels = {
         "org.opencontainers.image.revision": identity.source_commit,
@@ -59,7 +66,112 @@ def prepared(tmp_path, monkeypatch, *, maintenance=False):
             architecture=architecture,
             config_override={"config": {"Labels": labels}},
         )
-    manifest = create_release(bundle, artifacts)
+    return create_release(bundle, artifacts)
+
+
+def entries(root: Path) -> list[str]:
+    """root and every entry under it, without pathlib's cost per entry."""
+    paths = [str(root)]
+    for folder, folders, files in os.walk(root):
+        paths += [os.path.join(folder, name) for name in (*folders, *files)]
+    return paths
+
+
+def change_times(root: Path) -> dict[str, int]:
+    """Any write, rename, chmod or new entry under root moves one of these."""
+    return {path: os.lstat(path).st_ctime_ns for path in entries(root)}
+
+
+def chmod_tree(root: Path, change: Callable[[int], int]) -> None:
+    for path in entries(root):
+        os.chmod(path, change(stat.S_IMODE(os.lstat(path).st_mode)))
+
+
+@functools.cache
+def maintenance_original(base: Path) -> tuple[Path, dict[str, int]]:
+    """The read-only maintenance bundle and release, and their change times.
+
+    Built once per test process under base, the parent of every tmp_path.
+    """
+    # A fresh directory per attempt, so a failed build repeats its own error.
+    work = Path(tempfile.mkdtemp(prefix="maintenance-original-", dir=base))
+    previous = os.umask(0o022)  # The same modes whichever test builds it.
+    try:
+        # context_fixture's repository holds the synthetic packaging contract;
+        # add the files prepare and the bootstrap read, and the packages the
+        # stages import.
+        context_fixture(work)
+        repository = work / "repository"
+        for package in ("health_buddy", "health_ingest"):
+            shutil.copytree(
+                ROOT / "src" / package,
+                repository / "src" / package,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+            )
+        for name in (
+            *MAINTENANCE_REFERENCES,
+            "packaging/compose.yaml",
+            "scripts/package_runtime.py",
+        ):
+            destination = repository / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((ROOT / name).read_bytes())
+        git(repository, "add", ".")
+        git(repository, "commit", "--quiet", "-m", "Synthetic maintenance references")
+        original = work / "original"
+        original.mkdir()
+        bundle = original / "maintenance-bundle"
+        create_bundle(repository, git(repository, "rev-parse", "HEAD"), bundle)
+        pinned_release(bundle, original / "artifacts")
+    finally:
+        os.umask(previous)
+    chmod_tree(original, lambda mode: mode & ~0o222)
+    return original, change_times(original)
+
+
+def maintenance_copy(tmp_path: Path, name: str) -> Path:
+    """This test's own writable copy of one directory of the original."""
+    # pytest makes every tmp_path in the session's (or xdist worker's) base.
+    original, built = maintenance_original(tmp_path.parent)
+    # Root ignores the read-only modes, so a change must still be caught here.
+    assert change_times(original) == built, "a test changed the shared original"
+    copy = tmp_path / name
+    shutil.copytree(original / name, copy)
+    # Under umask 022 the builders granted write to the owner only.
+    chmod_tree(copy, lambda mode: mode | 0o200)
+    return copy
+
+
+def maintenance_bundle(tmp_path: Path) -> Path:
+    return maintenance_copy(tmp_path, "maintenance-bundle")
+
+
+def readiness_once(python: Path, source: Path) -> None:
+    """Probe for real unless sys.executable already passed against these bytes.
+
+    Only that exact path is remembered: a venv's python resolves to the same
+    binary but has its own packages.
+    """
+    key = None
+    if python == Path(sys.executable):
+        with contextlib.suppress(ManifestError, OSError):
+            key = canonical(inventory(source))
+    if key is None or key not in READY_SOURCES:
+        check_mcp_readiness(python, source)
+        if key is not None:
+            READY_SOURCES.add(key)
+
+
+def prepared(tmp_path, monkeypatch, *, maintenance=False):
+    if maintenance:
+        bundle = maintenance_bundle(tmp_path)
+        manifest = maintenance_copy(tmp_path, "artifacts") / "runtime-manifest.json"
+        # agent.setup probes, then connect() probes again.
+        monkeypatch.setattr(install_agent, "check_mcp_readiness", readiness_once)
+        monkeypatch.setattr(connect_agent, "check_mcp_readiness", readiness_once)
+    else:
+        bundle, _ = context_fixture(tmp_path)
+        manifest = pinned_release(bundle, tmp_path / "artifacts")
     workspace = tmp_path / "persistent-owner"
     workspace.mkdir(mode=0o700)
     docker = tmp_path / "docker"
@@ -199,7 +311,11 @@ def test_unsupported_resources_and_missing_docker_have_stable_refusals(
     assert not result["preflightPassed"]
 
 
-@pytest.mark.parametrize("docker_args", [[], ["--docker"], ["--docker", ""]])
+# A bare --docker parses to None like an omitted one; an empty value parses to
+# the relative path ".", which the native-executable check refuses.
+@pytest.mark.parametrize(
+    "docker_args", [[], ["--docker", ""]], ids=["omitted_none", "empty_relative"]
+)
 def test_missing_or_empty_docker_cli_names_the_required_executable(
     tmp_path, monkeypatch, capsys, docker_args
 ):

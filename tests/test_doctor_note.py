@@ -1,3 +1,5 @@
+"""scripts/doctor_note.py: run only by legacy build_dashboard.py main (visit_data)."""
+
 import csv
 import tempfile
 import unittest

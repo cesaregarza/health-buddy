@@ -311,6 +311,11 @@ _LAYER_TYPES = {
     "application/vnd.docker.image.rootfs.diff.tar": False,
     "application/vnd.docker.image.rootfs.diff.tar.gzip": True,
 }
+_CONTAINERD_STORE_REFUSAL = (
+    "artifact_from_containerd_image_store: Docker's containerd image store wrote "
+    "this archive; set features.containerd-snapshotter to false in "
+    "/etc/docker/daemon.json, restart Docker, then rebuild and save the image again"
+)
 
 
 def _payload(descriptor: int, member: tarfile.TarInfo, budget: list[int]) -> bytes:
@@ -351,6 +356,42 @@ def _descriptor(
     if value.get("annotations"):
         raise ManifestError("artifact_name_annotations_refused")
     return name, media
+
+
+def _containerd_store_save(
+    descriptor: int, entries: dict[str, tarfile.TarInfo]
+) -> bool:
+    """Whether index.json holds a descriptor only Docker's containerd store writes.
+
+    The classic store names image manifests, annotated at most with the name and
+    tag they were saved under. The containerd store names the image as stored;
+    tests/fixtures holds both real shapes. Saved by ID, a manifest keeps BuildKit's
+    config.digest annotation (docker29-containerd-store-by-id); saved by tag, an
+    annotated index pairs the platform manifest with its provenance attestation
+    (docker29-containerd-store-by-tag). Only annotated descriptors count, and the
+    graph rules refuse every one of them, so this chooses the code a refused save
+    reports and never refuses a save itself: an unannotated index can still be
+    the single-platform graph those rules admit. An unreadable index.json is left
+    to those rules.
+    """
+    member = entries.get("index.json")
+    if member is None or not member.isfile():
+        return False
+    try:
+        index = _json_bytes(_payload(descriptor, member, [0]))
+    except ManifestError:
+        return False
+    children = index.get("manifests") if isinstance(index, dict) else None
+    for child in children if isinstance(children, list) else []:
+        annotations = child.get("annotations") if isinstance(child, dict) else None
+        if not annotations:
+            continue
+        media = child.get("mediaType")
+        if isinstance(media, str) and media in _INDEX_TYPES:
+            return True
+        if isinstance(annotations, dict) and "config.digest" in annotations:
+            return True
+    return False
 
 
 def _oci_chain(
@@ -610,6 +651,10 @@ def verify_docker_archive(
         entries, payloads, entry_digests = _read_entries(
             descriptor, archive_bytes, capture_paths={"manifest.json"}
         )
+        # Named before tags and labels: whatever else a containerd save gets
+        # wrong, it has to be rebuilt under the classic store.
+        if _containerd_store_save(descriptor, entries):
+            raise ManifestError(_CONTAINERD_STORE_REFUSAL)
         manifest_bytes, record = _manifest_record(payloads.get("manifest.json"))
         named = record["Config"]
         config_path = _image_config_path(named) if isinstance(named, str) else ""
