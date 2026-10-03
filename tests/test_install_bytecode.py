@@ -66,6 +66,7 @@ def test_every_install_stage_is_an_entry_point() -> None:
         "preflight",
         "prepare",
         "rearm",
+        "rebind",
         "remove",
         "status",
     }

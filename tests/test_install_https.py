@@ -40,9 +40,9 @@ class Reply:
         self.returncode = -9
 
 
-def serve_fixture(tmp_path, monkeypatch):
+def serve_fixture(tmp_path, monkeypatch, *, local_only=False):
     activation, engine, selected, identity, note = fixture(
-        tmp_path, monkeypatch, guided_owner=True
+        tmp_path, monkeypatch, guided_owner=True, local_only=local_only
     )
     install_activation.activate(**activation)
     workspace = selected["workspace"]

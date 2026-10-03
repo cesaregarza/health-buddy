@@ -18,7 +18,7 @@ from tests.test_install_https import serve_fixture
 from tests.test_install_prepare import inputs as preparation_inputs
 
 
-def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
+def connection_fixture(tmp_path, monkeypatch, *, private_https=True, local_only=False):
     if private_https:
         https, _state, selected, identity, note, _engine = serve_fixture(
             tmp_path, monkeypatch
@@ -26,7 +26,7 @@ def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
         install_https.route(**https)
     else:
         activation, _engine, selected, identity, note = activation_fixture(
-            tmp_path, monkeypatch, guided_owner=True
+            tmp_path, monkeypatch, guided_owner=True, local_only=local_only
         )
         install_activation.activate(**activation)
     private = tmp_path / "private-client"
@@ -289,7 +289,7 @@ def test_first_handoff_conflict_names_the_path_and_preserves_unowned_content(
 
 def test_status_names_activation_after_owner_setup(tmp_path, monkeypatch):
     _activation, _engine, selected, _identity, _note = activation_fixture(
-        tmp_path, monkeypatch, guided_owner=True
+        tmp_path, monkeypatch, guided_owner=True, local_only=local_only
     )
     summary = install_status.status(journal=selected["journal"])
     assert summary["localStages"][2]["state"] == "incomplete"

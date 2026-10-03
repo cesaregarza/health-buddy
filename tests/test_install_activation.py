@@ -57,19 +57,15 @@ def simulate_nonroot_owner(monkeypatch):
     monkeypatch.setattr(os, "getegid", lambda: 1000)
 
 
-def fixture(tmp_path, monkeypatch, *, guided_owner=False):
-    selected = inputs(tmp_path, monkeypatch)
-    install_prepare.prepare(**selected)
+def _fixture_authority(selected, monkeypatch, guided_owner, local_only):
     workspace = selected["workspace"]
-    owner_note = workspace / "personal/OWNER.md"
-    owner_note.write_text("synthetic personal work retained")
     if guided_owner:
         simulate_nonroot_owner(monkeypatch)
         install_owner.setup(
             journal=selected["journal"],
             owner_token=workspace / "secrets/synthetic-owner-token",
-            origin="https://synthetic.example.test",
-            owner_subject="synthetic-owner",
+            origin="https://health-buddy.local" if local_only else "https://synthetic.example.test",
+            owner_subject="owner" if local_only else "synthetic-owner",
             confirm_owner_setup=True,
         )
     else:
@@ -84,11 +80,21 @@ def fixture(tmp_path, monkeypatch, *, guided_owner=False):
         configuration.write_text(json.dumps(values))
         setup_security(workspace, workspace / "secrets/synthetic-owner-proof")
         simulate_nonroot_owner(monkeypatch)
+
+
+def fixture(tmp_path, monkeypatch, *, guided_owner=False, local_only=False):
+    selected = inputs(tmp_path, monkeypatch)
+    install_prepare.prepare(**selected)
+    workspace = selected["workspace"]
+    owner_note = workspace / "personal/OWNER.md"
+    owner_note.write_text("synthetic personal work retained")
+    _fixture_authority(selected, monkeypatch, guided_owner, local_only)
     runtime = open_runtime(workspace)
     before = identity_value(runtime.operations.journal.verify().identity)
     artifact = selected_artifact(selected["manifest"], "amd64")
     state = {
         "active": False,
+        "created": False,
         "other": False,
         "lost": None,
         "health": "healthy",
@@ -125,11 +131,15 @@ def fixture(tmp_path, monkeypatch, *, guided_owner=False):
                 return SimpleNamespace(
                     returncode=0,
                     stdout=b"a" * 64 + b"\n"
-                    if state["active"] or state["other"]
+                    if state["active"] or state["other"] or ("--all" in arguments and state["created"])
                     else b"",
                 )
+            if arguments == ["stop", "--timeout", "30", "api"]:
+                state["active"] = False
+                return SimpleNamespace(returncode=0, stdout=b"")
             assert arguments == ["up", "--detach", "--wait", "--no-deps", "api"]
             state["active"] = True
+            state["created"] = True
             if state["lost"] == "start":
                 state["lost"] = None
                 raise subprocess.TimeoutExpired(command, 180)

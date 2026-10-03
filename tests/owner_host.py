@@ -79,14 +79,19 @@ DOCKER = """#!{python}
 import pathlib, sys
 
 STARTED = pathlib.Path(sys.argv[0]).with_name("docker-api-started")
+CREATED = pathlib.Path(sys.argv[0]).with_name("docker-api-created")
 IMAGE, CONTAINER = {image!r}, {container!r}
 if sys.argv[1:3] != ["--host", "unix:///run/docker.sock"]:
     sys.exit("docker contacted another daemon")
 command = sys.argv[3:]
 if command[0] == "compose" and command[7] == "up":
     STARTED.touch()
+    CREATED.touch()
+elif command[0] == "compose" and command[7:] == ["stop", "--timeout", "30", "api"]:
+    STARTED.unlink(missing_ok=True)
 elif command[0] == "compose":  # ps --all --quiet, or ps --quiet api
-    sys.stdout.write("a" * 64 + "\\n" if STARTED.exists() else "")
+    present = STARTED.exists() or ("--all" in command and CREATED.exists())
+    sys.stdout.write("a" * 64 + "\\n" if present else "")
 elif command[:2] == ["image", "inspect"]:
     sys.stdout.write(IMAGE)
 elif command[0] == "inspect":

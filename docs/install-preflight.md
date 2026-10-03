@@ -253,9 +253,10 @@ If the owner already knows the real future origin and subject, replace those
 two exports in `env.sh` with the reviewed values **before owner setup**, reload
 the file, and then proceed; the Tailscale daemon may still be deferred. Owner
 setup binds both values and retries require the original selection. Changing
-them afterwards requires a separately reviewed lifecycle/migration procedure;
-there is no supported installer rebinding command, and reinstall/rearm does
-not change them. Never edit a bound config or journal to force a new selection.
+a completed local-only installation to its real origin and login subject later
+uses the explicit [local-to-HTTPS transition](install-rebind.md). It preserves
+records, owner credentials and retained agent grants. Reinstall/rearm does not
+change this binding; never edit the bound config or journal by hand.
 
 ### 9. Create only the staging, journal, workspace and client parents
 
