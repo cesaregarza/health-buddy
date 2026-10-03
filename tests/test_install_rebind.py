@@ -209,7 +209,7 @@ def test_partial_rebind_resumes_exact_selection_without_replacing_authority(
             raise OSError("synthetic interrupted acknowledgement")
 
     monkeypatch.setattr(rebind_state, "atomic_bytes", publish_then_interrupt)
-    with pytest.raises(ServiceError, match="^install_rebind_interrupted$"):
+    with pytest.raises(ServiceError, match=r"^install_rebind_interrupted$"):
         rebind.rebind(**values)
     with pytest.raises(ServiceError, match="resume_requires_original_binding"):
         rebind.rebind(**dict(values, owner_subject="other@github"))
