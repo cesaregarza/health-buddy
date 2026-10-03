@@ -45,7 +45,7 @@ SLOW = frozenset(
 # Two UID tests need root pytest; owner-host needs nonroot pytest and sudo.
 NEEDS_ROOT = frozenset(
     {
-        "test_owner_host::test_install_stages_run_as_root_are_refused_by_identity",  # three sudo stages
+        "test_owner_host::test_install_stages_run_as_root_are_refused_by_identity",
         "test_runtime_bundle::test_source_and_release_contents_are_readable_by_distinct_uid",
         "test_transport_auth_wire::test_untrusted_uid_cannot_connect_private_socket",
     }

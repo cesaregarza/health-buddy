@@ -211,4 +211,7 @@ def test_install_stages_run_as_root_are_refused_by_identity(tmp_path: Path) -> N
         assert (completed.returncode, refusal["code"]) == (2, code), refusal
         assert f"workspace owner ({expected_owner})" in refusal["recovery"]
         assert "Do not run security recovery" in refusal["recovery"]
-        assert (owner_host.files(owner), owner_host.bytecode(owner)) == (before, written)
+        assert (owner_host.files(owner), owner_host.bytecode(owner)) == (
+            before,
+            written,
+        )
