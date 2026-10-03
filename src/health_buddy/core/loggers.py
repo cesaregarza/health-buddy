@@ -294,7 +294,7 @@ def transition(
     kind: str, intent: JSON, files: dict[str, str], config: Config, received_at: str
 ) -> Transition:
     body = object_value(intent, {"sourceId", "fields"}, {"replaceExisting"})
-    identifier(body["sourceId"])
+    source_id = identifier(body["sourceId"])
     fields = body["fields"]
     if (
         not isinstance(fields, dict)
@@ -370,14 +370,7 @@ def transition(
                 rows.sort(key=lambda old: old[timestamp])
         result: dict[str, JSON] = {"saved": True, "duplicate": duplicate}
         if kind == "measurement":
-            result.update(
-                {
-                    "sourceId": body["sourceId"],
-                    "kind": "body-mass",
-                    "observedAt": records.row_time(row, row["timezone"]),
-                }
-            )
-            result.update(_measurement_time_feedback(row, fields, received_at))
+            result.update(_measurement_feedback(row, fields, received_at, source_id))
         return (
             {path: csv_text(headers, rows)},
             result,
@@ -393,30 +386,37 @@ def transition(
         raise invalid() from exc
 
 
-def _measurement_time_feedback(
-    row: dict[str, str], fields: dict[str, JSON], received_at: str
+def _measurement_feedback(
+    row: dict[str, str],
+    fields: dict[str, JSON],
+    received_at: str,
+    source_id: str,
 ) -> dict[str, JSON]:
     observed_at = records.row_time(row, row["timezone"])
-    if datetime.fromisoformat(observed_at) <= datetime.fromisoformat(received_at):
-        return {}
-    return {
-        "warnings": [
-            {
-                "code": "future_measurement_timestamp",
-                "field": "fields.measuredAtLocal",
-                "value": fields["measuredAtLocal"],
-                "timezone": row["timezone"],
-                "observedAt": observed_at,
-                "serverTime": received_at,
-                "recovery": (
-                    "Saved with the supplied timestamp. Verify the time and timezone; "
-                    "do not resubmit just to make it visible. Read records.list with "
-                    "an explicit from/to window containing observedAt. Current context "
-                    "excludes future observations."
-                ),
-            }
-        ]
+    feedback: dict[str, JSON] = {
+        "sourceId": source_id,
+        "kind": "body-mass",
+        "observedAt": observed_at,
     }
+    if datetime.fromisoformat(observed_at) <= datetime.fromisoformat(received_at):
+        return feedback
+    feedback["warnings"] = [
+        {
+            "code": "future_measurement_timestamp",
+            "field": "fields.measuredAtLocal",
+            "value": fields["measuredAtLocal"],
+            "timezone": row["timezone"],
+            "observedAt": observed_at,
+            "serverTime": received_at,
+            "recovery": (
+                "Saved with the supplied timestamp. Verify the time and timezone; "
+                "do not resubmit just to make it visible. Read records.list with "
+                "an explicit from/to window containing observedAt. Current context "
+                "excludes future observations."
+            ),
+        }
+    ]
+    return feedback
 
 
 def _workout(
