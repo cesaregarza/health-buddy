@@ -190,11 +190,16 @@ def test_documented_owner_measurement_round_trip(tmp_path, capsys):
     stamp_line, receipt, listed = run(block, home, tmp_path, {}).splitlines()
     stamp = stamp_line.removeprefix("Measurement UTC timestamp: ")
     assert before <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
-    assert json.loads(receipt)["data"]["saved"] is True
-    assert "warnings" not in json.loads(receipt)["data"]
+    write_data = json.loads(receipt)["data"]
+    assert write_data["saved"] is True
+    assert (write_data["sourceId"], write_data["kind"]) == ("manual", "body-mass")
+    assert write_data["observedAt"] == stamp
+    assert "warnings" not in write_data
     (record,) = json.loads(listed)["records"]
     assert (record["value"], record["unit"], record["observedAt"]) == (150, "lb", stamp)
     assert (record["sourceId"], record["kind"]) == ("manual", "body-mass")
+    assert record["observedAt"] == write_data["observedAt"]
+    assert record["attributes"]["source"]["value"] == "synthetic-test"
 
 
 def test_credentialed_records_reads_future_measurement_and_retains_warning(
@@ -240,6 +245,11 @@ def test_credentialed_records_reads_future_measurement_and_retains_warning(
     )
     saved = json.loads(capsys.readouterr().out)
     assert saved["data"]["warnings"][0]["code"] == "future_measurement_timestamp"
+    assert (saved["data"]["sourceId"], saved["data"]["kind"]) == (
+        "manual",
+        "body-mass",
+    )
+    assert saved["data"]["observedAt"] == stamp
     read = [
         "records",
         "--source-ids",
@@ -258,6 +268,7 @@ def test_credentialed_records_reads_future_measurement_and_retains_warning(
     assert main([*base, *read]) == 0
     (record,) = json.loads(capsys.readouterr().out)["records"]
     assert (record["value"], record["unit"], record["observedAt"]) == (150, "lb", stamp)
+    assert record["observedAt"] == saved["data"]["observedAt"]
     # These limits are enforced by the existing canonical reader.
     assert main([*base, *read[:-1], "501"]) == 2
     capsys.readouterr()

@@ -277,6 +277,11 @@ def test_measurement_warning_uses_canonical_instant_and_server_clock(
     assert receipt.status == 200, receipt.body
     data = decoded(receipt)["data"]
     assert data["saved"] is True
+    assert (data["sourceId"], data["kind"], data["observedAt"]) == (
+        "manual",
+        "body-mass",
+        observed,
+    )
     if future:
         (warning,) = data["warnings"]
         assert warning["code"] == "future_measurement_timestamp"
@@ -307,6 +312,7 @@ def test_measurement_warning_uses_canonical_instant_and_server_clock(
         observed,
     )
     assert record["timezone"] == (timezone or "America/Chicago")
+    assert record["observedAt"] == data["observedAt"]
     current = decoded(
         service.execute(owner, Request("dashboard.read", query={"format": "json"}))
     )["data"]["observations"]
