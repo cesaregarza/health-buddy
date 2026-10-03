@@ -10,10 +10,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from health_buddy.core.service_api import ServiceError
 from health_buddy.install import activation as install_activation
 from health_buddy.install import https as install_https
 from health_buddy.install import serve as install_serve
-from health_buddy.core.service_api import ServiceError
 from tests.test_install_activation import fixture
 
 
@@ -40,9 +40,9 @@ class Reply:
         self.returncode = -9
 
 
-def serve_fixture(tmp_path, monkeypatch):
+def serve_fixture(tmp_path, monkeypatch, *, local_only=False):
     activation, engine, selected, identity, note = fixture(
-        tmp_path, monkeypatch, guided_owner=True
+        tmp_path, monkeypatch, guided_owner=True, local_only=local_only
     )
     install_activation.activate(**activation)
     workspace = selected["workspace"]
