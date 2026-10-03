@@ -1,4 +1,5 @@
 """Fabricated hostile archive entries must be rejected before release."""
+
 import io
 import stat
 import tarfile
@@ -13,15 +14,18 @@ from scripts.audit_distribution import (
 )
 
 
-@pytest.mark.parametrize("name", [
-    pytest.param("/absolute.py", id="absolute"),
-    pytest.param("package/../escape.py", id="embedded-traversal"),
-    pytest.param("C:\\escape.py", id="windows-path"),
-    pytest.param("data/records.json", id="private-top-dir"),
-    pytest.param("plans/records.json", id="private-top-plans"),
-    pytest.param("nested/.env", id="dotenv-name"),
-    pytest.param("profile.yaml", id="profile-name"),
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("/absolute.py", id="absolute"),
+        pytest.param("package/../escape.py", id="embedded-traversal"),
+        pytest.param("C:\\escape.py", id="windows-path"),
+        pytest.param("data/records.json", id="private-top-dir"),
+        pytest.param("plans/records.json", id="private-top-plans"),
+        pytest.param("nested/.env", id="dotenv-name"),
+        pytest.param("profile.yaml", id="profile-name"),
+    ],
+)
 def test_forbidden_paths_are_rejected(name):
     assert inspect(name, b"fabricated")
 
@@ -62,13 +66,16 @@ def test_each_forbidden_suffix_is_detected_when_nested(name):
     assert any("excluded data/credential/binary type" in error for error in errors)
 
 
-@pytest.mark.parametrize("raw,label", [
-    (b"prefix\n" + b"-----BEGIN " + b"PRIVATE KEY-----", "private-key"),
-    (b"ghp_" + b"a" * 36, "github-token"),
-    (b"/" + b"home" + b"/example/private", "home-or-mount-default"),
-    (b"node." + b"sample" + b".ts.net", "tailnet-default"),
-    (b"Node." + b"Sample" + b".ts.net", "tailnet-default"),
-])
+@pytest.mark.parametrize(
+    "raw,label",
+    [
+        (b"prefix\n" + b"-----BEGIN " + b"PRIVATE KEY-----", "private-key"),
+        (b"ghp_" + b"a" * 36, "github-token"),
+        (b"/" + b"home" + b"/example/private", "home-or-mount-default"),
+        (b"node." + b"sample" + b".ts.net", "tailnet-default"),
+        (b"Node." + b"Sample" + b".ts.net", "tailnet-default"),
+    ],
+)
 def test_sensitive_content_reports_category_without_value(raw, label):
     errors = inspect("safe.py", raw)
     assert any(label in error for error in errors)
@@ -77,7 +84,12 @@ def test_sensitive_content_reports_category_without_value(raw, label):
 
 def test_owned_source_and_synthetic_contract_paths_are_allowed():
     assert inspect("src/health_ingest/models.py", b"class Model: pass") == []
-    assert inspect("package/contracts/v1/examples/demo.json", b"{}", strip_package_root=True) == []
+    assert (
+        inspect(
+            "package/contracts/v1/examples/demo.json", b"{}", strip_package_root=True
+        )
+        == []
+    )
 
 
 def test_wheel_symlink_and_private_nested_entry_are_rejected(tmp_path):
@@ -124,10 +136,13 @@ def test_archive_directory_paths_are_checked(tmp_path):
     assert any("unsafe path" in error for error in inspect_archive(sdist)[0])
 
 
-@pytest.mark.parametrize("entries", [
-    ["data/record.txt"],
-    ["fabricated/safe.py", "other/record.txt"],
-])
+@pytest.mark.parametrize(
+    "entries",
+    [
+        ["data/record.txt"],
+        ["fabricated/safe.py", "other/record.txt"],
+    ],
+)
 def test_sdist_requires_one_expected_package_root(tmp_path, entries):
     archive = tmp_path / "fabricated.tar.gz"
     with tarfile.open(archive, "w:gz") as handle:
@@ -135,7 +150,10 @@ def test_sdist_requires_one_expected_package_root(tmp_path, entries):
             entry = tarfile.TarInfo(name)
             entry.size = 1
             handle.addfile(entry, io.BytesIO(b"x"))
-    assert any("unexpected sdist package root" in error for error in inspect_archive(archive)[0])
+    assert any(
+        "unexpected sdist package root" in error
+        for error in inspect_archive(archive)[0]
+    )
 
 
 def test_sdist_allows_expected_package_root_without_directory_entry(tmp_path):
@@ -148,7 +166,9 @@ def test_sdist_allows_expected_package_root_without_directory_entry(tmp_path):
 
 
 @pytest.mark.parametrize("missing", [None, "CLAUDE.md"])
-def test_sdist_maintenance_references_are_required_when_auditing_release(tmp_path, missing):
+def test_sdist_maintenance_references_are_required_when_auditing_release(
+    tmp_path, missing
+):
     archive = tmp_path / "fabricated.tar.gz"
     with tarfile.open(archive, "w:gz") as handle:
         for relative in REQUIRED_AGENT_REFERENCES:
