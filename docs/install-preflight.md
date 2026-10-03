@@ -128,8 +128,12 @@ Nothing is resolved, and every wheel must match its recorded SHA-256:
 
 ```sh
 case "$(uname -m)" in
-  x86_64) DEV_LOCK="$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-x86_64.lock" ;;
-  aarch64) DEV_LOCK="$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-aarch64.lock" ;;
+  x86_64)
+    DEV_LOCK="$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-x86_64.lock"
+    ;;
+  aarch64)
+    DEV_LOCK="$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-aarch64.lock"
+    ;;
   *) echo "unsupported Linux architecture; stop and tell the owner" >&2; exit 2 ;;
 esac
 "$HOME/health-buddy/venv/bin/python" -m pip --isolated --disable-pip-version-check --no-cache-dir install --only-binary=:all: --require-hashes --no-deps --no-compile -r "$DEV_LOCK"

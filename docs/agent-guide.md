@@ -77,8 +77,12 @@ rather than falling back to an unpinned install:
 
 ```bash
 case "$(uname -m)" in
-  x86_64) DEV_LOCK=packaging/dev-cp312-linux-x86_64.lock ;;
-  aarch64) DEV_LOCK=packaging/dev-cp312-linux-aarch64.lock ;;
+  x86_64)
+    DEV_LOCK=packaging/dev-cp312-linux-x86_64.lock
+    ;;
+  aarch64)
+    DEV_LOCK=packaging/dev-cp312-linux-aarch64.lock
+    ;;
   *) echo "unsupported Linux architecture" >&2; exit 2 ;;
 esac
 ```
