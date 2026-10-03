@@ -19,6 +19,7 @@ REQUIRED_AGENT_REFERENCES = (
     "src/health_buddy/extension_manifest.schema.json",
     "tests/test_extension_runtime.py",
     "packaging/dev-cp312-linux-x86_64.lock",
+    "packaging/dev-cp312-linux-aarch64.lock",
 )
 
 PRIVATE_TOP = {"data", "personal", "secrets", "workspace", "plans", "reports", "reviews", "sessions", "handoff", ".git", "config", "deploy", "ios"}

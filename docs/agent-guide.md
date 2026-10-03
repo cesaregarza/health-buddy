@@ -63,22 +63,34 @@ Abstract examples: `contracts/v1/examples/{weekly-mass,water-import}.json` and
 
 Start from a fresh synthetic workspace using Python 3.12+ and Git.
 Use Bash for the commands in this guide.
-From the selected source checkout, use the existing pinned development closure
-[packaging/dev-cp312-linux-x86_64.lock](../packaging/dev-cp312-linux-x86_64.lock).
-It reuses the accepted runtime/MCP + dev tools + SleepIQ-test dependency inventory,
-with 55 exact wheel hashes. It targets CPython 3.12 on Linux x86_64 with glibc
-2.34 or newer; other platforms need a separately admitted closure. Git and the
-host IANA timezone database remain host prerequisites. No editable project
-install, package resolver or build backend is needed for the source checks.
+From the selected source checkout, select the hash-locked CPython 3.12
+closure for the Linux architecture. The x86_64 lock has 55 exact wheel hashes
+and requires glibc 2.34 or newer. The aarch64 lock targets
+`cp312-cp312-manylinux_2_28_aarch64` and
+`cp312-cp312-manylinux2014_aarch64` (glibc 2.28 or newer). Both use the accepted
+runtime/MCP + dev tools + SleepIQ-test dependency inventory. Git and the host
+IANA timezone database remain host prerequisites. No editable project install,
+package resolver or build backend is needed for the source checks.
+
+Choose the lock from the machine architecture; unsupported architectures stop
+rather than falling back to an unpinned install:
+
+```bash
+case "$(uname -m)" in
+  x86_64) DEV_LOCK=packaging/dev-cp312-linux-x86_64.lock ;;
+  aarch64) DEV_LOCK=packaging/dev-cp312-linux-aarch64.lock ;;
+  *) echo "unsupported Linux architecture" >&2; exit 2 ;;
+esac
+```
 
 Stage that exact closure into a new native WHEELHOUSE when needed:
-`python3.12 -m pip --isolated --disable-pip-version-check --no-cache-dir download --only-binary=:all: --no-deps --require-hashes -r packaging/dev-cp312-linux-x86_64.lock --dest "$WHEELHOUSE"`.
+`python3.12 -m pip --isolated --disable-pip-version-check --no-cache-dir download --only-binary=:all: --no-deps --require-hashes -r "$DEV_LOCK" --dest "$WHEELHOUSE"`.
 Existing admitted wheels may be copied into that directory instead. Setup is:
 
 ```bash
 python3.12 -m venv .venv
 # WHEELHOUSE is a native directory containing the exact locked binary wheels.
-.venv/bin/python -m pip --isolated --disable-pip-version-check --no-cache-dir install --no-index --find-links "$WHEELHOUSE" --require-hashes --no-deps --no-compile -r packaging/dev-cp312-linux-x86_64.lock
+.venv/bin/python -m pip --isolated --disable-pip-version-check --no-cache-dir install --no-index --find-links "$WHEELHOUSE" --require-hashes --no-deps --no-compile -r "$DEV_LOCK"
 .venv/bin/python -m pip --isolated --disable-pip-version-check check
 export PYTHONPATH="$PWD/src"
 health-buddy() { .venv/bin/python -m health_buddy.cli "$@"; }
