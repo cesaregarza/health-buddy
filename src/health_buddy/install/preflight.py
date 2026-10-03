@@ -122,7 +122,7 @@ def preflight(
     }
     architecture = facts["architecture"]
     refusals = _host_refusals(facts)
-    differing: str | None = None
+    differing: SourceInventoryMismatch | None = None
     artifact_diagnostic: tuple[str, str] | None = None
     # Physical host facts do not establish effective container/daemon quotas.
     result["host"]["quotaAdmission"] = "not_performed"
@@ -142,7 +142,7 @@ def preflight(
         except SourceInventoryMismatch as error:
             # release_invalid keeps its meaning; a second diagnostic names the file.
             release, refusal = None, "release_invalid"
-            differing = error.path
+            differing = error
         except ManifestError as error:
             release, refusal = None, "release_invalid"
             artifact_diagnostic = containerd_store_diagnostic(error)
@@ -161,7 +161,9 @@ def preflight(
         for code in refusals
     ]
     if differing is not None:
-        result["diagnostics"].append(_inventory_mismatch(differing))
+        result["diagnostics"].append(
+            _inventory_mismatch(differing.path, str(differing))
+        )
     if artifact_diagnostic is not None:
         code, recovery = artifact_diagnostic
         result["diagnostics"].append(
@@ -171,17 +173,20 @@ def preflight(
     return result
 
 
-def _inventory_mismatch(path: str) -> dict[str, str]:
+def _inventory_mismatch(
+    path: str, code: str = "source_inventory_mismatch"
+) -> dict[str, str]:
     """Name the file, so the owner re-extracts instead of inspecting artifacts.
 
     The path is relative to the bundle's source tree, never an absolute host path.
     """
+    anchor = "archive" if code == "source_tree_archive_mismatch" else "manifest"
     return {
-        "code": "source_inventory_mismatch",
+        "code": code,
         "severity": "error",
         "recovery": (
             "Re-extract the source bundle from its verified archive; "
-            f"{path} differs from the bundle's source manifest."
+            f"{path} differs from the bundle's source {anchor}."
         ),
     }
 

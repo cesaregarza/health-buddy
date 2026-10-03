@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import stat
+import tarfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -40,6 +42,14 @@ class SourceInventoryMismatch(ManifestError):
 
     def __init__(self, path: str) -> None:
         super().__init__("source_inventory_mismatch")
+        self.path = path
+
+
+class SourceTreeArchiveMismatch(SourceInventoryMismatch):
+    """The extracted tree differs from the pinned archive, first at `path`."""
+
+    def __init__(self, path: str) -> None:
+        ManifestError.__init__(self, "source_tree_archive_mismatch")
         self.path = path
 
 
@@ -218,13 +228,74 @@ def _json(path: Path) -> object:
         os.close(descriptor)
 
 
+def _archive_bytes(path: Path, size: int, digest: str) -> bytes:
+    """Parse only the same bounded bytes whose hash was checked, without links."""
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ManifestError("invalid_bundle_file")
+        raw = stream.read(MAX_BYTES + 1)
+    if len(raw) != size or hashlib.sha256(raw).hexdigest() != digest:
+        raise ManifestError("source_archive_mismatch")
+    return raw
+
+
+def _archive_inventory(raw: bytes) -> list[dict[str, str | int]]:
+    """Inspect the Git tar's regular files; never extract or resolve links.
+
+    Git's PAX path/comment metadata is supported, as in the bundle builder.
+    Compressed input, special files, duplicate files and oversized logical
+    content cannot create an alternate source representation.
+    """
+    result: list[dict[str, str | int]] = []
+    seen: set[str] = set()
+    total = 0
+    try:
+        with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
+            for count, member in enumerate(archive, 1):
+                if count > MAX_ENTRIES:
+                    raise ManifestError("bundle_entries_exceeded")
+                relative = path_value(
+                    member.name.rstrip("/") if member.isdir() else member.name
+                )
+                if member.isdir() and member.size == 0:
+                    continue
+                if not member.isfile() or member.sparse is not None or relative in seen:
+                    raise ManifestError("archive_inventory_mismatch")
+                if len(result) >= MAX_FILES or member.size < 0:
+                    raise ManifestError("bundle_files_exceeded")
+                total += member.size
+                if total > MAX_BYTES:
+                    raise ManifestError("bundle_size_exceeded")
+                stream = archive.extractfile(member)
+                if stream is None:
+                    raise ManifestError("archive_inventory_mismatch")
+                with stream:
+                    content = stream.read(member.size + 1)
+                if len(content) != member.size:
+                    raise ManifestError("archive_inventory_mismatch")
+                seen.add(relative)
+                result.append(
+                    {
+                        "path": relative,
+                        "bytes": member.size,
+                        "sha256": hashlib.sha256(content).hexdigest(),
+                    }
+                )
+    except (tarfile.TarError, OSError, UnicodeError, RecursionError):
+        raise ManifestError("source_archive_mismatch") from None
+    return sorted(result, key=lambda item: str(item["path"]))
+
+
 def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIdentity:
     """Verify a complete source tree plus the adjacent exact source.tar bytes.
 
     File integrity is established locally. The commit association still depends
     on the trusted controlled builder receipt, not a publisher signature.
-    A tree that differs from the manifest raises SourceInventoryMismatch naming
-    the first differing file; interpreter bytecode is not part of the tree.
+    The extracted inventory must also match the exact archive entries, so a
+    regenerated inventory cannot detach source bytes from the manifest pin.
+    Mismatches name the first differing file; interpreter bytecode in the
+    extracted tree remains outside the release inventory.
     """
     value = _json(manifest_path)
     if not isinstance(value, dict) or set(value) != {
@@ -276,7 +347,8 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
             raise ManifestError("bundle_size_exceeded")
     if paths != sorted(set(paths)):
         raise ManifestError("invalid_source_inventory")
-    differing = _first_difference(files, inventory(source_root))
+    present = inventory(source_root)
+    differing = _first_difference(files, present)
     if differing is not None:
         raise SourceInventoryMismatch(differing)
     docs = [item for item in files if item["path"].startswith("docs/")]
@@ -287,6 +359,14 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
     )
     if archive_size != value["archiveBytes"] or actual_archive != archive_digest:
         raise ManifestError("source_archive_mismatch")
+    archived = _archive_inventory(
+        _archive_bytes(
+            manifest_path.parent / "source.tar", archive_size, archive_digest
+        )
+    )
+    differing = _first_difference(archived, present)
+    if differing is not None:
+        raise SourceTreeArchiveMismatch(differing)
     return ReleaseIdentity(
         version, commit, tree, archive_digest, docs_digest, "packaged_manifest"
     )
