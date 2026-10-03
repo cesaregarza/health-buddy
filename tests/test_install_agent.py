@@ -109,16 +109,26 @@ def test_policy_refusals_are_specific_and_precede_grant_or_journal_writes(
         policy.chmod(0o600)
     journal_before = selected["journal"].read_bytes()
     argv = [
-        "--journal", str(arguments["journal"]),
-        "--policy", str(policy),
-        "--agent-token", str(arguments["agent_token"]),
-        "--settings", str(arguments["settings"]),
-        "--retry-root", str(arguments["retry_root"]),
-        "--client", arguments["client"],
-        "--client-config", str(arguments["client_config"]),
-        "--skill-directory", str(arguments["skill_directory"]),
-        "--python", str(arguments["python"]),
-        "--confirm-grant", "--acknowledge-ai-egress",
+        "--journal",
+        str(arguments["journal"]),
+        "--policy",
+        str(policy),
+        "--agent-token",
+        str(arguments["agent_token"]),
+        "--settings",
+        str(arguments["settings"]),
+        "--retry-root",
+        str(arguments["retry_root"]),
+        "--client",
+        arguments["client"],
+        "--client-config",
+        str(arguments["client_config"]),
+        "--skill-directory",
+        str(arguments["skill_directory"]),
+        "--python",
+        str(arguments["python"]),
+        "--confirm-grant",
+        "--acknowledge-ai-egress",
     ]
     assert install_agent.main(argv) == 2
     result = json.loads(capsys.readouterr().out)
@@ -132,7 +142,6 @@ def test_policy_refusals_are_specific_and_precede_grant_or_journal_writes(
     assert not arguments["settings"].exists()
     runtime, admitted = install_agent.owner(json.loads(journal_before))
     assert install_agent.actors(runtime, admitted) == []
-
 
 
 def _readiness_calls(monkeypatch):

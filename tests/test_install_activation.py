@@ -7,13 +7,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from health_buddy.core.domain import identity_value
+from health_buddy.core.service_api import ServiceError
 from health_buddy.install import activation as install_activation
 from health_buddy.install import owner as install_owner
 from health_buddy.install import prepare as install_prepare
-from health_buddy.core.domain import identity_value
 from health_buddy.runtime.release import selected_artifact
 from health_buddy.security.runtime import open_runtime, setup_security
-from health_buddy.core.service_api import ServiceError
 from tests.test_install_prepare import inputs
 
 
@@ -223,11 +223,16 @@ def test_owner_admission_and_environment_edit_refuse(tmp_path, monkeypatch, caps
         install_activation.activate(**{**arguments, "uid": 0})
     assert state["calls"] == []
     activation_args = [
-        "--journal", str(arguments["journal"]),
-        "--environment", str(arguments["environment"]),
-        "--project", arguments["project"],
-        "--uid", "1000",
-        "--gid", "1000",
+        "--journal",
+        str(arguments["journal"]),
+        "--environment",
+        str(arguments["environment"]),
+        "--project",
+        arguments["project"],
+        "--uid",
+        "1000",
+        "--gid",
+        "1000",
         "--confirm-local-daemon",
         "--confirm-quiesced",
     ]
