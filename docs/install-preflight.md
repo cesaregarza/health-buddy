@@ -78,8 +78,11 @@ printf '%s  %s\n' '<bundle SHA-256 from the owner>' "$HOME/health-buddy/health-b
 Done: it prints `.../health-buddy-bundle.tar: OK`. On `FAILED` or any other
 output, run `rm "$HOME/health-buddy/health-buddy-bundle.tar"` and tell the
 owner; do not extract it, and never swap in the hash you computed. This check
-is what makes the bundle trustworthy: you are about to run code from it, and
-that code cannot vouch for itself.
+authenticates the bootstrap code before you run it. That trusted verifier then
+binds the extracted source tree to the exact `source.tar` selected by the runtime
+manifest pin, comparing file paths, sizes and SHA-256 values. A rewritten source
+inventory cannot admit edited code. Keep this outer bundle check: executing an
+untrusted replacement verifier would not establish either guarantee.
 
 ### 4. Extract the bundle
 

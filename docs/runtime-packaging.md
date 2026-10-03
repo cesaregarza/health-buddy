@@ -48,7 +48,12 @@ shared discovery is integrated and verified before final combined artifacts.
 ## Exact source and artifact identity
 
 `verify_source_identity(source, manifest)` checks the complete file inventory,
-source archive binding, package/interface versions and canonical docs hash.
+package/interface versions and canonical docs hash, then compares each extracted
+regular file's path, size and SHA-256 with the entries of the exact `source.tar`.
+The trusted runtime manifest's archive hash therefore binds the extracted tree;
+regenerating its inventory or docs hash after editing source cannot bypass it.
+`source_tree_archive_mismatch` names the first differing bundle-relative path.
+The bounded tar is inspected without extraction.
 Limits are 4,096 files, 8,192 entries, 64 MiB source content, 16 path components
 and 2 MiB metadata. It rejects links, traversal, duplicate/unknown fields and
 changed inputs. The inventory ignores interpreter bytecode (`__pycache__`

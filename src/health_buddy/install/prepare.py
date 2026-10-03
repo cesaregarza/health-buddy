@@ -212,7 +212,7 @@ def _initialize_workspace(
     # initialization from an unrelated existing workspace.
     if progress:
         refusals.discard("existing_state_requires_review")
-    if "source_inventory_mismatch" in refusals:
+    if {"source_inventory_mismatch", "source_tree_archive_mismatch"} & refusals:
         raise ServiceError(409, "install_preparation_source_identity_mismatch")
     if (
         refusals
