@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from health_buddy import connect_agent
+from health_buddy.connect_agent import check_mcp_readiness
 from health_buddy.core.security_api import PairingReservation, SecurityRequest
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install import activation as install_activation
@@ -74,22 +75,23 @@ def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
 
 
 @pytest.mark.parametrize(
-    ("failure", "expected"),
+    ("failure", "mode", "expected"),
     [
-        ("mode", "mode_0600"),
-        ("symlink", "regular_non_symlink_file"),
-        ("large", "at_most_16384_bytes"),
-        ("malformed", "json_object"),
-        ("nonobject", "json_object"),
+        pytest.param("mode", 0o640, "mode_0600", id="mode-0640"),
+        pytest.param("mode", 0o664, "mode_0600", id="mode-0664"),
+        pytest.param("symlink", None, "regular_non_symlink_file"),
+        pytest.param("large", None, "at_most_16384_bytes"),
+        pytest.param("malformed", None, "json_object"),
+        pytest.param("nonobject", None, "json_object"),
     ],
 )
 def test_policy_refusals_are_specific_and_precede_grant_or_journal_writes(
-    tmp_path, monkeypatch, capsys, failure, expected
+    tmp_path, monkeypatch, capsys, failure, mode, expected
 ):
     arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
     policy = arguments["policy"]
     if failure == "mode":
-        policy.chmod(0o640)
+        policy.chmod(mode)
     elif failure == "symlink":
         target = policy.with_name("policy-target.json")
         target.write_bytes(policy.read_bytes())
@@ -135,6 +137,10 @@ def test_policy_refusals_are_specific_and_precede_grant_or_journal_writes(
 
 def _readiness_calls(monkeypatch):
     calls = []
+    # prepared(maintenance=True) memoizes readiness in both modules. Restore
+    # the real check locally so these count tests always launch the subprocess.
+    monkeypatch.setattr(install_agent, "check_mcp_readiness", check_mcp_readiness)
+    monkeypatch.setattr(connect_agent, "check_mcp_readiness", check_mcp_readiness)
     original = connect_agent.subprocess.run
 
     def observed(command, *args, **kwargs):
