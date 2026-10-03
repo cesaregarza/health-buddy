@@ -4,8 +4,9 @@
 # (the README prerequisite) and the agent harness (Node + Claude Code).
 set -euo pipefail
 D=$(dirname "$(realpath "$0")")
+SSH_HOST_KEY_OPTS=(-o "UserKnownHostsFile=$D/.known_hosts" -o StrictHostKeyChecking=accept-new)
 IP=$(cat "$D/.droplet-ip")
-ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes "root@$IP" 'bash -s' <<'REMOTE'
+ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" 'bash -s' <<'REMOTE'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 cloud-init status --wait

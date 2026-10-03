@@ -34,5 +34,5 @@ if recorded_id_present; then
   fi
 fi
 printf '%s\n' "$ID" > "$D/.deleted-droplet-id"
-rm -f "$D/.droplet-id" "$D/.droplet-ip" "$D/.droplet.txt"
+rm -f "$D/.droplet-id" "$D/.droplet-ip" "$D/.droplet.txt" "$D/.known_hosts"
 echo "recorded droplet absent from refreshed provider inventory"
