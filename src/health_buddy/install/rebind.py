@@ -204,9 +204,9 @@ def main(argv: list[str] | None = None) -> int:
                     "code": "install_rebind_interrupted",
                     "originRebound": False,
                     "recovery": (
-                    "Retain all files; repeat the identical confirmed "
-                    "rebind command to resume."
-                ),
+                        "Retain all files; repeat the identical confirmed "
+                        "rebind command to resume."
+                    ),
                 }
             )
         )
