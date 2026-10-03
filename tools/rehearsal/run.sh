@@ -15,6 +15,15 @@ if grep -Eq '__[A-Z][A-Z0-9_]*__' "$D/prompt.md"; then
   echo "prompt.md contains unfilled template placeholders; complete it before running" >&2
   exit 2
 fi
+if ! grep -Fxq 'Prompt protocol: one-url/2.' "$D/prompt.md"; then
+  echo "prompt.md is not rendered with the one-url/2 protocol" >&2
+  exit 2
+fi
+URL_COUNT=$( (grep -Eo 'https://[^[:space:]]+' "$D/prompt.md" || true) | wc -l | tr -d '[:space:]')
+if [[ "$URL_COUNT" != 1 ]]; then
+  echo "prompt.md must contain exactly one direct HTTPS onboarding URL" >&2
+  exit 2
+fi
 IP=$(cat "$D/.droplet-ip")
 AUTH=${AUTH:?set AUTH to oauth or apikey}
 TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}
@@ -29,6 +38,7 @@ WALL=${WALL:-3600}
 [[ "$MAX_TURNS" =~ ^[1-9][0-9]*$ && "$WALL" =~ ^[1-9][0-9]*$ ]] || exit 2
 RUN=$D/runs/$(date -u +%Y%m%dT%H%M%SZ)-${MODEL##claude-}-$AUTH
 mkdir -p "$RUN"
+printf '%s\n' 'one-url/2' > "$RUN/prompt-protocol.txt"
 cp "$D/prompt.md" "$RUN/prompt.md"
 H=$(ssh -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
 [[ "$H" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 2

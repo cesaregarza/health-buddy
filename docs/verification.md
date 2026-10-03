@@ -150,10 +150,16 @@ rules. Private GitHub assets requiring download credentials cannot exercise the
 unauthenticated acquisition path; use an authorized public static publisher or a
 public GitHub Release. Record which path was actually tested.
 
-Obtain the bundle SHA-256 and runtime-manifest SHA-256 independently from a trusted
-release/operator channel. Hashing downloads from the same untrusted URL does not
-establish trust. Confirm each pin has 64 hexadecimal characters and binds this
-candidate; do not reuse the harness branch's historical candidate pins.
+Select a publicly reachable canonical onboarding Markdown URL through the
+owner's trusted publisher path. It must serve the raw page over HTTPS. This
+is the only URL supplied to the agent; the page must provide current release
+instructions and trusted artifact values or link to their authorized source.
+A page with unresolved placeholders is not a usable candidate. Never compute
+replacement hashes from downloaded files, bypass a missing pin, or switch to
+another publisher. Preserve
+the selected URL and linked published-doc identity in the private receipt. The
+stable publisher root `https://health-buddy.garz.ai/` is already served; leave it
+unchanged and do not create or alter hosting for this rehearsal.
 
 The harness uses an authenticated `doctl`, OpenSSH, Bash and Python 3 on the
 operator's native Linux machine. Supply a unique disposable host name,
@@ -204,19 +210,30 @@ intentionally installs no product dependencies: the agent follows the README for
 those. Do not change Docker's image-store settings or apply another workaround
 silently; record any such operator change as a different host scenario.
 
-### Docs-only prompt and unattended session
+### One-URL prompt and unattended session
 
-Copy `prompt.template.md` to `prompt.md` in the private kit. Replace `__BASE__`
-with the public candidate directory URL and `__BUNDLE_SHA256__` and
-`__MANIFEST_SHA256__` with the two independently trusted pins. Check there are no
-unfilled placeholders; `run.sh` refuses a missing, empty or unfilled prompt before
-contacting the host. The message gives only the README entry point and linked
-docs, URLs/pins, host facts, a synthetic task and a stall-log request. It supplies
-no Docker executable, origin, owner-subject, client-directory or policy answers:
-the agent must derive them from the install docs. Run 6 after CES-1114 uses this
-prompt, not the older assisted prompts. The no-Tailscale scenario exercises the
-documented same-host managed socket and agent stage; it does not qualify private
-HTTPS or a remote client.
+This is prompt protocol `one-url/2`. Render the prompt in the private kit with the
+owner-selected canonical onboarding Markdown URL as the single input:
+
+```sh
+read -r -p 'Canonical onboarding Markdown URL: ' ONBOARDING_URL
+python3 "$REHEARSAL_KIT/render-prompt.py" "$ONBOARDING_URL"
+```
+
+The renderer rejects non-HTTPS URLs and writes `prompt.md` from the checked-in
+template. The prompt gives the agent that one URL, the install and
+synthetic round-trip task, and the owner's local-only/no-private-HTTPS decision.
+It provides no artifact URLs or hashes, host facts, stage answers or command
+hints. The agent must discover host facts and follow the exact owner-selected
+publisher path; it must not calculate or substitute trust pins. `run.sh` refuses
+a missing, empty or unfilled prompt and records `one-url/2` with the private run
+receipt. Do not alter or republish the existing stable publisher URL for this
+recipe. Earlier supplied-input prompts that passed artifact values or host facts
+to the agent are pre-v2 history, not one-url/2 runs.
+
+Run 6 after CES-1114 used an earlier prompt. The no-Tailscale scenario exercises
+the documented same-host managed socket and agent stage; it does not qualify
+private HTTPS or a remote client.
 
 Start a new Claude process with no prior conversation/resume, hints, personal
 files, repository checkout or operator skill context. The only extra installed
@@ -386,5 +403,14 @@ failed acceptance: its install/write/read succeeded, but observer `get_context`
 returned `503 outcome_unknown` while the other two reads succeeded, and a Bash
 announcement violated the observer gate. Preserve those original outcomes and
 transcripts; the next observer restriction does not retroactively pass run 9.
-CES-1120 owns the admission repair. Current CES-1104 acceptance remains open for
-a new consecutive Haiku pair followed by Sonnet under the reviewed next harness.
+CES-1120 owns the admission repair.
+
+CES-1104 comments report runs 13 and 14 as consecutive unassisted Haiku installs
+with authenticated 150-lb read-back and real Claude MCP calls. Those prompts
+included the publisher URL plus seeded host facts and are historical supplied-input
+evidence; retain their raw receipts unchanged. They do not establish
+that the stricter no-host-facts `one-url/2` protocol has been live-verified. Treat
+those earlier supplied-input prompts as pre-v2 history, not as one-url/2 runs.
+Sonnet repetition remains unrun. These rehearsal outcomes do not qualify a
+release, physical device or cross-agent installation. CES-1104 acceptance remains
+open pending the reviewed one-url/2 rehearsal and Sonnet evidence.
