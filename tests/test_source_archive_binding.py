@@ -39,7 +39,7 @@ def test_regenerated_inventory_cannot_substitute_pinned_archive_content(tmp_path
     regenerate_inventory(source, manifest)
     assert json.loads(manifest.read_bytes())["source"] == identity
     assert (manifest.parent / "source.tar").read_bytes() == archive
-    with pytest.raises(ManifestError, match="^source_tree_archive_mismatch$") as failure:
+    with pytest.raises(ManifestError, match=r"^source_tree_archive_mismatch$") as failure:
         verify_source_identity(source, manifest)
     assert failure.value.path == path
 
@@ -53,7 +53,7 @@ def test_substituted_bundle_refuses_every_stage_before_transport_or_workspace_wr
     manifest = arguments["bundle"] / "release/source-manifest.json"
     (source / "src/module.py").write_text("VALUE = 'synthetic substitution'\n")
     regenerate_inventory(source, manifest)
-    with pytest.raises(ServiceError, match="^install_acquire_source_identity_mismatch$"):
+    with pytest.raises(ServiceError, match=r"^install_acquire_source_identity_mismatch$"):
         acquire.acquire(**arguments)
     assert transport["calls"] == []
     assert list(arguments["staging"].iterdir()) == []
@@ -66,6 +66,6 @@ def test_substituted_bundle_refuses_every_stage_before_transport_or_workspace_wr
     assert "src/module.py" in mismatch["recovery"]
     assert str(source) not in json.dumps(checked)
     journal = tmp_path / "install.json"
-    with pytest.raises(ServiceError, match="^install_preparation_source_identity_mismatch$"):
+    with pytest.raises(ServiceError, match=r"^install_preparation_source_identity_mismatch$"):
         prepare.prepare(**selected, journal=journal)
     assert not journal.exists() and list(selected["workspace"].iterdir()) == []
