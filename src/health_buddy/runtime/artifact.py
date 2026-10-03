@@ -318,6 +318,16 @@ _CONTAINERD_STORE_REFUSAL = (
 )
 
 
+def containerd_store_diagnostic(
+    error: ManifestError,
+) -> tuple[str, str] | None:
+    """Return only this validator's fixed public code and recovery text."""
+    if str(error) != _CONTAINERD_STORE_REFUSAL:
+        return None
+    code, recovery = _CONTAINERD_STORE_REFUSAL.split(": ", 1)
+    return code, recovery
+
+
 def _payload(descriptor: int, member: tarfile.TarInfo, budget: list[int]) -> bytes:
     budget[0] += member.size
     if member.size > MAX_METADATA or budget[0] > MAX_METADATA:

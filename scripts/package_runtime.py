@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from health_buddy.runtime.artifact import containerd_store_diagnostic
 from health_buddy.runtime.bundle import _write, create_bundle
 from health_buddy.runtime.context import create_context
 from health_buddy.runtime.inputs import fetch_inputs, load_inputs, verify_inputs
@@ -164,9 +165,18 @@ def main(argv: list[str] | None = None) -> int:
         TypeError,
         RecursionError,
         subprocess.SubprocessError,
-    ):
+    ) as error:
+        diagnostic = (
+            containerd_store_diagnostic(error)
+            if isinstance(error, ManifestError)
+            else None
+        )
+        detail = ""
+        if diagnostic is not None:
+            code, recovery = diagnostic
+            detail = f"; {code}: {recovery}"
         print(
-            "runtime_packaging_failed; preserve inputs and inspect "
+            "runtime_packaging_failed" + detail + "; preserve inputs and inspect "
             "selected artifact evidence",
             file=sys.stderr,
         )
