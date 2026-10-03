@@ -91,11 +91,14 @@ def rebind(
     journal, owner_token = private_path(journal), private_path(owner_token)
     native_path(journal)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
-        record = read_json(journal, 32768)
-        if not isinstance(record, dict) or record.get("schemaVersion") != 1:
+        retained = read_json(journal, 32768)
+        if not isinstance(retained, dict) or retained.get("schemaVersion") != 1:
             raise refuse("journal", "requires_prepared_installation")
+        record: dict[str, Any] = dict(retained)
         with authority(record, owner_token) as (_service, connection):
             progress = record.get("originRebind")
+            if progress is not None and not isinstance(progress, dict):
+                raise refuse("originRebind", "invalid_progress")
             if progress is not None and progress.get("binding") != selected:
                 raise refuse("origin/ownerSubject", "resume_requires_original_binding")
             if progress is None or progress.get("phase") != "complete":

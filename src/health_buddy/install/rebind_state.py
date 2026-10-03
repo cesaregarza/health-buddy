@@ -85,7 +85,9 @@ def blockers(record: dict[str, Any], connection: sqlite3.Connection) -> None:
     if record.get("removal") is not None:
         raise refuse("removal", "requires_retained_installation")
     agent = record.get("agentSetup")
-    if agent is not None and agent.get("phase") != "configured":
+    if agent is not None and (
+        not isinstance(agent, dict) or agent.get("phase") != "configured"
+    ):
         raise refuse("agentSetup", "requires_completed_agent_setup")
     paired = connection.execute(
         "SELECT 1 FROM actors WHERE role='device' AND active=1 LIMIT 1"
@@ -161,7 +163,7 @@ def agent_settings(
         "acknowledgeAiEgress": True,
     }
     target = {**expected, "origin": selected["origin"]}
-    allowed = (encode(expected),)
+    allowed: tuple[bytes, ...] = (encode(expected),)
     if record.get("originRebind", {}).get("phase") in ("stopping", "writing"):
         allowed += (encode(target),)
     if read_file(path, 16384) not in allowed:
