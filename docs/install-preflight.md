@@ -878,13 +878,19 @@ credential, then reads the canonical record at that exact instant:
 . "$HOME/health-buddy/env.sh"
 MEASURED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 printf 'Measurement UTC timestamp: %s\n' "$MEASURED_AT_UTC"
-"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local "$MEASURED_AT_UTC" --timezone UTC --weight-lb 150
+"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" log measurement --measured-at-local "$MEASURED_AT_UTC" --timezone UTC --weight-lb 150 --source synthetic-test
 "$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" records --source-ids manual --kinds body-mass --from "$MEASURED_AT_UTC" --to "$MEASURED_AT_UTC" --limit 10
 ```
 
-The write receipt must report `data.saved: true`. In the read response, verify
+The write receipt reports `data.saved: true`, `data.sourceId: "manual"`,
+`data.kind: "body-mass"` and the normalized `data.observedAt` for the saved
+measurement. Use that `observedAt` as both `--from` and `--to` in the bounded,
+authenticated `records` command; keep `--source-ids manual` and `--kinds
+body-mass`. The logger's `--source synthetic-test` remains provenance on the
+measurement row and is not a `records` selector. In the read response, verify
 the `records` entry's `value: 150`, `unit: "lb"`, `kind: "body-mass"`,
-`sourceId: "manual"` and `observedAt` equal to the printed UTC timestamp.
+`sourceId: "manual"` and `observedAt` equal to the write receipt's
+`data.observedAt` (and the printed UTC timestamp).
 `records` uses the authenticated `records.list` operation; its bounded window
 includes both endpoints and can explicitly include a future timestamp. It
 returns exact values and timestamps, unlike a context date summary. An agent

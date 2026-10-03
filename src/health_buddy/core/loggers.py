@@ -370,6 +370,13 @@ def transition(
                 rows.sort(key=lambda old: old[timestamp])
         result: dict[str, JSON] = {"saved": True, "duplicate": duplicate}
         if kind == "measurement":
+            result.update(
+                {
+                    "sourceId": body["sourceId"],
+                    "kind": "body-mass",
+                    "observedAt": records.row_time(row, row["timezone"]),
+                }
+            )
             result.update(_measurement_time_feedback(row, fields, received_at))
         return (
             {path: csv_text(headers, rows)},
