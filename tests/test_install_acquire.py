@@ -10,8 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy.install import acquire as install_acquire
 from health_buddy.core.service_api import ServiceError
+from health_buddy.install import acquire as install_acquire
 from tests.test_install_preflight import prepared
 
 
@@ -262,9 +262,7 @@ def command_line(arguments):
     ]
 
 
-def test_changed_bundle_source_is_named_before_transport(
-    tmp_path, monkeypatch, capsys
-):
+def test_changed_bundle_source_is_named_before_transport(tmp_path, monkeypatch, capsys):
     arguments, state, _selected = acquisition_fixture(tmp_path, monkeypatch)
     (arguments["bundle"] / "source/src/module.py").write_text("VALUE = 2\n")
     assert install_acquire.main(command_line(arguments)) == 2

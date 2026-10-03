@@ -326,9 +326,8 @@ def main(argv: list[str] | None = None) -> int:
             "code": code,
             "recovery": RECOVERY[code],
         }
-        if (
-            code == "install_client_arguments_required"
-            and isinstance(error, ServiceError)
+        if code == "install_client_arguments_required" and isinstance(
+            error, ServiceError
         ):
             details = error.details if isinstance(error.details, dict) else {}
             missing = details.get("missingArguments", [])
