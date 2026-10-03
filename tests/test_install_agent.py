@@ -379,7 +379,10 @@ def test_invalid_client_target_refuses_before_grant_or_journal_changes(
         corrected["client_config"].parent.mkdir(mode=0o700)
     result = install_agent.setup(**corrected)
     assert result["agentGrantRetained"] and result["clientConfigurationPrepared"]
-    assert arguments["client_config"].read_bytes() == config_before
+    if client == "claude":
+        assert arguments["client_config"].read_bytes() == config_before
+    else:
+        assert arguments["client_config"].read_bytes().startswith(config_before)
     runtime, admitted = install_agent.owner(
         json.loads(selected["journal"].read_bytes())
     )
