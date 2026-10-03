@@ -45,7 +45,6 @@ class SourceInventoryMismatch(ManifestError):
         self.path = path
 
 
-
 class SourceTreeArchiveMismatch(SourceInventoryMismatch):
     """The extracted tree differs from the pinned archive, first at `path`."""
 
@@ -229,7 +228,6 @@ def _json(path: Path) -> object:
         os.close(descriptor)
 
 
-
 def _archive_bytes(path: Path, size: int, digest: str) -> bytes:
     """Parse only the same bounded bytes whose hash was checked, without links."""
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -277,8 +275,13 @@ def _archive_inventory(raw: bytes) -> list[dict[str, str | int]]:
                 if len(content) != member.size:
                     raise ManifestError("archive_inventory_mismatch")
                 seen.add(relative)
-                result.append({"path": relative, "bytes": member.size,
-                               "sha256": hashlib.sha256(content).hexdigest()})
+                result.append(
+                    {
+                        "path": relative,
+                        "bytes": member.size,
+                        "sha256": hashlib.sha256(content).hexdigest(),
+                    }
+                )
     except (tarfile.TarError, OSError, UnicodeError, RecursionError):
         raise ManifestError("source_archive_mismatch") from None
     return sorted(result, key=lambda item: str(item["path"]))
@@ -356,9 +359,11 @@ def verify_source_identity(source_root: Path, manifest_path: Path) -> ReleaseIde
     )
     if archive_size != value["archiveBytes"] or actual_archive != archive_digest:
         raise ManifestError("source_archive_mismatch")
-    archived = _archive_inventory(_archive_bytes(
-        manifest_path.parent / "source.tar", archive_size, archive_digest
-    ))
+    archived = _archive_inventory(
+        _archive_bytes(
+            manifest_path.parent / "source.tar", archive_size, archive_digest
+        )
+    )
     differing = _first_difference(archived, present)
     if differing is not None:
         raise SourceTreeArchiveMismatch(differing)

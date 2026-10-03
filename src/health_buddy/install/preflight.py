@@ -161,7 +161,9 @@ def preflight(
         for code in refusals
     ]
     if differing is not None:
-        result["diagnostics"].append(_inventory_mismatch(differing.path, str(differing)))
+        result["diagnostics"].append(
+            _inventory_mismatch(differing.path, str(differing))
+        )
     if artifact_diagnostic is not None:
         code, recovery = artifact_diagnostic
         result["diagnostics"].append(
@@ -171,7 +173,9 @@ def preflight(
     return result
 
 
-def _inventory_mismatch(path: str, code: str = "source_inventory_mismatch") -> dict[str, str]:
+def _inventory_mismatch(
+    path: str, code: str = "source_inventory_mismatch"
+) -> dict[str, str]:
     """Name the file, so the owner re-extracts instead of inspecting artifacts.
 
     The path is relative to the bundle's source tree, never an absolute host path.
