@@ -429,9 +429,8 @@ def test_status_owner_config_change_keeps_named_refusal_and_guidance(
     output = capsys.readouterr().out
     data = json.loads(output)
     assert data["code"] == "install_agent_owner_config_changed"
-    assert "inspect" in data["recovery"]
-    assert "do not" in data["recovery"]
-    assert "rewrite" not in data["recovery"]
-    assert "delete" in data["recovery"] and "rebind" in data["recovery"]
+    recovery = data["recovery"].lower()
+    assert "inspect" in recovery
+    assert "do not rewrite ingress, delete the journal, or rebind" in recovery
     assert config.read_bytes() == changed
     assert selected["journal"].read_bytes() == journal_before

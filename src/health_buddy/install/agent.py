@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Callable
 from hashlib import sha256
@@ -36,6 +37,7 @@ from health_buddy.core.security_api import (
 )
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
+from health_buddy.install.owner import _identity_recovery
 from health_buddy.mcp.settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.security.runtime import open_runtime, read_credential
@@ -138,11 +140,13 @@ def setup(
     fault: Callable[[str], None] | None = None,
     rotate_pending_missing_secret: bool = False,
 ) -> dict[str, Any]:
-    validate_targets(client_config, skill_directory, client)
     if not confirm_grant or not acknowledge_ai_egress:
         raise ServiceError(
             422, "install_agent_requires_explicit_grant_and_egress_consent"
         )
+    if os.geteuid() == 0:
+        raise ServiceError(409, "install_owner_requires_native_nonroot_owner")
+    validate_targets(client_config, skill_directory, client)
     fault = fault or (lambda _point: None)
     journal, policy, agent_token, settings = (
         private_path(path) for path in (journal, policy, agent_token, settings)
@@ -349,7 +353,7 @@ def _validate_resume(progress: object, selected: dict[str, Any]) -> None:
             or key not in selected
             or binding[key] != selected[key]
         )
-        if len(keys) != len(binding):
+        if any(not isinstance(key, str) for key in binding):
             differing.append("binding")
     if differing or progress.get("phase") not in (
         "grant_pending",
@@ -547,8 +551,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm-grant", action="store_true")
     parser.add_argument("--rotate-pending-missing-secret", action="store_true")
     parser.add_argument("--acknowledge-ai-egress", action="store_true")
+    args = parser.parse_args(argv)
     try:
-        value = setup(**vars(parser.parse_args(argv)))
+        value = setup(**vars(args))
     except McpReadinessError as error:
         print(json.dumps(error.summary(), sort_keys=True))
         return 2
@@ -583,6 +588,8 @@ def main(argv: list[str] | None = None) -> int:
                 "never automatic new grants.",
             ),
         }
+        if error.code == "install_owner_requires_native_nonroot_owner":
+            result["recovery"] = _identity_recovery(args.journal)
         if error.code == "install_agent_resume_requires_original_binding":
             details = error.details if isinstance(error.details, dict) else {}
             differing = details.get("differingFields", [])
