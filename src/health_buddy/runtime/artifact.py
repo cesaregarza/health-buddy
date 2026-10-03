@@ -317,6 +317,7 @@ _CONTAINERD_STORE_REFUSAL = (
     "/etc/docker/daemon.json, restart Docker, then rebuild and save the image again"
 )
 
+
 def containerd_store_diagnostic(
     error: ManifestError,
 ) -> tuple[str, str] | None:

@@ -268,7 +268,8 @@ def test_containerd_archive_names_validator_after_generic_preflight_refusal(
     result = install_preflight.preflight(**inputs)
     assert {"release_invalid", "artifact_from_containerd_image_store"} <= codes(result)
     diagnostic = next(
-        item for item in result["diagnostics"]
+        item
+        for item in result["diagnostics"]
         if item["code"] == "artifact_from_containerd_image_store"
     )
     assert "features.containerd-snapshotter to false" in diagnostic["recovery"]
@@ -278,18 +279,28 @@ def test_containerd_archive_names_validator_after_generic_preflight_refusal(
     from scripts import package_runtime
 
     workspace_owner = inputs["workspace"].lstat()
-    assert package_runtime.main(
-        [
-            "load",
-            "--manifest", str(inputs["manifest"]),
-            "--architecture", "amd64",
-            "--workspace", str(inputs["workspace"]),
-            "--output-env", str(tmp_path / "runtime.env"),
-            "--uid", str(workspace_owner.st_uid),
-            "--gid", str(workspace_owner.st_gid),
-            "--docker", str(inputs["docker"]),
-        ]
-    ) == 1
+    assert (
+        package_runtime.main(
+            [
+                "load",
+                "--manifest",
+                str(inputs["manifest"]),
+                "--architecture",
+                "amd64",
+                "--workspace",
+                str(inputs["workspace"]),
+                "--output-env",
+                str(tmp_path / "runtime.env"),
+                "--uid",
+                str(workspace_owner.st_uid),
+                "--gid",
+                str(workspace_owner.st_gid),
+                "--docker",
+                str(inputs["docker"]),
+            ]
+        )
+        == 1
+    )
     output = capsys.readouterr().err
     assert "runtime_packaging_failed" in output
     assert "artifact_from_containerd_image_store" in output
