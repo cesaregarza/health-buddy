@@ -19,6 +19,7 @@ sys.dont_write_bytecode = True
 from health_buddy.core.durability import private_umask
 from health_buddy.core.service_api import ServiceError
 from health_buddy.operator_diagnostics import port_state
+from health_buddy.runtime.artifact import containerd_store_diagnostic
 from health_buddy.runtime.manifest import (
     SHA256,
     ManifestError,
@@ -122,6 +123,7 @@ def preflight(
     architecture = facts["architecture"]
     refusals = _host_refusals(facts)
     differing: SourceInventoryMismatch | None = None
+    artifact_diagnostic: tuple[str, str] | None = None
     # Physical host facts do not establish effective container/daemon quotas.
     result["host"]["quotaAdmission"] = "not_performed"
     unavailable = _unavailable_directories(workspace, bundle, manifest.parent)
@@ -141,6 +143,9 @@ def preflight(
             # release_invalid keeps its meaning; a second diagnostic names the file.
             release, refusal = None, "release_invalid"
             differing = error
+        except ManifestError as error:
+            release, refusal = None, "release_invalid"
+            artifact_diagnostic = containerd_store_diagnostic(error)
         if refusal is None:
             result["release"] = release
         else:
@@ -157,6 +162,11 @@ def preflight(
     ]
     if differing is not None:
         result["diagnostics"].append(_inventory_mismatch(differing.path, str(differing)))
+    if artifact_diagnostic is not None:
+        code, recovery = artifact_diagnostic
+        result["diagnostics"].append(
+            {"code": code, "severity": "error", "recovery": recovery}
+        )
     result["preflightPassed"] = not refusals
     return result
 
@@ -276,7 +286,11 @@ def _verify_release(
         }, None
     except SourceInventoryMismatch:
         raise
-    except (OSError, ManifestError):
+    except ManifestError as error:
+        if containerd_store_diagnostic(error) is not None:
+            raise
+        return None, "release_invalid"
+    except OSError:
         return None, "release_invalid"
 
 

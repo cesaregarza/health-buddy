@@ -18,13 +18,48 @@ from scripts.audit_distribution import (
     pytest.param("package/../escape.py", id="embedded-traversal"),
     pytest.param("C:\\escape.py", id="windows-path"),
     pytest.param("data/records.json", id="private-top-dir"),
-    pytest.param("pkg/personal/view.py", id="private-component"),
-    pytest.param("private.db", id="forbidden-suffix"),
+    pytest.param("plans/records.json", id="private-top-plans"),
     pytest.param("nested/.env", id="dotenv-name"),
     pytest.param("profile.yaml", id="profile-name"),
 ])
 def test_forbidden_paths_are_rejected(name):
     assert inspect(name, b"fabricated")
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("pkg/data/records.json", id="data"),
+        pytest.param("pkg/personal/notes.txt", id="personal"),
+        pytest.param("pkg/secrets/token.txt", id="secrets"),
+        pytest.param("pkg/.git/config", id="git"),
+        pytest.param("pkg/.local/state.json", id="local"),
+        pytest.param("pkg/__pycache__/module.pyc", id="pycache"),
+    ],
+)
+def test_each_private_component_is_detected_when_nested(name):
+    errors = inspect(name, b"synthetic")
+    assert any("excluded path" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("pkg/private.db", id="db"),
+        pytest.param("pkg/private.sqlite", id="sqlite"),
+        pytest.param("pkg/private.sqlite3", id="sqlite3"),
+        pytest.param("pkg/private.csv", id="csv"),
+        pytest.param("pkg/image.png", id="png"),
+        pytest.param("pkg/image.jpg", id="jpg"),
+        pytest.param("pkg/image.jpeg", id="jpeg"),
+        pytest.param("pkg/image.heic", id="heic"),
+        pytest.param("pkg/private.pem", id="pem"),
+        pytest.param("pkg/private.key", id="key"),
+    ],
+)
+def test_each_forbidden_suffix_is_detected_when_nested(name):
+    errors = inspect(name, b"synthetic")
+    assert any("excluded data/credential/binary type" in error for error in errors)
 
 
 @pytest.mark.parametrize("raw,label", [

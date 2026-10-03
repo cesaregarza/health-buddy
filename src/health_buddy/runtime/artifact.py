@@ -317,6 +317,15 @@ _CONTAINERD_STORE_REFUSAL = (
     "/etc/docker/daemon.json, restart Docker, then rebuild and save the image again"
 )
 
+def containerd_store_diagnostic(
+    error: ManifestError,
+) -> tuple[str, str] | None:
+    """Return only this validator's fixed public code and recovery text."""
+    if str(error) != _CONTAINERD_STORE_REFUSAL:
+        return None
+    code, recovery = _CONTAINERD_STORE_REFUSAL.split(": ", 1)
+    return code, recovery
+
 
 def _payload(descriptor: int, member: tarfile.TarInfo, budget: list[int]) -> bytes:
     budget[0] += member.size

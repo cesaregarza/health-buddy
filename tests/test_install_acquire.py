@@ -12,7 +12,7 @@ import pytest
 
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install import acquire as install_acquire
-from tests.test_install_preflight import prepared
+from tests.test_install_preflight import pin_containerd_store_fixture, prepared
 
 
 class Response:
@@ -289,6 +289,26 @@ def test_unavailable_staging_is_named_before_transport(
     assert "$ARTIFACTS" in output["recovery"]
     assert "0700" in output["recovery"] and "step 9" in output["recovery"]
     assert not state["calls"]
+
+
+def test_containerd_archive_recovery_survives_acquire_cli_wrapper(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, state, selected = acquisition_fixture(tmp_path, monkeypatch)
+    pin_containerd_store_fixture(selected)
+    arguments["trusted_manifest_sha256"] = selected["trusted_manifest_sha256"]
+    assert install_acquire.main(command_line(arguments)) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["code"] == "install_acquire_release_or_transport_failed"
+    assert "artifact_from_containerd_image_store" in result["recovery"]
+    assert "set features.containerd-snapshotter to false" in result["recovery"]
+    assert "restart Docker" in result["recovery"]
+    assert state["calls"] == [
+        "runtime-manifest.json",
+        "health-buddy-source.tar",
+        "health-buddy-linux-amd64.docker.tar",
+        "health-buddy-linux-arm64.docker.tar",
+    ]
 
 
 def test_os_failure_after_admission_keeps_the_generic_code(

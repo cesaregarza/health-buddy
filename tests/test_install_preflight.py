@@ -208,6 +208,25 @@ def codes(value):
     return {item["code"] for item in value["diagnostics"]}
 
 
+def pin_containerd_store_fixture(inputs):
+    """Pin the captured Docker 29 archive into this fixture's real manifest."""
+    archive = inputs["manifest"].parent / "health-buddy-linux-amd64.docker.tar"
+    captured = Path(__file__).parent / "fixtures/docker29-containerd-store-by-id.tar"
+    raw = captured.read_bytes()
+    archive.write_bytes(raw)
+    manifest = json.loads(inputs["manifest"].read_bytes())
+    record = next(
+        item for item in manifest["artifacts"] if item["architecture"] == "amd64"
+    )
+    record["archive_sha256"] = hashlib.sha256(raw).hexdigest()
+    record["archive_bytes"] = len(raw)
+    inputs["manifest"].write_text(json.dumps(manifest))
+    inputs["trusted_manifest_sha256"] = hashlib.sha256(
+        inputs["manifest"].read_bytes()
+    ).hexdigest()
+    return archive
+
+
 def test_pinned_real_archive_inspection_reports_plan_without_creating_install(
     tmp_path, monkeypatch
 ):
@@ -239,6 +258,43 @@ def test_wrong_trust_pin_refuses_before_archive_validation(tmp_path, monkeypatch
     result = install_preflight.preflight(**inputs)
     assert "release_untrusted" in codes(result)
     assert not result["preflightPassed"]
+
+
+def test_containerd_archive_names_validator_after_generic_preflight_refusal(
+    tmp_path, monkeypatch, capsys
+):
+    inputs = prepared(tmp_path, monkeypatch)
+    pin_containerd_store_fixture(inputs)
+    result = install_preflight.preflight(**inputs)
+    assert {"release_invalid", "artifact_from_containerd_image_store"} <= codes(result)
+    diagnostic = next(
+        item for item in result["diagnostics"]
+        if item["code"] == "artifact_from_containerd_image_store"
+    )
+    assert "features.containerd-snapshotter to false" in diagnostic["recovery"]
+    assert "restart Docker" in diagnostic["recovery"]
+    assert str(tmp_path) not in json.dumps(result)
+
+    from scripts import package_runtime
+
+    workspace_owner = inputs["workspace"].lstat()
+    assert package_runtime.main(
+        [
+            "load",
+            "--manifest", str(inputs["manifest"]),
+            "--architecture", "amd64",
+            "--workspace", str(inputs["workspace"]),
+            "--output-env", str(tmp_path / "runtime.env"),
+            "--uid", str(workspace_owner.st_uid),
+            "--gid", str(workspace_owner.st_gid),
+            "--docker", str(inputs["docker"]),
+        ]
+    ) == 1
+    output = capsys.readouterr().err
+    assert "runtime_packaging_failed" in output
+    assert "artifact_from_containerd_image_store" in output
+    assert "set features.containerd-snapshotter to false" in output
+    assert str(tmp_path) not in output
 
 
 def test_changed_archive_is_refused_without_loading(tmp_path, monkeypatch):
