@@ -34,6 +34,7 @@ from health_buddy.core.durability import (
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.service_api import ServiceError
+from health_buddy.runtime.artifact import containerd_store_diagnostic
 from health_buddy.runtime.inputs import _Redirect
 from health_buddy.runtime.manifest import (
     MAX_METADATA,
@@ -503,16 +504,21 @@ def main(argv: list[str] | None = None) -> int:
         TypeError,
         KeyError,
         subprocess.SubprocessError,
-    ):
-        print(
-            json.dumps(
-                {
-                    "schemaVersion": 1,
-                    "code": "install_acquire_release_or_transport_failed",
-                    "installed": False,
-                }
-            )
+    ) as error:
+        result = {
+            "schemaVersion": 1,
+            "code": "install_acquire_release_or_transport_failed",
+            "installed": False,
+        }
+        diagnostic = (
+            containerd_store_diagnostic(error)
+            if isinstance(error, ManifestError)
+            else None
         )
+        if diagnostic is not None:
+            code, recovery = diagnostic
+            result["recovery"] = f"{code}: {recovery}"
+        print(json.dumps(result, sort_keys=True))
         return 2
     print(json.dumps(value, sort_keys=True))
     return 0

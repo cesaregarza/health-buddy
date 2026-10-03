@@ -10,10 +10,12 @@ import sqlite3
 import time
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from health_buddy.core.service_api import ServiceError
+from health_buddy.security import readiness as security_readiness
 from health_buddy.security.readiness import ready
 from health_buddy.transport.asgi import create_app
 from tests.canonical_fixtures import intent
@@ -139,6 +141,19 @@ def test_invalid_deadline_cannot_make_probe_unbounded(
 ) -> None:
     runtime, _owner, _token = secured(tmp_path / "workspace")
     assert not ready(runtime.operations.config, deadline)
+
+
+def test_boolean_deadline_is_rejected_independently_of_expiration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime, _owner, _token = secured(tmp_path / "workspace")
+    monkeypatch.setattr(
+        security_readiness,
+        "time",
+        SimpleNamespace(monotonic=lambda: 0.0, sleep=time.sleep),
+    )
+    assert ready(runtime.operations.config, 1.0)
+    assert not ready(runtime.operations.config, True)
 
 
 async def test_http_liveness_and_readiness_have_no_authority_or_health_payload(
@@ -329,6 +344,7 @@ def test_store_writes_stay_private_under_group_writable_umask(tmp_path: Path) ->
     "content",
     [
         pytest.param(b"main\n", id="no-ref-prefix"),
+        pytest.param(b"ref: heads/main\n", id="ref-missing-refs-prefix"),
         pytest.param(b"ref: refs/heads/bad..name\n", id="dotdot-in-ref"),
     ],
 )
