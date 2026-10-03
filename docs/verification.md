@@ -14,7 +14,8 @@ Root pytest has two tiers, marked from one list in `tests/conftest.py`.
 `make test` is the fast tier: it deselects both markers. `make test-slow` runs
 the rest: `slow` covers real servers, SDK clients, venvs, spawned interpreters
 and bulk data. Two `needs_root` tests launch a fixture process as uid 65534 and
-skip unless pytest runs as root; the third runs one install stage under `sudo`.
+skip unless pytest runs as root; the owner-host case runs as a nonroot user and
+uses `sudo` for three install stages.
 `make test-all` runs both tiers at once. Each target uses `--dist loadfile`,
 which keeps a module's tests on one worker, so a module-scoped server starts
 once.
