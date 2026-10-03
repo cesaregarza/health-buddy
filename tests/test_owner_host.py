@@ -10,6 +10,8 @@ import json
 import os
 import pwd
 import shlex
+import shutil
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -18,8 +20,9 @@ import pytest
 
 from health_buddy.runtime.manifest import verify_source_identity
 from tests import owner_host
+from tests.mcp_wire_fixtures import client as mcp_client
 from tests.owner_host import Owner
-from tests.test_install_bytecode import ENTRY_POINTS, SOURCE, runs_as_program
+from tests.test_install_bytecode import ARGPARSE_ENTRY_POINTS, SOURCE, runs_as_program
 from tests.test_runtime_bundle_asset import blocks
 
 # The four fields of the completion test in docs/onboarding.md.
@@ -33,7 +36,7 @@ COMPLETION = (
 # image's packaged_runtime runs only through scripts/runtime_entrypoint.py.
 MODULES = [
     ".".join(path.relative_to(SOURCE).with_suffix("").parts)
-    for path in ENTRY_POINTS
+    for path in ARGPARSE_ENTRY_POINTS
     if runs_as_program(path)
 ]
 
@@ -91,6 +94,32 @@ def measure(owner: Owner) -> str:
     assert read.returncode == 0, read.stderr
     assert_read_back(json.loads(read.stdout), now)
     return now
+
+
+def assert_client_launch_preserves_bundle(owner: Owner, client: str) -> None:
+    """Use the written client command with only its environment and host basics."""
+    if client == "codex":
+        config = tomllib.loads((owner.client / "config.toml").read_text())
+        launch = config["mcp_servers"]["health_buddy"]
+    else:
+        directory = owner.client / "claude"
+        config = json.loads((directory / ".mcp.json").read_bytes())
+        launch = {**config["mcpServers"]["health_buddy"], "cwd": str(directory)}
+    # The earlier assertions account for all stage-created caches. Start the
+    # client from a clean, test-owned bundle so inherited flags cannot hide writes.
+    for cache in owner.source.rglob("__pycache__"):
+        shutil.rmtree(cache)
+    before = owner_host.bytecode(owner)
+    assert before == set()
+    with mcp_client(
+        owner.client / "adapter.json",
+        owner.root,
+        launch=launch,
+        environment={"HOME": str(owner.home), "PATH": owner.path},
+    ):
+        pass  # The helper sends initialize and checks the negotiated protocol.
+    assert owner_host.bytecode(owner) == before
+    verify_source_identity(owner.source, owner.bundle / "release/source-manifest.json")
 
 
 @pytest.mark.parametrize("client", ["codex", "claude"])
@@ -185,6 +214,7 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
     assert "src/health_buddy/__pycache__" in written  # Writes were enabled.
     assert written <= owner_host.interpreter_caches(*modules, "health_buddy.cli")
     verify_source_identity(owner.source, owner.bundle / "release/source-manifest.json")
+    assert_client_launch_preserves_bundle(owner, client)
 
 
 @pytest.fixture(scope="module")

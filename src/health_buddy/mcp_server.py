@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import sys
+
+# Disable writes before importing any package from the verified source bundle.
+sys.dont_write_bytecode = True
+
+# ruff: noqa: E402
 import fcntl
 import logging
 import os
-import sys
 from importlib import import_module
 from pathlib import Path
 
