@@ -240,7 +240,7 @@ def connect(
     client: str = "codex",
 ) -> None:
     """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
-    _validate_targets(config, skill, client)
+    validate_targets(config, skill, client)
     lock = config.parent / ".health-buddy-connect.lock"
     native_path(lock)
     with exclusive(lock):
@@ -344,7 +344,7 @@ def _begin_removal(
     )
 
 
-def _validate_targets(config: Path, skill: Path, client: str) -> None:
+def validate_targets(config: Path, skill: Path, client: str) -> None:
     if client not in {"codex", "claude"}:
         raise ServiceError(422, "unsupported_agent_client")
     if client == "claude" and config.name != ".mcp.json":

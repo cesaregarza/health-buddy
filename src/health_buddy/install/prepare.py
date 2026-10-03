@@ -68,6 +68,11 @@ RECOVERY = {
         "Re-extract the source bundle from its verified archive, then repeat; "
         "preflight names the first differing file."
     ),
+    "install_client_arguments_required": (
+        "Normal guided preparation passes no --client; the owner configures the "
+        "named client later with health_buddy.install.agent. If selecting the "
+        "optional prepare client step, supply every named companion argument."
+    ),
 }
 
 
@@ -105,6 +110,23 @@ def prepare(
     python: Path | None = None,
 ) -> dict[str, Any]:
     """Bind before first write; resume identical input, preserve owner additions."""
+    if client is not None:
+        missing = [
+            "--" + name.replace("_", "-")
+            for name, value in (
+                ("client-config", client_config),
+                ("skill-directory", skill_directory),
+                ("settings", settings),
+                ("python", python),
+            )
+            if value is None
+        ]
+        if missing:
+            raise ServiceError(
+                422,
+                "install_client_arguments_required",
+                details={"missingArguments": [name for name in missing]},
+            )
     docker = require_docker(docker)
     journal = private_path(journal)
     native_path(journal)
@@ -137,13 +159,10 @@ def prepare(
             atomic_bytes(journal, encode(progress))
         if client is None:
             return summary(progress)
-        if (
-            client_config is None
-            or skill_directory is None
-            or settings is None
-            or python is None
-        ):
-            raise ServiceError(422, "install_client_arguments_required")
+        assert client_config is not None
+        assert skill_directory is not None
+        assert settings is not None
+        assert python is not None
         selected_client = {
             "name": client,
             "config": str(client_config),
@@ -302,9 +321,18 @@ def main(argv: list[str] | None = None) -> int:
         code = "install_preparation_refused"
         if isinstance(error, ServiceError) and error.code in RECOVERY:
             code = error.code
-        print(
-            json.dumps({"schemaVersion": 1, "code": code, "recovery": RECOVERY[code]})
-        )
+        failure: dict[str, Any] = {
+            "schemaVersion": 1,
+            "code": code,
+            "recovery": RECOVERY[code],
+        }
+        if code == "install_client_arguments_required" and isinstance(
+            error, ServiceError
+        ):
+            details = error.details if isinstance(error.details, dict) else {}
+            missing = details.get("missingArguments", [])
+            failure["missingArguments"] = missing if isinstance(missing, list) else []
+        print(json.dumps(failure, sort_keys=True))
         return 2
     print(json.dumps(result, sort_keys=True))
     return 0

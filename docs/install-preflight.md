@@ -801,9 +801,9 @@ while running this explicit setup. No client process is launched:
 
 That block is the Codex variant. If the client on this host is Claude Code, run
 this variant instead. Its config must be a file named `.mcp.json` inside a
-private launcher directory that Claude Code is started from; the client and the
-config path are bound by the first run and cannot be corrected by rerunning, so
-choose them before running it:
+private launcher directory that Claude Code is started from. The target check
+rejects a differently named file before setup writes; the first accepted run
+binds the client and config path in the journal, so choose them before then:
 
 ```sh
 . "$HOME/health-buddy/env.sh"
@@ -832,6 +832,13 @@ journal, credential and client files while repairing the environment. Setup
 never installs dependencies for you. After setup succeeds, restart the named
 client and verify tool discovery and an authenticated read in a fresh session.
 
+`claude_project_config_required` means Claude's `--client-config` must be the
+`.mcp.json` file in the directory from which Claude Code is launched.
+`invalid_codex_skill_directory` means `--skill-directory` must have the basename
+`health-buddy`. Both are checked before owner authentication or any grant,
+journal, token or settings write. Correct the command and retry the original
+first setup.
+
 `install_agent_unowned_handoff_or_grant` with `conflictingPath` names the actual
 pre-existing token/settings/retry path in this private owner CLI response; its
 contents are never printed. Retain the path and journal, inspect which files
@@ -839,6 +846,15 @@ belong to an earlier installation, then select new absent outputs for a first
 handoff or move unrelated files only after owner review. Do not delete recovery
 material to force progress. A same-name grant conflict keeps that code without
 a path and needs owner grant reconciliation. Keep path-bearing output private.
+
+`install_agent_resume_requires_original_binding` reports only the names in
+`differingFields`; it never includes selected values or client config contents.
+For an already bound `configuring` handoff, keep the journal and use the explicit
+owner [removal and re-arm procedure](install-reinstall.md). Do not auto-rebind,
+rewrite ingress or delete the workspace. `install_agent_owner_config_changed`
+requires owner inspection of the changed config and a deliberate owner lifecycle
+review before retrying. That review must account for the retained exact config
+binding; do not edit ingress, delete the journal, or rebind to satisfy it.
 
 For Claude, choose `--client claude` and its supported project `.mcp.json`;
 see [Codex integration](codex-integration.md) and

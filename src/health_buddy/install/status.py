@@ -34,6 +34,79 @@ def text(value: object) -> str:
     return value
 
 
+def stage_guidance(
+    runtime_active: bool, client_prepared: bool, agent_retained: bool
+) -> dict[str, Any]:
+    stages = [
+        {
+            "name": "workspace_preparation",
+            "state": "retained_complete",
+            "command": "health_buddy.install.prepare",
+        },
+        {
+            "name": "owner_setup",
+            "state": "currently_authenticated",
+            "command": "health_buddy.install.owner",
+        },
+        {
+            "name": "runtime_activation",
+            "state": "last_active" if runtime_active else "incomplete",
+            "command": "health_buddy.install.activation",
+        },
+        {
+            "name": "agent_configuration",
+            "state": "last_prepared" if client_prepared else "incomplete",
+            "command": "health_buddy.install.agent",
+        },
+        {
+            "name": "agent_grant_authority",
+            "state": (
+                "currently_retained"
+                if agent_retained
+                else "not_retained"
+                if client_prepared
+                else "not_started"
+            ),
+            "command": (
+                "owner grant review; docs/install-reinstall.md if a new grant is needed"
+            ),
+        },
+    ]
+    next_stage = next(
+        (stage for stage in stages if stage["state"] in ("incomplete", "not_retained")),
+        None,
+    )
+    if next_stage is None:
+        return {
+            "localStages": stages,
+            "nextRequiredStage": "authenticated_record_readback",
+            "nextRequiredCommand": (
+                "health_buddy.cli log measurement, then authenticated records read-back"
+            ),
+        }
+    next_name = next_stage["name"]
+    if next_stage["state"] == "not_retained":
+        next_name = "agent_grant_reconciliation"
+    return {
+        "localStages": stages,
+        "nextRequiredStage": next_name,
+        "nextRequiredCommand": next_stage["command"],
+    }
+
+
+OWNER_RECOVERY = (
+    "The prepared installation has no retained owner authority. Follow "
+    "docs/install-preflight.md#guided-native-owner-setup and complete "
+    "health_buddy.install.owner with explicit owner consent."
+)
+CONFIG_RECOVERY = (
+    "The owner config differs from its retained binding. Inspect it using "
+    "docs/configuration.md#owner-configuration and use the documented owner "
+    "lifecycle review; do not "
+    "rewrite ingress, delete the journal, or rebind this installation."
+)
+
+
 def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
     journal = private_path(journal)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
@@ -48,6 +121,10 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
         config = load(Path(text(section(record["binding"])["workspace"])))
         receiver_mode = config.values["integrations"]["healthkit"]["mode"]
         receiver_enabled = config.enabled("healthkit")
+        runtime_active = activation.get("phase") == "active"
+        client_prepared = agent.get("phase") == "configured" and removal.get(
+            "phase"
+        ) not in ("grant_pending", "container_pending", "removed")
         retained = False
         if agent.get("phase") == "configured":
             inventory = actors(runtime, admitted)
@@ -67,6 +144,7 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
                 )
                 if not retained:
                     raise ServiceError(409, "install_status_agent_authority_changed")
+        guidance = stage_guidance(runtime_active, client_prepared, retained)
         devices = runtime.security.execute(
             admitted.principal, SecurityRequest("devices.list")
         ).data.get("items")
@@ -92,12 +170,10 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
             "schemaVersion": 1,
             "prepared": True,
             "ownerAuthenticated": True,
-            "runtimeLastActive": activation.get("phase") == "active",
+            "runtimeLastActive": runtime_active,
             "privateHttpsLastConfigured": https.get("phase") == "enabled",
             "agentGrantRetained": retained,
-            "clientConfigurationLastPrepared": agent.get("phase") == "configured"
-            and removal.get("phase")
-            not in ("grant_pending", "container_pending", "removed"),
+            "clientConfigurationLastPrepared": client_prepared,
             "removalLastCompleted": removal.get("phase") == "removed",
             "healthkitReceiverEnabled": receiver_enabled,
             "healthkitMode": receiver_mode,
@@ -114,9 +190,18 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
                 "Deliberately approve pairing and deliver its short-lived "
                 "proof privately to your phone."
             ),
+            **guidance,
             "pending": [
                 "actual_private_https_acceptance",
                 "fresh_named_client_acceptance",
+                "phone_acceptance",
+            ],
+            "pendingAcceptance": [
+                "fresh_named_client_acceptance",
+                "authenticated_record_readback",
+            ],
+            "optionalPendingAcceptance": [
+                "actual_private_https_acceptance",
                 "phone_acceptance",
             ],
         }
@@ -130,7 +215,23 @@ def main(argv: list[str] | None = None) -> int:
     try:
         value = status(**vars(parser.parse_args(argv)))
     except ServiceError as error:
-        print(json.dumps({"schemaVersion": 1, "code": error.code, "connected": False}))
+        result: dict[str, Any] = {
+            "schemaVersion": 1,
+            "code": error.code,
+            "connected": False,
+        }
+        if error.code == "install_agent_requires_retained_owner":
+            result.update(
+                {
+                    "incomplete": True,
+                    "nextRequiredStage": "owner_setup",
+                    "nextRequiredCommand": "health_buddy.install.owner",
+                    "recovery": OWNER_RECOVERY,
+                }
+            )
+        elif error.code == "install_agent_owner_config_changed":
+            result["recovery"] = CONFIG_RECOVERY
+        print(json.dumps(result, sort_keys=True))
         return 2
     except (OSError, ValueError, TypeError, KeyError):
         print(

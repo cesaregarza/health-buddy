@@ -271,3 +271,37 @@ def test_development_mode_refuses_the_prepared_workspace(
     )
     assert recovery.endswith(" --credential-file <owner token> log ...")
     assert open_runtime(workspace).operations.journal.verify().revision == 0
+
+
+def test_optional_prepare_client_arguments_are_required_before_any_write(
+    tmp_path, monkeypatch, capsys
+):
+    selected = inputs(tmp_path, monkeypatch)
+    argv = [
+        "--journal",
+        str(selected["journal"]),
+        "--bundle",
+        str(selected["bundle"]),
+        "--manifest",
+        str(selected["manifest"]),
+        "--trusted-manifest-sha256",
+        selected["trusted_manifest_sha256"],
+        "--workspace",
+        str(selected["workspace"]),
+        "--docker",
+        str(selected["docker"]),
+        "--client",
+        "claude",
+    ]
+    assert install_prepare.main(argv) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "install_client_arguments_required"
+    assert output["missingArguments"] == [
+        "--client-config",
+        "--skill-directory",
+        "--settings",
+        "--python",
+    ]
+    assert "passes no --client" in output["recovery"]
+    assert not selected["journal"].exists()
+    assert list(selected["workspace"].iterdir()) == []
