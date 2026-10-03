@@ -17,8 +17,11 @@ def arguments(selected):
     return dict(
         journal=selected["journal"],
         owner_token=selected["workspace"] / "secrets/synthetic-owner-token",
-        origin="https://synthetic.example.test", owner_subject="user@github",
-        confirm_rebind=True, confirm_local_daemon=True, confirm_quiesced=True,
+        origin="https://synthetic.example.test",
+        owner_subject="user@github",
+        confirm_rebind=True,
+        confirm_local_daemon=True,
+        confirm_quiesced=True,
     )
 
 
@@ -43,17 +46,37 @@ def test_rebind_preserves_authenticated_records_grants_and_client_config(
     if agent_first:
         agent.setup(**client)
     retained_client = client["client_config"].read_bytes()
-    native = ["--workspace", str(selected["workspace"]), "--credential-file", str(values["owner_token"])]
-    assert cli.main([
-        *native, "log", "measurement", "--weight-lb", "150",
-        "--measured-at-local", "2030-01-01T12:00:00Z", "--timezone", "UTC",
-    ]) == 0
+    native = [
+        "--workspace",
+        str(selected["workspace"]),
+        "--credential-file",
+        str(values["owner_token"]),
+    ]
+    assert (
+        cli.main(
+            [
+                *native,
+                "log",
+                "measurement",
+                "--weight-lb",
+                "150",
+                "--measured-at-local",
+                "2030-01-01T12:00:00Z",
+                "--timezone",
+                "UTC",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     assert rebind.main(command(values)) == 0
     assert json.loads(capsys.readouterr().out)["originRebound"]
     assert client["client_config"].read_bytes() == retained_client
     assert values["owner_token"].read_bytes() == retained_token
-    assert cli.main([*native, "records", "--source-ids", "manual", "--kinds", "body-mass"]) == 0
+    assert (
+        cli.main([*native, "records", "--source-ids", "manual", "--kinds", "body-mass"])
+        == 0
+    )
     records = json.loads(capsys.readouterr().out)["records"]
     assert len(records) == 1 and records[0]["value"] == 150
     agent.setup(**client)
@@ -74,7 +97,11 @@ def test_https_dry_run_admits_the_rebound_origin(tmp_path, monkeypatch):
     )
     assert rebind.rebind(**arguments(selected))["originRebound"]
     assert https.route(**dict(route, action="dry-run"))["eligible"]
-    mutations = [call[10:] for call in engine["calls"] if call[3] == "compose" and call[10] in ("up", "stop")]
+    mutations = [
+        call[10:]
+        for call in engine["calls"]
+        if call[3] == "compose" and call[10] in ("up", "stop")
+    ]
     assert mutations == [
         ["up", "--detach", "--wait", "--no-deps", "api"],
         ["stop", "--timeout", "30", "api"],
@@ -90,8 +117,12 @@ def test_rebind_refusals_name_the_field_and_preserve_files(
         tmp_path, monkeypatch, private_https=False, local_only=True
     )
     values = arguments(selected)
-    field = {"subject": "ownerSubject", "token": "ownerToken",
-             "pairing": "activeDevicePairings", "settings": "agentSettings"}[blocked]
+    field = {
+        "subject": "ownerSubject",
+        "token": "ownerToken",
+        "pairing": "activeDevicePairings",
+        "settings": "agentSettings",
+    }[blocked]
     if blocked == "subject":
         values["owner_subject"] = "not-an-exact-login-subject"
     elif blocked == "token":
@@ -101,15 +132,25 @@ def test_rebind_refusals_name_the_field_and_preserve_files(
         values["owner_token"] = token
     elif blocked == "pairing":
         runtime, admitted = agent.owner(json.loads(selected["journal"].read_bytes()))
-        runtime.security.execute(admitted.principal, SecurityRequest(
-            "pairing.create", payload=PairingReservation("Synthetic phone"), identity=admitted.client.identity
-        ))
+        runtime.security.execute(
+            admitted.principal,
+            SecurityRequest(
+                "pairing.create",
+                payload=PairingReservation("Synthetic phone"),
+                identity=admitted.client.identity,
+            ),
+        )
     else:
         agent.setup(**client)
         client["settings"].write_text('{"syntheticOwnerEdit": true}\n')
-    retained = {path: path.read_bytes() for path in (
-        selected["journal"], selected["workspace"] / "config.json", values["owner_token"]
-    )}
+    retained = {
+        path: path.read_bytes()
+        for path in (
+            selected["journal"],
+            selected["workspace"] / "config.json",
+            values["owner_token"],
+        )
+    }
     assert rebind.main(command(values)) == 2
     output = json.loads(capsys.readouterr().out)
     assert output["details"]["blockingField"] == field
@@ -119,7 +160,9 @@ def test_rebind_refusals_name_the_field_and_preserve_files(
 
 def test_rebind_requires_completed_owner_setup(tmp_path, monkeypatch):
     selected, _owner, _config, _note = prepared_owner(tmp_path, monkeypatch)
-    with pytest.raises(ServiceError, match="install_rebind_requires_completed_owner_setup"):
+    with pytest.raises(
+        ServiceError, match="install_rebind_requires_completed_owner_setup"
+    ):
         rebind.rebind(**arguments(selected))
     assert "originRebind" not in json.loads(selected["journal"].read_bytes())
 
@@ -133,8 +176,15 @@ def test_partial_rebind_resumes_exact_selection_without_replacing_authority(
     )
     agent.setup(**client)
     values = arguments(selected)
-    secrets = {path: path.read_bytes() for path in (values["owner_token"], client["agent_token"])}
-    target = {"config": selected["workspace"] / "config.json", "settings": client["settings"], "journal": selected["journal"]}[interrupted]
+    secrets = {
+        path: path.read_bytes()
+        for path in (values["owner_token"], client["agent_token"])
+    }
+    target = {
+        "config": selected["workspace"] / "config.json",
+        "settings": client["settings"],
+        "journal": selected["journal"],
+    }[interrupted]
     write = rebind_state.atomic_bytes
     lost = False
 

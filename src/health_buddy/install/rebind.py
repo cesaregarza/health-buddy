@@ -21,7 +21,13 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.install.activation import _healthy_image, _runtime_environments
 from health_buddy.install.owner import _identity_recovery, _validate_native_caller
 from health_buddy.install.rebind_state import (
-    authority, blockers, payloads, publish, refuse, selection, start_record,
+    authority,
+    blockers,
+    payloads,
+    publish,
+    refuse,
+    selection,
+    start_record,
 )
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.upgrade.activation import COMPOSE, compose
@@ -29,7 +35,10 @@ from health_buddy.upgrade.activation import COMPOSE, compose
 
 def _runtime(record: dict[str, Any]) -> tuple[dict[str, Any], Path]:
     active = record.get("activation")
-    if not isinstance(active, dict) or active.get("phase") not in ("active", "rebinding"):
+    if not isinstance(active, dict) or active.get("phase") not in (
+        "active",
+        "rebinding",
+    ):
         raise refuse("activation", "requires_owned_active_runtime")
     binding = active["binding"]
     manifest = Path(record["binding"]["manifest"])
@@ -49,21 +58,31 @@ def _runtime(record: dict[str, Any]) -> tuple[dict[str, Any], Path]:
 
 def _command(binding: dict[str, Any], *arguments: str) -> bytes:
     return compose(
-        Path(binding["docker"]), Path(binding["environment"]), binding["project"],
+        Path(binding["docker"]),
+        Path(binding["environment"]),
+        binding["project"],
         *arguments,
     )
 
 
 def _container(binding: dict[str, Any]) -> str:
-    ids = _command(binding, "ps", "--all", "--quiet", "api").decode("ascii").splitlines()
+    ids = (
+        _command(binding, "ps", "--all", "--quiet", "api").decode("ascii").splitlines()
+    )
     if len(ids) != 1:
         raise refuse("activation", "requires_one_owned_container")
     return ids[0]
 
 
 def rebind(
-    *, journal: Path, owner_token: Path, origin: str, owner_subject: str,
-    confirm_rebind: bool, confirm_local_daemon: bool, confirm_quiesced: bool,
+    *,
+    journal: Path,
+    owner_token: Path,
+    origin: str,
+    owner_subject: str,
+    confirm_rebind: bool,
+    confirm_local_daemon: bool,
+    confirm_quiesced: bool,
 ) -> dict[str, Any]:
     if not (confirm_rebind and confirm_local_daemon and confirm_quiesced):
         raise refuse("confirmation", "requires_explicit_owner_admission")
@@ -91,22 +110,38 @@ def rebind(
                 progress["containerId"] = container
                 record["activation"]["phase"] = "rebinding"
                 atomic_bytes(journal, encode(record))
-            elif progress.get("phase") not in ("stopping", "writing", "starting", "complete"):
+            elif progress.get("phase") not in (
+                "stopping",
+                "writing",
+                "starting",
+                "complete",
+            ):
                 raise refuse("originRebind", "invalid_progress")
         if progress["phase"] != "complete":
             _finish(journal, record, owner_token, selected, binding, manifest)
         else:
             _healthy_image(binding, manifest)
         return {
-            "schemaVersion": 1, "originRebound": True, "ownerAuthenticated": True,
-            "runtimeActivated": True, "connected": False,
-            "pending": ["private_https_setup", "actual_private_https_acceptance", "named_client_acceptance"],
+            "schemaVersion": 1,
+            "originRebound": True,
+            "ownerAuthenticated": True,
+            "runtimeActivated": True,
+            "connected": False,
+            "pending": [
+                "private_https_setup",
+                "actual_private_https_acceptance",
+                "named_client_acceptance",
+            ],
         }
 
 
 def _finish(
-    journal: Path, record: dict[str, Any], owner_token: Path,
-    selected: dict[str, str], binding: dict[str, Any], manifest: Path,
+    journal: Path,
+    record: dict[str, Any],
+    owner_token: Path,
+    selected: dict[str, str],
+    binding: dict[str, Any],
+    manifest: Path,
 ) -> None:
     progress = record["originRebind"]
     if _container(binding) != progress["containerId"]:
@@ -148,13 +183,33 @@ def main(argv: list[str] | None = None) -> int:
         )
         if error.code == "install_owner_requires_native_nonroot_owner":
             recovery = _identity_recovery(args.journal)
-        print(json.dumps({"schemaVersion": 1, "code": error.code, "originRebound": False,
-                          "details": error.details, "recovery": recovery}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "code": error.code,
+                    "originRebound": False,
+                    "details": error.details,
+                    "recovery": recovery,
+                },
+                sort_keys=True,
+            )
+        )
         return 2
     except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
-        print(json.dumps({"schemaVersion": 1, "code": "install_rebind_interrupted",
-                          "originRebound": False,
-                          "recovery": "Retain all files; repeat the identical confirmed rebind command to resume."}))
+        print(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "code": "install_rebind_interrupted",
+                    "originRebound": False,
+                    "recovery": (
+                    "Retain all files; repeat the identical confirmed "
+                    "rebind command to resume."
+                ),
+                }
+            )
+        )
         return 2
     print(json.dumps(value, sort_keys=True))
     return 0

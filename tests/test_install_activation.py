@@ -7,13 +7,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from health_buddy.core.domain import identity_value
+from health_buddy.core.service_api import ServiceError
 from health_buddy.install import activation as install_activation
 from health_buddy.install import owner as install_owner
 from health_buddy.install import prepare as install_prepare
-from health_buddy.core.domain import identity_value
 from health_buddy.runtime.release import selected_artifact
 from health_buddy.security.runtime import open_runtime, setup_security
-from health_buddy.core.service_api import ServiceError
 from tests.test_install_prepare import inputs
 
 
@@ -64,7 +64,9 @@ def _fixture_authority(selected, monkeypatch, guided_owner, local_only):
         install_owner.setup(
             journal=selected["journal"],
             owner_token=workspace / "secrets/synthetic-owner-token",
-            origin="https://health-buddy.local" if local_only else "https://synthetic.example.test",
+            origin="https://health-buddy.local"
+            if local_only
+            else "https://synthetic.example.test",
             owner_subject="owner" if local_only else "synthetic-owner",
             confirm_owner_setup=True,
         )
@@ -131,7 +133,9 @@ def fixture(tmp_path, monkeypatch, *, guided_owner=False, local_only=False):
                 return SimpleNamespace(
                     returncode=0,
                     stdout=b"a" * 64 + b"\n"
-                    if state["active"] or state["other"] or ("--all" in arguments and state["created"])
+                    if state["active"]
+                    or state["other"]
+                    or ("--all" in arguments and state["created"])
                     else b"",
                 )
             if arguments == ["stop", "--timeout", "30", "api"]:

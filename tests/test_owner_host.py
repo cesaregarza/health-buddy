@@ -127,17 +127,34 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
     credential = (owner.workspace / "secrets/native-owner-token").read_bytes()
     agent_token = (owner.client / "agent-token").read_bytes()
     done(
-        owner, "rebind", "originRebound", *journal,
-        "--owner-token", str(owner.workspace / "secrets/native-owner-token"),
-        "--origin", "https://synthetic.example.test", "--owner-subject", "user@github",
-        "--confirm-rebind", "--confirm-local-daemon", "--confirm-quiesced",
+        owner,
+        "rebind",
+        "originRebound",
+        *journal,
+        "--owner-token",
+        str(owner.workspace / "secrets/native-owner-token"),
+        "--origin",
+        "https://synthetic.example.test",
+        "--owner-subject",
+        "user@github",
+        "--confirm-rebind",
+        "--confirm-local-daemon",
+        "--confirm-quiesced",
     )
     assert (owner.workspace / "secrets/native-owner-token").read_bytes() == credential
     assert (owner.client / "agent-token").read_bytes() == agent_token
     read = owner_host.launch(
-        owner, "health_buddy.cli", "--workspace", str(owner.workspace),
-        "--credential-file", str(owner.client / "agent-token"),
-        "records", "--source-ids", "manual", "--kinds", "body-mass",
+        owner,
+        "health_buddy.cli",
+        "--workspace",
+        str(owner.workspace),
+        "--credential-file",
+        str(owner.client / "agent-token"),
+        "records",
+        "--source-ids",
+        "manual",
+        "--kinds",
+        "body-mass",
     )
     assert read.returncode == 0, read.stderr
     assert len(json.loads(read.stdout)["records"]) == 1
@@ -148,7 +165,15 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
     # line, so it still verifies.
     roots = [owner.workspace, owner.root / "install", owner.client]
     assert owner_host.writable_by_others(*roots, owner.root / "artifacts") == []
-    stages = ("preflight", "prepare", "owner", "activation", "agent", "rebind", "status")
+    stages = (
+        "preflight",
+        "prepare",
+        "owner",
+        "activation",
+        "agent",
+        "rebind",
+        "status",
+    )
     modules = [f"health_buddy.install.{name}" for name in stages]
     written = owner_host.bytecode(owner)
     assert "src/health_buddy/__pycache__" in written  # Writes were enabled.

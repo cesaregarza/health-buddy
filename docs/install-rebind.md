@@ -24,7 +24,7 @@ From the verified source containing this stage, as the workspace owner:
 
 ```sh
 . "$HOME/health-buddy/env.sh"
-export PRIVATE_HTTPS_ORIGIN='https://synthetic-host.synthetic-tailnet.ts.net'
+export PRIVATE_HTTPS_ORIGIN='https://synthetic.example.test'
 export EXACT_OWNER_SUBJECT='user@github'
 "$PYTHON" -m health_buddy.install.rebind \
   --journal "$PRIVATE_INSTALL/install.json" \

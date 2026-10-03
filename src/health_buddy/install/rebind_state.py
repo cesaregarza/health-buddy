@@ -34,7 +34,9 @@ def refuse(field: str, reason: str) -> ServiceError:
 
 
 def selection(origin: str, subject: str) -> dict[str, str]:
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+\-]*@[A-Za-z0-9][A-Za-z0-9.\-]*", subject):
+    if not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._+\-]*@[A-Za-z0-9][A-Za-z0-9.\-]*", subject
+    ):
         raise refuse("ownerSubject", "requires_exact_login_subject")
     if origin == LOCAL_ORIGIN:
         raise refuse("origin", "requires_real_https_origin")
@@ -63,9 +65,11 @@ def authority(
         with runtime.security._locked() as connection:
             runtime.security._admit(connection, admitted.principal, "grants.list")
             if (
-                identity_value(admitted.client.identity) != retained["binding"]["identity"]
+                identity_value(admitted.client.identity)
+                != retained["binding"]["identity"]
                 or admitted.client.actor_binding != retained["authority"]["actor"]
-                or admitted.client.security_epoch != retained["authority"]["securityEpoch"]
+                or admitted.client.security_epoch
+                != retained["authority"]["securityEpoch"]
             ):
                 raise refuse("ownerToken", "owner_authority_changed")
             yield runtime.operations, connection
@@ -88,13 +92,15 @@ def blockers(record: dict[str, Any], connection: sqlite3.Connection) -> None:
     ).fetchone()
     pending = connection.execute(
         "SELECT 1 FROM pairing WHERE state IN ('awaiting_owner','ready') "
-        "AND expires>? LIMIT 1", (time.time(),)
+        "AND expires>? LIMIT 1",
+        (time.time(),),
     ).fetchone()
     if paired is not None or pending is not None:
         raise refuse("activeDevicePairings", "active_device_pairings")
     session = connection.execute(
         "SELECT 1 FROM credentials WHERE kind='session' AND active=1 "
-        "AND (expires IS NULL OR expires>?) LIMIT 1", (time.time(),)
+        "AND (expires IS NULL OR expires>?) LIMIT 1",
+        (time.time(),),
     ).fetchone()
     if session is not None:
         raise refuse("ownerSessions", "active_owner_sessions")
@@ -109,7 +115,8 @@ def payloads(
     progress = record.get("originRebind")
     accepted = (
         [record["ownerSetup"]["targetConfigSha256"]]
-        if progress is None else (
+        if progress is None
+        else (
             [progress["oldConfigSha256"], progress["newConfigSha256"]]
             if progress["phase"] in ("stopping", "writing")
             else [progress["newConfigSha256"]]
@@ -135,17 +142,22 @@ def agent_settings(
         return None, None
     binding = agent["binding"]
     actor = connection.execute(
-        "SELECT sources,active FROM actors WHERE id=? AND role='agent'", (agent["actorId"],)
+        "SELECT sources,active FROM actors WHERE id=? AND role='agent'",
+        (agent["actorId"],),
     ).fetchone()
     if actor is None or not actor["active"]:
         raise refuse("agentGrant", "requires_retained_agent_grant")
     path = Path(binding["settings"])
     native_path(path)
     expected = {
-        "schemaVersion": 1, "origin": binding["origin"],
-        "socketPath": binding["socketPath"], "identity": binding["identity"],
-        "credentialFile": binding["token"], "retryRoot": binding["retryRoot"],
-        "clientId": "health-buddy-installer", "writeSources": json.loads(actor["sources"]),
+        "schemaVersion": 1,
+        "origin": binding["origin"],
+        "socketPath": binding["socketPath"],
+        "identity": binding["identity"],
+        "credentialFile": binding["token"],
+        "retryRoot": binding["retryRoot"],
+        "clientId": "health-buddy-installer",
+        "writeSources": json.loads(actor["sources"]),
         "acknowledgeAiEgress": True,
     }
     target = {**expected, "origin": selected["origin"]}
@@ -157,12 +169,15 @@ def agent_settings(
     return path, encode(target)
 
 
-def start_record(record: dict[str, Any], selected: dict[str, str], target: bytes) -> None:
+def start_record(
+    record: dict[str, Any], selected: dict[str, str], target: bytes
+) -> None:
     binding = record["ownerSetup"]["binding"]
     if binding["origin"] != LOCAL_ORIGIN or binding["ownerSubject"] != LOCAL_SUBJECT:
         raise refuse("ownerBinding", "requires_local_placeholder_pair")
     record["originRebind"] = {
-        "binding": selected, "phase": "stopping",
+        "binding": selected,
+        "phase": "stopping",
         "oldConfigSha256": record["ownerSetup"]["targetConfigSha256"],
         "newConfigSha256": sha256(target).hexdigest(),
         "previous": {"origin": LOCAL_ORIGIN, "ownerSubject": LOCAL_SUBJECT},
@@ -170,7 +185,9 @@ def start_record(record: dict[str, Any], selected: dict[str, str], target: bytes
 
 
 def publish(
-    journal: Path, record: dict[str, Any], selected: dict[str, str],
+    journal: Path,
+    record: dict[str, Any],
+    selected: dict[str, str],
     connection: sqlite3.Connection,
 ) -> None:
     path, target, settings, settings_payload = payloads(record, selected, connection)

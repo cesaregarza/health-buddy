@@ -289,7 +289,7 @@ def test_first_handoff_conflict_names_the_path_and_preserves_unowned_content(
 
 def test_status_names_activation_after_owner_setup(tmp_path, monkeypatch):
     _activation, _engine, selected, _identity, _note = activation_fixture(
-        tmp_path, monkeypatch, guided_owner=True, local_only=local_only
+        tmp_path, monkeypatch, guided_owner=True
     )
     summary = install_status.status(journal=selected["journal"])
     assert summary["localStages"][2]["state"] == "incomplete"
