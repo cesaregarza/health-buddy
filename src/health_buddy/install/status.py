@@ -63,7 +63,9 @@ def stage_guidance(
             "state": (
                 "currently_retained"
                 if agent_retained
-                else "not_retained" if client_prepared else "not_started"
+                else "not_retained"
+                if client_prepared
+                else "not_started"
             ),
             "command": (
                 "owner grant review; docs/install-reinstall.md if a new grant is needed"
@@ -71,11 +73,7 @@ def stage_guidance(
         },
     ]
     next_stage = next(
-        (
-            stage
-            for stage in stages
-            if stage["state"] in ("incomplete", "not_retained")
-        ),
+        (stage for stage in stages if stage["state"] in ("incomplete", "not_retained")),
         None,
     )
     if next_stage is None:
@@ -124,11 +122,9 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
         receiver_mode = config.values["integrations"]["healthkit"]["mode"]
         receiver_enabled = config.enabled("healthkit")
         runtime_active = activation.get("phase") == "active"
-        client_prepared = (
-            agent.get("phase") == "configured"
-            and removal.get("phase")
-            not in ("grant_pending", "container_pending", "removed")
-        )
+        client_prepared = agent.get("phase") == "configured" and removal.get(
+            "phase"
+        ) not in ("grant_pending", "container_pending", "removed")
         retained = False
         if agent.get("phase") == "configured":
             inventory = actors(runtime, admitted)

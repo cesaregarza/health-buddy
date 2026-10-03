@@ -278,19 +278,29 @@ def test_optional_prepare_client_arguments_are_required_before_any_write(
 ):
     selected = inputs(tmp_path, monkeypatch)
     argv = [
-        "--journal", str(selected["journal"]),
-        "--bundle", str(selected["bundle"]),
-        "--manifest", str(selected["manifest"]),
-        "--trusted-manifest-sha256", selected["trusted_manifest_sha256"],
-        "--workspace", str(selected["workspace"]),
-        "--docker", str(selected["docker"]),
-        "--client", "claude",
+        "--journal",
+        str(selected["journal"]),
+        "--bundle",
+        str(selected["bundle"]),
+        "--manifest",
+        str(selected["manifest"]),
+        "--trusted-manifest-sha256",
+        selected["trusted_manifest_sha256"],
+        "--workspace",
+        str(selected["workspace"]),
+        "--docker",
+        str(selected["docker"]),
+        "--client",
+        "claude",
     ]
     assert install_prepare.main(argv) == 2
     output = json.loads(capsys.readouterr().out)
     assert output["code"] == "install_client_arguments_required"
     assert output["missingArguments"] == [
-        "--client-config", "--skill-directory", "--settings", "--python"
+        "--client-config",
+        "--skill-directory",
+        "--settings",
+        "--python",
     ]
     assert "passes no --client" in output["recovery"]
     assert not selected["journal"].exists()
