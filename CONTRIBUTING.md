@@ -1,7 +1,7 @@
 # Contributing
 
 Read `AGENTS.md`, `docs/architecture.md`, `docs/v1-contract.md` and
-`docs/extraction.md`. Both Codex and Claude Code use this same source map,
+`docs/verification.md`. Both Codex and Claude Code use this same source map,
 contract corpus and synthetic examples. State the exact baseline commit in a
 handoff; keep durable decisions in source-controlled docs/tests, not only chat.
 

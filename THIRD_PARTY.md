@@ -14,9 +14,8 @@ bundled frontend framework. Test fixture values are fabricated.
 
 External dependencies are installed by the package manager, not vendored into
 source. Preserve their installed `.dist-info` license files and dependency
-notices in any redistributed wheel/container or dependency bundle. The queue
-recorded exact installed versions and license metadata; CES-1068 audits the
-actual runtime image, including transitive dependencies and base-image notices.
+notices in any redistributed wheel/container or dependency bundle. The selected environment has exact installed versions and license metadata. Any
+runtime image needs an audit of transitive dependencies and base-image notices.
 
 | Direct package observed in queue | License determination | Purpose / inclusion |
 | --- | --- | --- |
@@ -86,7 +85,7 @@ external dependency binaries. All-target SBOMs, source locks and recipe
 associations do not establish all-linked coverage, reproducibility, complete
 binary legal compliance or qualification of a future image.
 
-The optional CES-1068 runtime image uses the per-architecture binary selections
+The optional runtime image uses per-architecture binary selections
 in `packaging/runtime-inputs.json`; `provenance/runtime-inputs.json` records their
 metadata provenance. Source pins are not an assertion that an image has been
 built or that final-image notice closure has passed. The controlled native

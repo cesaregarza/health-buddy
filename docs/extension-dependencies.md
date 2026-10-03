@@ -5,7 +5,7 @@ owner-config schema checks. Validation uses an empty local reference registry
 and rejects remote schema references. No format extras, network schema resolver,
 Rust build fallback or new agent provider is enabled.
 
-The CES-1085 queue observed these Python 3.12 distributions: jsonschema 4.23.0,
+The selected Python 3.12 dependency inventory contains: jsonschema 4.23.0,
 attrs 26.1.0, jsonschema-specifications 2025.9.1, referencing 0.37.0 and rpds-py
 2026.6.3 (MIT project licenses), plus typing_extensions 4.16.0 (PSF-2.0).
 These are observations of that environment, not a cross-platform dependency
@@ -41,7 +41,6 @@ source revision `ee27684fdcca47beb10f4178d02f376a181f7ea2`; raw receipts remain
 with the coordinator. Later candidates recheck unchanged declarations and text
 hashes rather than attributing old checks to a new source revision.
 
-These notices accompany the source bundle. CES-1068 must retain all applicable
-notices in each actual runtime artifact, including its base image and selected
-architecture. This collection does not qualify an unbuilt image or another
+These notices accompany the source bundle. Any runtime artifact must retain
+applicable notices for its base image and selected architecture. This collection does not qualify an unbuilt image or another
 platform and does not relabel all native components as MIT.

@@ -1,13 +1,10 @@
 # Claude Code Health Buddy integration
 
-CES-1074 adds Claude Code configuration to the existing connect-agent helper.
-It installs the same maintained standalone skill as Codex and uses the same
+Claude Code uses the shared connect-agent helper, maintained standalone skill,
 canonical MCP tools, receiver/revision checks, private retry state and
-[agent guide](agent-guide.md). No additional health API or model key is introduced.
-Fresh named-Claude skill discovery/workflow acceptance remains **open in
-CES-1074**. Cross-client/final upgrade qualification remains jointly pending in
-CES-1073/1083. A real SDK subprocess test is source-integration evidence, never a
-named Claude or Codex model session.
+[agent guide](agent-guide.md). It adds no health API or model key. Source tests
+are integration evidence; named-client discovery, workflows and cross-client
+upgrade qualification require separate live evidence.
 
 | Component | Exact evidence |
 | --- | --- |

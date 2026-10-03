@@ -1,4 +1,4 @@
-"""Source-only preservation tests for CES-1085; run only in the test queue."""
+"""Source-only preservation tests; run only in the test queue."""
 
 from __future__ import annotations
 

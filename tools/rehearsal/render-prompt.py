@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the one-URL CES-1104 rehearsal prompt."""
+"""Render the one-URL onboarding rehearsal prompt."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def main() -> int:
     if re.search(r"__[A-Z][A-Z0-9_]*__", rendered):
         raise SystemExit("rendered prompt contains an unfilled placeholder")
     (directory / "prompt.md").write_text(rendered)
-    print(f"rendered CES-1104 prompt protocol {PROTOCOL}")
+    print(f"rendered onboarding prompt protocol {PROTOCOL}")
     return 0
 
 

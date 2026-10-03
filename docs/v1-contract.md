@@ -1,6 +1,6 @@
 # Health Buddy v1 contract
 
-Contract version: **1.0.0**, status: **implementation target**, owner: CES-1063.
+Contract version: **1.0.0**, status: **implementation target**.
 The fixture oracle specifies examples; it is not a production implementation.
 
 ## Product and host decisions
@@ -10,20 +10,19 @@ The fixture oracle specifies examples; it is not a production implementation.
   Codex or Claude Code harness supplies reasoning. Jev/Fast mode is optional.
 - Native read-only iPhone HealthKit companion; owned public code is MIT. Keep
   third-party notices during allowlisted extraction.
-- Repository name is **cesaregarza/health-buddy**, chosen by the owner. An
-  already-running 64-bit Linux x86-64 host or ARM64 Raspberry Pi is the v1
+- An already-running 64-bit Linux x86-64 host or ARM64 Raspberry Pi is the v1
   implementation target. Supported OS/version, minimum RAM/disk and physical
-  Pi qualification remain installer/release gates, not verified support claims.
+  Pi qualification require installer and release evidence; they are not verified
+  support claims.
 - Host and clients join an owner-controlled Tailscale network. The agent client
   runs on the API host as the workspace owner and reaches the API over the
   managed socket; a client on another host is not supported in v1. Private
   connectivity, DNS/HTTPS reachability, clock validity and application
   authorization must pass installer preflight. Tailscale access alone does not
   grant application access.
-- Public documentation hostname is **unselected**. CES-1078 may build relative
-  links; CES-1079 deployment and Apple privacy/setup distribution are blocked
-  until the operator selects and verifies a hostname and immutable site
-  artifact. No example hostname or digest is a deployment decision.
+- Public documentation and Apple privacy/setup distribution require a verified
+  publisher and immutable artifact. No example hostname or digest is a deployment
+  decision.
 - Runtime supports loopback HTTP for development and authenticated tailnet
   HTTPS for the product. Do not copy a personal IP/HTTP exception into public
   defaults. The existing mobile endpoint policy stays unchanged until its
@@ -34,8 +33,8 @@ The fixture oracle specifies examples; it is not a production implementation.
 
 ## Canonical ownership and module seams
 
-Later extraction should follow these responsibilities; names may be adapted in
-CES-1064 only with an explicit map that preserves each boundary.
+Implementations should preserve these responsibilities and document any
+interface-name adaptation.
 
 | Boundary | Owner and authoritative inputs | Consumers |
 | --- | --- | --- |
@@ -51,9 +50,8 @@ Adapters preserve current file formats and source provenance. This contract
 does not authorize a wholesale data migration. No dashboard, MCP tool, custom
 connector or CLI directly edits canonical store files. For operations spanning
 files and SQLite, a durable operation journal, lock and recovery protocol must
-make committed revisions visible atomically; crash recovery must finish or
-roll back a partial transaction before serving reads. Implementation proof is
-CES-1066. The reference oracle has no disk/crash guarantee.
+make committed revisions visible atomically; crash recovery must finish or roll
+back a partial transaction before serving reads. The reference oracle has no disk/crash guarantee.
 
 Generated dashboards, caches, reports and exports are rebuildable, not another
 source of truth. An exported value includes its source identity and dataset
@@ -95,7 +93,7 @@ RFC3339 times, ISO local dates and explicit IANA timezones are distinct. Numeric
 values must be finite, units explicit, and missing values null with a reason.
 Reject unknown write fields, unknown enum values and unsupported major versions.
 The fixtures use a bounded body-mass record to illustrate the canonical
-envelope; CES-1066 adds domain schemas for the extracted operation inventory.
+envelope; domain schemas define the canonical operation inventory.
 
 Protected reads and health writes require application authentication. Responses
 use `{data, meta}` or `{error, meta}`. `meta` includes the identity tuple and
@@ -261,7 +259,7 @@ The Health Buddy receiver requires negotiated pairing protocol 1 and exact
 identity headers on every ingest. Missing identity is 428; mismatched identity
 or restore epoch is 409. It must not quietly fall back to the old receiver
 behavior. An old app has **not** acquired these guarantees merely because the
-body schema remains 1: CES-1075 implements negotiation and scoped sync state.
+body schema remains 1; clients negotiate protocol support and scoped sync state.
 Protocol incompatibility must be shown before a new installation is activated.
 
 Persist each `(deviceId, datasetId, restoreEpoch, batchId)` and canonical payload
@@ -283,7 +281,7 @@ If replacement history has changed IDs or lacks enough identity/provenance to
 prove sameness, stage the overlapping interval as unresolved; do not automatically
 add both histories to canonical metrics. The owner must reconcile or choose a
 source/window before activation. Missing HealthKit history is an explicit gap,
-not proof of complete recovery. CES-1076 must implement these replacement-phone
+not proof of complete recovery. Replacement-phone flows must preserve these
 invariants. Deletions are durable stream-scoped tombstones, including for records
 not yet delivered, and prevent delayed replay or replacement from resurrection.
 
@@ -303,9 +301,9 @@ authentication, device/source binding and the active identity epoch.
 Before advancing any anchor, the phone validates those response headers against
 its paired tuple as well as the body batch ID/status/counts. Missing or wrong
 response identity is not an acknowledgement, even with otherwise correct counts.
-The phone persists anchors only after that complete acknowledgement. Existing
-cesar-health-sync PR #2 supplies reliability foundations; reuse them, do not
-replace them. Its Linux contract success does not prove physical-device behavior.
+The phone persists anchors only after that complete acknowledgement. The
+companion iPhone app (private) uses these reliability foundations. Its Linux
+contract success does not prove physical-device behavior.
 
 ## Compatibility, migration and rollback
 

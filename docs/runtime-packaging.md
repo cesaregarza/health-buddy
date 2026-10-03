@@ -1,7 +1,7 @@
 # Immutable runtime and private workspace
 
-CES-1068 supplies source packaging, a pinned binary-input context, one API/job
-image, Docker archive verification, Compose and a repeatable synthetic runtime
+This guide describes source packaging, pinned binary inputs, the API/job image,
+Docker archive verification, Compose and a repeatable synthetic runtime
 qualification command. The presence of these files is not evidence that an
 image was built. Exact check/build receipts establish tested commits and actual
 AMD64/ARM64 artifact bytes. Candidate artifacts remain private; this workflow
@@ -298,8 +298,8 @@ advance one cursor and leave exactly one record across replacement.
 A service/container restart is not an actual host reboot or power-loss test.
 Physical ARM/Pi qualification, host reboot, external proxy deployment,
 production migration/cutover, external release and real cross-agent client
-qualification remain separately owned gates. CES-1070 backup/restore must
-preserve the whole authority/health/personal workspace, explicitly exclude and
+qualification remain separate. Backup/restore must preserve the whole
+authority/health/personal workspace, explicitly exclude and
 recreate only declared listener socket/marker/lock runtime artifacts, and rotate
 the restored epoch. This ticket does not implement restore or authorize a cutover.
 Private artifacts and receipts must be retained before CI expiration; no published

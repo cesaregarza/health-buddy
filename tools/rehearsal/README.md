@@ -2,7 +2,6 @@
 
 The repeatable procedure and evidence rules live in
 [docs/verification.md](../../docs/verification.md#fresh-agent-install-rehearsal).
-These operator tools adapt the CES-1104 run-1–5 harness at commit `79b63ca`.
 The current unattended prompt uses protocol `one-url/2`; earlier supplied-input
 prompts are historical evidence and do not count as one-url/2 runs. These tools
 are not owner prerequisites. Provisioning, package downloads, model sessions

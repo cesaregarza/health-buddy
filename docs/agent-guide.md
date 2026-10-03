@@ -1,12 +1,10 @@
 # One guide for Codex and Claude Code
 
-This is the canonical maintenance entrypoint for both agents. Read
-[AGENTS.md](../AGENTS.md) for boundaries and the check and publication policy:
-an implementing agent runs the commands below itself, and installed owners run
-them under their own authorization with the public lock and their matching
-source. No private health records, vendor login, network source or paid model
-key is needed. CES-1073 and CES-1074 own their named Codex/Claude acceptance
-gates; CES-1083 owns cross-agent and final upgrade qualification.
+This is the canonical maintenance entrypoint for Codex and Claude Code. Read
+[AGENTS.md](../AGENTS.md) for repository boundaries and check/publication policy.
+Use the documented source and public lock; installed owners run commands under
+their own authorization. Examples use synthetic data. Named-client, host, device
+and release qualification require separate evidence.
 
 ## Discover before editing
 
@@ -204,8 +202,8 @@ There is currently **no supported automatic extension state-migration command**.
 A changed state schema refuses activation. Preserve state and pending requests,
 disable the job, author and separately review an explicit migration under the
 extension's migrations/ with recovery/compatibility tests, and run its exact reviewed
-operator command. CES-1077 owns installer execution; CES-1071 owns upgrades; this
-guide does not invent an unsafe migration or credential-preserving restore.
+operator command. This guide does not invent an unsafe migration or
+credential-preserving restore.
 
 A deeper core fork needs its own native source checkout, patches, exact upstream
 commit/tree and tests plus `personal/forks/ID/fork.json` as specified in
@@ -213,5 +211,5 @@ commit/tree and tests plus `personal/forks/ID/fork.json` as specified in
 `health-buddy --workspace "$WORKSPACE" extension compatibility --extension-api 1 --upstream-base "$EXACT_COMMIT"`.
 Changed bases require deliberate rebase/review; discovery reports owner metadata,
 not live Git/build proof. Preserve the fork independently, qualify its build and
-migration/rollback path, and keep conflicts visible. Full fresh Codex/Claude Code,
-upgrade, device and release qualification remains CES-1083.
+migration/rollback path, and keep conflicts visible. Full fresh-client, upgrade,
+device and release qualification remains separate.

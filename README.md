@@ -33,9 +33,9 @@ owner setup; changing that bound selection later needs lifecycle review.
 
 ## Status
 
-Private pre-release: no release or tag exists. Manually dispatched CI builds
+Pre-release: no release or tag exists. Manually dispatched CI builds
 amd64 and arm64 images and runs them under Compose on synthetic data. Not done:
-installer distribution, a released phone companion, public site, outside pilot.
+installer distribution, a released phone companion, outside pilot.
 
 ## Developer loopback mode (not an installation)
 
@@ -72,7 +72,6 @@ commands with the owner's `--credential-file` instead of `--development`.
 - [Verification commands](docs/verification.md)
 - [Source map and data ownership](docs/architecture.md)
 - [Personal workspace and extensions](docs/extensions.md)
-- [Repository responsibilities and release gates](docs/delivery.md)
 
 ### Operate
 
@@ -89,13 +88,11 @@ commands with the owner's `--credential-file` instead of `--development`.
 - [Product, API, identity and security contract](docs/v1-contract.md)
 - [Versioned compatibility manifest](contracts/v1/compatibility.json)
 - [API operations and ownership](docs/api-implementation.md)
-- [Contract acceptance history](docs/validation.md)
-- [Extraction provenance and exclusions](docs/extraction.md)
 - [Dependency and asset notices](THIRD_PARTY.md)
 
 ## License and data
 
-Repository: `cesaregarza/health-buddy`. Owned code is MIT licensed
+Owned code is MIT licensed
 ([LICENSE](LICENSE)); extracted third-party material must retain its notices.
 No private records, credentials, private defaults or source repository history
 belong here. Daily tracking works without an agent session or a model API key.

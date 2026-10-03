@@ -6,7 +6,7 @@ policy-issued authenticated handle; knowing a persisted credential identifier
 is not authentication. The default policy denies every request. Explicit
 `--development` installs the local owner policy for native use and loopback
 HTTP. [Security authority](security-interface.md) supplies owner/scoped credentials,
-pairing and browser sessions; deployed runtime qualification remains CES-1068.
+pairing and browser sessions; deployed runtime qualification remains separate.
 Owner-trusted Python is not a hostile-code sandbox.
 
 ## Find the implementation

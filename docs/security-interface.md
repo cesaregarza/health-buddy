@@ -1,6 +1,6 @@
 # Security implementation interface
 
-This document describes the CES-1067 security owner and transport interface.
+This document describes the security authority and transport interface.
 The accepted health Operations API and immutable health receipt bytes remain
 separate from security state and one-time private replies. Execution evidence
 comes from recorded check runs, not from this source map.
@@ -181,7 +181,7 @@ or automatically activates an orphan. A new explicit owner intent may reconcile
 the known dormant binding. Same-device re-pair requires the owner-selected prior
 device in the reservation, preserves source/stream and retires its writer. A
 client claiming an existing UUID cannot select that predecessor. Different-device
-or history replacement returns409 reconciliation_required for CES-1076.
+or history replacement returns 409 `reconciliation_required`.
 
 The security database/epoch marker/rate state are required backup inventory,
 and the existing workspace backup lock quiesces them. The later restore owner

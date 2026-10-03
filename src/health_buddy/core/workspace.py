@@ -23,8 +23,9 @@ It has no remote and does not inherit Git hooks, identity or signing settings.
 Use the health-buddy entrypoint to write records; never edit this store directly
 or copy a private Git repository into it. The operations journal owns revisions
 and recoverable writes. Security setup is explicit: retain private owner/agent
-credentials in secrets/, never in browser storage or source. Restore qualification
-remains CES-1070/1083. Do not expose the --development service on a network.
+credentials in secrets/, never in browser storage or source. Encrypted restore
+requires separate qualification. Do not expose the --development service on a
+network.
 """
 
 
