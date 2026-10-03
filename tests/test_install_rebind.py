@@ -74,7 +74,20 @@ def test_rebind_preserves_authenticated_records_grants_and_client_config(
     assert client["client_config"].read_bytes() == retained_client
     assert values["owner_token"].read_bytes() == retained_token
     assert (
-        cli.main([*native, "records", "--source-ids", "manual", "--kinds", "body-mass"])
+        cli.main(
+            [
+                *native,
+                "records",
+                "--source-ids",
+                "manual",
+                "--kinds",
+                "body-mass",
+                "--from",
+                "2030-01-01T12:00:00Z",
+                "--to",
+                "2030-01-01T12:00:00Z",
+            ]
+        )
         == 0
     )
     records = json.loads(capsys.readouterr().out)["records"]
@@ -196,7 +209,7 @@ def test_partial_rebind_resumes_exact_selection_without_replacing_authority(
             raise OSError("synthetic interrupted acknowledgement")
 
     monkeypatch.setattr(rebind_state, "atomic_bytes", publish_then_interrupt)
-    with pytest.raises(OSError):
+    with pytest.raises(ServiceError, match="^install_rebind_interrupted$"):
         rebind.rebind(**values)
     with pytest.raises(ServiceError, match="resume_requires_original_binding"):
         rebind.rebind(**dict(values, owner_subject="other@github"))

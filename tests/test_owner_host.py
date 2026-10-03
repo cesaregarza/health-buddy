@@ -68,7 +68,7 @@ def assert_read_back(read: dict[str, Any], at: str) -> None:
     assert [record[name] for name in fields] == [150, "lb", "body-mass", "manual", at]
 
 
-def measure(owner: Owner) -> None:
+def measure(owner: Owner) -> str:
     """The measurement block's write and read, through the CLI's entry point."""
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     token = str(owner.workspace / "secrets/native-owner-token")
@@ -89,6 +89,7 @@ def measure(owner: Owner) -> None:
     )
     assert read.returncode == 0, read.stderr
     assert_read_back(json.loads(read.stdout), now)
+    return now
 
 
 @pytest.mark.parametrize("client", ["codex", "claude"])
@@ -123,7 +124,7 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
     arguments = agent_arguments(owner, client)
     agent = done(owner, "agent", "agentGrantRetained", *journal, *arguments)
     assert agent["clientConfigurationPrepared"]
-    measure(owner)
+    timestamp = measure(owner)
     credential = (owner.workspace / "secrets/native-owner-token").read_bytes()
     agent_token = (owner.client / "agent-token").read_bytes()
     done(
@@ -155,9 +156,13 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
         "manual",
         "--kinds",
         "body-mass",
+        "--from",
+        timestamp,
+        "--to",
+        timestamp,
     )
     assert read.returncode == 0, read.stderr
-    assert len(json.loads(read.stdout)["records"]) == 1
+    assert_read_back(json.loads(read.stdout), timestamp)
     status = done(owner, "status", "ownerAuthenticated", *journal)
     assert {key: status[key] for key in COMPLETION} == dict.fromkeys(COMPLETION, True)
     # The host, not the stages' word: nothing the stages wrote is open to others,

@@ -72,7 +72,12 @@ def authority(
                 != retained["authority"]["securityEpoch"]
             ):
                 raise refuse("ownerToken", "owner_authority_changed")
-            yield runtime.operations, connection
+            try:
+                yield runtime.operations, connection
+            except OSError:
+                # Filesystem publication belongs to this installer stage, not
+                # the authority DB's generic context-exit error translation.
+                raise ServiceError(503, "install_rebind_interrupted") from None
     except ServiceError as error:
         if error.code in ("unauthenticated", "forbidden"):
             raise refuse("ownerToken", "owner_token_not_authenticated") from None
