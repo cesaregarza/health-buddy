@@ -321,7 +321,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         value = activate(**vars(args))
     except ServiceError as error:
-        if (
+        if error.code == "install_activation_environment_unowned":
+            recovery = (
+                "If you created this file, remove only this file and rerun the "
+                "identical activation command. Otherwise stop and inspect it; "
+                "do not overwrite or remove it."
+            )
+        elif (
             os.geteuid() == 0
             and error.code == "install_activation_requires_nonroot_identity"
         ):
@@ -346,6 +352,11 @@ def main(argv: list[str] | None = None) -> int:
                     "schemaVersion": 1,
                     "code": error.code,
                     "runtimeActivated": False,
+                    **(
+                        {"conflictingPath": str(args.environment)}
+                        if error.code == "install_activation_environment_unowned"
+                        else {}
+                    ),
                     "recovery": recovery,
                 }
             )

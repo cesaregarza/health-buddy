@@ -614,6 +614,9 @@ other operations on the selected project stopped during this action.
 ```
 
 The environment file must be new and outside both workspace and source bundle.
+If that path already exists at first admission, activation reports its path. If
+it is yours, remove only that file and rerun this identical command; otherwise
+stop and inspect it without changing it. The journal remains available for retry.
 The original preparation journal supplies the pinned manifest, native Docker
 path and persistent workspace. Before any daemon observation/action, activation
 retains the workspace receiver identity, immutable target, selected project,
@@ -748,13 +751,15 @@ this step. Until activation is `active`, setup refuses with
 `install_agent_requires_active_runtime`. After owned runtime activation, review a
 private 0600 policy file with exactly `name`, `grants`, `sourceIds`, `readSources`,
 `readKinds`, and `readFields`. Review the manual-only example below, changing its
-name/scopes to the owner's selection before running it once. The subshell's
-`noclobber` refuses an existing policy instead of overwriting it; on a retry,
+name/scopes to the owner's selection before running it once. The subshell sets
+`umask 077` itself, so the file is mode 0600 even when the invoking shell uses
+umask 002. Its `noclobber` refuses an existing policy instead of overwriting it; on a retry,
 keep and review the original policy rather than recreating it:
 
 ```sh
 . "$HOME/health-buddy/env.sh"
 (
+  umask 077
   set -o noclobber
   cat > "$PRIVATE_CLIENT/policy.json" <<'EOF'
 {

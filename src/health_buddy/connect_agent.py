@@ -238,6 +238,7 @@ def connect(
     remove: bool = False,
     check_only: bool = False,
     client: str = "codex",
+    _readiness_verified: bool = False,
 ) -> None:
     """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
     validate_targets(config, skill, client)
@@ -296,7 +297,9 @@ def connect(
             return
         if settings is None or python is None or source is None or workspace is None:
             raise ServiceError(422, "codex_setup_arguments_required")
-        _validate_setup(client, settings, python, source, workspace)
+        _validate_setup(
+            client, settings, python, source, workspace, _readiness_verified
+        )
         arguments = ["-m", "health_buddy.mcp_server", "--settings", str(settings)]
         if client == "codex":
             block = _codex_block(python, arguments, source)
@@ -411,7 +414,12 @@ def _claude_without_entry(document: dict[str, Any]) -> bytes:
 
 
 def _validate_setup(
-    client: str, settings: Path, python: Path, source: Path, workspace: Path
+    client: str,
+    settings: Path,
+    python: Path,
+    source: Path,
+    workspace: Path,
+    readiness_verified: bool = False,
 ) -> None:
     """A private credential, workspace and interpreter, and the matching source."""
     if client == "claude" and any(
@@ -426,7 +434,8 @@ def _validate_setup(
     for path in (source, workspace):
         native_path(path)
     private_directory(workspace)
-    check_mcp_readiness(python, source)
+    if not readiness_verified:
+        check_mcp_readiness(python, source)
 
 
 def _validate_source(source: Path) -> None:
