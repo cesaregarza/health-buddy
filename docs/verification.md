@@ -218,8 +218,8 @@ private files are not exact read-back. Report any development-mode use separatel
 
 ### 6. Check the fresh client and observer calls
 
-The helper refuses an unfinished agent stage; never complete it by hand. With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Supply the absolute
-install-journal path. Retain observer window/catalog, transcript and results.
+Back in the operator kit shell, supply the target's absolute install-journal path. The helper refuses an unfinished agent stage; never complete it by hand.
+With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Retain observer window/catalog, transcript and results.
 
 ```sh
 read -r -p 'Absolute install-journal path: ' PRIVATE_JOURNAL
