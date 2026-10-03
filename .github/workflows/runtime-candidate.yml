@@ -147,6 +147,9 @@ jobs:
             ${{ runner.temp }}/hb-runtime-arm64/builder.log
             ${{ runner.temp }}/hb-runtime-arm64/archive-metadata.json
   manifest:
+    permissions:
+      contents: read
+      id-token: write
     needs: [native_amd64, native_arm64]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -172,6 +175,20 @@ jobs:
           python3 scripts/package_runtime.py manifest --bundle "$CANDIDATE_OUTPUT/bundle" --artifacts "$CANDIDATE_OUTPUT/artifacts"
           cp "candidate-downloads/runtime-amd64-$CANDIDATE_SHA/qualification.json" "$CANDIDATE_OUTPUT/qualification-amd64.json"
           cp "candidate-downloads/runtime-arm64-$CANDIDATE_SHA/qualification.json" "$CANDIDATE_OUTPUT/qualification-arm64.json"
+      - name: Install pinned Cosign for the release publisher
+        if: github.ref == 'refs/heads/main'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Sign and verify the immutable manifest and checksum list
+        if: github.ref == 'refs/heads/main'
+        env:
+          SIGNED_ARTIFACTS: ${{ runner.temp }}/hb-runtime-manifest/artifacts
+        run: |
+          for name in runtime-manifest.json SHA256SUMS; do
+            cosign sign-blob --yes --bundle "$SIGNED_ARTIFACTS/$name.sigstore.json" "$SIGNED_ARTIFACTS/$name"
+            cosign verify-blob "$SIGNED_ARTIFACTS/$name" --bundle "$SIGNED_ARTIFACTS/$name.sigstore.json" --certificate-identity https://github.com/cesaregarza/health-buddy/.github/workflows/runtime-candidate.yml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: runtime-manifest-${{ github.sha }}
@@ -180,6 +197,8 @@ jobs:
           path: |
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/runtime-manifest.json
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/SHA256SUMS
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/runtime-manifest.json.sigstore.json
+            ${{ runner.temp }}/hb-runtime-manifest/artifacts/SHA256SUMS.sigstore.json
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-source.tar
             ${{ runner.temp }}/hb-runtime-manifest/artifacts/health-buddy-bundle.tar
             ${{ runner.temp }}/hb-runtime-manifest/qualification-amd64.json
