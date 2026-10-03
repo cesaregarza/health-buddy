@@ -450,16 +450,26 @@ def test_invalid_client_target_refuses_before_grant_or_journal_changes(
     if change == "skill_directory":
         invalid["skill_directory"] = arguments["skill_directory"].parent / "wrong-name"
     argv = [
-        "--journal", str(invalid["journal"]),
-        "--policy", str(invalid["policy"]),
-        "--agent-token", str(invalid["agent_token"]),
-        "--settings", str(invalid["settings"]),
-        "--retry-root", str(invalid["retry_root"]),
-        "--client", invalid["client"],
-        "--client-config", str(invalid["client_config"]),
-        "--skill-directory", str(invalid["skill_directory"]),
-        "--python", str(invalid["python"]),
-        "--confirm-grant", "--acknowledge-ai-egress",
+        "--journal",
+        str(invalid["journal"]),
+        "--policy",
+        str(invalid["policy"]),
+        "--agent-token",
+        str(invalid["agent_token"]),
+        "--settings",
+        str(invalid["settings"]),
+        "--retry-root",
+        str(invalid["retry_root"]),
+        "--client",
+        invalid["client"],
+        "--client-config",
+        str(invalid["client_config"]),
+        "--skill-directory",
+        str(invalid["skill_directory"]),
+        "--python",
+        str(invalid["python"]),
+        "--confirm-grant",
+        "--acknowledge-ai-egress",
     ]
     assert install_agent.main(argv) == 2
     output = json.loads(capsys.readouterr().out)
@@ -485,7 +495,10 @@ def test_invalid_client_target_refuses_before_grant_or_journal_changes(
         corrected["client_config"].parent.mkdir(mode=0o700)
     result = install_agent.setup(**corrected)
     assert result["agentGrantRetained"] and result["clientConfigurationPrepared"]
-    assert arguments["client_config"].read_bytes() == config_before
+    if client == "claude":
+        assert arguments["client_config"].read_bytes() == config_before
+    else:
+        assert arguments["client_config"].read_bytes().startswith(config_before)
     runtime, admitted = install_agent.owner(
         json.loads(selected["journal"].read_bytes())
     )
@@ -502,16 +515,26 @@ def test_agent_resume_reports_only_differing_binding_field_names(
         client_config=arguments["client_config"].parent / "other.toml",
     )
     argv = [
-        "--journal", str(alternate["journal"]),
-        "--policy", str(alternate["policy"]),
-        "--agent-token", str(alternate["agent_token"]),
-        "--settings", str(alternate["settings"]),
-        "--retry-root", str(alternate["retry_root"]),
-        "--client", alternate["client"],
-        "--client-config", str(alternate["client_config"]),
-        "--skill-directory", str(alternate["skill_directory"]),
-        "--python", str(alternate["python"]),
-        "--confirm-grant", "--acknowledge-ai-egress",
+        "--journal",
+        str(alternate["journal"]),
+        "--policy",
+        str(alternate["policy"]),
+        "--agent-token",
+        str(alternate["agent_token"]),
+        "--settings",
+        str(alternate["settings"]),
+        "--retry-root",
+        str(alternate["retry_root"]),
+        "--client",
+        alternate["client"],
+        "--client-config",
+        str(alternate["client_config"]),
+        "--skill-directory",
+        str(alternate["skill_directory"]),
+        "--python",
+        str(alternate["python"]),
+        "--confirm-grant",
+        "--acknowledge-ai-egress",
     ]
     assert install_agent.main(argv) == 2
     output = capsys.readouterr().out

@@ -403,7 +403,7 @@ def _validate_resume(progress: object, selected: dict[str, Any]) -> None:
         raise ServiceError(
             409,
             "install_agent_resume_requires_original_binding",
-            details={"differingFields": differing},
+            details={"differingFields": [name for name in differing]},
         )
 
 
