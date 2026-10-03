@@ -42,10 +42,10 @@ SLOW = frozenset(
         "test_runtime_packaged_sdk::test_sdk_measurement_reaches_dashboard_data_route",
     }
 )
-# These launch a fixture process as uid 65534 and skip unless pytest is root.
+# Root pytest: one test runs three sudo stages; two launch uid 65534.
 NEEDS_ROOT = frozenset(
     {
-        "test_owner_host::test_stage_run_as_root_is_refused_by_name",  # sudo, not root
+        "test_owner_host::test_install_stages_run_as_root_are_refused_by_identity",  # three sudo stages
         "test_runtime_bundle::test_source_and_release_contents_are_readable_by_distinct_uid",
         "test_transport_auth_wire::test_untrusted_uid_cannot_connect_private_socket",
     }

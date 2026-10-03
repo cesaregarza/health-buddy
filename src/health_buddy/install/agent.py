@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Callable
 from hashlib import sha256
@@ -31,6 +32,7 @@ from health_buddy.core.security_api import (
 )
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
+from health_buddy.install.owner import _identity_recovery
 from health_buddy.mcp.settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.security.runtime import open_runtime, read_credential
@@ -137,6 +139,8 @@ def setup(
         raise ServiceError(
             422, "install_agent_requires_explicit_grant_and_egress_consent"
         )
+    if os.geteuid() == 0:
+        raise ServiceError(409, "install_owner_requires_native_nonroot_owner")
     fault = fault or (lambda _point: None)
     journal, policy, agent_token, settings = (
         private_path(path) for path in (journal, policy, agent_token, settings)
@@ -497,8 +501,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm-grant", action="store_true")
     parser.add_argument("--rotate-pending-missing-secret", action="store_true")
     parser.add_argument("--acknowledge-ai-egress", action="store_true")
+    args = parser.parse_args(argv)
     try:
-        value = setup(**vars(parser.parse_args(argv)))
+        value = setup(**vars(args))
     except McpReadinessError as error:
         print(json.dumps(error.summary(), sort_keys=True))
         return 2
@@ -522,17 +527,20 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     except ServiceError as error:
+        recovery = (
+            _identity_recovery(args.journal)
+            if error.code == "install_owner_requires_native_nonroot_owner"
+            else "Retain files and intent; inspect owned grant/settings. A lost "
+            "private secret needs explicit same-actor rotation or revocation, "
+            "never automatic new grants."
+        )
         print(
             json.dumps(
                 {
                     "schemaVersion": 1,
                     "code": error.code,
                     "connected": False,
-                    "recovery": (
-                        "Retain files and intent; inspect owned grant/settings. "
-                        "A lost private secret needs explicit same-actor rotation "
-                        "or revocation, never automatic new grants."
-                    ),
+                    "recovery": recovery,
                 }
             )
         )

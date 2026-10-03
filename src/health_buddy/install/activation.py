@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -24,6 +25,7 @@ from health_buddy.core.files import read_file, read_json
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import ServiceError
+from health_buddy.install.owner import _identity_recovery
 from health_buddy.install.preflight import preflight
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.runtime.manifest import file_digest
@@ -125,7 +127,7 @@ def activate(
 
 
 def _validate_runtime_identity(uid: int, gid: int, project: str) -> None:
-    if (
+    if os.geteuid() == 0 or (
         type(uid) is not int
         or type(gid) is not int
         or not 0 < uid < 2**31
@@ -315,22 +317,29 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument("--" + name, type=int, required=True)
     parser.add_argument("--confirm-local-daemon", action="store_true")
     parser.add_argument("--confirm-quiesced", action="store_true")
+    args = parser.parse_args(argv)
     try:
-        value = activate(**vars(parser.parse_args(argv)))
+        value = activate(**vars(args))
     except ServiceError as error:
-        recovery = (
-            "Retain the journal and original selection; "
-            "inspect this stage before retry."
-        )
-        if error.code in (
-            "install_activation_requires_managed_owner_setup",
-            "install_activation_requires_ready_owner_authority",
+        if (
+            os.geteuid() == 0
+            and error.code == "install_activation_requires_nonroot_identity"
         ):
+            recovery = _identity_recovery(args.journal)
+        else:
             recovery = (
-                "Use the existing OS-owner managed-ingress configuration and explicit "
-                "security setup; retain the workspace and retry after local readiness "
-                "admission."
+                "Retain the journal and original selection; "
+                "inspect this stage before retry."
             )
+            if error.code in (
+                "install_activation_requires_managed_owner_setup",
+                "install_activation_requires_ready_owner_authority",
+            ):
+                recovery = (
+                    "Use the existing OS-owner managed-ingress configuration and explicit "
+                    "security setup; retain the workspace and retry after local readiness "
+                    "admission."
+                )
         print(
             json.dumps(
                 {

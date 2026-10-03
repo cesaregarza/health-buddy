@@ -189,15 +189,21 @@ def test_documented_stage_blocks_run_as_written(tmp_path: Path) -> None:
     assert owner_host.bytecode(owner) == set()
 
 
-def test_stage_run_as_root_is_refused_by_name(tmp_path: Path) -> None:
+def test_install_stages_run_as_root_are_refused_by_identity(tmp_path: Path) -> None:
     owner = owner_host.prepared(tmp_path)
-    before, written = owner_host.files(owner), owner_host.bytecode(owner)
     owner_setup, _recovery = blocks("Guided native owner setup")
-    completed = owner_host.run_as_root(owner, owner_setup)
-    refusal = json.loads(completed.stdout)
-    # The stage checks that the journal's directory belongs to the caller before
-    # it checks the caller, so root meets the path rule first.
-    code = "credential_file_requires_private_owner_path"
-    assert (completed.returncode, refusal["code"]) == (2, code), refusal
-    assert not refusal["ownerSetupReady"]
-    assert (owner_host.files(owner), owner_host.bytecode(owner)) == (before, written)
+    (activation,) = blocks("Explicit runtime activation")
+    policy, agent, _claude = blocks("Explicit agent grant and redacted owner status")
+    owner.run(policy)
+    before, written = owner_host.files(owner), owner_host.bytecode(owner)
+    for block, code in (
+        (owner_setup, "install_owner_requires_native_nonroot_owner"),
+        (activation, "install_activation_requires_nonroot_identity"),
+        (agent, "install_owner_requires_native_nonroot_owner"),
+    ):
+        completed = owner_host.run_as_root(owner, block)
+        refusal = json.loads(completed.stdout)
+        assert (completed.returncode, refusal["code"]) == (2, code), refusal
+        assert "workspace owner (" in refusal["recovery"]
+        assert "Do not run security recovery" in refusal["recovery"]
+        assert (owner_host.files(owner), owner_host.bytecode(owner)) == (before, written)

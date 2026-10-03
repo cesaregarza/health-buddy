@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import pwd
 import sys
 import time
 from copy import deepcopy
@@ -70,9 +71,9 @@ def setup(
 ) -> dict[str, Any]:
     if not confirm_owner_setup:
         raise ServiceError(422, "install_owner_requires_explicit_consent")
-    journal, owner_token = private_path(journal), private_path(owner_token)
+    _validate_native_caller()
+    journal = private_path(journal)
     native_path(journal)
-    native_path(owner_token)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
         prepared = _prepared_installation(journal)
         workspace = Path(prepared["binding"]["workspace"])
@@ -80,6 +81,8 @@ def setup(
         native_path(workspace)
         native_path(bundle)
         _validate_native_owner(workspace)
+        owner_token = private_path(owner_token)
+        native_path(owner_token)
         configuration = workspace / "config.json"
         native_path(configuration)
         _validate_credential_output(owner_token, journal, bundle, workspace)
@@ -152,6 +155,31 @@ def _prepared_installation(journal: Path) -> dict[str, Any]:
     ):
         raise ServiceError(409, "install_owner_requires_prepared_workspace")
     return dict(retained)
+
+
+def _validate_native_caller() -> None:
+    if os.geteuid() == 0:
+        raise ServiceError(409, "install_owner_requires_native_nonroot_owner")
+
+
+def _identity_recovery(journal: Path) -> str:
+    owner_uid: int | None = None
+    try:
+        owner_uid = journal.lstat().st_uid
+        if os.geteuid() != 0:
+            prepared = _prepared_installation(journal)
+            owner_uid = Path(prepared["binding"]["workspace"]).lstat().st_uid
+    except (OSError, ServiceError, KeyError, TypeError):
+        pass
+    try:
+        owner = pwd.getpwuid(owner_uid).pw_name if owner_uid is not None else None
+    except KeyError:
+        owner = None
+    named_owner = f" ({owner})" if owner else ""
+    return (
+        f"Run this stage as the workspace owner{named_owner}; correct workspace "
+        "ownership or privacy if needed. Do not run security recovery."
+    )
 
 
 def _validate_native_owner(workspace: Path) -> None:
@@ -286,17 +314,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--origin", required=True)
     parser.add_argument("--owner-subject", required=True)
     parser.add_argument("--confirm-owner-setup", action="store_true")
+    args = parser.parse_args(argv)
     try:
-        value = setup(**vars(parser.parse_args(argv)))
+        value = setup(**vars(args))
     except ServiceError as error:
         not_ready = error.code == "install_owner_workspace_not_ready"
+        if error.code == "install_owner_requires_native_nonroot_owner":
+            recovery = _identity_recovery(args.journal)
+        else:
+            recovery = NOT_READY_RECOVERY if not_ready else RECOVERY
         print(
             json.dumps(
                 {
                     "schemaVersion": 1,
                     "code": error.code,
                     "ownerSetupReady": False,
-                    "recovery": NOT_READY_RECOVERY if not_ready else RECOVERY,
+                    "recovery": recovery,
                 }
             )
         )
