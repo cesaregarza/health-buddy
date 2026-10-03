@@ -183,6 +183,7 @@ def test_documented_owner_measurement_round_trip(tmp_path, capsys):
                 "PYTHON": sys.executable,
                 "OWNER_WORKSPACE": root,
                 "PYTHONPATH": GUIDE.parents[1] / "src",
+                "PYTHONDONTWRITEBYTECODE": "1",
             }.items()
         )
     )
