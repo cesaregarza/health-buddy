@@ -11,9 +11,11 @@ from health_buddy.core.service_api import ServiceError
 from health_buddy.install import activation as install_activation
 from health_buddy.install import agent as install_agent
 from health_buddy.install import https as install_https
+from health_buddy.install import prepare as install_prepare
 from health_buddy.install import status as install_status
 from tests.test_install_activation import fixture as activation_fixture
 from tests.test_install_https import serve_fixture
+from tests.test_install_prepare import inputs as preparation_inputs
 
 
 def connection_fixture(tmp_path, monkeypatch, *, private_https=True):
@@ -117,6 +119,19 @@ def test_default_install_connection_repeats_with_same_authority_and_redacted_sta
     assert summary["activeDeviceCount"] == 0 and not summary["connected"]
     assert not summary["phoneReceiverConfigured"]
     assert summary["healthkitMode"] == "read-only"
+    stages = {item["name"]: item["state"] for item in summary["localStages"]}
+    assert stages["owner_setup"] == "currently_authenticated"
+    assert stages["runtime_activation"] == "last_active"
+    assert stages["agent_configuration"] == "last_prepared"
+    assert summary["nextRequiredStage"] == "authenticated_record_readback"
+    assert summary["pendingAcceptance"] == [
+        "fresh_named_client_acceptance",
+        "authenticated_record_readback",
+    ]
+    assert summary["optionalPendingAcceptance"] == [
+        "actual_private_https_acceptance",
+        "phone_acceptance",
+    ]
     redacted = json.dumps(summary).encode()
     for private_value in (
         token.strip(),
@@ -126,6 +141,19 @@ def test_default_install_connection_repeats_with_same_authority_and_redacted_sta
     ):
         assert private_value not in redacted
     assert json.loads(retained)["agentSetup"]["binding"]["identity"] == identity
+    runtime, admitted = install_agent.owner(json.loads(retained))
+    actor_id = json.loads(retained)["agentSetup"]["actorId"]
+    runtime.security.execute(
+        admitted.principal,
+        SecurityRequest(
+            "grants.revoke", resource_id=actor_id, identity=admitted.client.identity
+        ),
+    )
+    revoked = install_status.status(journal=selected["journal"])
+    assert revoked["clientConfigurationLastPrepared"]
+    assert not revoked["agentGrantRetained"]
+    assert revoked["nextRequiredStage"] == "agent_grant_reconciliation"
+    assert "owner grant review" in revoked["nextRequiredCommand"]
 
 
 def test_agent_setup_needs_only_the_active_runtime(tmp_path, monkeypatch):
@@ -134,6 +162,10 @@ def test_agent_setup_needs_only_the_active_runtime(tmp_path, monkeypatch):
     )
     record = json.loads(selected["journal"].read_bytes())
     assert record["activation"]["phase"] == "active" and "privateHttps" not in record
+    summary = install_status.status(journal=selected["journal"])
+    assert summary["nextRequiredStage"] == "agent_configuration"
+    assert summary["nextRequiredCommand"] == "health_buddy.install.agent"
+    assert not summary["privateHttpsLastConfigured"]
     result = install_agent.setup(**arguments)
     assert result["clientConfigurationPrepared"] and not result["connected"]
     socket = str(selected["workspace"] / "security/runtime/http.sock")
@@ -147,6 +179,9 @@ def test_agent_setup_needs_only_the_active_runtime(tmp_path, monkeypatch):
     assert not summary["privateHttpsLastConfigured"]
     record["activation"]["phase"] = "starting"
     selected["journal"].write_text(json.dumps(record))
+    summary = install_status.status(journal=selected["journal"])
+    assert summary["nextRequiredStage"] == "runtime_activation"
+    assert not summary["runtimeLastActive"]
     with pytest.raises(ServiceError, match=r"^install_agent_requires_active_runtime$"):
         install_agent.setup(**arguments)
 
@@ -250,3 +285,153 @@ def test_first_handoff_conflict_names_the_path_and_preserves_unowned_content(
     runtime, admitted = install_agent.owner(json.loads(before))
     assert install_agent.actors(runtime, admitted) == []
     assert not arguments["skill_directory"].exists()
+
+
+def test_status_names_activation_after_owner_setup(tmp_path, monkeypatch):
+    _activation, _engine, selected, _identity, _note = activation_fixture(
+        tmp_path, monkeypatch, guided_owner=True
+    )
+    summary = install_status.status(journal=selected["journal"])
+    assert summary["localStages"][2]["state"] == "incomplete"
+    assert summary["nextRequiredStage"] == "runtime_activation"
+    assert summary["nextRequiredCommand"] == "health_buddy.install.activation"
+
+
+def test_status_names_owner_setup_as_next_stage_for_prepared_install(
+    tmp_path, monkeypatch, capsys
+):
+    selected = preparation_inputs(tmp_path, monkeypatch)
+    install_prepare.prepare(**selected)
+    journal_before = selected["journal"].read_bytes()
+    assert install_status.main(["--journal", str(selected["journal"])]) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == "install_agent_requires_retained_owner"
+    assert output["incomplete"] is True
+    assert output["nextRequiredStage"] == "owner_setup"
+    assert output["nextRequiredCommand"] == "health_buddy.install.owner"
+    assert "guided-native-owner-setup" in output["recovery"]
+    assert selected["journal"].read_bytes() == journal_before
+
+
+@pytest.mark.parametrize(
+    ("change", "client", "expected"),
+    [
+        ("client_config", "claude", "claude_project_config_required"),
+        ("skill_directory", "codex", "invalid_codex_skill_directory"),
+    ],
+)
+def test_invalid_client_target_refuses_before_grant_or_journal_changes(
+    tmp_path, monkeypatch, capsys, change, client, expected
+):
+    arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    runtime, admitted = install_agent.owner(
+        json.loads(selected["journal"].read_bytes())
+    )
+    assert install_agent.actors(runtime, admitted) == []
+    journal_before = selected["journal"].read_bytes()
+    config_before = arguments["client_config"].read_bytes()
+    invalid = dict(arguments, client=client)
+    if change == "skill_directory":
+        invalid["skill_directory"] = arguments["skill_directory"].parent / "wrong-name"
+    argv = [
+        "--journal", str(invalid["journal"]),
+        "--policy", str(invalid["policy"]),
+        "--agent-token", str(invalid["agent_token"]),
+        "--settings", str(invalid["settings"]),
+        "--retry-root", str(invalid["retry_root"]),
+        "--client", invalid["client"],
+        "--client-config", str(invalid["client_config"]),
+        "--skill-directory", str(invalid["skill_directory"]),
+        "--python", str(invalid["python"]),
+        "--confirm-grant", "--acknowledge-ai-egress",
+    ]
+    assert install_agent.main(argv) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["code"] == expected
+    assert output["recovery"]
+    assert selected["journal"].read_bytes() == journal_before
+    assert not invalid["agent_token"].exists() and not invalid["settings"].exists()
+    assert not invalid["retry_root"].exists()
+    assert arguments["client_config"].read_bytes() == config_before
+    runtime, admitted = install_agent.owner(json.loads(journal_before))
+    assert install_agent.actors(runtime, admitted) == []
+    corrected = (
+        dict(
+            invalid,
+            client_config=(
+                arguments["client_config"].parent / "claude-launcher" / ".mcp.json"
+            ),
+        )
+        if client == "claude"
+        else arguments
+    )
+    if client == "claude":
+        corrected["client_config"].parent.mkdir(mode=0o700)
+    result = install_agent.setup(**corrected)
+    assert result["agentGrantRetained"] and result["clientConfigurationPrepared"]
+    assert arguments["client_config"].read_bytes() == config_before
+    runtime, admitted = install_agent.owner(
+        json.loads(selected["journal"].read_bytes())
+    )
+    assert len(install_agent.actors(runtime, admitted)) == 1
+
+
+def test_agent_resume_reports_only_differing_binding_field_names(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, _selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    install_agent.setup(**arguments)
+    alternate = dict(
+        arguments,
+        client_config=arguments["client_config"].parent / "other.toml",
+    )
+    argv = [
+        "--journal", str(alternate["journal"]),
+        "--policy", str(alternate["policy"]),
+        "--agent-token", str(alternate["agent_token"]),
+        "--settings", str(alternate["settings"]),
+        "--retry-root", str(alternate["retry_root"]),
+        "--client", alternate["client"],
+        "--client-config", str(alternate["client_config"]),
+        "--skill-directory", str(alternate["skill_directory"]),
+        "--python", str(alternate["python"]),
+        "--confirm-grant", "--acknowledge-ai-egress",
+    ]
+    assert install_agent.main(argv) == 2
+    output = capsys.readouterr().out
+    data = json.loads(output)
+    assert data["code"] == "install_agent_resume_requires_original_binding"
+    assert data["differingFields"] == ["config"]
+    assert "removal/re-arm" in data["recovery"]
+    assert str(alternate["client_config"]) not in output
+    assert alternate["agent_token"].read_bytes().strip() not in output.encode()
+    retained = json.loads(alternate["journal"].read_bytes())
+    retained["agentSetup"]["binding"]["unboundField"] = None
+    alternate["journal"].write_text(json.dumps(retained))
+    argv[argv.index(str(alternate["client_config"]))] = str(arguments["client_config"])
+    assert install_agent.main(argv) == 2
+    data = json.loads(capsys.readouterr().out)
+    assert data["code"] == "install_agent_resume_requires_original_binding"
+    assert data["differingFields"] == ["unboundField"]
+
+
+def test_status_owner_config_change_keeps_named_refusal_and_guidance(
+    tmp_path, monkeypatch, capsys
+):
+    _arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    journal_before = selected["journal"].read_bytes()
+    config = selected["workspace"] / "config.json"
+    values = json.loads(config.read_bytes())
+    values["timezone"] = "America/Chicago"
+    config.write_text(json.dumps(values))
+    changed = config.read_bytes()
+    assert install_status.main(["--journal", str(selected["journal"])]) == 2
+    output = capsys.readouterr().out
+    data = json.loads(output)
+    assert data["code"] == "install_agent_owner_config_changed"
+    assert "inspect" in data["recovery"]
+    assert "do not" in data["recovery"]
+    assert "rewrite" not in data["recovery"]
+    assert "delete" in data["recovery"] and "rebind" in data["recovery"]
+    assert config.read_bytes() == changed
+    assert selected["journal"].read_bytes() == journal_before

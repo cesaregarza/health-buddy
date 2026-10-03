@@ -74,8 +74,8 @@ Notes the stages depend on:
   without this stage is not an installation. The policy file is the only input
   you write for this stage; use the guide's block. The guide gives two command
   blocks: use the Codex block if the client is Codex, the Claude Code block if
-  the client is Claude Code. The client and config path are bound by the first
-  run, so pick the right block before running it.
+  the client is Claude Code. Invalid client targets refuse before setup writes;
+  the first accepted setup binds the client and config path in the journal.
 - Stage 9 uses the owner credential file and the guide's exact block. The write
   must report `saved: true`; the read must come from the `records` command (or
   the `list_records` tool), never from a CSV or Git file.
@@ -100,12 +100,20 @@ Report the installation as complete only when all of these hold:
    "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
    ```
 
-   A `false` names the stage that is not done: `ownerAuthenticated` is stage 5,
-   `runtimeLastActive` is stage 6, the other two are stage 7. Fix that stage;
-   do not report completion around it.
-2. The stage-9 read returned the record you wrote, with the printed timestamp.
+   The status includes `localStages`, `nextRequiredStage` and
+   `nextRequiredCommand`. `ownerAuthenticated` means the retained owner is
+   authenticated now; `runtimeLastActive` and
+   `clientConfigurationLastPrepared` are retained last-completion evidence,
+   not a live runtime or client check. Complete the named local stage before
+   acceptance work. When local setup is complete, status still lists
+   `authenticated_record_readback` and `fresh_named_client_acceptance` as
+   pending acceptance; it never infers these from configuration. Private HTTPS
+   and phone checks are listed separately as optional when requested.
+2. The stage-9 authenticated read returned the record you wrote, with the
+   receipt's `observedAt` timestamp.
 3. A fresh session of the configured client (Codex or Claude Code) lists the
-   Health Buddy tools and a read such as `sync_status` returns `ok: true`.
+   Health Buddy tools and an authenticated read such as `sync_status` returns
+   `ok: true`.
    See [Codex integration](codex-integration.md) or
    [Claude integration](claude-integration.md) for the client's own check.
 

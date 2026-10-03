@@ -472,6 +472,15 @@ def _release_downloads(
     return downloads
 
 
+RECOVERY = {
+    "install_acquire_staging_unavailable": (
+        "The --staging path ($ARTIFACTS) must exist as a native directory owned "
+        "by the current user with mode 0700. For a missing or group-writable "
+        "directory, follow bootstrap step 9, then rerun acquire."
+    ),
+}
+
+
 @private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -482,7 +491,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         value = acquire(**vars(parser.parse_args(argv)))
     except ServiceError as error:
-        print(json.dumps({"schemaVersion": 1, "code": error.code, "installed": False}))
+        result = {"schemaVersion": 1, "code": error.code, "installed": False}
+        if error.code in RECOVERY:
+            result["recovery"] = RECOVERY[error.code]
+        print(json.dumps(result, sort_keys=True))
         return 2
     except (
         ManifestError,

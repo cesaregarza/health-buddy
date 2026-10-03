@@ -16,7 +16,12 @@ sys.dont_write_bytecode = True
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
-from health_buddy.connect_agent import McpReadinessError, check_mcp_readiness, connect
+from health_buddy.connect_agent import (
+    McpReadinessError,
+    check_mcp_readiness,
+    connect,
+    validate_targets,
+)
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import private_directory, read_file, read_json
@@ -133,6 +138,7 @@ def setup(
     fault: Callable[[str], None] | None = None,
     rotate_pending_missing_secret: bool = False,
 ) -> dict[str, Any]:
+    validate_targets(client_config, skill_directory, client)
     if not confirm_grant or not acknowledge_ai_egress:
         raise ServiceError(
             422, "install_agent_requires_explicit_grant_and_egress_consent"
@@ -329,13 +335,33 @@ def _first_progress(
 
 
 def _validate_resume(progress: object, selected: dict[str, Any]) -> None:
-    if (
-        not isinstance(progress, dict)
-        or progress.get("binding") != selected
-        or progress.get("phase")
-        not in ("grant_pending", "handoff_pending", "configuring", "configured")
-    ):
+    if not isinstance(progress, dict):
         raise ServiceError(409, "install_agent_resume_requires_original_binding")
+    binding = progress.get("binding")
+    if not isinstance(binding, dict):
+        differing = ["binding"]
+    else:
+        keys = {key for key in binding if isinstance(key, str)} | set(selected)
+        differing = sorted(
+            key
+            for key in keys
+            if key not in binding
+            or key not in selected
+            or binding[key] != selected[key]
+        )
+        if len(keys) != len(binding):
+            differing.append("binding")
+    if differing or progress.get("phase") not in (
+        "grant_pending",
+        "handoff_pending",
+        "configuring",
+        "configured",
+    ):
+        raise ServiceError(
+            409,
+            "install_agent_resume_requires_original_binding",
+            details={"differingFields": differing},
+        )
 
 
 def _interrupted_grant(
@@ -479,6 +505,30 @@ def _write_settings(
         raise ServiceError(409, "install_agent_owned_settings_missing")
 
 
+RECOVERY = {
+    "claude_project_config_required": (
+        "Use the .mcp.json file in the directory Claude Code starts from as "
+        "--client-config."
+    ),
+    "invalid_codex_skill_directory": (
+        "Set --skill-directory to the private skill directory whose basename is "
+        "health-buddy."
+    ),
+    "install_agent_owner_config_changed": (
+        "The owner config differs from its retained exact bytes. Inspect it using "
+        "docs/configuration.md#owner-configuration, then stop for owner lifecycle "
+        "review before retrying. This refusal does not authorize ingress rewrites, "
+        "journal deletion, rebind, or removal/re-arm as a config repair."
+    ),
+    "install_agent_resume_requires_original_binding": (
+        "The listed differingFields are names only; values and config contents "
+        "are intentionally omitted. Keep the journal and use the explicit "
+        "owner removal/re-arm procedure in docs/install-reinstall.md; do not "
+        "automatically rebind or delete the workspace."
+    ),
+}
+
+
 @private_umask()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -522,20 +572,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     except ServiceError as error:
-        print(
-            json.dumps(
-                {
-                    "schemaVersion": 1,
-                    "code": error.code,
-                    "connected": False,
-                    "recovery": (
-                        "Retain files and intent; inspect owned grant/settings. "
-                        "A lost private secret needs explicit same-actor rotation "
-                        "or revocation, never automatic new grants."
-                    ),
-                }
-            )
-        )
+        result: dict[str, Any] = {
+            "schemaVersion": 1,
+            "code": error.code,
+            "connected": False,
+            "recovery": RECOVERY.get(
+                error.code,
+                "Retain files and intent; inspect owned grant/settings. A lost "
+                "private secret needs explicit same-actor rotation or revocation, "
+                "never automatic new grants.",
+            ),
+        }
+        if error.code == "install_agent_resume_requires_original_binding":
+            details = error.details if isinstance(error.details, dict) else {}
+            differing = details.get("differingFields", [])
+            result["differingFields"] = differing if isinstance(differing, list) else []
+        print(json.dumps(result, sort_keys=True))
         return 2
     except (OSError, ValueError, TypeError, KeyError):
         print(

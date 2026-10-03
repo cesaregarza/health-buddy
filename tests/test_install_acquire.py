@@ -287,6 +287,9 @@ def test_unavailable_staging_is_named_before_transport(
     assert install_acquire.main(command_line(arguments)) == 2
     output = json.loads(capsys.readouterr().out)
     assert output["code"] == "install_acquire_staging_unavailable"
+    assert "--staging" in output["recovery"]
+    assert "$ARTIFACTS" in output["recovery"]
+    assert "0700" in output["recovery"] and "step 9" in output["recovery"]
     assert not state["calls"]
 
 
