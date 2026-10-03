@@ -191,11 +191,6 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
                 "proof privately to your phone."
             ),
             **guidance,
-            "pending": [
-                "actual_private_https_acceptance",
-                "fresh_named_client_acceptance",
-                "phone_acceptance",
-            ],
             "pendingAcceptance": [
                 "fresh_named_client_acceptance",
                 "authenticated_record_readback",

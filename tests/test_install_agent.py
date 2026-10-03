@@ -258,6 +258,7 @@ def test_default_install_connection_repeats_with_same_authority_and_redacted_sta
         "actual_private_https_acceptance",
         "phone_acceptance",
     ]
+    assert "pending" not in summary
     redacted = json.dumps(summary).encode()
     for private_value in (
         token.strip(),

@@ -39,7 +39,7 @@ from health_buddy.core.security_api import (
 )
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
-from health_buddy.install.owner import _identity_recovery
+from health_buddy.install.owner import identity_recovery
 from health_buddy.mcp.settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.security.runtime import open_runtime, read_credential
@@ -248,7 +248,7 @@ def setup(
             source=source,
             workspace=workspace,
             client=client,
-            _readiness_verified=True,
+            readiness_verified=True,
         )
         fault("client_configured")
         progress["phase"] = "configured"
@@ -628,7 +628,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
         }
         if error.code == "install_owner_requires_native_nonroot_owner":
-            result["recovery"] = _identity_recovery(args.journal)
+            result["recovery"] = identity_recovery(args.journal)
         if error.code == "install_agent_invalid_policy":
             details = error.details if isinstance(error.details, dict) else {}
             requirement = details.get("failedRequirement", "policy_file_valid")

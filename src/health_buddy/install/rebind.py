@@ -18,8 +18,8 @@ from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_file, read_json
 from health_buddy.core.service_api import ServiceError
-from health_buddy.install.activation import _healthy_image, _runtime_environments
-from health_buddy.install.owner import _identity_recovery, _validate_native_caller
+from health_buddy.install.activation import healthy_image, runtime_environments
+from health_buddy.install.owner import identity_recovery, validate_native_caller
 from health_buddy.install.rebind_state import (
     authority,
     blockers,
@@ -50,7 +50,7 @@ def _runtime(record: dict[str, Any]) -> tuple[dict[str, Any], Path]:
         or binding["identity"] != record["ownerSetup"]["binding"]["identity"]
         or file_digest(COMPOSE, 16384)[1] != binding["composeSha256"]
         or file_digest(manifest, 2 * 1024**2)[1] != binding["target"]["manifestSha256"]
-        or read_file(environment, 4096) not in _runtime_environments(binding, manifest)
+        or read_file(environment, 4096) not in runtime_environments(binding, manifest)
     ):
         raise refuse("activation", "runtime_binding_changed")
     return binding, manifest
@@ -86,7 +86,7 @@ def rebind(
 ) -> dict[str, Any]:
     if not (confirm_rebind and confirm_local_daemon and confirm_quiesced):
         raise refuse("confirmation", "requires_explicit_owner_admission")
-    _validate_native_caller()
+    validate_native_caller()
     selected = selection(origin, owner_subject)
     journal, owner_token = private_path(journal), private_path(owner_token)
     native_path(journal)
@@ -95,18 +95,18 @@ def rebind(
         if not isinstance(retained, dict) or retained.get("schemaVersion") != 1:
             raise refuse("journal", "requires_prepared_installation")
         record: dict[str, Any] = dict(retained)
-        with authority(record, owner_token) as (_service, connection):
+        with authority(record, owner_token) as (_service, queries):
             progress = record.get("originRebind")
             if progress is not None and not isinstance(progress, dict):
                 raise refuse("originRebind", "invalid_progress")
             if progress is not None and progress.get("binding") != selected:
                 raise refuse("origin/ownerSubject", "resume_requires_original_binding")
             if progress is None or progress.get("phase") != "complete":
-                blockers(record, connection)
-            _, target, _, _ = payloads(record, selected, connection)
+                blockers(record, queries)
+            _, target, _, _ = payloads(record, selected, queries)
             binding, manifest = _runtime(record)
             if progress is None:
-                _healthy_image(binding, manifest)
+                healthy_image(binding, manifest)
                 container = _container(binding)
                 start_record(record, selected, target)
                 progress = record["originRebind"]
@@ -123,7 +123,7 @@ def rebind(
         if progress["phase"] != "complete":
             _finish(journal, record, owner_token, selected, binding, manifest)
         else:
-            _healthy_image(binding, manifest)
+            healthy_image(binding, manifest)
         return {
             "schemaVersion": 1,
             "originRebound": True,
@@ -155,11 +155,11 @@ def _finish(
             raise refuse("activation", "runtime_not_stopped")
         progress["phase"] = "writing"
         atomic_bytes(journal, encode(record))
-        with authority(record, owner_token) as (_service, connection):
-            blockers(record, connection)
-            publish(journal, record, selected, connection)
+        with authority(record, owner_token) as (_service, queries):
+            blockers(record, queries)
+            publish(journal, record, selected, queries)
     _command(binding, "up", "--detach", "--wait", "--no-deps", "api")
-    record["activation"]["runningImageId"] = _healthy_image(binding, manifest)
+    record["activation"]["runningImageId"] = healthy_image(binding, manifest)
     record["activation"]["phase"] = "active"
     progress["phase"] = "complete"
     atomic_bytes(journal, encode(record))
@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
             "the journal or use security recover."
         )
         if error.code == "install_owner_requires_native_nonroot_owner":
-            recovery = _identity_recovery(args.journal)
+            recovery = identity_recovery(args.journal)
         print(
             json.dumps(
                 {
