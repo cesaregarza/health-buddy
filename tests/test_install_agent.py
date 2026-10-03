@@ -183,7 +183,8 @@ def test_readiness_refusal_probes_once_before_any_install_mutation(
     tmp_path, monkeypatch
 ):
     arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
-    rejected = tmp_path / "python3.11"
+    # An admitted basename reaches the actual failing subprocess probe.
+    rejected = tmp_path / "python3.12"
     rejected.write_text("#!/bin/sh\nexit 23\n")
     rejected.chmod(0o700)
     arguments["python"] = rejected
