@@ -85,6 +85,18 @@ external dependency binaries. All-target SBOMs, source locks and recipe
 associations do not establish all-linked coverage, reproducibility, complete
 binary legal compliance or qualification of a future image.
 
+As assessed on 2026-10-03, the stable optional MCP/development selection of
+Pydantic 2.13.5 and pydantic-core 2.46.5 embeds affected PyO3 0.28.3
+([iterator advisory](https://github.com/advisories/GHSA-36hh-v3qg-5jq4),
+[closure advisory](https://github.com/advisories/GHSA-chgr-c6px-7xpp)); the core
+runtime image does not include Pydantic, and static inspection found no direct
+uses of the affected iterator methods or closure constructor in the pinned
+pydantic-core/jiter sources, which does not prove they are unreachable.
+[Pydantic's stable metadata](https://pypi.org/pypi/pydantic/2.13.5/json) requires
+that exact core version, so stable pins remain pending a compatible release
+with patched PyO3 (0.29 or later); removing attribution-only Cargo manifests
+does not remediate the optional environment's native dependency exposure.
+
 The optional runtime image uses per-architecture binary selections
 in `packaging/runtime-inputs.json`; `provenance/runtime-inputs.json` records their
 metadata provenance. Source pins are not an assertion that an image has been
