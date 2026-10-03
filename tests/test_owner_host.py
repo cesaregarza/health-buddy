@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import pwd
+import shlex
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -203,6 +204,66 @@ def test_every_stage_answers_help_and_bad_flags_before_any_file(
     assert refused.returncode == 2 and "usage:" in refused.stderr, refused.stderr
     assert owner_host.files(owner) == before
     assert owner_host.bytecode(owner) <= owner_host.interpreter_caches(*MODULES)
+
+
+def test_agent_rejects_real_foreign_owned_policy_without_mutation(
+    tmp_path: Path,
+) -> None:
+    owner = owner_host.bootstrapped(tmp_path)
+    journal = ["--journal", str(owner.journal)]
+    done(owner, "preflight", "preflightPassed", *owner.selection())
+    done(owner, "prepare", "workspacePrepared", *journal, *owner.selection())
+    done(
+        owner,
+        "owner",
+        "ownerSetupReady",
+        *journal,
+        *(
+            "--owner-token",
+            str(owner.workspace / "secrets/native-owner-token"),
+            "--origin",
+            "https://health-buddy.local",
+            "--owner-subject",
+            "owner",
+            "--confirm-owner-setup",
+        ),
+    )
+    done(
+        owner,
+        "activation",
+        "runtimeActivated",
+        *journal,
+        *(
+            "--environment",
+            str(owner.root / "install/runtime.env"),
+            "--project",
+            "health-buddy-personal",
+            "--uid",
+            str(os.getuid()),
+            "--gid",
+            str(os.getgid()),
+            "--confirm-local-daemon",
+            "--confirm-quiesced",
+        ),
+    )
+    policy, _codex, _claude = blocks("Explicit agent grant and redacted owner status")
+    owner.run(policy)
+    policy_path = owner.client / "policy.json"
+    changed = owner_host.run_as_root(
+        owner, f"chown root -- {shlex.quote(str(policy_path))}"
+    )
+    assert changed.returncode == 0, changed.stderr
+    before = owner.journal.read_bytes()
+    code, result = owner_host.stage(
+        owner, "agent", *journal, *agent_arguments(owner, "codex")
+    )
+    assert code == 2
+    assert result["code"] == "install_agent_invalid_policy"
+    assert result["policyPath"] == str(policy_path)
+    assert result["failedRequirement"] == "caller_owns_file"
+    assert owner.journal.read_bytes() == before
+    assert not (owner.client / "agent-token").exists()
+    assert not (owner.client / "adapter.json").exists()
 
 
 def printed(output: str) -> list[dict[str, Any]]:

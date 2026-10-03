@@ -236,28 +236,37 @@ def test_owner_admission_and_environment_edit_refuse(tmp_path, monkeypatch, caps
     with pytest.raises(ServiceError, match="nonroot_identity"):
         install_activation.activate(**{**arguments, "uid": 0})
     assert state["calls"] == []
-    install_activation.activate(**arguments)
+    activation_args = [
+        "--journal",
+        str(arguments["journal"]),
+        "--environment",
+        str(arguments["environment"]),
+        "--project",
+        arguments["project"],
+        "--uid",
+        "1000",
+        "--gid",
+        "1000",
+        "--confirm-local-daemon",
+        "--confirm-quiesced",
+    ]
+    journal_before = arguments["journal"].read_bytes()
+    arguments["environment"].write_text("synthetic unrelated file")
+    assert install_activation.main(activation_args) == 2
+    conflict = json.loads(capsys.readouterr().out)
+    assert conflict["code"] == "install_activation_environment_unowned"
+    assert conflict["conflictingPath"] == str(arguments["environment"])
+    assert "If you created this file" in conflict["recovery"]
+    assert "remove only this file" in conflict["recovery"]
+    assert arguments["environment"].read_text() == "synthetic unrelated file"
+    assert arguments["journal"].read_bytes() == journal_before
+    assert state["calls"] == []
+    arguments["environment"].unlink()
+    assert install_activation.main(activation_args) == 0
+    assert json.loads(capsys.readouterr().out)["runtimeActivated"]
     arguments["environment"].write_text("synthetic owner edit retained")
     state["calls"].clear()
-    assert (
-        install_activation.main(
-            [
-                "--journal",
-                str(arguments["journal"]),
-                "--environment",
-                str(arguments["environment"]),
-                "--project",
-                arguments["project"],
-                "--uid",
-                "1000",
-                "--gid",
-                "1000",
-                "--confirm-local-daemon",
-                "--confirm-quiesced",
-            ]
-        )
-        == 2
-    )
+    assert install_activation.main(activation_args) == 2
     value = json.loads(capsys.readouterr().out)
     assert value["code"] == "install_activation_environment_changed"
     assert str(arguments["environment"]) not in json.dumps(value)

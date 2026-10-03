@@ -166,7 +166,7 @@ def prepared(tmp_path, monkeypatch, *, maintenance=False):
     if maintenance:
         bundle = maintenance_bundle(tmp_path)
         manifest = maintenance_copy(tmp_path, "artifacts") / "runtime-manifest.json"
-        # agent.setup probes, then connect() probes again.
+        # Agent setup probes before mutations; connect receives that result.
         monkeypatch.setattr(install_agent, "check_mcp_readiness", readiness_once)
         monkeypatch.setattr(connect_agent, "check_mcp_readiness", readiness_once)
     else:

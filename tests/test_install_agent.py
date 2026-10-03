@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from health_buddy import connect_agent
+from health_buddy.connect_agent import check_mcp_readiness
 from health_buddy.core.security_api import PairingReservation, SecurityRequest
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install import activation as install_activation
@@ -70,6 +72,130 @@ def connection_fixture(tmp_path, monkeypatch, *, private_https=True, local_only=
         acknowledge_ai_egress=True,
     )
     return arguments, selected, identity, note
+
+
+@pytest.mark.parametrize(
+    ("failure", "mode", "expected"),
+    [
+        pytest.param("mode", 0o640, "mode_0600", id="mode-0640"),
+        pytest.param("mode", 0o664, "mode_0600", id="mode-0664"),
+        pytest.param("symlink", None, "regular_non_symlink_file"),
+        pytest.param("large", None, "at_most_16384_bytes"),
+        pytest.param("malformed", None, "json_object"),
+        pytest.param("nonobject", None, "json_object"),
+    ],
+)
+def test_policy_refusals_are_specific_and_precede_grant_or_journal_writes(
+    tmp_path, monkeypatch, capsys, failure, mode, expected
+):
+    arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    policy = arguments["policy"]
+    if failure == "mode":
+        policy.chmod(mode)
+    elif failure == "symlink":
+        target = policy.with_name("policy-target.json")
+        target.write_bytes(policy.read_bytes())
+        target.chmod(0o600)
+        policy.unlink()
+        policy.symlink_to(target.name)
+    elif failure == "large":
+        policy.write_bytes(b" " * 16385)
+        policy.chmod(0o600)
+    elif failure == "malformed":
+        policy.write_text("[")
+        policy.chmod(0o600)
+    else:
+        policy.write_text("[]")
+        policy.chmod(0o600)
+    journal_before = selected["journal"].read_bytes()
+    argv = [
+        "--journal",
+        str(arguments["journal"]),
+        "--policy",
+        str(policy),
+        "--agent-token",
+        str(arguments["agent_token"]),
+        "--settings",
+        str(arguments["settings"]),
+        "--retry-root",
+        str(arguments["retry_root"]),
+        "--client",
+        arguments["client"],
+        "--client-config",
+        str(arguments["client_config"]),
+        "--skill-directory",
+        str(arguments["skill_directory"]),
+        "--python",
+        str(arguments["python"]),
+        "--confirm-grant",
+        "--acknowledge-ai-egress",
+    ]
+    assert install_agent.main(argv) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["code"] == "install_agent_invalid_policy"
+    assert result["policyPath"] == str(policy)
+    assert result["failedRequirement"] == expected
+    if failure == "mode":
+        assert f"chmod 600 -- {policy}" in result["recovery"]
+    assert selected["journal"].read_bytes() == journal_before
+    assert not arguments["agent_token"].exists()
+    assert not arguments["settings"].exists()
+    runtime, admitted = install_agent.owner(json.loads(journal_before))
+    assert install_agent.actors(runtime, admitted) == []
+
+
+def _readiness_calls(monkeypatch):
+    calls = []
+    # prepared(maintenance=True) memoizes readiness in both modules. Restore
+    # the real check locally so these count tests always launch the subprocess.
+    monkeypatch.setattr(install_agent, "check_mcp_readiness", check_mcp_readiness)
+    monkeypatch.setattr(connect_agent, "check_mcp_readiness", check_mcp_readiness)
+    original = connect_agent.subprocess.run
+
+    def observed(command, *args, **kwargs):
+        if command[-1:] == ["--check-dependencies"]:
+            calls.append(command)
+        return original(command, *args, **kwargs)
+
+    monkeypatch.setattr(connect_agent.subprocess, "run", observed)
+    return calls
+
+
+def test_agent_setup_and_direct_connect_each_probe_once(tmp_path, monkeypatch):
+    arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    calls = _readiness_calls(monkeypatch)
+    result = install_agent.setup(**arguments)
+    assert result["clientConfigurationPrepared"] and len(calls) == 1
+    calls.clear()
+    connect_agent.connect(
+        arguments["client_config"],
+        arguments["skill_directory"],
+        settings=arguments["settings"],
+        python=arguments["python"],
+        source=selected["bundle"] / "source",
+        workspace=selected["workspace"],
+        client=arguments["client"],
+    )
+    assert len(calls) == 1
+
+
+def test_readiness_refusal_probes_once_before_any_install_mutation(
+    tmp_path, monkeypatch
+):
+    arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    # An admitted basename reaches the actual failing subprocess probe.
+    rejected = tmp_path / "python3.12"
+    rejected.write_text("#!/bin/sh\nexit 23\n")
+    rejected.chmod(0o700)
+    arguments["python"] = rejected
+    before = selected["journal"].read_bytes()
+    calls = _readiness_calls(monkeypatch)
+    with pytest.raises(connect_agent.McpReadinessError):
+        install_agent.setup(**arguments)
+    assert len(calls) == 1
+    assert selected["journal"].read_bytes() == before
+    assert not arguments["agent_token"].exists()
+    assert not arguments["settings"].exists()
 
 
 @pytest.mark.parametrize("lost", [None, "credential_written"])

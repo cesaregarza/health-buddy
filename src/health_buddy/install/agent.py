@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
+import stat
 import sys
 from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 # ruff: noqa: E402
 # Imported in place from the source bundle: never write bytecode into its tree.
@@ -23,7 +25,7 @@ from health_buddy.connect_agent import (
     connect,
     validate_targets,
 )
-from health_buddy.core.domain import digest, encode, identity_value
+from health_buddy.core.domain import decode, digest, encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import private_directory, read_file, read_json
 from health_buddy.core.operations import Service
@@ -111,17 +113,52 @@ def matches(actor: dict[str, Any], policy: dict[str, Any]) -> bool:
 
 
 def read_policy(path: Path, refusal: str) -> tuple[dict[str, Any], AgentGrant]:
-    """The owner's grant policy file, admitted as a grants.create payload."""
-    value = read_json(path, 16384)
+    """Admit the owner's exact private policy file as a grants.create payload."""
+    path = path.expanduser().absolute()
+    native_path(path.parent)
+    private_directory(path.parent)
+    try:
+        details = path.lstat()
+    except OSError:
+        _policy_refusal("regular_non_symlink_file", refusal)
+    if not stat.S_ISREG(details.st_mode):
+        _policy_refusal("regular_non_symlink_file", refusal)
+    if details.st_uid != os.geteuid():
+        _policy_refusal("caller_owns_file", refusal)
+    if stat.S_IMODE(details.st_mode) != 0o600:
+        _policy_refusal("mode_0600", refusal)
+    if details.st_size > 16384:
+        _policy_refusal("at_most_16384_bytes", refusal)
+    try:
+        raw = read_file(path, 16384)
+        admitted = path.lstat()
+    except (OSError, ServiceError):
+        _policy_refusal("stable_regular_private_file", refusal)
+    if admitted.st_uid != os.geteuid():
+        _policy_refusal("caller_owns_file", refusal)
+    if stat.S_IMODE(admitted.st_mode) != 0o600:
+        _policy_refusal("mode_0600", refusal)
+    try:
+        value = decode(raw, limit=16384)
+    except ServiceError:
+        _policy_refusal("json_object", refusal)
     if not isinstance(value, dict):
-        raise ServiceError(422, refusal)
+        _policy_refusal("json_object", refusal)
     try:
         grant = request_payload("grants.create", value)
     except EnvelopeError:
-        raise ServiceError(422, refusal) from None
+        _policy_refusal("grants_create_policy_schema", refusal)
     if not isinstance(grant, AgentGrant):
-        raise ServiceError(422, refusal)
+        _policy_refusal("grants_create_policy_schema", refusal)
     return value, grant
+
+
+def _policy_refusal(requirement: str, refusal: str) -> NoReturn:
+    raise ServiceError(
+        422,
+        refusal,
+        details={"failedRequirement": requirement},
+    )
 
 
 def setup(
@@ -148,12 +185,13 @@ def setup(
         raise ServiceError(409, "install_owner_requires_native_nonroot_owner")
     validate_targets(client_config, skill_directory, client)
     fault = fault or (lambda _point: None)
-    journal, policy, agent_token, settings = (
-        private_path(path) for path in (journal, policy, agent_token, settings)
+    value, grant = read_policy(policy, "install_agent_invalid_policy")
+    journal, agent_token, settings = (
+        private_path(path) for path in (journal, agent_token, settings)
     )
+    policy = policy.expanduser().absolute()
     outputs = (agent_token, settings, retry_root, client_config, skill_directory)
     _validate_selection(journal, policy, outputs, client)
-    value, grant = read_policy(policy, "install_agent_invalid_policy")
     with exclusive(journal.parent / ".health-buddy-install.lock"):
         record = _configured_installation(journal)
         workspace = Path(record["binding"]["workspace"])
@@ -210,6 +248,7 @@ def setup(
             source=source,
             workspace=workspace,
             client=client,
+            _readiness_verified=True,
         )
         fault("client_configured")
         progress["phase"] = "configured"
@@ -590,6 +629,17 @@ def main(argv: list[str] | None = None) -> int:
         }
         if error.code == "install_owner_requires_native_nonroot_owner":
             result["recovery"] = _identity_recovery(args.journal)
+        if error.code == "install_agent_invalid_policy":
+            details = error.details if isinstance(error.details, dict) else {}
+            requirement = details.get("failedRequirement", "policy_file_valid")
+            policy_path = str(args.policy.expanduser().absolute())
+            result["policyPath"] = policy_path
+            result["failedRequirement"] = requirement
+            result["recovery"] = (
+                f"Policy {policy_path} failed {requirement}. Keep its contents "
+                "private and correct only that requirement. For mode_0600, run "
+                f"chmod 600 -- {shlex.quote(policy_path)}."
+            )
         if error.code == "install_agent_resume_requires_original_binding":
             details = error.details if isinstance(error.details, dict) else {}
             differing = details.get("differingFields", [])
