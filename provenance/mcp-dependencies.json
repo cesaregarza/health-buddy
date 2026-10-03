@@ -1201,18 +1201,6 @@
       "binding": "PyPI exact version association, not proof of every wheel linked component",
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/source/pydantic_core/pydantic_core-2.46.5/Cargo.lock",
-          "bytes": 24727,
-          "sha256": "5f04266831ef75fbb5eeb0acd509b85a15f6ebc8a690eed4d7fd191fd11ec108",
-          "archiveMember": "pydantic_core-2.46.5/Cargo.lock"
-        },
-        {
-          "path": "docs/notices/mcp/source/pydantic_core/pydantic_core-2.46.5/Cargo.toml",
-          "bytes": 2875,
-          "sha256": "178d537feb822d845526eeac2438f817cf25ad15d15fe1261b81b9b3452edbb3",
-          "archiveMember": "pydantic_core-2.46.5/Cargo.toml"
-        },
-        {
           "path": "docs/notices/mcp/source/pydantic_core/pydantic_core-2.46.5/LICENSE",
           "bytes": 1080,
           "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a",
@@ -1240,18 +1228,6 @@
       "binding": "PyPI exact version association, not proof of every wheel linked component",
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/Cargo.lock",
-          "bytes": 8528,
-          "sha256": "081ae57e95dabac9f47e2f070d2a3f0e8638ce9a560101b7d459b67cf4481fec",
-          "archiveMember": "cryptography-50.0.1/Cargo.lock"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/Cargo.toml",
-          "bytes": 987,
-          "sha256": "e5cd47032a5074f77ece67c79edefdd4628fa547f35f98e3eb8b0d8fe774f426",
-          "archiveMember": "cryptography-50.0.1/Cargo.toml"
-        },
-        {
           "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/LICENSE",
           "bytes": 197,
           "sha256": "3e0c7c091a948b82533ba98fd7cbb40432d6f1a9acbf85f5922d2f99a93ae6bb",
@@ -1268,54 +1244,6 @@
           "bytes": 1532,
           "sha256": "602c4c7482de6479dd2e9793cda275e5e63d773dacd1eca689232ab7008fb4fb",
           "archiveMember": "cryptography-50.0.1/LICENSE.BSD"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/Cargo.toml",
-          "bytes": 1526,
-          "sha256": "255631745bb2f077f26cf7cdbfa9ee831f96ed0c013e9fa0dce3e78af43abc54",
-          "archiveMember": "cryptography-50.0.1/src/rust/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-cffi/Cargo.toml",
-          "bytes": 458,
-          "sha256": "e533932e1d882f258105f50601013c18888a44a56e3fbd8153a01b07ac5970be",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-cffi/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-crypto/Cargo.toml",
-          "bytes": 235,
-          "sha256": "5d3499ad8c4e564a789453bcd721782250435735e94407d8de061dc7fc57b32d",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-crypto/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-keepalive/Cargo.toml",
-          "bytes": 235,
-          "sha256": "abe27146fda8c55a9ff3758bbcf34527b7fa42c677d7166d746cc9e541d37732",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-keepalive/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-key-parsing/Cargo.toml",
-          "bytes": 788,
-          "sha256": "69904d1b1a7383a415924e379c496303f15e87bcb7a45a94512a43887b71480b",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-key-parsing/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-openssl/Cargo.toml",
-          "bytes": 608,
-          "sha256": "3109ef1f8a226c07e5728ac5a9475893a721694529d7d4dba4ef241bfb237399",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-openssl/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-x509/Cargo.toml",
-          "bytes": 230,
-          "sha256": "70252c64c92650285f8f6effac3cfc0a9ecc65c4af047ff33ae828e8ed1efb87",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-x509/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/source/cryptography/cryptography-50.0.1/src/rust/cryptography-x509-verification/Cargo.toml",
-          "bytes": 338,
-          "sha256": "a3e20dcc02bc1ac52bdcd8f0b919b04b23d4d6dec03e1d487a16b387b511af3e",
-          "archiveMember": "cryptography-50.0.1/src/rust/cryptography-x509-verification/Cargo.toml"
         }
       ],
       "localWorkspacePackages": [
@@ -1396,18 +1324,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/ahash-0.8.12/Cargo.toml",
-          "bytes": 3277,
-          "sha256": "4ddbacdfae8fa9049a0f47b8f479a5e09536687917415f5c993c9c5438cbdbcd",
-          "archiveMember": "ahash-0.8.12/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/ahash-0.8.12/Cargo.toml.orig",
-          "bytes": 2930,
-          "sha256": "84591ea3bef6c64be7d7b22aa3d12e3cdd723ec3afb6236c103bb497a8097dde",
-          "archiveMember": "ahash-0.8.12/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/ahash-0.8.12/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -1446,18 +1362,6 @@
           "archiveMember": "aho-corasick-1.1.3/COPYING"
         },
         {
-          "path": "docs/notices/mcp/rust/aho-corasick-1.1.3/Cargo.toml",
-          "bytes": 1562,
-          "sha256": "88c12a803c6c06c47cd9dabc8bcdba81f35d3bab637221d2106a86a543532731",
-          "archiveMember": "aho-corasick-1.1.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/aho-corasick-1.1.3/Cargo.toml.orig",
-          "bytes": 2667,
-          "sha256": "9526bde160fb3ea38179bd295cd94ddf1e3d8cd8cc1ed3a153664e3c90d3c970",
-          "archiveMember": "aho-corasick-1.1.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/aho-corasick-1.1.3/LICENSE-MIT",
           "bytes": 1081,
           "sha256": "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
@@ -1489,18 +1393,6 @@
         "sha256": "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/allocator-api2-0.2.21/Cargo.toml",
-          "bytes": 1250,
-          "sha256": "ddaa434cc54a30a33bbe0096e72479d71ba5deffa2ad9bee39419d4e50b75275",
-          "archiveMember": "allocator-api2-0.2.21/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/allocator-api2-0.2.21/Cargo.toml.orig",
-          "bytes": 713,
-          "sha256": "c1688fbd2be36f529a6eebbbf62fcf612c86b6f824738a44f6caa8875f57279b",
-          "archiveMember": "allocator-api2-0.2.21/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/allocator-api2-0.2.21/LICENSE-APACHE",
           "bytes": 9899,
@@ -1534,18 +1426,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/asn1-0.24.1/Cargo.toml",
-          "bytes": 1524,
-          "sha256": "377783664e639c67fff76ebe2899ecf6d24d329dc7b90ed22f2377673d39aad8",
-          "archiveMember": "asn1-0.24.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/asn1-0.24.1/Cargo.toml.orig",
-          "bytes": 652,
-          "sha256": "5a4aae5a18d9a918858869441a2065916df5da91ef13b8b059986a99e457b972",
-          "archiveMember": "asn1-0.24.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/asn1-0.24.1/LICENSE",
           "bytes": 1540,
           "sha256": "c6deb2d156619439e147f8b62e1b3928598c8e3652ec8b56cc039490696b3985",
@@ -1572,18 +1452,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/asn1_derive-0.24.1/Cargo.toml",
-          "bytes": 1039,
-          "sha256": "3fab32d46804e703a9dda0ac909c206b386924c60fe73ffe0dcdce07f5388f8e",
-          "archiveMember": "asn1_derive-0.24.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/asn1_derive-0.24.1/Cargo.toml.orig",
-          "bytes": 380,
-          "sha256": "8f17fc2b611c7fe482eb769228028f769d3bdddf9df0828faf94def7d595273e",
-          "archiveMember": "asn1_derive-0.24.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/asn1_derive-0.24.1/LICENSE",
           "bytes": 1540,
           "sha256": "c6deb2d156619439e147f8b62e1b3928598c8e3652ec8b56cc039490696b3985",
@@ -1609,18 +1477,6 @@
         "sha256": "0c4b4d0bd25bd0b74681c0ad21497610ce1b7c91b1022cd21c80c6fbdd9476b0"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/autocfg-1.3.0/Cargo.toml",
-          "bytes": 926,
-          "sha256": "f8c2d5675773b7ddff8801c3c17ff9d26e9632fe2027a6b81ceb7bda67d71bfd",
-          "archiveMember": "autocfg-1.3.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/autocfg-1.3.0/Cargo.toml.orig",
-          "bytes": 444,
-          "sha256": "346712cafd040a3d5abdf30787f37e487619082954926b7dcfd6d07d99904c44",
-          "archiveMember": "autocfg-1.3.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/autocfg-1.3.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -1654,18 +1510,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/base64-0.22.1/Cargo.toml",
-          "bytes": 1750,
-          "sha256": "52bee6a418e14918d37058fd15fccfd0f417a06fe4f9668b6f97866bf7f991e3",
-          "archiveMember": "base64-0.22.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/base64-0.22.1/Cargo.toml.orig",
-          "bytes": 1567,
-          "sha256": "ff2d361bc5f6ec9b4738c293b3dfa65278e93a2664040f75ef6c944441818afe",
-          "archiveMember": "base64-0.22.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/base64-0.22.1/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -1697,18 +1541,6 @@
         "sha256": "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/base64-0.23.0/Cargo.toml",
-          "bytes": 1983,
-          "sha256": "2c1962bd4468ea7665bf8a1c1fb41deed47b48c324199577c06e565fa2a68a68",
-          "archiveMember": "base64-0.23.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/base64-0.23.0/Cargo.toml.orig",
-          "bytes": 1733,
-          "sha256": "2e544e03282f8ae9cb884b0e9f3474d26fd6684be1825f4eac1402a2f5ca6bfe",
-          "archiveMember": "base64-0.23.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/base64-0.23.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -1742,18 +1574,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/bitflags-2.13.1/Cargo.toml",
-          "bytes": 2354,
-          "sha256": "b13b9b7edbbb039205f57f107acdba1840b7c8452c6fdf4e04bc58124f7b5e0c",
-          "archiveMember": "bitflags-2.13.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/bitflags-2.13.1/Cargo.toml.orig",
-          "bytes": 1260,
-          "sha256": "42430a5f6cde159d53036daaf2b20cea3d2847d728a43967d67d9521e389b24b",
-          "archiveMember": "bitflags-2.13.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/bitflags-2.13.1/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -1785,18 +1605,6 @@
         "sha256": "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/bitflags-2.9.1/Cargo.toml",
-          "bytes": 2508,
-          "sha256": "cb04f3efc3b31db57242dd4e46f347590e04c7f604cbdd201902c342f9bd2045",
-          "archiveMember": "bitflags-2.9.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/bitflags-2.9.1/Cargo.toml.orig",
-          "bytes": 1370,
-          "sha256": "a77f57d94ebbf3a3449c509a48d5b36569775a831e079e64097b878fa5c4c97a",
-          "archiveMember": "bitflags-2.9.1/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/bitflags-2.9.1/LICENSE-APACHE",
           "bytes": 10847,
@@ -1830,18 +1638,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/bitvec-1.0.1/Cargo.toml",
-          "bytes": 2214,
-          "sha256": "cd4c8a0ae402bf7156c3fa4f88cd5ed11f765053409a9f296273fc0980a81d29",
-          "archiveMember": "bitvec-1.0.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/bitvec-1.0.1/Cargo.toml.orig",
-          "bytes": 2191,
-          "sha256": "592c9a6126dc4a29eb425fb3e528405144e8cfbec810069bf4482ff71806e524",
-          "archiveMember": "bitvec-1.0.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/bitvec-1.0.1/LICENSE.txt",
           "bytes": 1082,
           "sha256": "411781fd38700f2357a14126d0ab048164ab881f1dcb335c1bb932e232c9a2f5",
@@ -1867,18 +1663,6 @@
         "sha256": "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/bumpalo-3.19.0/Cargo.toml",
-          "bytes": 1828,
-          "sha256": "a779623c2580da3229b94cd937e993c0b877676bc6f42a22fcf7fc078dd333b3",
-          "archiveMember": "bumpalo-3.19.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/bumpalo-3.19.0/Cargo.toml.orig",
-          "bytes": 1755,
-          "sha256": "fba57e69fdd47378f4ac10dc2fa42ead288cb6f573252ea7968a38820488a803",
-          "archiveMember": "bumpalo-3.19.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/bumpalo-3.19.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -1912,18 +1696,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/cc-1.0.101/Cargo.toml",
-          "bytes": 1489,
-          "sha256": "5439738bb6ddae90d8477f3dc882d91e5d559c68a1244ee59de8d329f5d5ef84",
-          "archiveMember": "cc-1.0.101/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/cc-1.0.101/Cargo.toml.orig",
-          "bytes": 1304,
-          "sha256": "9f00e2fe8084d7250c4714eea61e3aca5e04be6820555fadd14772c2a1db5539",
-          "archiveMember": "cc-1.0.101/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/cc-1.0.101/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -1955,18 +1727,6 @@
         "sha256": "5add81bb678e6cb321aff7fa0dc7689ad82b112dbc032cea19f91d6b8e3582b9"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/cc-1.4.0/Cargo.toml",
-          "bytes": 1804,
-          "sha256": "c846a066f366ee1124e1834c20b88bf0ed450b43974c4fdb7b23913a25906bee",
-          "archiveMember": "cc-1.4.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/cc-1.4.0/Cargo.toml.orig",
-          "bytes": 1799,
-          "sha256": "f4ce0387f99716530723bfaaef93efbb4981c9ff87ecdfa359c157888268b4c3",
-          "archiveMember": "cc-1.4.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/cc-1.4.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -2000,18 +1760,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/cfg-if-1.0.0/Cargo.toml",
-          "bytes": 1308,
-          "sha256": "5b2a8f6e5256957c029cf3a8912d51438e7faa5891c5c102c312f6d4599c1f00",
-          "archiveMember": "cfg-if-1.0.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/cfg-if-1.0.0/Cargo.toml.orig",
-          "bytes": 792,
-          "sha256": "90923641c7cd59e9f3df14ab37d39523d4a6e59cf02d7a6aae79abcaca07e3b9",
-          "archiveMember": "cfg-if-1.0.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/cfg-if-1.0.0/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -2043,18 +1791,6 @@
         "sha256": "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/cfg-if-1.0.4/Cargo.toml",
-          "bytes": 1239,
-          "sha256": "281d508beb1fe3927cf03d3f2f8c9a5117b1e4fe97ae21b9026cf318e8c35273",
-          "archiveMember": "cfg-if-1.0.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/cfg-if-1.0.4/Cargo.toml.orig",
-          "bytes": 580,
-          "sha256": "5a17ee17da78f5179373b8324a1180e71efe2bcf3e3c9ca18c1bdb1e3faa9792",
-          "archiveMember": "cfg-if-1.0.4/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/cfg-if-1.0.4/LICENSE-APACHE",
           "bytes": 10847,
@@ -2088,18 +1824,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/displaydoc-0.2.5/Cargo.toml",
-          "bytes": 2676,
-          "sha256": "c6f12ae2dd031cf599ec131d3b6b89fb5de66edc4416b4a8f2f06b3fda889620",
-          "archiveMember": "displaydoc-0.2.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/displaydoc-0.2.5/Cargo.toml.orig",
-          "bytes": 2114,
-          "sha256": "8758bd1de805bb131da8871a94d92b266df10766d304a6ddecae0be8b07dde1a",
-          "archiveMember": "displaydoc-0.2.5/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/displaydoc-0.2.5/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -2132,18 +1856,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/enum_dispatch-0.3.13/Cargo.toml",
-          "bytes": 1540,
-          "sha256": "ada87849fd822cd732f9533051f54d23a2d28904fe3096e024f85a87ee5eaa52",
-          "archiveMember": "enum_dispatch-0.3.13/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/enum_dispatch-0.3.13/Cargo.toml.orig",
-          "bytes": 841,
-          "sha256": "b928c2f0187543a7cfa4f77444aa189ec7129479adcf42e38bc6e0fe257b6ff0",
-          "archiveMember": "enum_dispatch-0.3.13/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/enum_dispatch-0.3.13/LICENSE",
           "bytes": 1070,
           "sha256": "1e5d3ddaf5cbc111c8517df39e6f252e4c16dbda26b7cc1ad54c9e3efb0586be",
@@ -2169,18 +1881,6 @@
         "sha256": "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/equivalent-1.0.2/Cargo.toml",
-          "bytes": 946,
-          "sha256": "92fcf6d8b32d99f40a5053b9026e417c958d6f5f19581c632d675211b7eeb9f9",
-          "archiveMember": "equivalent-1.0.2/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/equivalent-1.0.2/Cargo.toml.orig",
-          "bytes": 283,
-          "sha256": "763d2c9054b7e6d3a908639cb6ec7487006b699f90f40f0d368d313548cc93b0",
-          "archiveMember": "equivalent-1.0.2/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/equivalent-1.0.2/LICENSE-APACHE",
           "bytes": 10847,
@@ -2214,18 +1914,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/find-msvc-tools-0.1.9/Cargo.toml",
-          "bytes": 1175,
-          "sha256": "1162710613011a622ba62b035b570cc13584516082f9cf579cfaf2f144a77a76",
-          "archiveMember": "find-msvc-tools-0.1.9/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/find-msvc-tools-0.1.9/Cargo.toml.orig",
-          "bytes": 525,
-          "sha256": "3941ba1194442678125b6ca4221a07ac27ac64f7dadd7467490e55e39cc205f9",
-          "archiveMember": "find-msvc-tools-0.1.9/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/find-msvc-tools-0.1.9/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -2258,18 +1946,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/foldhash-0.2.0/Cargo.toml",
-          "bytes": 1551,
-          "sha256": "0a76cc29da1c33f4bdb505f5828ecdc20859c4cb9faa402e000f5f10511a27cc",
-          "archiveMember": "foldhash-0.2.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/foldhash-0.2.0/Cargo.toml.orig",
-          "bytes": 839,
-          "sha256": "04350078f390441844a35994ad83f2873b685a023c433ecb14eda200a5cb2f90",
-          "archiveMember": "foldhash-0.2.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/foldhash-0.2.0/LICENSE",
           "bytes": 856,
           "sha256": "b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744",
@@ -2295,18 +1971,6 @@
         "sha256": "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/foreign-types-0.3.2/Cargo.toml",
-          "bytes": 840,
-          "sha256": "1a667c28f60115423b68fea369255c2dcb129b8dce10f30e0e1da73d05f9adab",
-          "archiveMember": "foreign-types-0.3.2/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/foreign-types-0.3.2/Cargo.toml.orig",
-          "bytes": 357,
-          "sha256": "410061f3c1ed8a9a3b3cfbc77c9cd6130c8c5df085c56865328736c914155682",
-          "archiveMember": "foreign-types-0.3.2/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/foreign-types-0.3.2/LICENSE-APACHE",
           "bytes": 11358,
@@ -2340,18 +2004,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/foreign-types-shared-0.1.1/Cargo.toml",
-          "bytes": 788,
-          "sha256": "6b91ae600fe7b521537096b2269ab7bfd606f8a1fcd97749634dd03ba18daf53",
-          "archiveMember": "foreign-types-shared-0.1.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/foreign-types-shared-0.1.1/Cargo.toml.orig",
-          "bytes": 264,
-          "sha256": "9e4a09a92ba04eb73de7871fac115fb1a4ba9a2ae004cc94ca38884f4f6c0314",
-          "archiveMember": "foreign-types-shared-0.1.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/foreign-types-shared-0.1.1/LICENSE-APACHE",
           "bytes": 11358,
           "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08",
@@ -2383,18 +2035,6 @@
         "sha256": "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/form_urlencoded-1.2.2/Cargo.toml",
-          "bytes": 1266,
-          "sha256": "118b1d87e862ea329b8bc84b389085a2f8e049d4c0b8b3c38ac2bffbe3501928",
-          "archiveMember": "form_urlencoded-1.2.2/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/form_urlencoded-1.2.2/Cargo.toml.orig",
-          "bytes": 659,
-          "sha256": "d523fbc2da822b802fb51843d81d4aa9da7a6f660ad3805c40325e9fb0d1257c",
-          "archiveMember": "form_urlencoded-1.2.2/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/form_urlencoded-1.2.2/LICENSE-APACHE",
           "bytes": 10847,
@@ -2428,18 +2068,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/funty-2.0.0/Cargo.toml",
-          "bytes": 1046,
-          "sha256": "32592e4fc609561a1f7da60da38f684b5e54bdee0db4c31fab476b2340186326",
-          "archiveMember": "funty-2.0.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/funty-2.0.0/Cargo.toml.orig",
-          "bytes": 637,
-          "sha256": "4a17ec9947614d8710a69210f62f314e967bd7ed739b75ab12191897dc6676db",
-          "archiveMember": "funty-2.0.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/funty-2.0.0/LICENSE.txt",
           "bytes": 1082,
           "sha256": "f790cc576999f5998c766d3d26d7d64dc368e805a98461484f65e8d961ec6d9f",
@@ -2465,18 +2093,6 @@
         "sha256": "26145e563e54f2cadc477553f1ec5ee650b00862f0a58bcd12cbdc5f0ea2d2f4"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/getrandom-0.3.3/Cargo.toml",
-          "bytes": 4500,
-          "sha256": "c11a6fef961eec45202c915ccde2aeec475c0950f31cb3c5a74e65fea2262bbc",
-          "archiveMember": "getrandom-0.3.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/getrandom-0.3.3/Cargo.toml.orig",
-          "bytes": 4532,
-          "sha256": "92567187396687d24588310c1c223c6584333d9ee755b03b70b4fd21fb6e7c27",
-          "archiveMember": "getrandom-0.3.3/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/getrandom-0.3.3/LICENSE-APACHE",
           "bytes": 10849,
@@ -2509,18 +2125,6 @@
         "sha256": "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/hashbrown-0.16.1/Cargo.toml",
-          "bytes": 3295,
-          "sha256": "e5cbc66eeb71d7544bcbbda22065478c5ea270dd620fbcc6d9757e7b18485d47",
-          "archiveMember": "hashbrown-0.16.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/hashbrown-0.16.1/Cargo.toml.orig",
-          "bytes": 3055,
-          "sha256": "9857fae8d6eb9d18862af1bc701664e84ba51d27bf9697c85485e68934b0bbf5",
-          "archiveMember": "hashbrown-0.16.1/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/hashbrown-0.16.1/LICENSE-APACHE",
           "bytes": 10847,
@@ -2555,18 +2159,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/heck-0.5.0/Cargo.toml",
-          "bytes": 892,
-          "sha256": "db0e63b72de157a2f5194458b73b6542c3f4e17e33ab34a71d0260bfc035467e",
-          "archiveMember": "heck-0.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/heck-0.5.0/Cargo.toml.orig",
-          "bytes": 362,
-          "sha256": "f2ce51ef3c464f05e45c5ce01bbc40c90c8fd31885ed7b3b8bf831fd8cf4ad4f",
-          "archiveMember": "heck-0.5.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/heck-0.5.0/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -2598,18 +2190,6 @@
         "sha256": "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/hex-0.4.3/Cargo.toml",
-          "bytes": 1578,
-          "sha256": "85a822957796d1aa30bd28d695fae3dc86ca8832d6879a8f71e323cc4a130174",
-          "archiveMember": "hex-0.4.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/hex-0.4.3/Cargo.toml.orig",
-          "bytes": 910,
-          "sha256": "129b27aacc44d45c6439469e998065432b86c7e2a25a0928639e34e8da5a9da0",
-          "archiveMember": "hex-0.4.3/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/hex-0.4.3/LICENSE-APACHE",
           "bytes": 11358,
@@ -2643,18 +2223,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/icu_collections-1.5.0/Cargo.toml",
-          "bytes": 2521,
-          "sha256": "c03884e8e785cf98f01359dc5697aef61aa68242e0efbbfead27a9d56f22d474",
-          "archiveMember": "icu_collections-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_collections-1.5.0/Cargo.toml.orig",
-          "bytes": 2021,
-          "sha256": "b826b4db2847d4a053a464cd64546103e95cac335e3ead9031c308363310d890",
-          "archiveMember": "icu_collections-1.5.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/icu_collections-1.5.0/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -2680,18 +2248,6 @@
         "sha256": "13acbb8371917fc971be86fc8057c41a64b521c184808a698c02acc242dbf637"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/icu_locid-1.5.0/Cargo.toml",
-          "bytes": 2627,
-          "sha256": "f125a44f7ed2ef0217786f44a91dbfa67f791a42481963efa42fbf25e7461961",
-          "archiveMember": "icu_locid-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_locid-1.5.0/Cargo.toml.orig",
-          "bytes": 2135,
-          "sha256": "5163b2916640667d2060fa5b69fc21104f692ccedcb45c327464bb9c27565a9b",
-          "archiveMember": "icu_locid-1.5.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/icu_locid-1.5.0/LICENSE",
           "bytes": 2195,
@@ -2719,18 +2275,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/icu_locid_transform-1.5.0/Cargo.toml",
-          "bytes": 2687,
-          "sha256": "a7227c97d9368829ec0d84a26d06f580aaf17e28b399d8b6d34a183bba01da97",
-          "archiveMember": "icu_locid_transform-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_locid_transform-1.5.0/Cargo.toml.orig",
-          "bytes": 2083,
-          "sha256": "da47d901c50967fc047d370ab54380f491aa3814ccf6a27d9ad9efdf4f293afc",
-          "archiveMember": "icu_locid_transform-1.5.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/icu_locid_transform-1.5.0/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -2756,18 +2300,6 @@
         "sha256": "fdc8ff3388f852bede6b579ad4e978ab004f139284d7b28715f773507b946f6e"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/icu_locid_transform_data-1.5.0/Cargo.toml",
-          "bytes": 1179,
-          "sha256": "452c67c98a8681c36d78dcbad3b4fbbd7607b1ffc13158958ea221718e2de3f7",
-          "archiveMember": "icu_locid_transform_data-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_locid_transform_data-1.5.0/Cargo.toml.orig",
-          "bytes": 674,
-          "sha256": "b2dff9541e3d5a170aff0b6a63e60460837be9b9aab9e7a10798d3b4e5475e59",
-          "archiveMember": "icu_locid_transform_data-1.5.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/icu_locid_transform_data-1.5.0/LICENSE",
           "bytes": 2195,
@@ -2795,18 +2327,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/icu_normalizer-1.5.0/Cargo.toml",
-          "bytes": 2946,
-          "sha256": "83b30ee0282024b826e1ef2d28519c230f663d2d882e64017bbe692d62c58741",
-          "archiveMember": "icu_normalizer-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_normalizer-1.5.0/Cargo.toml.orig",
-          "bytes": 1983,
-          "sha256": "a11afdc7c1b6d58fcdd2f8db1e7c3ba8514e2e289934c57f7dd616166c9e1609",
-          "archiveMember": "icu_normalizer-1.5.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/icu_normalizer-1.5.0/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -2832,18 +2352,6 @@
         "sha256": "f8cafbf7aa791e9b22bec55a167906f9e1215fd475cd22adfcf660e03e989516"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/icu_normalizer_data-1.5.0/Cargo.toml",
-          "bytes": 1169,
-          "sha256": "8a831cf2a49499d9005ed9b4fa48cda2311e43b8a56272f07f48be45f93bfc79",
-          "archiveMember": "icu_normalizer_data-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_normalizer_data-1.5.0/Cargo.toml.orig",
-          "bytes": 664,
-          "sha256": "8466e68e49f30fb51393cf5c6026a538203faff45545141b2a0e517ea76ec8f5",
-          "archiveMember": "icu_normalizer_data-1.5.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/icu_normalizer_data-1.5.0/LICENSE",
           "bytes": 2195,
@@ -2871,18 +2379,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/icu_properties-1.5.1/Cargo.toml",
-          "bytes": 2496,
-          "sha256": "0ae2b28e5bc5135d4dbbbcc445571f089fe6cc7a29c4e9179f06b7784dc4c24f",
-          "archiveMember": "icu_properties-1.5.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_properties-1.5.1/Cargo.toml.orig",
-          "bytes": 1668,
-          "sha256": "83fb00f20fa86af8ba00952f13d43dc60ca18604322b0f69e6c9db0961d12d8a",
-          "archiveMember": "icu_properties-1.5.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/icu_properties-1.5.1/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -2908,18 +2404,6 @@
         "sha256": "67a8effbc3dd3e4ba1afa8ad918d5684b8868b3b26500753effea8d2eed19569"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/icu_properties_data-1.5.0/Cargo.toml",
-          "bytes": 1169,
-          "sha256": "f5c548b6bc7d2828162ee6d960fe7672fa22d2b5f6b12eb82687ef133205081b",
-          "archiveMember": "icu_properties_data-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_properties_data-1.5.0/Cargo.toml.orig",
-          "bytes": 664,
-          "sha256": "f1e928ae0831371acbcc5b4294d47f7dcfee50bf2011af2975343bd4c25db29a",
-          "archiveMember": "icu_properties_data-1.5.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/icu_properties_data-1.5.0/LICENSE",
           "bytes": 2195,
@@ -2947,18 +2431,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/icu_provider-1.5.0/Cargo.toml",
-          "bytes": 3205,
-          "sha256": "4065bae62ac185b64ce88a57e2b74cbe93029748342143e2e6c475013cbfb9d8",
-          "archiveMember": "icu_provider-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_provider-1.5.0/Cargo.toml.orig",
-          "bytes": 2716,
-          "sha256": "552669285224ce0a6fec9d5921528f302af1a54a75262ca19a452f3a4073fb1c",
-          "archiveMember": "icu_provider-1.5.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/icu_provider-1.5.0/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -2985,18 +2457,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/icu_provider_macros-1.5.0/Cargo.toml",
-          "bytes": 1179,
-          "sha256": "fc78538f0b5219f0066ae14b7e403b2a788377ffa5f6e157b430b9f8e4b2e63f",
-          "archiveMember": "icu_provider_macros-1.5.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/icu_provider_macros-1.5.0/Cargo.toml.orig",
-          "bytes": 731,
-          "sha256": "4c355a445c55ea180910aa58cb49dae7e12bb7f72518bbb90d5dcf909f36cec0",
-          "archiveMember": "icu_provider_macros-1.5.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/icu_provider_macros-1.5.0/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -3022,18 +2482,6 @@
         "sha256": "3b0875f23caa03898994f6ddc501886a45c7d3d62d04d2d90788d47be1b1e4de"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/idna-1.1.0/Cargo.toml",
-          "bytes": 1771,
-          "sha256": "f24a386a071c661e10acc366022adc8278d4f2ca8899d3b50b83e965d3933d00",
-          "archiveMember": "idna-1.1.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/idna-1.1.0/Cargo.toml.orig",
-          "bytes": 933,
-          "sha256": "651e1ffa7dc6d9f6d5e846505fe0dcdaa095b7991c5ac8b8ca4025b84b10f0f9",
-          "archiveMember": "idna-1.1.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/idna-1.1.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -3067,18 +2515,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/idna_adapter-1.2.0/Cargo.toml",
-          "bytes": 1321,
-          "sha256": "6f8d2495f093253add30070ab41e48abb5078fd6cfe5586cf5dae64dc08f8086",
-          "archiveMember": "idna_adapter-1.2.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/idna_adapter-1.2.0/Cargo.toml.orig",
-          "bytes": 678,
-          "sha256": "cf954948bdd539a9242cd642c76c4733acd1f69d9750f1998b61e846107b8dda",
-          "archiveMember": "idna_adapter-1.2.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/idna_adapter-1.2.0/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -3110,18 +2546,6 @@
         "sha256": "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/itoa-1.0.11/Cargo.toml",
-          "bytes": 1156,
-          "sha256": "4b12156f19f1d3a10516ba0177197325f072340e40de4b6a376732fcef3105b2",
-          "archiveMember": "itoa-1.0.11/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/itoa-1.0.11/Cargo.toml.orig",
-          "bytes": 649,
-          "sha256": "a37b4f8dfbd47e418e132fca3d3d74599023fe32fa4d421b2055c9f9af0a3421",
-          "archiveMember": "itoa-1.0.11/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/itoa-1.0.11/LICENSE-APACHE",
           "bytes": 9723,
@@ -3155,18 +2579,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/itoa-1.0.18/Cargo.toml",
-          "bytes": 1669,
-          "sha256": "894c215e4e7e973b556b0e9627bf9b6a719a043fac9b5af9838660816392a09f",
-          "archiveMember": "itoa-1.0.18/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/itoa-1.0.18/Cargo.toml.orig",
-          "bytes": 960,
-          "sha256": "44ca1ae5d9b48743305b57f3367051289512037e7836b8b3693b68d48dec0483",
-          "archiveMember": "itoa-1.0.18/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/itoa-1.0.18/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -3199,18 +2611,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/jiter-0.14.0/Cargo.toml",
-          "bytes": 2943,
-          "sha256": "c7cad90104ccb693cd790092835f115f7155146c78e2f45e0a3aa44842ea1167",
-          "archiveMember": "jiter-0.14.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/jiter-0.14.0/Cargo.toml.orig",
-          "bytes": 2129,
-          "sha256": "9e83501707f2e192941be1448dc2a705d3fce6ed50b7ce681cd1394faaf09c6b",
-          "archiveMember": "jiter-0.14.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/jiter-0.14.0/LICENSE",
           "bytes": 1091,
           "sha256": "7c7134b9f7b978c03fca875517cf398db91f19bbb8109b6685e742aa3f57468e",
@@ -3236,18 +2636,6 @@
         "sha256": "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/js-sys-0.3.77/Cargo.toml",
-          "bytes": 1767,
-          "sha256": "28f25a4ab6aadb0013787e5cf229ab28c15d8b7c25403388fd908be63e2c3674",
-          "archiveMember": "js-sys-0.3.77/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/js-sys-0.3.77/Cargo.toml.orig",
-          "bytes": 1331,
-          "sha256": "a370eac1ae88fea48823cead1a5c586b7220c76aff8c00c34a8b0957eee03d02",
-          "archiveMember": "js-sys-0.3.77/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/js-sys-0.3.77/LICENSE-APACHE",
           "bytes": 10847,
@@ -3280,18 +2668,6 @@
         "sha256": "de6f9cb01fb0b08060209a057c048fcbab8717b4c1ecd2eac66ebfe39a65b0f2"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/lexical-parse-float-1.0.5/Cargo.toml",
-          "bytes": 3427,
-          "sha256": "2031e95d8fd43369ec57f3ebdcb6096113878ea716ed2833d63ab46054e1df34",
-          "archiveMember": "lexical-parse-float-1.0.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/lexical-parse-float-1.0.5/Cargo.toml.orig",
-          "bytes": 2396,
-          "sha256": "207d602961f556967518c6b60050999d602d4cc679716bb16509763c3ac9f5a9",
-          "archiveMember": "lexical-parse-float-1.0.5/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/lexical-parse-float-1.0.5/LICENSE-APACHE",
           "bytes": 10850,
@@ -3331,18 +2707,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/lexical-parse-integer-1.0.5/Cargo.toml",
-          "bytes": 2148,
-          "sha256": "6df77429a49eba5833667cdfb6fdf9a48f393c373a74565c88bbc691c27a334c",
-          "archiveMember": "lexical-parse-integer-1.0.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/lexical-parse-integer-1.0.5/Cargo.toml.orig",
-          "bytes": 1735,
-          "sha256": "dca25779e573e7691951d582d28254af9db9873361b1a5e119345b4e40bbf9e5",
-          "archiveMember": "lexical-parse-integer-1.0.5/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/lexical-parse-integer-1.0.5/LICENSE-APACHE",
           "bytes": 10850,
           "sha256": "8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90",
@@ -3381,18 +2745,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/lexical-util-1.0.6/Cargo.toml",
-          "bytes": 2768,
-          "sha256": "68eeab51b3314e4ff5d2787fbb691f94a1f9a9919403bdccaa86ce4f8d868446",
-          "archiveMember": "lexical-util-1.0.6/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/lexical-util-1.0.6/Cargo.toml.orig",
-          "bytes": 2686,
-          "sha256": "f9bd15ec9bf7505b974068e4af363bbe06dfe6da75b90832895cf2d22ad75c23",
-          "archiveMember": "lexical-util-1.0.6/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/lexical-util-1.0.6/LICENSE-APACHE",
           "bytes": 10850,
           "sha256": "8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90",
@@ -3424,18 +2776,6 @@
         "sha256": "52ff2c0fe9bc6cb6b14a0592c2ff4fa9ceb83eea9db979b0487cd054946a2b8f"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/libc-0.2.185/Cargo.toml",
-          "bytes": 6241,
-          "sha256": "89d682c2bf38c3051425fd0fc4319e31d55d4d20082fc6f3445f4681e95a4b8d",
-          "archiveMember": "libc-0.2.185/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/libc-0.2.185/Cargo.toml.orig",
-          "bytes": 6725,
-          "sha256": "e6b107bb3de87b26953d9f7f5c97330d1d4e0c828a076c09fcc2e85cae040cb7",
-          "archiveMember": "libc-0.2.185/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/libc-0.2.185/LICENSE-APACHE",
           "bytes": 9723,
@@ -3469,18 +2809,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/libc-0.2.189/Cargo.toml",
-          "bytes": 6072,
-          "sha256": "95159789ef9c9aaee8230b13be5c89594833a7bf2db299e61eb23b512cb67144",
-          "archiveMember": "libc-0.2.189/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/libc-0.2.189/Cargo.toml.orig",
-          "bytes": 6440,
-          "sha256": "cba73b06128539455a57f7432e466ba583358ecb83ef8eda60731751b8a9f5cc",
-          "archiveMember": "libc-0.2.189/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/libc-0.2.189/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -3513,18 +2841,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/litemap-0.7.3/Cargo.toml",
-          "bytes": 2486,
-          "sha256": "cb0f142abe11e15a971b0393abdae807a7fae8b2109b5791aedffa7b2f6db3e0",
-          "archiveMember": "litemap-0.7.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/litemap-0.7.3/Cargo.toml.orig",
-          "bytes": 2123,
-          "sha256": "346baeb0d77dce4dae06d53829714d163a7878a61d9dcc57324161488b3e9fcd",
-          "archiveMember": "litemap-0.7.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/litemap-0.7.3/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -3550,18 +2866,6 @@
         "sha256": "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/log-0.4.27/Cargo.toml",
-          "bytes": 2667,
-          "sha256": "af00dbdb7f605d037b937fa8affbb73086cc9f3eb38eb6502b4036689a044deb",
-          "archiveMember": "log-0.4.27/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/log-0.4.27/Cargo.toml.orig",
-          "bytes": 2486,
-          "sha256": "11d7c71466f86eb56e76af5b3b9fb20e3ad4d507da1c2b0da17aece376b91115",
-          "archiveMember": "log-0.4.27/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/log-0.4.27/LICENSE-APACHE",
           "bytes": 10847,
@@ -3595,18 +2899,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/lru-0.16.3/Cargo.toml",
-          "bytes": 1160,
-          "sha256": "ada37ed0161fb9a609f3d25395755934b91a349e513e7ff85ac30657320acb00",
-          "archiveMember": "lru-0.16.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/lru-0.16.3/Cargo.toml.orig",
-          "bytes": 631,
-          "sha256": "b5b3354ed6b22ef78870ca83b9a636096abc592b36a62830221e74f50764e0a2",
-          "archiveMember": "lru-0.16.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/lru-0.16.3/LICENSE",
           "bytes": 1071,
           "sha256": "061dc50af2cd9340703daf61978af3200cf681b12ea67a323c33ba109a23a45e",
@@ -3637,18 +2929,6 @@
           "bytes": 126,
           "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
           "archiveMember": "memchr-2.7.4/COPYING"
-        },
-        {
-          "path": "docs/notices/mcp/rust/memchr-2.7.4/Cargo.toml",
-          "bytes": 1917,
-          "sha256": "8333f270d28547eec87c63083418550a6d9d1de14e9adbcba94ebe0f2a40db61",
-          "archiveMember": "memchr-2.7.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/memchr-2.7.4/Cargo.toml.orig",
-          "bytes": 2640,
-          "sha256": "8c4a39bc7158584621ad1d5001a75cd4c5aa0d41d69ca4f94698970d99bf3607",
-          "archiveMember": "memchr-2.7.4/Cargo.toml.orig"
         },
         {
           "path": "docs/notices/mcp/rust/memchr-2.7.4/LICENSE-MIT",
@@ -3683,18 +2963,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/num-bigint-0.4.6/Cargo.toml",
-          "bytes": 2045,
-          "sha256": "a6042603541ecb91ec1f5c158679c0b47090462434e2a53e65f78395994f223f",
-          "archiveMember": "num-bigint-0.4.6/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/num-bigint-0.4.6/Cargo.toml.orig",
-          "bytes": 1510,
-          "sha256": "f4aa7137c73c73c175cf68cbbf78eca76082f60a4d1612d9bdfd6bba5661b9d6",
-          "archiveMember": "num-bigint-0.4.6/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/num-bigint-0.4.6/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -3726,18 +2994,6 @@
         "sha256": "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/num-integer-0.1.46/Cargo.toml",
-          "bytes": 1210,
-          "sha256": "f5e54fe018d780d7320b47a3fdae3b1ec3f6d04ac5adab3a8ddf207531aecef8",
-          "archiveMember": "num-integer-0.1.46/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/num-integer-0.1.46/Cargo.toml.orig",
-          "bytes": 750,
-          "sha256": "efe6398cc01575661501931c7c30d58f50dc3d11d891d14ac44d5fecc4e3bac2",
-          "archiveMember": "num-integer-0.1.46/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/num-integer-0.1.46/LICENSE-APACHE",
           "bytes": 10847,
@@ -3771,18 +3027,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/num-traits-0.2.19/Cargo.toml",
-          "bytes": 1296,
-          "sha256": "dd701a0da6cce7e6e047cc944b2330f3c5e48cd64329e10942ea7d9299d435be",
-          "archiveMember": "num-traits-0.2.19/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/num-traits-0.2.19/Cargo.toml.orig",
-          "bytes": 835,
-          "sha256": "172863fc77ccbdd76c7d65660c1030e553cc3629931808f18f4cd4cc73a08c53",
-          "archiveMember": "num-traits-0.2.19/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/num-traits-0.2.19/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -3814,18 +3058,6 @@
         "sha256": "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/once_cell-1.21.3/Cargo.toml",
-          "bytes": 2542,
-          "sha256": "596b44254327ebe6a182fc70132e544ec437630f8910024ac2bd86187de6fff9",
-          "archiveMember": "once_cell-1.21.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/once_cell-1.21.3/Cargo.toml.orig",
-          "bytes": 2420,
-          "sha256": "8a175b415fe105a99a34a34337423625face66b549bb2aaafd35cc958bcd88fb",
-          "archiveMember": "once_cell-1.21.3/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/once_cell-1.21.3/LICENSE-APACHE",
           "bytes": 10847,
@@ -3859,18 +3091,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/once_cell-1.21.4/Cargo.toml",
-          "bytes": 2542,
-          "sha256": "87e5b7ee438abdef12e46386e86370f54ad70cabdcf949556b9ef012a9da9587",
-          "archiveMember": "once_cell-1.21.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/once_cell-1.21.4/Cargo.toml.orig",
-          "bytes": 2420,
-          "sha256": "cce5bf836e33ad0e9adfb6e900d432371af2ca3861da45b719a0fce716ea810f",
-          "archiveMember": "once_cell-1.21.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/once_cell-1.21.4/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -3902,18 +3122,6 @@
         "sha256": "77823a27f0babb03091cb9ed9ef80af3b39dbc82f97e8fa530374b7dafd87a45"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/openssl-0.10.81/Cargo.toml",
-          "bytes": 1623,
-          "sha256": "f78aa73885313fec152f91a20a2c96c6380d61f1bb81ff316c406b5e2edfbf47",
-          "archiveMember": "openssl-0.10.81/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/openssl-0.10.81/Cargo.toml.orig",
-          "bytes": 911,
-          "sha256": "d17e656ec6b718d3c609c94ff814a8c3cec96ad3513fd22d1240c7245c04dae3",
-          "archiveMember": "openssl-0.10.81/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/openssl-0.10.81/LICENSE",
           "bytes": 618,
@@ -3947,18 +3155,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/openssl-macros-0.1.1/Cargo.toml",
-          "bytes": 779,
-          "sha256": "a0f4f5f613ead670c0512bf5f42c0426c8c3ab119f3737c6119190a5a34b657d",
-          "archiveMember": "openssl-macros-0.1.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/openssl-macros-0.1.1/Cargo.toml.orig",
-          "bytes": 271,
-          "sha256": "4cffdfe3935b50704e5b1a37e0286c2ea482e9cd95aa3abf61fd8e6bd00041ef",
-          "archiveMember": "openssl-macros-0.1.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/openssl-macros-0.1.1/LICENSE-APACHE",
           "bytes": 11358,
           "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08",
@@ -3991,18 +3187,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/openssl-sys-0.9.117/Cargo.toml",
-          "bytes": 1841,
-          "sha256": "0398fda9f72001a6d7f9dad48cf7c04a8e84161aa8a2342fc183247f90190085",
-          "archiveMember": "openssl-sys-0.9.117/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/openssl-sys-0.9.117/Cargo.toml.orig",
-          "bytes": 1172,
-          "sha256": "b67ee2d0a8393c460862345edecd285c897ecf6eaaa527a3afaa097e60affa4a",
-          "archiveMember": "openssl-sys-0.9.117/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/openssl-sys-0.9.117/LICENSE-MIT",
           "bytes": 1057,
           "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397",
@@ -4029,18 +3213,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pem-4.0.0/Cargo.toml",
-          "bytes": 1673,
-          "sha256": "5352d4883418c4e8c319bb5ee9721592f0cb6f29b23cbf7be17cf9b417ef02eb",
-          "archiveMember": "pem-4.0.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pem-4.0.0/Cargo.toml.orig",
-          "bytes": 1074,
-          "sha256": "1d487e7b437eeca519268ec44163efc0044058f89427dffaee55fca542beb4b1",
-          "archiveMember": "pem-4.0.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pem-4.0.0/LICENSE.md",
           "bytes": 1085,
           "sha256": "b7c76ff4466a3aeb6a7d903e81b651335e97d64ecb857e2ee9812a36c6fd1acf",
@@ -4066,18 +3238,6 @@
         "sha256": "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/percent-encoding-2.3.2/Cargo.toml",
-          "bytes": 1056,
-          "sha256": "e4ea043c47bbd5551fc5fcf8151eab94428b4be6f2337834a0f9020a4392fb19",
-          "archiveMember": "percent-encoding-2.3.2/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/percent-encoding-2.3.2/Cargo.toml.orig",
-          "bytes": 415,
-          "sha256": "36b46b35abb58c4e2dbe2c25bcf64709ed170bd720efd1b4b1280509ca072f5f",
-          "archiveMember": "percent-encoding-2.3.2/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/percent-encoding-2.3.2/LICENSE-APACHE",
           "bytes": 10847,
@@ -4111,18 +3271,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pkg-config-0.3.33/Cargo.toml",
-          "bytes": 1165,
-          "sha256": "37ce80d4e6e58a7cfd605a9f298da4dd9f43dc4412382b40a9d06fc925298da3",
-          "archiveMember": "pkg-config-0.3.33/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pkg-config-0.3.33/Cargo.toml.orig",
-          "bytes": 490,
-          "sha256": "92b77a7fdf8b5cda5e2a03fc21b6de090708dc73a898d25d13b2e14dc092bbc2",
-          "archiveMember": "pkg-config-0.3.33/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pkg-config-0.3.33/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -4154,18 +3302,6 @@
         "sha256": "3d20d5497ef88037a52ff98267d066e7f11fcc5e99bbfbd58a42336193aacec3"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/portable-atomic-1.14.0/Cargo.toml",
-          "bytes": 5510,
-          "sha256": "8d085ff8728091431f463d150a3571575c37f84ef565d1d89d40fd10db168e3a",
-          "archiveMember": "portable-atomic-1.14.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/portable-atomic-1.14.0/Cargo.toml.orig",
-          "bytes": 8207,
-          "sha256": "f5f0dfa59fdb19baad3a787a234039f643e83a4d24f8e0622d50b5a175c455db",
-          "archiveMember": "portable-atomic-1.14.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/portable-atomic-1.14.0/LICENSE-APACHE",
           "bytes": 10174,
@@ -4199,18 +3335,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/portable-atomic-1.6.0/Cargo.toml",
-          "bytes": 3192,
-          "sha256": "7378ac02801e3740ae2d2052e2efde1669907b3198a665a8712b59762b765eaa",
-          "archiveMember": "portable-atomic-1.6.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/portable-atomic-1.6.0/Cargo.toml.orig",
-          "bytes": 5410,
-          "sha256": "8e13ed42af931af9cd29baad56462607ea37f538c9d18ab88ba1388bcf1a6c61",
-          "archiveMember": "portable-atomic-1.6.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/portable-atomic-1.6.0/LICENSE-APACHE",
           "bytes": 10174,
           "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
@@ -4242,18 +3366,6 @@
         "sha256": "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/proc-macro2-1.0.107/Cargo.toml",
-          "bytes": 2460,
-          "sha256": "6bdbe54a7f052e552dcfca90351764476e2767237ec3f954df8bd9f602861056",
-          "archiveMember": "proc-macro2-1.0.107/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/proc-macro2-1.0.107/Cargo.toml.orig",
-          "bytes": 2340,
-          "sha256": "e04a009c48ea3e9b017807ea9183e330cc909a9cc0e754c5c6b3f7c0b29fb9de",
-          "archiveMember": "proc-macro2-1.0.107/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/proc-macro2-1.0.107/LICENSE-APACHE",
           "bytes": 9723,
@@ -4287,18 +3399,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/proc-macro2-1.0.86/Cargo.toml",
-          "bytes": 2208,
-          "sha256": "41a9465146a2b62a642e29f065718649e686d3c9585736596392dd941c9b0bef",
-          "archiveMember": "proc-macro2-1.0.86/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/proc-macro2-1.0.86/Cargo.toml.orig",
-          "bytes": 2085,
-          "sha256": "58c9c78b45771cda35069771ac1fc9ea7108f673b0eb09c7cd95b5667e15e67d",
-          "archiveMember": "proc-macro2-1.0.86/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/proc-macro2-1.0.86/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -4330,18 +3430,6 @@
         "sha256": "91fd8e38a3b50ed1167fb981cd6fd60147e091784c427b8f7183a7ee32c31c12"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/pyo3-0.28.3/Cargo.toml",
-          "bytes": 10399,
-          "sha256": "e0b008929f7f0205b10743c19c7aac73c2d42c58f2ba8d60a2c4c2ca7b516f2a",
-          "archiveMember": "pyo3-0.28.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-0.28.3/Cargo.toml.orig",
-          "bytes": 7454,
-          "sha256": "f81d824b721b626ae88125158c24ee99014b7ce2615b0cb4e34c5802d842904c",
-          "archiveMember": "pyo3-0.28.3/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/pyo3-0.28.3/LICENSE-APACHE",
           "bytes": 9807,
@@ -4387,18 +3475,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pyo3-0.29.0/Cargo.toml",
-          "bytes": 11806,
-          "sha256": "021dea5d5397cf38ec95dfaf010b1d1819f4824e03dacc7e493d229203c4bb22",
-          "archiveMember": "pyo3-0.29.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-0.29.0/Cargo.toml.orig",
-          "bytes": 10965,
-          "sha256": "4bcf31b9db6d3783cc6d01cac800c8a80779a2ce021c6dca98dbdc8119ffd51e",
-          "archiveMember": "pyo3-0.29.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pyo3-0.29.0/LICENSE-APACHE",
           "bytes": 9807,
           "sha256": "32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9",
@@ -4443,18 +3519,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pyo3-build-config-0.28.3/Cargo.toml",
-          "bytes": 1755,
-          "sha256": "a865554445c84324f2a2c902e66882f3e43404175ea38db2116c96abe67ea487",
-          "archiveMember": "pyo3-build-config-0.28.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-build-config-0.28.3/Cargo.toml.orig",
-          "bytes": 1363,
-          "sha256": "a54555995103125617ea5cb097d13a8b13e554ba08b8ebbbec79666f4207f8b4",
-          "archiveMember": "pyo3-build-config-0.28.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pyo3-build-config-0.28.3/LICENSE-APACHE",
           "bytes": 9807,
           "sha256": "32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9",
@@ -4486,18 +3550,6 @@
         "sha256": "c5e2a7d2f0d013342f295c048ad19237add5154a55b1c5a254c0ec93d4109078"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/pyo3-build-config-0.29.0/Cargo.toml",
-          "bytes": 1314,
-          "sha256": "65e0baafadde3bbf4b743e0037d8e77ab345b3dabfda1cd1e9879fe4967307e1",
-          "archiveMember": "pyo3-build-config-0.29.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-build-config-0.29.0/Cargo.toml.orig",
-          "bytes": 721,
-          "sha256": "ba86530dc272918b783dffea6a3c12bdb6c82c45d6057d0697b37c5406906e48",
-          "archiveMember": "pyo3-build-config-0.29.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/pyo3-build-config-0.29.0/LICENSE-APACHE",
           "bytes": 9807,
@@ -4531,18 +3583,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pyo3-ffi-0.28.3/Cargo.toml",
-          "bytes": 2854,
-          "sha256": "7053ef2cb58e92a182952fac8c4c7eaa79d3645afa09d53355ef57ceeecc6687",
-          "archiveMember": "pyo3-ffi-0.28.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-ffi-0.28.3/Cargo.toml.orig",
-          "bytes": 1728,
-          "sha256": "c0e56f87dd3154ac2c62ac89ab338002fb62e5b11695a55f6e38007ecd09c946",
-          "archiveMember": "pyo3-ffi-0.28.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pyo3-ffi-0.28.3/LICENSE-APACHE",
           "bytes": 9807,
           "sha256": "32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9",
@@ -4574,18 +3614,6 @@
         "sha256": "ca85c467da1bbc8d866eea5deff9cf29ea5f7785054a17da36e65bda9c05845b"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/pyo3-ffi-0.29.0/Cargo.toml",
-          "bytes": 2662,
-          "sha256": "a177bb834f16c3dd48683f4aa91bf36faf167066e38798b983c830189df779c9",
-          "archiveMember": "pyo3-ffi-0.29.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-ffi-0.29.0/Cargo.toml.orig",
-          "bytes": 1539,
-          "sha256": "1deffc1690d42ee48e4603510b0ef68a96e254aa1b25f84a8387ff98b3160b3c",
-          "archiveMember": "pyo3-ffi-0.29.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/pyo3-ffi-0.29.0/LICENSE-APACHE",
           "bytes": 9807,
@@ -4619,18 +3647,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pyo3-macros-0.28.3/Cargo.toml",
-          "bytes": 2208,
-          "sha256": "97ff36290f324b0efff16db0829bb9cae57e1d24770b2108b84c3b101ff036b5",
-          "archiveMember": "pyo3-macros-0.28.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-macros-0.28.3/Cargo.toml.orig",
-          "bytes": 882,
-          "sha256": "16a401214522a43860b214df9e3c1299d620d4b5c5dda113c8be32d84a195a60",
-          "archiveMember": "pyo3-macros-0.28.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pyo3-macros-0.28.3/LICENSE-APACHE",
           "bytes": 9807,
           "sha256": "32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9",
@@ -4662,18 +3678,6 @@
         "sha256": "9ac53762fd065daa3194dd09337a38bd793a188100fd1a9304c4ab312d901771"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/pyo3-macros-0.29.0/Cargo.toml",
-          "bytes": 2374,
-          "sha256": "96bbd045c93c24de4484d9a02aad49a5a8839849e96f02faf6b0a34e6be14736",
-          "archiveMember": "pyo3-macros-0.29.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-macros-0.29.0/Cargo.toml.orig",
-          "bytes": 882,
-          "sha256": "f2cc464c3fe4e7c58793586b0791e6406154b940271fe3a413f829a819ce92bf",
-          "archiveMember": "pyo3-macros-0.29.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/pyo3-macros-0.29.0/LICENSE-APACHE",
           "bytes": 9807,
@@ -4707,18 +3711,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/pyo3-macros-backend-0.28.3/Cargo.toml",
-          "bytes": 2375,
-          "sha256": "ca56804539d29a5fc8ef2f067c916c3438c38d8441dc564afe30af417da14b09",
-          "archiveMember": "pyo3-macros-backend-0.28.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-macros-backend-0.28.3/Cargo.toml.orig",
-          "bytes": 1230,
-          "sha256": "ba073e40dcf86f43ee18e4a70cb4331b1fa8ff098187b8f75358ce0d1f23bf7e",
-          "archiveMember": "pyo3-macros-backend-0.28.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/pyo3-macros-backend-0.28.3/LICENSE-APACHE",
           "bytes": 9807,
           "sha256": "32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9",
@@ -4750,18 +3742,6 @@
         "sha256": "4ca3a1557399783172dc5bf39cfca835157732532cba56b71d2292161e53b362"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/pyo3-macros-backend-0.29.0/Cargo.toml",
-          "bytes": 2392,
-          "sha256": "d8f8537798e2a4dc220e3f8e2b8227e692ad9b392aabaa9acb70a2e041b9198c",
-          "archiveMember": "pyo3-macros-backend-0.29.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/pyo3-macros-backend-0.29.0/Cargo.toml.orig",
-          "bytes": 1027,
-          "sha256": "b1dcd184af9314d81f13fcb74c30307fa6d6e33bea97b1ae00f8c0667440465b",
-          "archiveMember": "pyo3-macros-backend-0.29.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/pyo3-macros-backend-0.29.0/LICENSE-APACHE",
           "bytes": 9807,
@@ -4795,18 +3775,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/python3-dll-a-0.2.14/Cargo.toml",
-          "bytes": 1201,
-          "sha256": "d57d669c9444834c0cae0775eb912de684c554d25bfd6ef18f3fca72bca78a7a",
-          "archiveMember": "python3-dll-a-0.2.14/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/python3-dll-a-0.2.14/Cargo.toml.orig",
-          "bytes": 532,
-          "sha256": "8578632717c52ac7a2523e73d0526b2549f30b6f8bdd6a5e24b683b0f9635886",
-          "archiveMember": "python3-dll-a-0.2.14/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/python3-dll-a-0.2.14/LICENSE",
           "bytes": 1120,
           "sha256": "c760d1f2e4614d58f2b91cd41b9826457989c09041be0219158b8f7f6d3f8763",
@@ -4832,18 +3800,6 @@
         "sha256": "21b2ebcf727b7760c461f091f9f0f539b77b8e87f2fd88131e7f1b433b3cece4"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/quote-1.0.44/Cargo.toml",
-          "bytes": 1753,
-          "sha256": "0eb3904bf712f0a2b4501057f0b4206ba5d3ecd31ff5c7708a5407164ee13657",
-          "archiveMember": "quote-1.0.44/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/quote-1.0.44/Cargo.toml.orig",
-          "bytes": 1150,
-          "sha256": "39867fc2710eeff590ed41e0907591b0f2edf10f41c6897c0a21f554c91d4575",
-          "archiveMember": "quote-1.0.44/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/quote-1.0.44/LICENSE-APACHE",
           "bytes": 9723,
@@ -4876,18 +3832,6 @@
         "sha256": "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/quote-1.0.47/Cargo.toml",
-          "bytes": 1753,
-          "sha256": "13d8c50837f14aff48cd622349f98fb2c46350b7a0c08fd574cf7de4def27d06",
-          "archiveMember": "quote-1.0.47/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/quote-1.0.47/Cargo.toml.orig",
-          "bytes": 1150,
-          "sha256": "acbbe8c10dc81f648339333c8fa3e0aa787ad5887b105d1947bc522553d87d73",
-          "archiveMember": "quote-1.0.47/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/quote-1.0.47/LICENSE-APACHE",
           "bytes": 9723,
@@ -4925,18 +3869,6 @@
           "bytes": 3652,
           "sha256": "c42285aa32440c3b5358fd4805b817cd8d6e1795111d2e4c547530be41896b2d",
           "archiveMember": "r-efi-5.2.0/AUTHORS"
-        },
-        {
-          "path": "docs/notices/mcp/rust/r-efi-5.2.0/Cargo.toml",
-          "bytes": 1699,
-          "sha256": "694ce9bcb148cb9ec2e6850cf3bc3121b5f46b585327aa33c2626ecdf1ff55f2",
-          "archiveMember": "r-efi-5.2.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/r-efi-5.2.0/Cargo.toml.orig",
-          "bytes": 1323,
-          "sha256": "6f63737b3d7385972ee926cb88db53c039c2ead17dfa0e5e56b2a084cb5bbeac",
-          "archiveMember": "r-efi-5.2.0/Cargo.toml.orig"
         }
       ]
     },
@@ -4958,18 +3890,6 @@
         "sha256": "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/radium-0.7.0/Cargo.toml",
-          "bytes": 1093,
-          "sha256": "b41fc2b1f6259ab32f9c93aeb73074efa00739c587a4ebbf5c13beb45a9edb3f",
-          "archiveMember": "radium-0.7.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/radium-0.7.0/Cargo.toml.orig",
-          "bytes": 631,
-          "sha256": "ac6b24ea8c3e17822772c1a9a30455a068bdf4d4107178e17a65eb2cf4f08291",
-          "archiveMember": "radium-0.7.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/radium-0.7.0/LICENSE.txt",
           "bytes": 1079,
@@ -4996,18 +3916,6 @@
         "sha256": "e10754a14b9137dd7b1e3e5b0493cc9171fdd105e0ab477f51b72e7f3ac0e276"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/regex-1.12.3/Cargo.toml",
-          "bytes": 4326,
-          "sha256": "a41c45254782e4ae11fe4d213a0cb4d17ee0f6bc094eea90dd331ad6cbaff837",
-          "archiveMember": "regex-1.12.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/regex-1.12.3/Cargo.toml.orig",
-          "bytes": 9039,
-          "sha256": "e6c8d47d4a17743c82c0dc0fae9739a0fb738742ba58fd628dc48dcdf09d9020",
-          "archiveMember": "regex-1.12.3/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/regex-1.12.3/LICENSE-APACHE",
           "bytes": 10847,
@@ -5041,18 +3949,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/regex-automata-0.4.13/Cargo.toml",
-          "bytes": 3985,
-          "sha256": "01dd259ddf18d6b99e84f799b4709fdaca8fbcbd30cb2ac2fbabc6309e2db06f",
-          "archiveMember": "regex-automata-0.4.13/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/regex-automata-0.4.13/Cargo.toml.orig",
-          "bytes": 5192,
-          "sha256": "62d643cae321c8f8b42ac9a05fcad92609900ef6974f504ccdca54e287e915c6",
-          "archiveMember": "regex-automata-0.4.13/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/regex-automata-0.4.13/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -5084,18 +3980,6 @@
         "sha256": "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/regex-syntax-0.8.5/Cargo.toml",
-          "bytes": 1615,
-          "sha256": "362cfcf492ed93948ca374491d8dc3b688da0f90d00c2bb9a3892ec2ac27e276",
-          "archiveMember": "regex-syntax-0.8.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/regex-syntax-0.8.5/Cargo.toml.orig",
-          "bytes": 1462,
-          "sha256": "4c18da01da8ea5c747cb548eee8c34f935510be514b62869ff046f53aca37583",
-          "archiveMember": "regex-syntax-0.8.5/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/regex-syntax-0.8.5/LICENSE-APACHE",
           "bytes": 10847,
@@ -5135,18 +4019,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/rustversion-1.0.17/Cargo.toml",
-          "bytes": 1510,
-          "sha256": "80cdad45ce010ec360d4ed9bbf9c31f1614ad183fa3728fca514cc438bae5410",
-          "archiveMember": "rustversion-1.0.17/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/rustversion-1.0.17/Cargo.toml.orig",
-          "bytes": 661,
-          "sha256": "c90766b3fc200ea5390ced33cd4b676b4ea08f5643b6e42a59b5237151f289b9",
-          "archiveMember": "rustversion-1.0.17/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/rustversion-1.0.17/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -5178,18 +4050,6 @@
         "sha256": "2ab42ca02749e120097e328d91d415325bdf43b1c72c4c8badf37375fe40a813"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/self_cell-1.3.0/Cargo.toml",
-          "bytes": 1220,
-          "sha256": "749b8099307e198cce66b130b9905175e51ab6b7c0acf2a7125ef256ab72f316",
-          "archiveMember": "self_cell-1.3.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/self_cell-1.3.0/Cargo.toml.orig",
-          "bytes": 953,
-          "sha256": "6827a196e0b6b6c52ed2db4156c67fcc34b59be96976303ff4567e6bc407503f",
-          "archiveMember": "self_cell-1.3.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/self_cell-1.3.0/LICENSE-APACHE",
           "bytes": 11357,
@@ -5223,18 +4083,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/serde-1.0.228/Cargo.toml",
-          "bytes": 1969,
-          "sha256": "d7fc24e39691a0831eaa0eac677b46ecbae407a40fa816b904759822d10f42e8",
-          "archiveMember": "serde-1.0.228/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/serde-1.0.228/Cargo.toml.orig",
-          "bytes": 2252,
-          "sha256": "0b7df7944cba2a0646daa431efdc9f8b200bc6beb586cd71e302a102d17c4c60",
-          "archiveMember": "serde-1.0.228/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/serde-1.0.228/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -5266,18 +4114,6 @@
         "sha256": "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/serde_core-1.0.228/Cargo.toml",
-          "bytes": 1950,
-          "sha256": "b1c07acb994f88418a0bbb0d393f76c4ca4276d9f4497ca734eb182286169ea8",
-          "archiveMember": "serde_core-1.0.228/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/serde_core-1.0.228/Cargo.toml.orig",
-          "bytes": 2663,
-          "sha256": "0c7419cdb49704f6e3fb750f19d9b4b555e82507370b5dd8553ab35647b5c9c5",
-          "archiveMember": "serde_core-1.0.228/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/serde_core-1.0.228/LICENSE-APACHE",
           "bytes": 9723,
@@ -5311,18 +4147,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/serde_derive-1.0.228/Cargo.toml",
-          "bytes": 2099,
-          "sha256": "3de014980e9645f2e33779acd06919c9f3b717a79e10f56004918d12c4365c27",
-          "archiveMember": "serde_derive-1.0.228/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/serde_derive-1.0.228/Cargo.toml.orig",
-          "bytes": 1375,
-          "sha256": "548722e43a11e723d1be4ef17867f7256543715435e7fe03ef1b62d0f8fad253",
-          "archiveMember": "serde_derive-1.0.228/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/serde_derive-1.0.228/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -5354,18 +4178,6 @@
         "sha256": "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/serde_json-1.0.149/Cargo.toml",
-          "bytes": 3118,
-          "sha256": "65dabeea0112c066ff16c6d93142c4a08c01396f4e99a27d9255d19974eaeb73",
-          "archiveMember": "serde_json-1.0.149/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/serde_json-1.0.149/Cargo.toml.orig",
-          "bytes": 3642,
-          "sha256": "ddcbef59d5daaeae8c33beff5b205c6af228b5f691747b4217fb6aa845851509",
-          "archiveMember": "serde_json-1.0.149/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/serde_json-1.0.149/LICENSE-APACHE",
           "bytes": 9723,
@@ -5399,18 +4211,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/shlex-2.0.1/Cargo.toml",
-          "bytes": 1339,
-          "sha256": "b6ead6cf404555ced33f7574c6c11413e29e7bcd5eb0ceeb59452830a46675ed",
-          "archiveMember": "shlex-2.0.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/shlex-2.0.1/Cargo.toml.orig",
-          "bytes": 696,
-          "sha256": "c5a6784dc911e13f22aa3fdb79f83142a64777047534ce447dc94783c58389b7",
-          "archiveMember": "shlex-2.0.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/shlex-2.0.1/LICENSE-APACHE",
           "bytes": 566,
           "sha256": "553fffcd9b1cb158bc3e9edc35da85ca5c3b3d7d2e61c883ebcfa8a65814b583",
@@ -5442,18 +4242,6 @@
         "sha256": "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/smallvec-1.15.1/Cargo.toml",
-          "bytes": 2250,
-          "sha256": "23b775d343d15c7c212134c69a791d75fcdfb4527224b20daf401b494dd4f0c9",
-          "archiveMember": "smallvec-1.15.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/smallvec-1.15.1/Cargo.toml.orig",
-          "bytes": 1776,
-          "sha256": "10e1448257b105a82da85aceb3f735a352b6f2c63d09dce1a9ff8b01f913acd2",
-          "archiveMember": "smallvec-1.15.1/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/smallvec-1.15.1/LICENSE-APACHE",
           "bytes": 10847,
@@ -5487,18 +4275,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/speedate-0.17.0/Cargo.toml",
-          "bytes": 1476,
-          "sha256": "a7542aba8fedf3806a72bb177bb61cd1be2dfe12616c327695167da809518daa",
-          "archiveMember": "speedate-0.17.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/speedate-0.17.0/Cargo.toml.orig",
-          "bytes": 622,
-          "sha256": "3817287ee23d6a11c0bccf583b0b8d75f25a6d0a1062573ecde7e1c231560b4b",
-          "archiveMember": "speedate-0.17.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/speedate-0.17.0/LICENSE",
           "bytes": 1080,
           "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a",
@@ -5524,18 +4300,6 @@
         "sha256": "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/stable_deref_trait-1.2.0/Cargo.toml",
-          "bytes": 1117,
-          "sha256": "5a8352eba01791ecee28b37cfe1324fa48db52e35023b23a4f07ca84267abfd6",
-          "archiveMember": "stable_deref_trait-1.2.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/stable_deref_trait-1.2.0/Cargo.toml.orig",
-          "bytes": 596,
-          "sha256": "b46a09c5bab6e4239b9b2d4dc17516301eda0ad8af4d0c3d39d8758e9d8a5a47",
-          "archiveMember": "stable_deref_trait-1.2.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/stable_deref_trait-1.2.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -5569,18 +4333,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/static_assertions-1.1.0/Cargo.toml",
-          "bytes": 1411,
-          "sha256": "6531dbe3d557e427f9e3510e50cdf3de751a319eece11c9a937b35cfab8744c4",
-          "archiveMember": "static_assertions-1.1.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/static_assertions-1.1.0/Cargo.toml.orig",
-          "bytes": 881,
-          "sha256": "ff82ac6034e40f4af74e2a31aa5a863070b83acd7d07c300fe47b77710714158",
-          "archiveMember": "static_assertions-1.1.0/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/static_assertions-1.1.0/LICENSE-APACHE",
           "bytes": 11358,
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -5613,18 +4365,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/strum-0.27.2/Cargo.toml",
-          "bytes": 1535,
-          "sha256": "7653b3f603da381f5ef1d96fa7377191d40fd4a4b56df0bfa7ec1e7bac97e08e",
-          "archiveMember": "strum-0.27.2/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/strum-0.27.2/Cargo.toml.orig",
-          "bytes": 959,
-          "sha256": "130e6712654d2eca3b5c8d02b1b445806383590f106a1e34c3ca4ede5888dc9b",
-          "archiveMember": "strum-0.27.2/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/strum-0.27.2/LICENSE",
           "bytes": 1072,
           "sha256": "8bce3b45e49ecd1461f223b46de133d8f62cd39f745cfdaf81bee554b908bd42",
@@ -5651,18 +4391,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/strum_macros-0.27.2/Cargo.toml",
-          "bytes": 1396,
-          "sha256": "81f142576c960feb48f1ce061489096fbe3beb8d3c3c3c7f45a998d5cd62c49c",
-          "archiveMember": "strum_macros-0.27.2/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/strum_macros-0.27.2/Cargo.toml.orig",
-          "bytes": 743,
-          "sha256": "6ee3926706864f5231da55676cd0460209c52ad3f3ef70540e2d6fd31af4fefd",
-          "archiveMember": "strum_macros-0.27.2/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/strum_macros-0.27.2/LICENSE",
           "bytes": 1072,
           "sha256": "8bce3b45e49ecd1461f223b46de133d8f62cd39f745cfdaf81bee554b908bd42",
@@ -5688,18 +4416,6 @@
         "sha256": "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/syn-2.0.119/Cargo.toml",
-          "bytes": 5007,
-          "sha256": "da8b83ac2c66a7b404dc55d88ae42592f70714823251f51b620ae349b246a18f",
-          "archiveMember": "syn-2.0.119/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/syn-2.0.119/Cargo.toml.orig",
-          "bytes": 2413,
-          "sha256": "33d92998d299923965137d5acc6b1ea020d1707d62014d44f3a7e70701003b33",
-          "archiveMember": "syn-2.0.119/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/syn-2.0.119/LICENSE-APACHE",
           "bytes": 9723,
@@ -5733,18 +4449,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/syn-2.0.82/Cargo.toml",
-          "bytes": 4703,
-          "sha256": "6789ea42b9169c2ada9be04891700730623f6dd0b1b831e59c4156995e6a1ea8",
-          "archiveMember": "syn-2.0.82/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/syn-2.0.82/Cargo.toml.orig",
-          "bytes": 2118,
-          "sha256": "3925b8ee75e686ab1f2f7919a9f12b397eb5fbfc6a11cb3d95cf80bb012a0951",
-          "archiveMember": "syn-2.0.82/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/syn-2.0.82/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -5777,18 +4481,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/synstructure-0.13.1/Cargo.toml",
-          "bytes": 1452,
-          "sha256": "55000e8899a31356e26ba655954f38c80f6d9e20b222a1b871014b6fc5bc1d4c",
-          "archiveMember": "synstructure-0.13.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/synstructure-0.13.1/Cargo.toml.orig",
-          "bytes": 1158,
-          "sha256": "477c49f414622476832c65e9865b614f95cdc842482425be081b245779b842e1",
-          "archiveMember": "synstructure-0.13.1/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/synstructure-0.13.1/LICENSE",
           "bytes": 1052,
           "sha256": "219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59",
@@ -5814,18 +4506,6 @@
         "sha256": "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/tap-1.0.1/Cargo.toml",
-          "bytes": 1052,
-          "sha256": "e1411b0ffb2a7d409e1706baf31dd4536fdf8834bcc62ca6d4bb1105733fe7cd",
-          "archiveMember": "tap-1.0.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/tap-1.0.1/Cargo.toml.orig",
-          "bytes": 552,
-          "sha256": "70d9f6e252afd5d674437f0c5c1f87ab42c2f0e9cab978f56ec767db36f5fe88",
-          "archiveMember": "tap-1.0.1/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/tap-1.0.1/LICENSE.txt",
           "bytes": 1090,
@@ -5853,18 +4533,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/target-lexicon-0.13.4/Cargo.toml",
-          "bytes": 1435,
-          "sha256": "578368f3a691457a385020541802e06034f03d0884efb6da817f0e230e527791",
-          "archiveMember": "target-lexicon-0.13.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/target-lexicon-0.13.4/Cargo.toml.orig",
-          "bytes": 864,
-          "sha256": "fb325c550e6298ac9b552e79e7bfbab08d6efcfa70df475f214e06ef59985132",
-          "archiveMember": "target-lexicon-0.13.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/target-lexicon-0.13.4/LICENSE",
           "bytes": 12243,
           "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5",
@@ -5890,18 +4558,6 @@
         "sha256": "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/target-lexicon-0.13.5/Cargo.toml",
-          "bytes": 1559,
-          "sha256": "68c92fd64e0ba0311fffd938aa03a2c58a13341c37523da1dd465c7eea9269ea",
-          "archiveMember": "target-lexicon-0.13.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/target-lexicon-0.13.5/Cargo.toml.orig",
-          "bytes": 982,
-          "sha256": "c9ab3fc97cf1702b3d4a4adc83d50959eb4bb4131460a29f0c015cecbfa8084a",
-          "archiveMember": "target-lexicon-0.13.5/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/target-lexicon-0.13.5/LICENSE",
           "bytes": 12243,
@@ -5929,18 +4585,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/tinystr-0.7.6/Cargo.toml",
-          "bytes": 2300,
-          "sha256": "9cebe38442ef2223961ddc752195f43d527f0bc7bb6eec95d302ab52ea3ad929",
-          "archiveMember": "tinystr-0.7.6/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/tinystr-0.7.6/Cargo.toml.orig",
-          "bytes": 1749,
-          "sha256": "3e91a41bdab129d75da35d495a88fe1fe7e5dc40892ac02f1ba5c56b64b139e3",
-          "archiveMember": "tinystr-0.7.6/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/tinystr-0.7.6/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -5966,18 +4610,6 @@
         "sha256": "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/unicode-ident-1.0.12/Cargo.toml",
-          "bytes": 1594,
-          "sha256": "7b10355305359d5feefb120329396a8823ce903cd66612d7d27612d51e6ceced",
-          "archiveMember": "unicode-ident-1.0.12/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/unicode-ident-1.0.12/Cargo.toml.orig",
-          "bytes": 1024,
-          "sha256": "78fc5b9a07bb19088caf7c689099266b707f958d2ed345dc2651a7e547f834f1",
-          "archiveMember": "unicode-ident-1.0.12/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/unicode-ident-1.0.12/LICENSE-APACHE",
           "bytes": 9723,
@@ -6017,18 +4649,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/unicode-ident-1.0.24/Cargo.toml",
-          "bytes": 2072,
-          "sha256": "0bb9c0e006a21355cb85c7df72e78dd8ba6fffbb7dc3f1e7a4c19af53cd354da",
-          "archiveMember": "unicode-ident-1.0.24/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/unicode-ident-1.0.24/Cargo.toml.orig",
-          "bytes": 1331,
-          "sha256": "8d0abaf7ce10cb78f26edcd613dfe5a47faa4381e6e251c7d1c123608d2e037a",
-          "archiveMember": "unicode-ident-1.0.24/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/unicode-ident-1.0.24/LICENSE-APACHE",
           "bytes": 9723,
           "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -6067,18 +4687,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/url-2.5.8/Cargo.toml",
-          "bytes": 2423,
-          "sha256": "7003e5562b5ab8454b9d78376303151af79011f5dd684c1891e0f46bc9112016",
-          "archiveMember": "url-2.5.8/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/url-2.5.8/Cargo.toml.orig",
-          "bytes": 1968,
-          "sha256": "71ca556493d5a7be3df490bee1cfe11da6174f5d1bd6e346efd76e682b26696b",
-          "archiveMember": "url-2.5.8/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/url-2.5.8/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -6115,18 +4723,6 @@
           "bytes": 1743,
           "sha256": "b84efe109a420fa3ca98be33f4227327af7ffa426195812c270feb1268bc2426",
           "archiveMember": "utf16_iter-1.0.5/COPYRIGHT"
-        },
-        {
-          "path": "docs/notices/mcp/rust/utf16_iter-1.0.5/Cargo.toml",
-          "bytes": 1010,
-          "sha256": "b2e7593b55a1ede10702cb8b29d5fc8d1881d7e5bb32921743b9d590606e327c",
-          "archiveMember": "utf16_iter-1.0.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/utf16_iter-1.0.5/Cargo.toml.orig",
-          "bytes": 509,
-          "sha256": "9bd01a88c86dc4264d0eff58a870b5465ad781194d8b3615f3780800bfe8d83e",
-          "archiveMember": "utf16_iter-1.0.5/Cargo.toml.orig"
         },
         {
           "path": "docs/notices/mcp/rust/utf16_iter-1.0.5/LICENSE-APACHE",
@@ -6167,18 +4763,6 @@
           "archiveMember": "utf8_iter-1.0.4/COPYRIGHT"
         },
         {
-          "path": "docs/notices/mcp/rust/utf8_iter-1.0.4/Cargo.toml",
-          "bytes": 1003,
-          "sha256": "df82c17a094e56a7c66d9aba1f68a1c3647518694c25326f09c5634a9012f21e",
-          "archiveMember": "utf8_iter-1.0.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/utf8_iter-1.0.4/Cargo.toml.orig",
-          "bytes": 502,
-          "sha256": "f69955726d1a34e10c075ba2570b1d13193e0420ece583b962174d1dcc076d62",
-          "archiveMember": "utf8_iter-1.0.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/utf8_iter-1.0.4/LICENSE-APACHE",
           "bytes": 11358,
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -6210,18 +4794,6 @@
         "sha256": "5ac8b6f42ead25368cf5b098aeb3dc8a1a2c05a3eee8a9a1a68c640edbfc79d9"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/uuid-1.23.0/Cargo.toml",
-          "bytes": 4949,
-          "sha256": "97960e60b42a7a84145282217eb1690b3af42354a763c749f61d1b51c1d65ae0",
-          "archiveMember": "uuid-1.23.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/uuid-1.23.0/Cargo.toml.orig",
-          "bytes": 5296,
-          "sha256": "5aa304a2efd45250d770f41b62c9ef9f8b86e1fe923237ab97feb0e97f071d97",
-          "archiveMember": "uuid-1.23.0/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/uuid-1.23.0/LICENSE-APACHE",
           "bytes": 10847,
@@ -6255,18 +4827,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/vcpkg-0.2.15/Cargo.toml",
-          "bytes": 1100,
-          "sha256": "033f71986b9ec8b8d1fcef7fa8c2c02abafb5655e10b1bbe405b9465e80108b4",
-          "archiveMember": "vcpkg-0.2.15/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/vcpkg-0.2.15/Cargo.toml.orig",
-          "bytes": 565,
-          "sha256": "6e0c0bbe553bf27610b9dee8ef3fc9d18c53371b0a2e1c67c92ab4c19a893a04",
-          "archiveMember": "vcpkg-0.2.15/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/vcpkg-0.2.15/LICENSE-APACHE",
           "bytes": 11050,
           "sha256": "60c93a31f490375aadf64098b75f10715010379541021e00261045d7800611d3",
@@ -6299,18 +4859,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/version_check-0.9.5/Cargo.toml",
-          "bytes": 1049,
-          "sha256": "399ea74400a173c02eabe91cb9487d0cf351117857a5d2ebc6231f0efde67681",
-          "archiveMember": "version_check-0.9.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/version_check-0.9.5/Cargo.toml.orig",
-          "bytes": 423,
-          "sha256": "be3876ab29038ad4ef2ec2d5c625e3b499a9a7bc7b6485fbc57f64e213331ea2",
-          "archiveMember": "version_check-0.9.5/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/version_check-0.9.5/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -6342,18 +4890,6 @@
         "sha256": "9683f9a5a998d873c0d21fcbe3c083009670149a8fab228644b8bd36b2c48cb3"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/wasi-0.14.2+wasi-0.2.4/Cargo.toml",
-          "bytes": 2103,
-          "sha256": "f43ee004589d9330d76d998fe7d9dd88ffd2a3daf5872b60fcaa495f47b02583",
-          "archiveMember": "wasi-0.14.2+wasi-0.2.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wasi-0.14.2+wasi-0.2.4/Cargo.toml.orig",
-          "bytes": 1547,
-          "sha256": "195cd2ce1ee58d8ec1639aa272cb15c0811a53524fef4c7bbf24128593e4c53d",
-          "archiveMember": "wasi-0.14.2+wasi-0.2.4/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/wasi-0.14.2+wasi-0.2.4/LICENSE-APACHE",
           "bytes": 10847,
@@ -6393,18 +4929,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-0.2.100/Cargo.toml",
-          "bytes": 2352,
-          "sha256": "ae469393a9ea0c0b265f6171f26a3c91a93a5e7cc83968f76ba8a4b4c1cdcb28",
-          "archiveMember": "wasm-bindgen-0.2.100/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-0.2.100/Cargo.toml.orig",
-          "bytes": 4073,
-          "sha256": "db925bd21fc623be23ee95e89df572869f64ba28b4ad8a5593f4434d6b46ba47",
-          "archiveMember": "wasm-bindgen-0.2.100/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/wasm-bindgen-0.2.100/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -6436,18 +4960,6 @@
         "sha256": "2f0a0651a5c2bc21487bde11ee802ccaf4c51935d0d3d42a6101f98161700bc6"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-backend-0.2.100/Cargo.toml",
-          "bytes": 1609,
-          "sha256": "b0eda410d0be0b5e6c28eac37692af650ad9763d4f55f9b263e5c1edb5f14fe9",
-          "archiveMember": "wasm-bindgen-backend-0.2.100/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-backend-0.2.100/Cargo.toml.orig",
-          "bytes": 735,
-          "sha256": "f02f932c040a50e5d76a66138bd95df88ca704a00bf0540cbe53dc70a7545f61",
-          "archiveMember": "wasm-bindgen-backend-0.2.100/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/wasm-bindgen-backend-0.2.100/LICENSE-APACHE",
           "bytes": 10847,
@@ -6481,18 +4993,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-macro-0.2.100/Cargo.toml",
-          "bytes": 1578,
-          "sha256": "3953bbe14f4c99f9a07756364e028f6b75225a07617e0892e9d06e3480408534",
-          "archiveMember": "wasm-bindgen-macro-0.2.100/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-macro-0.2.100/Cargo.toml.orig",
-          "bytes": 957,
-          "sha256": "9939d9c622451ff5ef5e82b8c14003acea698c8c8e9ed557b0412e7dd54e2420",
-          "archiveMember": "wasm-bindgen-macro-0.2.100/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/wasm-bindgen-macro-0.2.100/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -6524,18 +5024,6 @@
         "sha256": "8ae87ea40c9f689fc23f209965b6fb8a99ad69aeeb0231408be24920604395de"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-macro-support-0.2.100/Cargo.toml",
-          "bytes": 1711,
-          "sha256": "91d642858419a994d726a10fef714f9ce95d42d5c3a1e76aad9addce34dcb0b3",
-          "archiveMember": "wasm-bindgen-macro-support-0.2.100/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-macro-support-0.2.100/Cargo.toml.orig",
-          "bytes": 875,
-          "sha256": "64fbfe9826919bbde665fac9ad739f7b7ab324c2b93acc1c59ab99163ca1720f",
-          "archiveMember": "wasm-bindgen-macro-support-0.2.100/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/wasm-bindgen-macro-support-0.2.100/LICENSE-APACHE",
           "bytes": 10847,
@@ -6569,18 +5057,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-shared-0.2.100/Cargo.toml",
-          "bytes": 1410,
-          "sha256": "5bcd44eccc91a1595ca3f0438333edb53018328c4146922a65f64e274690cc26",
-          "archiveMember": "wasm-bindgen-shared-0.2.100/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wasm-bindgen-shared-0.2.100/Cargo.toml.orig",
-          "bytes": 830,
-          "sha256": "7459df8cb806d3a32cf789d60fd8b25a14873734024740c6f672b6302dd4a664",
-          "archiveMember": "wasm-bindgen-shared-0.2.100/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/wasm-bindgen-shared-0.2.100/LICENSE-APACHE",
           "bytes": 10847,
           "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
@@ -6611,20 +5087,7 @@
         "bytes": 12241,
         "sha256": "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
       },
-      "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/wit-bindgen-rt-0.39.0/Cargo.toml",
-          "bytes": 1211,
-          "sha256": "3afc3d79b7c8dc63f0c9bc2c795f4f7dbca85807618636a4b594524ed20d53ed",
-          "archiveMember": "wit-bindgen-rt-0.39.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wit-bindgen-rt-0.39.0/Cargo.toml.orig",
-          "bytes": 576,
-          "sha256": "459bfb2c3cfd34ea099ac910e9e2ed316feca9c87ff24fb4e6354e30044f07fc",
-          "archiveMember": "wit-bindgen-rt-0.39.0/Cargo.toml.orig"
-        }
-      ]
+      "retainedFiles": []
     },
     {
       "name": "write16",
@@ -6649,18 +5112,6 @@
           "bytes": 770,
           "sha256": "3210be7332b5bdf48eb24a945258b9f38616a2cceb0dfc06e3c3c7e9740475a0",
           "archiveMember": "write16-1.0.0/COPYRIGHT"
-        },
-        {
-          "path": "docs/notices/mcp/rust/write16-1.0.0/Cargo.toml",
-          "bytes": 1031,
-          "sha256": "f6061fe4963a3da73ce810908eeba5394c0eebd2068c6655f9b596c362d74680",
-          "archiveMember": "write16-1.0.0/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/write16-1.0.0/Cargo.toml.orig",
-          "bytes": 526,
-          "sha256": "9639b936043eac0b355eeaf173e512db2e6a2ca06f250823a23fa5f34f139369",
-          "archiveMember": "write16-1.0.0/Cargo.toml.orig"
         },
         {
           "path": "docs/notices/mcp/rust/write16-1.0.0/LICENSE-APACHE",
@@ -6695,18 +5146,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/writeable-0.5.5/Cargo.toml",
-          "bytes": 1422,
-          "sha256": "2f268b41ffd2b53a1b1f2bdcdbfd18e661dbe325da6647eb43faecbf2ab885d5",
-          "archiveMember": "writeable-0.5.5/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/writeable-0.5.5/Cargo.toml.orig",
-          "bytes": 1147,
-          "sha256": "31cb0cad8745e5f2ce907e12893bd2d4969e012ddac622acbd56aa3ecbe3a1a1",
-          "archiveMember": "writeable-0.5.5/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/writeable-0.5.5/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -6732,18 +5171,6 @@
         "sha256": "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/wyz-0.5.1/Cargo.toml",
-          "bytes": 1152,
-          "sha256": "91e8b522b0a6f9bdfca01cf33e3e4ce22ed0d2c777200ca8c6dc98dff25e88b0",
-          "archiveMember": "wyz-0.5.1/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wyz-0.5.1/Cargo.toml.orig",
-          "bytes": 1196,
-          "sha256": "f48d28e340bf863b5fb6551f444f484ab8f58e6600de2ab976782e57f551ef0a",
-          "archiveMember": "wyz-0.5.1/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/wyz-0.5.1/LICENSE.txt",
           "bytes": 1082,
@@ -6771,18 +5198,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/yoke-0.7.4/Cargo.toml",
-          "bytes": 2099,
-          "sha256": "aacf9dbf57d97cedfe7347223fde440c2974343682c378222fa250655262be20",
-          "archiveMember": "yoke-0.7.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/yoke-0.7.4/Cargo.toml.orig",
-          "bytes": 1458,
-          "sha256": "cd2ef2b54ec15bfbb078da753a4fe4c08f996adc29e47b5ef78713952fff5aae",
-          "archiveMember": "yoke-0.7.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/yoke-0.7.4/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -6809,18 +5224,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/yoke-derive-0.7.4/Cargo.toml",
-          "bytes": 1245,
-          "sha256": "d4b0fd2b2de102c50d8e1308b2a55f7e0d54dfa757919a15649ea16b8bfedba8",
-          "archiveMember": "yoke-derive-0.7.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/yoke-derive-0.7.4/Cargo.toml.orig",
-          "bytes": 983,
-          "sha256": "abace708248e391cb7563fbf2584f69d18205e02d6c9c862ec5a724688d06968",
-          "archiveMember": "yoke-derive-0.7.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/yoke-derive-0.7.4/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -6846,18 +5249,6 @@
         "sha256": "a1702d9583232ddb9174e01bb7c15a2ab8fb1bc6f227aa1233858c351a3ba0cb"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/zerocopy-0.8.25/Cargo.toml",
-          "bytes": 2788,
-          "sha256": "c96180e1b5be3ac422c3beb240936c140e2b8b944f78649032e075d973a426d8",
-          "archiveMember": "zerocopy-0.8.25/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zerocopy-0.8.25/Cargo.toml.orig",
-          "bytes": 4584,
-          "sha256": "d162b293b189fa40a084ed5df4762f7abcd75ff01086f0aa07c5231c8fc11cd1",
-          "archiveMember": "zerocopy-0.8.25/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/zerocopy-0.8.25/LICENSE-APACHE",
           "bytes": 11350,
@@ -6897,18 +5288,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/zerocopy-derive-0.8.25/Cargo.toml",
-          "bytes": 3780,
-          "sha256": "4fa076ccd9552f77e4039db9933ee94a4a06853f8bd9a709903436fbdf786928",
-          "archiveMember": "zerocopy-derive-0.8.25/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zerocopy-derive-0.8.25/Cargo.toml.orig",
-          "bytes": 2197,
-          "sha256": "cbb8dbd0f341e766a2975c8bbcb59c46205a0872474551e3430293668dcb598a",
-          "archiveMember": "zerocopy-derive-0.8.25/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/zerocopy-derive-0.8.25/LICENSE-APACHE",
           "bytes": 11350,
           "sha256": "9d185ac6703c4b0453974c0d85e9eee43e6941009296bb1f5eb0b54e2329e9f3",
@@ -6947,18 +5326,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/zerofrom-0.1.4/Cargo.toml",
-          "bytes": 1325,
-          "sha256": "820d60bd32dc7d3636598b9401b917ba6d31db5369604a0e55fe2290fc3c3cef",
-          "archiveMember": "zerofrom-0.1.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zerofrom-0.1.4/Cargo.toml.orig",
-          "bytes": 846,
-          "sha256": "420e387ddbb09c9d9a34c161619df68c6cf06a67d0840d043ea1bd10a9882dd1",
-          "archiveMember": "zerofrom-0.1.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/zerofrom-0.1.4/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -6984,18 +5351,6 @@
         "sha256": "0ea7b4a3637ea8669cedf0f1fd5c286a17f3de97b8dd5a70a6c167a1730e63a5"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/zerofrom-derive-0.1.4/Cargo.toml",
-          "bytes": 1229,
-          "sha256": "b76dbc86bfaf9f9f49b03acb6c276ffea8adc0f1891fbef216c720b3037948f9",
-          "archiveMember": "zerofrom-derive-0.1.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zerofrom-derive-0.1.4/Cargo.toml.orig",
-          "bytes": 975,
-          "sha256": "2e8b1da6ccdc19edc159cf787d80e3cb092ccf14efcdd9db74827162664ef020",
-          "archiveMember": "zerofrom-derive-0.1.4/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/zerofrom-derive-0.1.4/LICENSE",
           "bytes": 2195,
@@ -7023,18 +5378,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/zerovec-0.10.4/Cargo.toml",
-          "bytes": 3062,
-          "sha256": "8baec858f7de54da9a1adb29cd1376f25f5a31ee4bde64778e4885f51d15c613",
-          "archiveMember": "zerovec-0.10.4/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zerovec-0.10.4/Cargo.toml.orig",
-          "bytes": 2875,
-          "sha256": "f4e5e6b84d9572014c7f38d3aeb29e7eec814e822b6793a94a6fba0902f888a4",
-          "archiveMember": "zerovec-0.10.4/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/zerovec-0.10.4/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -7061,18 +5404,6 @@
       },
       "retainedFiles": [
         {
-          "path": "docs/notices/mcp/rust/zerovec-derive-0.10.3/Cargo.toml",
-          "bytes": 1378,
-          "sha256": "d60a5ef4e2cb4025065a294c15964f5ad5d2ad4923e339321f4dbb7b7ef11427",
-          "archiveMember": "zerovec-derive-0.10.3/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zerovec-derive-0.10.3/Cargo.toml.orig",
-          "bytes": 1068,
-          "sha256": "a3ca03779d421005e2df71d4d1d25c6b92b461e2c17e630d37b818a7a8e162d7",
-          "archiveMember": "zerovec-derive-0.10.3/Cargo.toml.orig"
-        },
-        {
           "path": "docs/notices/mcp/rust/zerovec-derive-0.10.3/LICENSE",
           "bytes": 2195,
           "sha256": "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2",
@@ -7098,18 +5429,6 @@
         "sha256": "aac060176f7020d62c3bcc1cdbcec619d54f48b07ad1963a3f80ce7a0c17755f"
       },
       "retainedFiles": [
-        {
-          "path": "docs/notices/mcp/rust/zmij-1.0.6/Cargo.toml",
-          "bytes": 1946,
-          "sha256": "bb818ca59f67899fe335501ddba7c1222537aa739f080d8cd0e322a1aa8b8336",
-          "archiveMember": "zmij-1.0.6/Cargo.toml"
-        },
-        {
-          "path": "docs/notices/mcp/rust/zmij-1.0.6/Cargo.toml.orig",
-          "bytes": 958,
-          "sha256": "182bbc185a21e89581f67fd18ef52f027aa40eeac7775921b5336f6382d00aa5",
-          "archiveMember": "zmij-1.0.6/Cargo.toml.orig"
-        },
         {
           "path": "docs/notices/mcp/rust/zmij-1.0.6/LICENSE-MIT",
           "bytes": 1023,
@@ -12662,22 +10981,10 @@
           "archiveMember": "openssl-4.0.2/README.md"
         },
         {
-          "path": "docs/notices/mcp/openssl-4.0.2/VERSION.dat",
-          "bytes": 100,
-          "sha256": "cc240b3f3ff6ab4fb83b25cf6003adc5ad6bd3c5c2533a289c982f3acb68dd13",
-          "archiveMember": "openssl-4.0.2/VERSION.dat"
-        },
-        {
           "path": "docs/notices/mcp/openssl-4.0.2/external/perl/Text-Template-1.56/LICENSE",
           "bytes": 18412,
           "sha256": "9837f05336ef3cbacb6a96e1672a0426d81ad01191f214b8d48e22ca62338181",
           "archiveMember": "openssl-4.0.2/external/perl/Text-Template-1.56/LICENSE"
-        },
-        {
-          "path": "docs/notices/mcp/openssl-4.0.2/util/perl/OpenSSL/copyright.pm",
-          "bytes": 1145,
-          "sha256": "04213b69dbebc8ba0dd8a6216af1d9422f9b63619c1cf2f1d8aa107b83bbb608",
-          "archiveMember": "openssl-4.0.2/util/perl/OpenSSL/copyright.pm"
         }
       ]
     },
@@ -12714,24 +11021,10 @@
           "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
           "url": "https://raw.githubusercontent.com/bytecodealliance/wit-bindgen/f2393e6e98fa5f9236cac580db8a3fc9de6a4b70/LICENSE-MIT",
           "upstreamRevision": "f2393e6e98fa5f9236cac580db8a3fc9de6a4b70"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wit-bindgen-rt-0.39.0/upstream/Cargo.toml",
-          "bytes": 3183,
-          "sha256": "ced920fb508f951d63554910fac38f538d0e45d47e06ba5fbf77d6c511869d40",
-          "url": "https://raw.githubusercontent.com/bytecodealliance/wit-bindgen/f2393e6e98fa5f9236cac580db8a3fc9de6a4b70/Cargo.toml",
-          "upstreamRevision": "f2393e6e98fa5f9236cac580db8a3fc9de6a4b70"
-        },
-        {
-          "path": "docs/notices/mcp/rust/wit-bindgen-rt-0.39.0/upstream/crates/guest-rust/rt/Cargo.toml",
-          "bytes": 576,
-          "sha256": "459bfb2c3cfd34ea099ac910e9e2ed316feca9c87ff24fb4e6354e30044f07fc",
-          "url": "https://raw.githubusercontent.com/bytecodealliance/wit-bindgen/f2393e6e98fa5f9236cac580db8a3fc9de6a4b70/crates/guest-rust/rt/Cargo.toml",
-          "upstreamRevision": "f2393e6e98fa5f9236cac580db8a3fc9de6a4b70"
         }
       ]
     }
   ],
-  "retainedFileCount": 896,
-  "retainedBytes": 3715284
+  "retainedFileCount": 612,
+  "retainedBytes": 3146016
 }

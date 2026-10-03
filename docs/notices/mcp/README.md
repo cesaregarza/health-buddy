@@ -1,6 +1,6 @@
 # Retained optional MCP runtime notices
 
-These are exact upstream legal texts and supporting declarations for the
+These are exact upstream legal texts for the
 observed 29-wheel MCP/backend runtime selection on CPython 3.12 Linux x86-64.
 They are evidence inputs, not executable Health Buddy plugins or dependencies.
 Original copyright notices, license alternatives, exceptions and whitespace
@@ -15,10 +15,12 @@ SBOMs are not proofs of actual linked membership.
 
 The `python` directory contains exact wheel-declared notices. `granian` and
 `rpds` retain the earlier exact-wheel component collections. `rust` contains
-pydantic-core/cryptography source-lock legal texts and Cargo declarations,
-including the exact-revision wit-bindgen supplement. `source` retains selected
-same-version package declarations and license texts. `libffi-3.4.6` and
-`openssl-4.0.2` contain the separately associated upstream inputs.
+pydantic-core/cryptography source-lock legal texts, including the exact-revision
+wit-bindgen supplement. `source` retains same-version package license texts.
+`libffi-3.4.6` and `openssl-4.0.2` contain separately associated legal texts.
+Cargo manifests and locks, version metadata and executable support files are
+not retained: the inventory records their artifact associations without
+presenting notice copies as dependency build inputs.
 
 This source collection excludes development-tool and optional provider
 environment additions. No external dependency binary is vendored here.

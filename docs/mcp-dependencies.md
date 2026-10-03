@@ -10,7 +10,7 @@ use; the inventory includes them rather than assuming they are absent.
 
 [The public inventory](../provenance/mcp-dependencies.json) records each of the
 29 wheel URLs, versions, filenames and SHA-256 values, upstream license
-metadata, and the exact retained legal/declaration file paths, sizes and
+metadata, and the exact retained legal-text file paths, sizes and
 hashes. This is an observed environment, not a cross-platform lock. The
 separately augmented development environment, build tools, browsers, and
 optional SleepIQ/PostgreSQL packages are outside this MCP runtime collection.
@@ -27,15 +27,15 @@ Health Buddy's MIT license does not replace upstream terms.
 | 29 Python wheels | All 33 declared notice files from the exact selected wheel members. |
 | Granian 2.8.3 | The wheel hash matches the earlier HTTP selection; its exact wheel RECORD/native member and SBOM mapping are retained. The same all-target SBOM supplied 147 component associations and 287 legal texts. Its source lock declares 43 further components outside that SBOM collection. |
 | rpds-py 2026.6.3 | The wheel, native member and SBOM hashes match the extension dependency inventory. Its 18 source-lock component associations supplied 36 legal texts; one source-lock component is absent from the all-target SBOM. |
-| pydantic_core 2.46.5 and cryptography 50.0.1 | Exact wheel SBOM and same-version PyPI source archives bind the collected declarations. The conservative union of their source locks contains 134 registry components, with 510 Cargo declarations/legal files. Selected source manifests and license texts also cover one pydantic-core and eight cryptography local workspace packages. |
-| wit-bindgen-rt 0.39.0 | The checksum-verified crate's clean Cargo VCS metadata points to commit `f2393e6e98fa5f9236cac580db8a3fc9de6a4b70`, path `crates/guest-rust/rt`. All three license alternatives and the two workspace/runtime declarations are retained from that exact revision. |
+| pydantic_core 2.46.5 and cryptography 50.0.1 | Exact wheel SBOM and same-version PyPI source archives bind the recorded associations. The conservative union of their source locks contains 134 registry components, with 245 retained legal texts. Five package license texts are retained from the same-version source archives; source workspace associations remain in the inventory without copying their Cargo manifests. |
+| wit-bindgen-rt 0.39.0 | The checksum-verified crate's clean Cargo VCS metadata points to commit `f2393e6e98fa5f9236cac580db8a3fc9de6a4b70`, path `crates/guest-rust/rt`. All three license alternatives are retained from that exact revision; the inventory records the workspace/runtime declaration provenance without retaining the manifests. |
 | CFFI 2.1.1 / libffi 3.4.6 | CFFI's immutable release recipe names libffi 3.4.6; the selected CFFI binary's static ffi symbol corroborates the association. The libffi license is retained from commit `3d0ce1e6fcf19f853894862abcbac0ae78a7be60`. Recipe association is weaker than full binary provenance. |
-| cryptography / OpenSSL 4.0.2 | The wheel-carried OpenSSL SBOM names this source version. Seven exact archive inputs retain four named legal files and associated declarations, including conservative build-support notices. |
+| cryptography / OpenSSL 4.0.2 | The wheel-carried OpenSSL SBOM names this source version. Five exact archive inputs retain named legal texts and build-support notices; version metadata and executable support code are excluded. |
 
-There are 896 retained upstream files (3,715,284 bytes) under
-[notices/mcp](notices/mcp/README.md). The manifest distinguishes copied legal
-texts from supporting Cargo/OpenSSL declarations; file counts are not counts
-of unique licenses or proven linked components. Repeated component versions
+There are 612 retained upstream files (3,146,016 bytes) under
+[notices/mcp](notices/mcp/README.md). Only legal texts are retained; Cargo
+manifests and locks, version metadata and executable support files are excluded. File counts are not counts of
+unique licenses or proven linked components. Repeated component versions
 can have separate associations with multiple wheels. Public provenance stores
 original archive members or immutable upstream paths rather than private
 verification directories or logs.
@@ -54,8 +54,8 @@ reproducible wheel build. Member hashes taken from a wheel RECORD are labeled
 separately from hashes measured on collected member bytes. Granian/RPDS reuse
 is bound to the exact wheel hashes, not just matching version labels.
 
-The OpenSSL collection covers named legal/declaration files. It does not
-establish an independent audit of every inline copyright/license header.
+The OpenSSL collection covers named legal texts and build-support notices.
+It does not establish an independent audit of every inline copyright/license header.
 The CFFI recipe and static symbol do not establish an exhaustive bill of
 materials. These limits remain part of binary artifact qualification.
 
