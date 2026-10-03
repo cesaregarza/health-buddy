@@ -129,138 +129,65 @@ separate cases. Exact raw check output must establish which assertions ran;
 source authorship alone is not verification.
 
 ## Fresh-agent install rehearsal
+Repeat this owner-host gate after onboarding, bootstrap, installer or credentialed-CLI changes. Source tests do not replace it. Use synthetic data on a fresh disposable host;
+provisioning, downloads, model sessions and teardown require operator authorization.
 
-Repeat this procedure whenever the README, install guide, bootstrap, installer or
-credentialed CLI changes. Source tests above do not replace this owner-host gate.
-Use only synthetic records on a disposable host. Run two consecutive fresh Haiku
-sessions without intervention before repeating with Sonnet; retain unsuccessful
-runs too. A stronger model's result does not replace the small-model evidence.
+### Inputs and private setup
 
-The operator runs [tools/rehearsal](../tools/rehearsal/README.md), adapted from the
-CES-1104 harness used for rounds 1–5. Provisioning, downloads, model calls and
-host deletion require authorization for the run. These commands describe a live
-rehearsal; adding this recipe does not execute it or establish acceptance.
+Select a clean candidate and canonical onboarding Markdown page through the trusted publisher path. Require raw HTTPS, current release/trust instructions and resolved placeholders.
+Never compute pins from downloads, switch publisher or alter the served URL. Prompt protocol `one-url/2` gives the agent only that URL, the synthetic install and round-trip task,
+and the owner's local-only/no-private-HTTPS decision. The agent must discover host facts; provide no artifact URLs/hashes, host facts, stage answers or command hints.
+Supplied-input prompts are historical, not `one-url/2` evidence.
 
-### Prerequisites and operator inputs
-
-Prepare an exact clean candidate after the install-doc fixes, with matching
-published README and linked docs, source bundle, runtime manifest and source/image
-assets. Public HTTPS URLs must meet the install guide's same-origin transport
-rules. Private GitHub assets requiring download credentials cannot exercise the
-unauthenticated acquisition path; use an authorized public static publisher or a
-public GitHub Release. Record which path was actually tested.
-
-Select a publicly reachable canonical onboarding Markdown URL through the
-owner's trusted publisher path. It must serve the raw page over HTTPS. This
-is the only URL supplied to the agent; the page must provide current release
-instructions and trusted artifact values or link to their authorized source.
-A page with unresolved placeholders is not a usable candidate. Never compute
-replacement hashes from downloaded files, bypass a missing pin, or switch to
-another publisher. Preserve
-the selected URL and linked published-doc identity in the private receipt. The
-stable publisher root `https://health-buddy.garz.ai/` is already served; leave it
-unchanged and do not create or alter hosting for this rehearsal.
-
-The harness uses an authenticated `doctl`, OpenSSH, Bash and Python 3 on the
-operator's native Linux machine. Supply a unique disposable host name,
-`DO_SSH_KEY_ID` (your authorized SSH key), `DO_REGION` and `DO_SIZE` (at least
-2 vCPU/4 GB). Its image is `ubuntu-24-04-x64`; use a fresh host per run. Preparation
-installs Docker Engine/Compose and the Node/Claude Code harness, creates ordinary
-user `owner` with Docker-group membership and passwordless sudo, and records
-versions. Docker's server must be 29.x. Do not seed a workspace, checkout, owner
-credential, install receipts or answers to install-stage variables. An ARM run
-requires a fresh ARM target and its own receipt; x86 evidence does not cover it.
-
-Supply `PRIVATE_MODEL_TOKEN_FILE`: an operator-owned, non-symlink, mode-0600 file
-containing one line and a trailing newline, with a short-lived model credential
-from your credential manager. `AUTH=oauth` uses a Claude subscription token;
-`AUTH=apikey` uses an Anthropic API key. The subsequent real-client helper uses
-OAuth; provide that credential separately if the first session used an API key.
-Never put credentials into the prompt, arguments, Git, shared logs or examples.
-The harness transfers the value via SSH stdin, exports it without shell evaluation
-and removes its temporary remote file before starting Claude. Do not enable shell
-tracing. Follow the credential cleanup rules in Teardown and verdict below;
-deleting a credential file is not revocation. The credential's availability,
-budget and SSH reachability are operator
-prerequisites, not install successes or agent stalls.
-
-Use a private operator directory so credentials, raw transcripts, host addresses
-and synthetic owner tokens cannot enter a public checkout:
+Use a private native Linux kit, authenticated `doctl`, OpenSSH, Bash and Python 3. The fresh host needs at least 2 vCPU/4 GB; the helper prepares Docker Compose and Claude Code,
+records versions and creates ordinary `owner`. It seeds no workspace, checkout, credential, receipts or stage answers. Record actual OS/architecture and Claude Code version. Enter
+operator inputs once:
 
 ```sh
 umask 077
 REHEARSAL_KIT="$(mktemp -d /tmp/hb-rehearsal.XXXXXXXX)"
 cp -a tools/rehearsal/. "$REHEARSAL_KIT/"
-read -r -p 'Disposable host name: ' REHEARSAL_NAME
+read -r -p 'Unique disposable host name: ' REHEARSAL_NAME
 read -r -p 'Authorized SSH key ID: ' DO_SSH_KEY_ID
 read -r -p 'Cloud region: ' DO_REGION
-read -r -p 'Host size: ' DO_SIZE
-read -r -p 'Private model credential file: ' PRIVATE_MODEL_TOKEN_FILE
-read -r -p 'Model credential kind (oauth or apikey): ' AUTH
+read -r -p 'Host size (at least 2 vCPU/4 GB): ' DO_SIZE
+read -r -p 'Private one-line model credential file: ' PRIVATE_MODEL_TOKEN_FILE
+read -r -p 'Credential kind (oauth or apikey): ' AUTH
+read -r -p 'Canonical onboarding Markdown URL: ' ONBOARDING_URL
 export DO_SSH_KEY_ID DO_REGION DO_SIZE PRIVATE_MODEL_TOKEN_FILE AUTH
+```
+
+Credential file must be owner-owned, non-symlink, mode 0600, one line plus newline. Keep credentials out of prompts, arguments, Git and shared logs; the harness transfers them over
+SSH stdin and removes remote temporary copies. Never enable shell tracing. If `AUTH=apikey`, the later client check needs a separate OAuth file. Record source / published-doc
+commits, URLs/pins, host and tool versions, umask, times, limits and auth kind privately. Inspect `prepare.log`; do not silently alter the host scenario.
+
+### 1. Provision
+
+Provision failure is not an install result; retain its host ID for teardown.
+
+```sh
 "$REHEARSAL_KIT/provision.sh" "$REHEARSAL_NAME" > "$REHEARSAL_KIT/prepare.log" 2>&1
 ```
 
-Record the source commit, published-doc commit, URLs/pins, OS/architecture, Docker
-server/Compose, Python, Node, Claude Code and model versions, umask, start/end time,
-limits and auth kind in a private receipt. Inspect `prepare.log` before proceeding.
-On provisioning failure, keep the recorded droplet ID and perform teardown; a
-partially prepared host does not become a fresh install result. Preparation
-intentionally installs no product dependencies: the agent follows the README for
-those. Do not change Docker's image-store settings or apply another workaround
-silently; record any such operator change as a different host scenario.
+### 2. Render `one-url/2`
 
-### One-URL prompt and unattended session
-
-This is prompt protocol `one-url/2`. Render the prompt in the private kit with the
-owner-selected canonical onboarding Markdown URL as the single input:
+Render with the sole canonical page URL. The helper rejects non-HTTPS or credentialed, query/fragment URLs; review for the single URL and no host facts or hints.
 
 ```sh
-read -r -p 'Canonical onboarding Markdown URL: ' ONBOARDING_URL
 python3 "$REHEARSAL_KIT/render-prompt.py" "$ONBOARDING_URL"
 ```
 
-The renderer rejects non-HTTPS URLs and writes `prompt.md` from the checked-in
-template. The prompt gives the agent that one URL, the install and
-synthetic round-trip task, and the owner's local-only/no-private-HTTPS decision.
-It provides no artifact URLs or hashes, host facts, stage answers or command
-hints. The agent must discover host facts and follow the exact owner-selected
-publisher path; it must not calculate or substitute trust pins. `run.sh` refuses
-a missing, empty or unfilled prompt and records `one-url/2` with the private run
-receipt. Do not alter or republish the existing stable publisher URL for this
-recipe. Earlier supplied-input prompts that passed artifact values or host facts
-to the agent are pre-v2 history, not one-url/2 runs.
+### 3. Run a fresh unassisted install
 
-Run 6 after CES-1114 used an earlier prompt. The no-Tailscale scenario exercises
-the documented same-host managed socket and agent stage; it does not qualify
-private HTTPS or a remote client.
-
-Start a new Claude process with no prior conversation/resume, hints, personal
-files, repository checkout or operator skill context. The only extra installed
-software is the prerequisite/harness tooling above. `run.sh` explicitly uses
-ordinary `owner`, `umask 002`, and unsets `PYTHONDONTWRITEBYTECODE`,
-`PYTHONPYCACHEPREFIX` and `PYTHONPATH` immediately before launching. Do not use
-`python -B`, a bytecode-suppression environment workaround, or an altered installer
-to pass the run. The product's own bytecode handling remains part of what is tested.
-Claude's permission bypass is confined to this throwaway host. The stdin redirect
-`< /dev/null` must stay: otherwise Claude can consume the rest of the SSH heredoc
-as additional prompt text.
+No resume, prior conversation, personal files, checkout or operator skills. The helper runs as `owner`, uses `umask 002`, clears Python path/bytecode overrides and retains `<
+/dev/null`; do not alter those conditions. Default is Haiku, 250 turns, 3600 seconds. Record explicit model/limit changes. Preserve transcript, stderr, exit record and `STALLS.md`;
+timeout or zero exit alone is not success. Do not intervene; if needed, record before/after actions, mark assisted and retry on a new host.
 
 ```sh
 "$REHEARSAL_KIT/run.sh"
 ```
 
-The default model is `claude-haiku-4-5-20251001`, with 250 turns and a 3600-second
-wall limit; `MODEL`, `MAX_TURNS` and `WALL` may be explicitly selected and recorded.
-Keep the transcript, stderr, harness exit record and agent's `STALLS.md` under the
-reported private run directory. Missing transcript or exit record means incomplete
-evidence. A timeout or zero shell exit does not establish success. Do not intervene
-mid-run; if intervention is necessary, preserve the before/after commands and
-label the run assisted. Start the next acceptance attempt on a new host.
-
-### Independent evidence and real client
-
-Set `RUN` to the reported private run directory. Produce convenient derived views:
+### 4. Build evidence views and review the raw run
 
 ```sh
 read -r -p 'Private run directory: ' RUN
@@ -268,149 +195,52 @@ python3 "$REHEARSAL_KIT/stages.py" "$RUN/transcript.jsonl" > "$RUN/stages.txt"
 python3 "$REHEARSAL_KIT/summarize.py" "$RUN/transcript.jsonl" > "$RUN/summary.md"
 ```
 
-These views truncate output. Review the full raw transcript for every command,
-refusal, retry and final claim, including bootstrap/acquire/preflight/prepare,
-owner setup, activation and agent configuration. Extract every stall verbatim
-(command, full error, next attempt), even if `STALLS.md` is absent. Link each stall
-to its fix commit or issue. Keep prompt and raw evidence immutable; share only
-reviewed, redacted copies with credential values and private host details removed.
+Ledger and summary are lossy. Keep raw prompt/transcript immutable; review every stage, command, refusal, retry, final claim and stall, with full error and next attempt. Link
+stalls to fix commits/issues. Keep receipts private; redact before sharing.
 
-After the agent exits, independently open an ordinary `owner` shell on the
-recorded target. Use its retained `env.sh`, not guessed paths or a new setup:
+### 5. Independently check host state and authenticated read-back
+
+From the target host's ordinary `owner` shell, use retained `env.sh`; do not repair first. Enter the exact write instant from the transcript and save results.
 
 ```sh
+read -r -p 'Written UTC instant from transcript: ' MEASURED_AT_UTC
 . "$HOME/health-buddy/env.sh"
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 "$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" status --json
-"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" context --scopes all --days 1
+"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" records --source-ids manual --kinds body-mass --from "$MEASURED_AT_UTC" --to "$MEASURED_AT_UTC" --limit 10
 find "$OWNER_WORKSPACE" -perm /022 -print
 docker ps -a --format '{{.ID}} {{.Status}} {{.Image}}'
 ```
 
-Save exact commands/output privately. Check journal `ownerSetup.phase=ready`,
-`activation.phase=active`, and `agentSetup.phase=configured`; record current
-container health separately. Require `ownerAuthenticated`, `runtimeLastActive`
-and `agentGrantRetained` from status, but remember `runtimeLastActive` is a
-retained journal fact, not a live health probe. Read back the agent's exact
-150 lb record and timestamp through the credentialed canonical API; retain its
-write response/revision and subsequent read response. The CLI uses the in-process
-authenticated service; the separate MCP check below proves the managed socket
-path and retains a wire API read-back. The example
-`context` read is text, not JSON; choose a window containing the recorded timestamp.
-A CSV check corroborates storage but is not authenticated read-back. Reading
-`native-client.json`, a grant, settings or another metadata file is not API proof.
-Any `--development` use must be reported separately and cannot substitute for
-credentialed installed-runtime write/read success. Never repair the installation
-before collecting its independent evidence.
+Require ready owner, active activation, configured agent, `ownerAuthenticated`, `runtimeLastActive` and `agentGrantRetained`; the last flag is retained journal state, not live
+health. Preserve write response/revision and authenticated read response; match kind `body-mass`, source `manual` and exact `observedAt`; compare returned value/unit with the write response, allowing canonical unit conversion. Context summaries or
+private files are not exact read-back. Report any development-mode use separately; it cannot replace credentialed installed-runtime success.
 
-For a real client check, set `PRIVATE_JOURNAL` to that run's absolute install-journal
-path and supply the private OAuth credential file. `client-check.sh` launches a
-second fresh Claude session with only the recorded MCP configuration and the
-capability restrictions below, asks for
-`sync_status`, `get_context` (weight scope, days 1, limit 20), and `list_records`
-(`sourceIds: [manual]`, `kinds: [body-mass]`, limit 20). Before that observer session,
-it reads the target host's UTC clock and records `client-observer-window.json`:
-`from` is the previous UTC day's midnight and `to` is the current UTC day's
-23:59:59Z. This window covers midnight crossings and a record dated today at noon.
-It belongs only to the post-run observer and is never added to the unattended
-install prompt. Keep that window and the exact raw tool requests/results with the
-receipt. Context provides a date summary; it cannot prove the exact `observedAt`.
-The helper refuses an unfinished agent stage; do not complete it by hand and call that agent success.
+### 6. Check the fresh client and observer calls
+
+The helper refuses an unfinished agent stage; never complete it by hand. With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Supply the absolute
+install-journal path. Retain observer window/catalog, transcript and results.
 
 ```sh
-read -r -p 'Target journal path: ' PRIVATE_JOURNAL
-read -r -p 'Private OAuth credential file: ' PRIVATE_MODEL_TOKEN_FILE
-export PRIVATE_JOURNAL PRIVATE_MODEL_TOKEN_FILE
+read -r -p 'Absolute install-journal path: ' PRIVATE_JOURNAL
+export PRIVATE_JOURNAL
 "$REHEARSAL_KIT/client-check.sh" "$RUN"
 ```
 
-The next observer revision uses `--tools ToolSearch` to remove other built-in
-capabilities, bare `--disallowedTools` names to remove the eight other MCP tools,
-and `--permission-mode dontAsk` with an explicit allowlist for ToolSearch and the
-three reads. `--allowedTools` alone grants permission; it does not restrict tool
-availability. Empty `--setting-sources`, disabled slash commands and strict MCP
-configuration prevent inherited settings, skills or other servers from expanding
-this check. The helper checks the configured server's schema catalog before
-launch and refuses an unexpected catalog; retain `client-observer-catalog.json`.
-This reads schema metadata, not owner data, and supplies no install-stage hint.
-Claude retains its own EndConversation session-control tool when MCP is present.
-The [official tools reference](https://code.claude.com/docs/en/tools-reference#endconversation-tool-behavior)
-describes it for rare abusive-input termination or explicit demonstrations, not
-normal turn completion. Its invocation still fails this observer gate.
+Allow only `ToolSearch` metadata discovery and MCP `sync_status`, `get_context` and `list_records`. Require all three successful calls and no shell/file/web shortcut; compare exact
+record value/unit/time to the authenticated write. The checker verifies invocation shape, not result semantics; inspect raw calls and results. Its strict config/allowlist limits
+tools, whereas `--allowedTools` alone does not. Flag semantics were checked on Claude Code 2.1.284. Record actual version and exposed tools/calls;
+generated config alone is not client proof.
 
-These flag semantics were checked against installed Pi Claude Code **2.1.284**
-help and the [official CLI reference](https://code.claude.com/docs/en/cli-reference).
-Frozen runs 8 and 9 used **2.1.197**; this inspection does not establish that older
-version's behavior. Record the actual CLI version and inspect the next session's
-raw exposed-tool metadata and tool calls; local checks alone do not prove the
-fresh client's capability restriction.
+### 7. Teardown and verdict
 
-Require successful MCP results for all three calls, with no shell/file shortcut.
-Compare the raw `list_records` record's value, unit and `observedAt` to the
-unassisted write, including any unit conversion; an empty result, absent
-`list_records` call or missing exact timestamp leaves record read-back unproven.
-A context summary or successful sync status alone is not that evidence.
-The no-shell instruction has previously allowed an `echo` shortcut. Inspect the
-raw transcript for every tool call and report such deviations even if harmless.
-`client-observer-check.json` records required MCP call presence, non-MCP tool
-names and malformed transcript lines. Claude's `ToolSearch` discovers deferred
-MCP tools; the checker records it separately as metadata discovery and admits it.
-It still requires all three exact `mcp__health_buddy__` read calls and refuses
-unexpected MCP calls, malformed lines or other non-MCP use, including Bash, file
-and web shortcuts. This check records invocation evidence only: the operator
-must still assess exact API results and record matching. These calls check
-Claude → adapter → managed socket → API; converting a Codex config to Claude's MCP shape does not prove a named Codex session or skill discovery.
-Record those as separate checks when required. Generated configuration alone is
-not client evidence. The helper keeps its temporary MCP config on the host rather
-than copying it into receipts; check receipts for credentials before sharing.
-
-### Teardown and verdict
-
-Always tear down the same recorded droplet, including after a stall, timeout or
-preparation error. Preserve the raw receipts first. `teardown.sh` deletes by the
-created numeric ID; it never selects a host by a guessed name. Verify that exact
-ID is absent in an independently refreshed provider inventory before declaring
-cleanup complete; an API/auth/network error is not absence. The scripts remove
-remote temporary model-credential files on exit where SSH remains reachable;
-host deletion handles an unreachable target. Revoke credentials created solely
-for the run where applicable. Remove temporary copies of borrowed shared model
-credentials without revoking unrelated shared authority. Remove any temporary
-publisher assets under their separately approved lifecycle, and
-retain only the private evidence required for review. Do not delete a shared
-publisher or unrelated hosts.
+Preserve receipts, then remove only the recorded numeric host ID:
 
 ```sh
 "$REHEARSAL_KIT/teardown.sh"
 ```
 
-Report installation, authenticated synthetic write/read-back, real-client
-connection, stalls/intervention, skipped checks and teardown as separate outcomes.
-Acceptance requires two consecutive unassisted small-model runs with the required
-raw evidence and linked earlier-stall fixes; the recipe itself proves none of them.
-CES-1104 comments consider criterion 1 met by runs 3–4 (and report run 5 as another
-install). Preserve those historical claims separately: run 4 used `--development`,
-while run 5 needed operator client follow-through and its agent read-back was
-metadata, not an API read. Judge the next docs-only attempt from host/API evidence.
-If the agent again chooses a future timestamp, retain the raw write/read results
-and report that behavior as a finding; do not add a corrective prompt hint.
-Run 6 after CES-1114 passed installation and setup, but its authenticated record
-round-trip failed. CES-1118 owns that repair. Current acceptance is tracked on
-CES-1104; this documentation change closes no live acceptance gate.
-
-Frozen run 8 passed the unattended install/write/read and separate observer,
-including all three successful MCP reads with an identical record. Frozen run 9
-failed acceptance: its install/write/read succeeded, but observer `get_context`
-returned `503 outcome_unknown` while the other two reads succeeded, and a Bash
-announcement violated the observer gate. Preserve those original outcomes and
-transcripts; the next observer restriction does not retroactively pass run 9.
-CES-1120 owns the admission repair.
-
-CES-1104 comments report runs 13 and 14 as consecutive unassisted Haiku installs
-with authenticated 150-lb read-back and real Claude MCP calls. Those prompts
-included the publisher URL plus seeded host facts and are historical supplied-input
-evidence; retain their raw receipts unchanged. They do not establish
-that the stricter no-host-facts `one-url/2` protocol has been live-verified. Treat
-those earlier supplied-input prompts as pre-v2 history, not as one-url/2 runs.
-Sonnet repetition remains unrun. These rehearsal outcomes do not qualify a
-release, physical device or cross-agent installation. CES-1104 acceptance remains
-open pending the reviewed one-url/2 rehearsal and Sonnet evidence.
+Require a refreshed provider inventory confirming that ID absent; API/auth/network failure is not proof. Revoke credentials created only for this run when appropriate; remove
+borrowed temporary copies without revoking shared authority. Report installation, authenticated write/read-back, client check, stalls/intervention, skipped checks and teardown
+separately. Acceptance needs two consecutive unassisted Haiku runs with raw evidence and linked stall fixes, then Sonnet repetition. No run qualifies release, physical-device or
+cross-agent behavior. Preserve history unchanged; do not retroactively pass older prompt protocols.
