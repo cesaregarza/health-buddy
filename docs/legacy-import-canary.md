@@ -1,6 +1,6 @@
 # Synthetic retained-record import tracers
 
-These bounded CES-1081 slices export the retained measurement CSV schema or
+These bounded synthetic canaries export the retained measurement CSV schema or
 workout sessions and their sets together, adopting either snapshot into a new
 isolated native workspace. It is not a live migration
 or cutover. Do not select personal data for this development tracer.
@@ -127,9 +127,8 @@ preference file blocks exact repeat rather than overwriting owner changes.
 Separate adapters below cover retained HealthKit records/tombstones and device
 acknowledgement replay. The unified canary composes those inputs with the reviewed
 SleepIQ nightly export, historical intake normalization, redacted reconciliation
-and a separate encrypted-backup readiness guard. Remaining parent CES-1081 gates
-include other unsupported manual/connector forms, actual legacy deployment backup
-before any live cutover, real phone identity/checkpoint/epoch qualification,
+and a separate encrypted-backup readiness guard. Any live cutover still needs a
+complete legacy backup and separate phone identity/checkpoint/epoch qualification.
 upstream connector synchronization and an explicitly authorized live canary or
 cutover. Synthetic source coverage does not supply that external evidence.
 
@@ -210,7 +209,7 @@ data-only phase; admission does not rewrite that source receipt or health record
 The actual SecurityStore synthetic fixture proves replacement pairing, old-token
 refusal, exact acknowledged replay and a genuinely new batch. Real phone identity,
 checkpoint/epoch reconciliation and cutover still require separate device evidence.
-This checkpoint does not complete CES-1081 or authorize a personal/deployed receiver.
+This synthetic canary does not authorize a personal or deployed receiver.
 
 ## One unified synthetic canary
 

@@ -2,21 +2,21 @@
 
 Start with [the canonical agent guide](docs/agent-guide.md). Codex and Claude
 Code share this source map, runnable synthetic maintenance path and check selection.
-Read README.md and docs/delivery.md for project status. The v1 contract is normative
-for later implementation tickets. If implementation
+Read README.md, docs/architecture.md and docs/verification.md for project
+status and maintainer guidance. The v1 contract is normative. If implementation
 requires a contract change, update the version, examples and checks together;
 do not quietly invent a second API or data owner.
 
 ## Boundaries
 
-- Use native Linux repositories, caches, build paths and scratch space. Do not
-  access Windows mounts without explicit task-scoped permission.
-- Public code, examples, logs, and tests use synthetic health data. Do not copy
-  private Git history or personal defaults from extraction sources.
-- CSV/JSON and HealthKit SQLite remain authoritative through their named store
-  adapters. Dashboard, tools, extensions and clients use canonical operations.
-- Personal source, assets, config, tests, notes and state live outside release
-  images. Never delete or overwrite personal work to complete an upgrade.
+- Stay inside the repository, its virtual environment and task-owned scratch
+  space.
+- Examples and tests use synthetic data. Never inspect or include an owner's
+  private health data, credentials or files in source or artifacts.
+- Named stores remain authoritative; dashboards, tools, extensions and clients
+  use canonical operations.
+- Personal workspaces remain outside release artifacts and are never deleted or
+  replaced by source tasks.
 - Implementation PRs do not authorize merges, deployment, production migration,
   paid signing builds, external Apple distribution or release publication.
 
@@ -43,11 +43,8 @@ owning ticket.
 Pushes, pull requests and merges wait for the coordinator's review and the
 operator's approval. GitHub Actions stay manual during the Actions-minutes
 hold: `ci.yml` runs only on manual dispatch, and `runtime-candidate.yml` runs
-on manual dispatch or on a push to a `validation/ces1068-*` branch, which is
-gated like any other push. Before a push or draft PR, check which workflows it
+on manual dispatch or on a push to a
+`validation/ces1068-*` branch, which is gated like any other push. Before a push or draft PR, check which workflows it
 triggers. Do not add triggers or disable unrelated workflows to get around the
 hold. Only an operator decision, recorded by the coordinator, changes this
 section.
-
-Provenance notes that cite "the queue" record receipts from the retired
-P-CES-17 testing queue; they are history, not instructions.

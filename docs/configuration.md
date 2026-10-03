@@ -16,7 +16,7 @@ Open `http://127.0.0.1:8791`. This is a **local development
 entrypoint**, without production authentication. It binds only loopback, checks
 the exact Host and same-origin mutation requests, and denies cross-origin
 preflight. Do not expose it through a proxy, tunnel or public interface. The
-production runtime/installer is CES-1068. [Authorization setup](authorization.md)
+production runtime and installer are separate deployment paths. [Authorization setup](authorization.md)
 provides explicit native credentials and protected browser sessions; browser
 login also needs deliberately configured HTTPS ingress.
 Development mode refuses a workspace an installation has prepared

@@ -1,7 +1,7 @@
 # CPython 3.12, Linux x86_64 wheel closure for source checks (not an image lock).
-# Reuses accepted CES-1072 dev inventory and inherited-dev augmentation.
+# Reuses the accepted runtime/MCP, development-tool and SleepIQ test inventory.
 # Exact binary hashes; no resolver, source builds, browser, build backend or keys.
-# CES-1133 adds pytest-xdist and its dependency execnet (py3-none-any, PyPI).
+# Includes pytest-xdist and its pure-Python dependency execnet.
 # Bootstrap pip belongs to the selected Python installation, not this closure.
 aiohappyeyeballs==2.7.1 --hash=sha256:9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472
 aiohttp==3.14.3 --hash=sha256:543906c127fb1d929b95076db19b83fa2d46751006ff1e23b093aa5ac4d8db42

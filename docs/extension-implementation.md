@@ -157,10 +157,10 @@ cooperate with these locks; inventory reports changing/unsupported files as
 incomplete instead of claiming a coherent snapshot.
 
 Compatible source replacement and fresh-process behavior are local acceptance
-cases. Actual container replacement/architectures are CES-1068, copied/encrypted
-restore and credential rotation CES-1070, upgrade/migration CES-1071, shared
-agent tools CES-1072, scaffolding/guides CES-1086 and cross-agent/device release
-qualification CES-1083. This implementation does not claim those later gates.
+cases. Container replacement, cross-architecture behavior, copied/encrypted
+restore, credential rotation, upgrades, migration and cross-agent/device/release
+qualification require separate evidence. This implementation does not claim
+those properties.
 
 Retained native receipts exclude the transport-only `Idempotency-Replayed`
 header. The canonical status, body and other headers remain unchanged on

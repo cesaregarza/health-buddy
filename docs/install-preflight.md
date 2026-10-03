@@ -18,8 +18,7 @@ workspace an installation has prepared
 
 Verification uses synthetic host responses and real local workspace/authority/
 client files. Actual owner-host/HTTPS/phone acceptance remains unqualified, and
-named-client gates remain open in CES-1073/1074; CES-1083 owns cross-agent/final
-upgrade qualification. Owners run the documented native commands under their
+named-client and cross-agent/upgrade qualification require separate evidence. Owners run the documented native commands under their
 own authorization.
 
 ## Before the first stage
@@ -470,7 +469,7 @@ without its original preparation journal. Keep external writers/editors stopped
 during initialization; this does not authorize recursive chown/chmod or manual
 rewriting of a journal to adopt an unrelated installation.
 
-Source preparation reuses the frozen CES-1071 pinned-release/personal-compatibility
+Source preparation reuses the pinned-release and personal-compatibility
 preflight. Existing installations still use [backup/staging and recoverable
 upgrade](recoverable-upgrade.md), never this empty-workspace initializer. No new
 migration, restore identity, backup implementation or runtime API is introduced.
@@ -1019,5 +1018,5 @@ credentials and scoped grants, fake Serve setup/removal, interrupted client
 files and exact-container stop/remove acknowledgements. They preserve identity,
 revision, personal notes, unrelated settings/routes/grants and private recovery
 material. They never run Docker/Tailscale/client/model processes. These checks do
-not qualify an actual daemon, HTTPS connection, named agent or phone; required
-live acceptance remains open for the owning tickets, so CES-1077 is not complete.
+not qualify an actual daemon, HTTPS connection, named agent or phone; these
+require separate live evidence.

@@ -3,8 +3,8 @@
 
 Synthetic preview is the supported extraction-stage entrypoint. The legacy
 source adapters below require explicit configuration and are not the v1 API.
-CES-1065 replaces host configuration; CES-1066 routes reads/writes through
-canonical operations. No original host, owner or personal data is included.
+Earlier extraction work replaced host configuration and routed reads and writes
+through canonical operations. No original host, owner or personal data is included.
 """
 from __future__ import annotations
 

@@ -61,7 +61,7 @@ def _paused_writer(root, credential_reference, phase, pipe):
 
 @pytest.mark.parametrize("phase", ["before-send", "after-commit"])
 def test_whole_workspace_snapshot_replays_original_pending_event(tmp_path, phase):
-    """Pre-restore copy: epoch rotation and operator restore are CES-1070 gates."""
+    """Pre-restore copy: epoch rotation and operator restore are separate gates."""
     root = tmp_path / "owner"
     runtime, owner, owner_token, _proof, setup = prepared(root)
     initial = runtime.operations.journal.state()

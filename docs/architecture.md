@@ -46,8 +46,7 @@ in [canonical-clients.md](canonical-clients.md) before adding a command.
 The source-bundle development entrypoint uses explicit `--development`, binds
 loopback, and applies the development policy. Default policy denies protected
 operations. Production sessions, grants and pairing use the [security authority](authorization.md);
-the [packaged runtime](runtime-packaging.md) uses the same authority and canonical service. The prior extraction preview and CES-1065 HTTPServer were historical
-stages; they are not parallel supported runtime paths.
+the [packaged runtime](runtime-packaging.md) uses the same authority and canonical service. Earlier prototype servers are not parallel supported runtime paths.
 
 Owner records, personal source/assets/config/tests/notes/migrations/state and
 secrets belong in the persistent workspace described in [extensions.md](extensions.md).

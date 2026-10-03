@@ -1,6 +1,6 @@
 # Backup crypto input provenance
 
-CES-1070 reuses the existing hosted-SDK versions and license notices:
+The backup crypto dependency set uses these exact versions and license notices:
 `cryptography==50.0.1`, `cffi==2.1.1`, `pycparser==3.0`. Product dependencies and
 both runtime platform wheel inventories now name those exact versions.
 The existing amd64/common URL, size and SHA256 records come unchanged from

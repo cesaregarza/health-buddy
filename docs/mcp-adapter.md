@@ -1,8 +1,8 @@
 # Local MCP adapter
 
-This adapter is being verified for CES-1072. The source checkpoint is not an
-installation or release qualification. Installable artifacts and host-specific
-Codex/Claude Code guidance have separate verification gates.
+This adapter is a source integration, not installation or release qualification.
+Installable artifacts and host-specific Codex/Claude Code guidance require
+separate verification.
 
 The optional `mcp` dependency group supplies the maintained SDK and HTTPX2. The
 dedicated `health-buddy-mcp --settings /absolute/private/adapter.json` command

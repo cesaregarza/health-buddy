@@ -35,7 +35,7 @@ of an owner configuration for an independently wired private Tailscale proxy:
 
 Use the actual canonical HTTPS origin and exact verified owner subject when an
 operator configures the proxy. Source commands do not create HTTPS certificates,
-Tailscale Serve wiring or a trusted connection; deployment is CES-1068. Once
+Tailscale Serve wiring or a trusted connection. Once
 that ingress is configured, `health-buddy --workspace PATH serve` starts the
 private backend. An existing retained owner credential can log in there.
 
@@ -130,8 +130,8 @@ inventory, and admission stays closed. There is no automatic old-authority
 restoration or arbitrary sidecar cleanup. SQLite can replay a hot journal before
 reading a database, so old sidecars must never be attached to the replacement.
 [SQLite locking and hot-journal recovery](https://www.sqlite.org/lockingv3.html)
-explains that boundary. Restore qualification and mandatory epoch invalidation
-after an operational restore remain CES-1070/1083.
+explains that boundary. Restore qualification and mandatory epoch invalidation after an operational
+restore remain separate requirements.
 
 Trusted Tailscale owner headers are accepted only to create an owner session over
 the explicitly configured private Unix socket. Loopback TCP never accepts them.

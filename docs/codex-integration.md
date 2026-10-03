@@ -1,10 +1,9 @@
 # Codex Health Buddy integration
 
-CES-1073 packages a standalone `health-buddy` skill plus a local stdio MCP config.
-It uses the shared canonical tools and [agent guide](agent-guide.md), with no
-second health API or model key. This is source integration evidence. Fresh named
-Codex discovery/workflow acceptance remains open in CES-1073; cross-client and
-final update acceptance belongs jointly to CES-1074/1083. Do not label an SDK test as a Codex client or released product.
+Codex uses the standalone `health-buddy` skill, local stdio MCP configuration,
+shared canonical tools and [agent guide](agent-guide.md), with no second health
+API or model key. Source tests do not establish named-client discovery, workflow
+behavior or release qualification.
 
 | Component | Exact version/evidence |
 | --- | --- |
@@ -175,6 +174,6 @@ RAYON_NUM_THREADS=1 RUFF_NUM_THREADS=1 "$PYTHON" -m ruff format --check src/heal
 The actual SDK scenario requires the private socket root described in
 [verification](verification.md). No install/build/browser or model session is
 added to these focused checks. Exact recorded output establishes observed
-source results. Actual Codex skill detection and named-session workflow remain open in CES-1073.
-Runtime artifact binding and combined update/cross-client qualification remain
-separate pending checks; source results do not close those acceptance items.
+source results. Actual Codex skill detection and named-session workflow need
+live evidence. Runtime artifact binding and combined update/cross-client
+qualification remain separate checks.
