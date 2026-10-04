@@ -1,9 +1,8 @@
 # Security reporting and release signatures
 
-To arrange a private security report, contact the maintainer through an existing
-private channel. If you have no such channel, [open a contact request](https://github.com/cesaregarza/health-buddy/issues/new)
-with the title “Private security report contact requested” and no vulnerability
-details. GitHub private vulnerability reporting is not currently enabled.
+Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/cesaregarza/health-buddy/security/advisories/new).
+In this repository's Security tab, choose “Report a vulnerability” to send the
+report privately to the maintainer.
 Do not post health records, credentials or exploit details in a public issue.
 
 Official release manifests and checksum lists are signed by
