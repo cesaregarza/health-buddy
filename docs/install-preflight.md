@@ -83,6 +83,11 @@ manifest pin, comparing file paths, sizes and SHA-256 values. A rewritten source
 inventory cannot admit edited code. Keep this outer bundle check: executing an
 untrusted replacement verifier would not establish either guarantee.
 
+Before extraction, complete the [publisher source and signature checks](publisher-verification.md)
+using the source commit from the onboarding page. They bind the bundle's source
+bytes to the canonical public repository in addition to the owner's hash; stop
+on any mismatch.
+
 ### 4. Extract the bundle
 
 ```sh

@@ -341,13 +341,18 @@ def undefined_variables(shell_blocks: list[str]) -> list[str]:
 
 
 def test_install_commands_define_and_reload_every_shell_variable():
-    documents = ("install-preflight.md", "install-reinstall.md", "onboarding.md")
-    guide, reinstall, onboarding = (
+    documents = (
+        "install-preflight.md",
+        "install-reinstall.md",
+        "onboarding.md",
+        "publisher-verification.md",
+    )
+    guide, reinstall, onboarding, publisher = (
         sh_blocks((ROOT / "docs" / name).read_text()) for name in documents
     )
     # Onboarding's completion command is fenced inside a numbered list item.
-    assert guide and reinstall and onboarding
-    assert undefined_variables(guide + reinstall + onboarding) == []
+    assert guide and reinstall and onboarding and publisher
+    assert undefined_variables(guide + reinstall + onboarding + publisher) == []
 
 
 @pytest.mark.parametrize(

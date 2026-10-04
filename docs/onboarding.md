@@ -12,7 +12,7 @@ example with `curl -fsSL`) and read them in full before running anything.
 
 ## Current release
 
-The owner, or the published copy of this page, supplies the four values below.
+The owner, or the published copy of this page, supplies the five values below.
 Use them exactly; never compute a hash from a file you downloaded.
 
 | Value | Current release |
@@ -21,8 +21,38 @@ Use them exactly; never compute a hash from a file you downloaded.
 | Source bundle SHA-256 | `<bundle SHA-256>` |
 | Runtime manifest URL | `<manifest URL>` |
 | Runtime manifest SHA-256 | `<manifest SHA-256>` |
+| Release source commit | `<source commit>` |
 
 If this table still shows placeholders, stop and ask the owner for the values.
+
+## Publisher and expected footprint
+
+The publisher is [cesaregarza/health-buddy](https://github.com/cesaregarza/health-buddy).
+Before downloading release assets, follow [publisher verification](publisher-verification.md):
+confirm the repository independently with the owner, check the table's full source
+commit against the public repository and published release, and stop on any
+mismatch. The same guide compares the source archive and bundle with that public
+commit before extraction, and gives the exact Cosign workflow-signature checks.
+When Cosign is absent, report “signature not verified”; do not claim a signature
+check passed or install another tool on the owner's behalf.
+
+The documented setup runs as the ordinary owner. Its managed bundle, Python
+environment, workspace, installer journal and client setup live under
+`$HOME/health-buddy`; the product's installer and application source are readable
+Python in the bundle. The guide also uses Git and standard shell/download tools.
+CPython 3.12 with venv support and Docker with Compose must already be available;
+stop for missing prerequisites instead of installing system packages yourself.
+Downloads include the pinned bundle, pinned Python wheels and release archives,
+plus public repository metadata/source and optional signature evidence for the
+publisher check. The runtime is one API container reached over a Unix socket;
+Docker's own image/container storage is outside that installation directory.
+Private HTTPS changes are a separately requested Tailscale operation.
+
+Keep this footprint as the check while working. If the publisher or observed
+writes, downloads or services disagree with it, stop and report the discrepancy
+to the owner instead of finding a workaround. Run installation commands without
+root or sudo; the owner-host checks exercise the ordinary-owner path and the
+explicit owner-setup refusal under root, not every possible host configuration.
 
 ## Rules that apply to every stage
 
@@ -59,7 +89,8 @@ move to the next stage before that.
 
 Notes the stages depend on:
 
-- Stage 1 is where the four values from the table above are used, and where
+- Stage 1 uses the bundle and manifest values from the table above, after the
+  source commit's publisher check, and is where
   the host and client values (`INSPECTED_NATIVE_DOCKER`, `PRIVATE_HTTPS_ORIGIN`,
   `EXACT_OWNER_SUBJECT`, `PRIVATE_CLIENT`) are chosen and saved in `env.sh`.
   Without Tailscale, keep the guide's local-only origin and subject.

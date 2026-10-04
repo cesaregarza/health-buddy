@@ -7,7 +7,7 @@ RUNTIME_LINT = scripts/package_runtime.py scripts/runtime_entrypoint.py packagin
 EXTENSION_LINT = $(EXTENSION_TESTS) tests/extension_fixtures.py health-runner/dashboard/scripts/check_extensions.py
 MCP_LINT = tests/test_mcp_*.py tests/test_workspace_discovery.py tests/mcp_wire_fixtures.py tests/mcp_process_runner.py
 CANONICAL_READ_LINT = tests/test_canonical_reads.py
-AGENT_GUIDE_LINT = tests/test_agent_guide.py tests/test_codex_integration.py tests/test_claude_integration.py
+AGENT_GUIDE_LINT = tests/test_agent_guide.py tests/test_publisher_verification.py tests/test_codex_integration.py tests/test_claude_integration.py
 # Tiers come from the marker list in tests/conftest.py; loadfile keeps each
 # module on one worker, so a module-scoped server starts once.
 SUITE = PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m pytest -p no:cacheprovider -n $(WORKERS) --dist loadfile tests $(REFERENCE_TESTS)
