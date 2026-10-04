@@ -158,7 +158,7 @@ def test_https_redirect_must_retain_exact_host() -> None:
         "https://files.pythonhosted.org/packages/input.whl"
     )
     with pytest.raises(ManifestError, match="runtime_input_redirect_refused"):
-        runtime_inputs._Redirect().redirect_request(
+        runtime_inputs.RedirectHandler().redirect_request(
             request,
             None,
             302,
@@ -221,7 +221,7 @@ def test_redirect_closes_original_body_without_an_unbounded_read() -> None:
             calls.append((request.full_url, timeout))
             return io.BytesIO(b"bounded target body")
 
-    handler = runtime_inputs._Redirect()
+    handler = runtime_inputs.RedirectHandler()
     handler.add_parent(Parent())
     request = runtime_inputs.urllib.request.Request(
         "https://snapshot.debian.org/archive/debian/synthetic.deb"
