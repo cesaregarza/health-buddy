@@ -89,7 +89,9 @@ section entirely; nothing in stages 1–9 depends on it.
 
 ## Completion test
 
-Report the installation as complete only when all of these hold:
+The installing agent verifies items 1 and 2, then reports local setup complete
+with the exact `pendingAcceptance` list printed by status. The owner performs
+item 3; local setup alone does not complete the owner's acceptance.
 
 1. This command prints `true` for all four of `runtimeLastActive`,
    `ownerAuthenticated`, `agentGrantRetained` and
@@ -111,21 +113,29 @@ Report the installation as complete only when all of these hold:
    and phone checks are listed separately as optional when requested.
 2. The stage-9 authenticated read returned the record you wrote, with the
    receipt's `observedAt` timestamp.
-3. A fresh session of the configured client (Codex or Claude Code) lists the
-   Health Buddy tools and an authenticated read such as `sync_status` returns
-   `ok: true`.
+3. **Owner's acceptance:** open a fresh session of the configured client
+   (Codex or Claude Code) from its launcher directory, approve the project's
+   Health Buddy MCP server, and run an authenticated read such as `sync_status`.
+   Confirm the tools are listed and the read returns `ok: true`.
    See [Codex integration](codex-integration.md) or
    [Claude integration](claude-integration.md) for the client's own check.
+   The installing agent must not attempt to log a client in on the owner's
+   behalf or count a direct MCP protocol probe as this acceptance.
 
-If any of these fails, the installation is incomplete: say which one, and what
-the last command printed.
+If item 1 or 2 fails, report local setup as incomplete, including the failed
+check and last command output. If only item 3 remains, report local setup
+complete and the owner's fresh-client acceptance pending.
 
 ## What to tell the owner
 
 Give the owner: the status command from stage 8 with its output, the
 measurement you wrote and read back, which client you configured, whether
 private HTTPS was configured or skipped, and every refusal you hit with the
-command, the code and what resolved it.
+command, the code and what resolved it. Include `pendingAcceptance` exactly as
+status prints it, even when the agent has separately verified the record
+read-back: status does not infer acceptance from that check. Tell the owner
+to open the configured client from its launcher directory, approve the project
+MCP server, and perform the authenticated read; do not try to log in for them.
 
 ## After installation
 
