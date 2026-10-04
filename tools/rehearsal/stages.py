@@ -10,6 +10,8 @@ import json
 import re
 import sys
 
+from transcript import onboarding_findings, print_findings, read_events, tool_calls
+
 STAGE = re.compile(
     r"health_buddy\.install\.(\w+)|health_buddy\.cli|package_runtime\.py (\S+)"
 )
@@ -30,37 +32,10 @@ FLAGS = (
 
 
 def main(path: str) -> None:
-    data = open(path, "rb").read().decode("utf-8", "replace")
-    calls: dict[str, dict] = {}
-    order: list[str] = []
-    for line in data.split("\n"):
-        if not line.strip():
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        content = (event.get("message") or {}).get("content") or []
-        if event.get("type") == "assistant":
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_use":
-                    calls[block["id"]] = {
-                        "name": block.get("name"),
-                        "command": (block.get("input") or {}).get("command") or "",
-                    }
-                    order.append(block["id"])
-        elif event.get("type") == "user":
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
-                    body = block.get("content")
-                    text = (
-                        "".join(c.get("text", "") for c in body if isinstance(c, dict))
-                        if isinstance(body, list)
-                        else str(body or "")
-                    )
-                    calls.setdefault(block.get("tool_use_id"), {})["result"] = text
-    for ordinal, tid in enumerate(order, 1):
-        call = calls[tid]
+    events = read_events(path)
+    for call in tool_calls(events):
+        ordinal = call["ordinal"]
+        call["command"] = call["input"].get("command") or ""
         match = STAGE.search(call.get("command") or "")
         if call.get("name") != "Bash" or not match:
             continue
@@ -80,6 +55,8 @@ def main(path: str) -> None:
                 )
         command = " ".join(call["command"].split())[:120]
         print(f"{ordinal:4d} {stage:12s} {command}\n       -> {verdict}")
+
+    print_findings(onboarding_findings(events))
 
 
 if __name__ == "__main__":
