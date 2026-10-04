@@ -4,7 +4,6 @@ from tools.rehearsal.completion_report import (
 )
 
 
-
 def report(digest: str = "0123456789ab") -> str:
     return "\n".join(
         (
