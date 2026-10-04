@@ -292,8 +292,15 @@ def test_two_process_writers_preserve_final_records_and_ledger(tmp_path, identic
 def test_expired_deadline_after_sqlite_writer_wait_never_decides(tmp_path):
     import threading
 
+    pre_lock_budget = 1.5
+    lock_hold = 2.0
+    timing_tolerance = 0.1
+    # Give preparation/fsync slack; lock_hold > pre_lock_budget expires the request
+    # during the wait, with timing_tolerance allowed in the elapsed-time check.
     service, _policy, owner = setup(tmp_path / "owner")
-    request = replace(intent(service, owner), deadline=time.monotonic() + 0.4)
+    request = replace(
+        intent(service, owner), deadline=time.monotonic() + pre_lock_budget
+    )
     held = sqlite3.connect(service.journal.path, check_same_thread=False)
     threads = []
     prepared = threading.Event()
@@ -304,7 +311,10 @@ def test_expired_deadline_after_sqlite_writer_wait_never_decides(tmp_path):
             prepared.set()
             held.execute("BEGIN IMMEDIATE")
             locked.set()
-            timer = threading.Timer(0.8, held.rollback)
+            assert time.monotonic() < request.deadline, (
+                "deadline expired before the writer wait"
+            )
+            timer = threading.Timer(lock_hold, held.rollback)
             timer.start()
             threads.append(timer)
 
@@ -315,7 +325,9 @@ def test_expired_deadline_after_sqlite_writer_wait_never_decides(tmp_path):
         elapsed = time.monotonic() - started
         assert prepared.is_set(), "prepared fault point was not reached"
         assert locked.is_set(), "SQLite writer lock was not acquired"
-        assert elapsed >= 0.7, "request did not wait for the held SQLite writer lock"
+        assert elapsed >= lock_hold - timing_tolerance, (
+            "request did not wait for the held SQLite writer lock"
+        )
         assert time.monotonic() >= request.deadline
         assert response.status == 503
         for thread in threads:
