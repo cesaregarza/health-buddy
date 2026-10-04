@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import shutil
 import sys
 import sysconfig
 import time
@@ -231,15 +232,24 @@ def test_complete_probe_uses_clean_environment_source_and_no_network_or_bytecode
         "HTTPS_PROXY",
     ):
         monkeypatch.setenv(key, CANARY)
-    before = set((ROOT / "src").rglob("__pycache__"))
-    connect_agent.check_mcp_readiness(isolated_python, ROOT)
+    source_root = tmp_path / "probe-source"
+    (source_root / "docs").mkdir(parents=True)
+    shutil.copy2(ROOT / "pyproject.toml", source_root / "pyproject.toml")
+    shutil.copy2(ROOT / "docs/agent-guide.md", source_root / "docs/agent-guide.md")
+    shutil.copytree(
+        ROOT / "src",
+        source_root / "src",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    before = set((source_root / "src").rglob("__pycache__"))
+    connect_agent.check_mcp_readiness(isolated_python, source_root)
     found = json.loads(observation.read_bytes())
-    assert found["pythonPath"] == str(ROOT / "src")
+    assert found["pythonPath"] == str(source_root / "src")
     assert CANARY not in json.dumps(found)
     # CPython may add LC_CTYPE when coercing a bare locale.
     assert set(found["environmentKeys"]) <= {"PYTHONPATH", "LC_CTYPE"}
     assert found["bytecodeDisabled"] and found["userSiteDisabled"] and found["safePath"]
-    assert set((ROOT / "src").rglob("__pycache__")) == before
+    assert set((source_root / "src").rglob("__pycache__")) == before
     assert not list(isolated_python.parent.parent.rglob("__pycache__"))
 
 
