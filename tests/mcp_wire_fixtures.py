@@ -265,16 +265,21 @@ def client(
     shutdown_timeout=55,
     protect_cleanup=False,
     launch=None,
+    environment=None,
 ):
-    environment = {
-        **os.environ,
-        "PYTHONPATH": str(ROOT / "src") + os.pathsep + str(ROOT),
-        "HTTP_PROXY": "http://127.0.0.1:1",
-        "HTTPS_PROXY": "http://127.0.0.1:1",
-        "ALL_PROXY": "http://127.0.0.1:1",
-        "OTEL_PYTHON_TRACER_PROVIDER": "synthetic-must-not-load",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:1",
-    }
+    environment = (
+        dict(environment)
+        if environment is not None
+        else {
+            **os.environ,
+            "PYTHONPATH": str(ROOT / "src") + os.pathsep + str(ROOT),
+            "HTTP_PROXY": "http://127.0.0.1:1",
+            "HTTPS_PROXY": "http://127.0.0.1:1",
+            "ALL_PROXY": "http://127.0.0.1:1",
+            "OTEL_PYTHON_TRACER_PROVIDER": "synthetic-must-not-load",
+            "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:1",
+        }
+    )
     module = "tests.mcp_process_runner" if instrumented else "health_buddy.mcp_server"
     command = [sys.executable, "-m", module, "--settings", str(settings)]
     cwd = ROOT

@@ -460,6 +460,7 @@ def _codex_block(python: Path, arguments: list[str], source: Path) -> str:
             "tool_timeout_sec = 60",
             "[mcp_servers.health_buddy.env]",
             "PYTHONPATH = " + json.dumps(str(source / "src")),
+            'PYTHONDONTWRITEBYTECODE = "1"',
             "",
         ]
     )
@@ -480,7 +481,10 @@ def _claude_entry(python: Path, arguments: list[str], source: Path) -> dict[str,
         "type": "stdio",
         "command": str(python),
         "args": arguments,
-        "env": {"PYTHONPATH": str(source / "src")},
+        "env": {
+            "PYTHONPATH": str(source / "src"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        },
     }
 
 

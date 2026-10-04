@@ -35,7 +35,7 @@ def runs_as_program(path: Path) -> bool:
 # Modules that run as programs from a source tree: the canonical CLI, the image
 # entrypoint and each install stage. The acquire worker is excluded because
 # acquire launches it by path with -I -B.
-ENTRY_POINTS = [
+ARGPARSE_ENTRY_POINTS = [
     PACKAGE / "cli.py",
     PACKAGE / "packaged_runtime.py",
     *(
@@ -44,6 +44,8 @@ ENTRY_POINTS = [
         if runs_as_program(path) and path.name != "acquire_worker.py"
     ),
 ]
+
+ENTRY_POINTS = [*ARGPARSE_ENTRY_POINTS, PACKAGE / "mcp_server.py"]
 
 
 def imports_package(statement: ast.stmt) -> bool:
@@ -82,7 +84,9 @@ def test_entry_point_disables_bytecode_before_any_package_import(path: Path) -> 
 
 
 @pytest.mark.parametrize(
-    "path", [*ENTRY_POINTS, PACKAGE / "connect_agent.py"], ids=lambda path: path.stem
+    "path",
+    [*ARGPARSE_ENTRY_POINTS, PACKAGE / "connect_agent.py"],
+    ids=lambda path: path.stem,
 )
 def test_entry_point_runs_under_the_private_umask(
     path: Path, monkeypatch: pytest.MonkeyPatch
