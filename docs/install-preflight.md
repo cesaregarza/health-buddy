@@ -30,22 +30,26 @@ changing it. Run them in order, in Bash, as the owner rather than root. Each
 step says what done looks like and what to do on failure; for any failure it
 does not cover, stop and tell the owner instead of working around it.
 
-### 1. Get four values from the owner
+### 1. Get five values from the owner
 
 Ask the owner for:
 
 - the URL of the release's `health-buddy-bundle.tar`;
 - that archive's SHA-256;
 - the URL of the same release's `runtime-manifest.json`;
-- that manifest's SHA-256.
+- that manifest's SHA-256;
+- the release's full 40-character source commit, used by the
+  [publisher verification](publisher-verification.md) checks before the download
+  in step 2 and the source comparison linked from step 3.
 
 For a GitHub Release the URLs are
 `https://github.com/<owner>/<repo>/releases/download/<tag>/health-buddy-bundle.tar`
 and `.../<tag>/runtime-manifest.json`, naming a fixed tag, never `latest`. The
 owner reads both hashes from the release's `SHA256SUMS` or notes and confirms
-them through a separate channel before giving them to you. Done: two HTTPS URLs
-and two 64-character lowercase hex strings. If any is missing, stop and ask;
-never use a hash computed from a downloaded file as the expected value.
+them through a separate channel before giving them to you. Done: two HTTPS URLs,
+two 64-character lowercase hexadecimal hashes and one 40-character lowercase
+hexadecimal source commit. If any is missing, stop and ask; never use a hash
+computed from a downloaded file as the expected value.
 
 ### 2. Download the bundle into a private directory
 
