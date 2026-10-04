@@ -238,7 +238,7 @@ def connect(
     remove: bool = False,
     check_only: bool = False,
     client: str = "codex",
-    _readiness_verified: bool = False,
+    readiness_verified: bool = False,
 ) -> None:
     """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
     validate_targets(config, skill, client)
@@ -297,9 +297,7 @@ def connect(
             return
         if settings is None or python is None or source is None or workspace is None:
             raise ServiceError(422, "codex_setup_arguments_required")
-        _validate_setup(
-            client, settings, python, source, workspace, _readiness_verified
-        )
+        _validate_setup(client, settings, python, source, workspace, readiness_verified)
         arguments = ["-m", "health_buddy.mcp_server", "--settings", str(settings)]
         if client == "codex":
             block = _codex_block(python, arguments, source)

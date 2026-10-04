@@ -2,13 +2,10 @@
 
 prepared(maintenance=True) adds a real bundle of this checkout's packages and
 its pinned release: each test process builds them once, keeps that original
-read-only and copies it for every test. It also memoizes the MCP readiness
-probe, which starts an interpreter that imports the SDK: once the real probe
-has passed for this interpreter and these source bytes, the same probe is not
-run again in this process. Every other probe, and every failure, is real.
+read-only and copies it for every test. Each agent setup runs its actual bounded
+MCP readiness probe for the selected environment.
 """
 
-import contextlib
 import functools
 import hashlib
 import json
@@ -16,7 +13,6 @@ import os
 import shutil
 import socket
 import stat
-import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -24,26 +20,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from health_buddy import connect_agent
-from health_buddy.connect_agent import check_mcp_readiness
-from health_buddy.install import agent as install_agent
 from health_buddy.install import preflight as install_preflight
 from health_buddy.install.prepare import MAINTENANCE_REFERENCES
 from health_buddy.runtime.bundle import create_bundle
-from health_buddy.runtime.manifest import (
-    ManifestError,
-    canonical,
-    inventory,
-    verify_source_identity,
-)
+from health_buddy.runtime.manifest import verify_source_identity
 from health_buddy.runtime.release import create_release
 from tests.test_runtime_artifact import make_archive
 from tests.test_runtime_bundle import git, plant_bytecode
 from tests.test_runtime_context import context_fixture
 
 ROOT = Path(__file__).resolve().parents[1]
-# Canonical source inventories this interpreter's real probe passed against.
-READY_SOURCES: set[bytes] = set()
 
 
 def pinned_release(bundle: Path, artifacts: Path) -> Path:
@@ -146,29 +132,10 @@ def maintenance_bundle(tmp_path: Path) -> Path:
     return maintenance_copy(tmp_path, "maintenance-bundle")
 
 
-def readiness_once(python: Path, source: Path) -> None:
-    """Probe for real unless sys.executable already passed against these bytes.
-
-    Only that exact path is remembered: a venv's python resolves to the same
-    binary but has its own packages.
-    """
-    key = None
-    if python == Path(sys.executable):
-        with contextlib.suppress(ManifestError, OSError):
-            key = canonical(inventory(source))
-    if key is None or key not in READY_SOURCES:
-        check_mcp_readiness(python, source)
-        if key is not None:
-            READY_SOURCES.add(key)
-
-
 def prepared(tmp_path, monkeypatch, *, maintenance=False):
     if maintenance:
         bundle = maintenance_bundle(tmp_path)
         manifest = maintenance_copy(tmp_path, "artifacts") / "runtime-manifest.json"
-        # Agent setup probes before mutations; connect receives that result.
-        monkeypatch.setattr(install_agent, "check_mcp_readiness", readiness_once)
-        monkeypatch.setattr(connect_agent, "check_mcp_readiness", readiness_once)
     else:
         bundle, _ = context_fixture(tmp_path)
         manifest = pinned_release(bundle, tmp_path / "artifacts")

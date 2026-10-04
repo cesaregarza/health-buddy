@@ -209,7 +209,7 @@ def verify_inputs(inputs: PlatformInputs, directory: Path) -> None:
             raise ManifestError("runtime_input_hash_mismatch")
 
 
-class _Redirect(urllib.request.HTTPRedirectHandler):
+class RedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(
         self,
         req: urllib.request.Request,
@@ -270,7 +270,9 @@ def _download_inputs(inputs: PlatformInputs, directory: Path) -> None:
     native_directory(directory.parent)
     directory.mkdir(mode=0o700)
     deadline = time.monotonic() + FETCH_SECONDS
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _Redirect())
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), RedirectHandler()
+    )
     for item in inputs.files:
         remaining = deadline - time.monotonic()
         if remaining <= 0:

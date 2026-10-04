@@ -138,9 +138,9 @@ item 3; local setup alone does not complete the owner's acceptance.
    authenticated now; `runtimeLastActive` and
    `clientConfigurationLastPrepared` are retained last-completion evidence,
    not a live runtime or client check. Complete the named local stage before
-   acceptance work. When local setup is complete, status still lists
-   `authenticated_record_readback` and `fresh_named_client_acceptance` as
-   pending acceptance; it never infers these from configuration. Private HTTPS
+   acceptance work. When local setup is complete, status reports
+   `authenticated_record_readback` and `fresh_named_client_acceptance` in
+   `pendingAcceptance`; it never infers these from configuration. Private HTTPS
    and phone checks are listed separately as optional when requested.
 2. The stage-9 authenticated read returned the record you wrote, with the
    receipt's `observedAt` timestamp.

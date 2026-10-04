@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import re
-import sqlite3
-import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from hashlib import sha256
@@ -19,8 +16,8 @@ from health_buddy.core.files import read_file
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
-from health_buddy.install.owner import _owner_configuration, _validate_native_owner
-from health_buddy.security.authority import SecurityAuthority
+from health_buddy.install.owner import owner_configuration, validate_native_owner
+from health_buddy.security.authority import RebindAuthorityQueries, SecurityAuthority
 from health_buddy.security.runtime import open_runtime, read_credential
 
 LOCAL_ORIGIN = "https://health-buddy.local"
@@ -46,24 +43,25 @@ def selection(origin: str, subject: str) -> dict[str, str]:
 @contextmanager
 def authority(
     record: dict[str, Any], token: Path
-) -> Iterator[tuple[Service, sqlite3.Connection]]:
-    """Authenticate, then re-admit under the canonical/authority lock order."""
+) -> Iterator[tuple[Service, RebindAuthorityQueries]]:
+    """Admit the retained owner and hold authority locks through publication."""
     retained = record.get("ownerSetup")
     if not isinstance(retained, dict) or retained.get("phase") != "ready":
         raise refuse("ownerSetup", "requires_completed_owner_setup")
     workspace = Path(record["binding"]["workspace"])
     for path in (workspace, token):
         native_path(path)
-    _validate_native_owner(workspace)
+    validate_native_owner(workspace)
     runtime = open_runtime(workspace)
     if not isinstance(runtime.operations, Service) or not isinstance(
         runtime.security, SecurityAuthority
     ):
         raise ServiceError(503, "native_coordinator_required")
     try:
-        admitted = runtime.security.authenticate(BearerProof(read_credential(token)))
-        with runtime.security._locked() as connection:
-            runtime.security._admit(connection, admitted.principal, "grants.list")
+        with runtime.security.admitted_owner(BearerProof(read_credential(token))) as (
+            admitted,
+            queries,
+        ):
             if (
                 identity_value(admitted.client.identity)
                 != retained["binding"]["identity"]
@@ -73,7 +71,7 @@ def authority(
             ):
                 raise refuse("ownerToken", "owner_authority_changed")
             try:
-                yield runtime.operations, connection
+                yield runtime.operations, queries
             except OSError:
                 # Filesystem publication belongs to this installer stage, not
                 # the authority DB's generic context-exit error translation.
@@ -84,7 +82,7 @@ def authority(
         raise
 
 
-def blockers(record: dict[str, Any], connection: sqlite3.Connection) -> None:
+def blockers(record: dict[str, Any], queries: RebindAuthorityQueries) -> None:
     if record.get("privateHttps") is not None:
         raise refuse("privateHttps", "requires_local_only_installation")
     if record.get("removal") is not None:
@@ -94,27 +92,16 @@ def blockers(record: dict[str, Any], connection: sqlite3.Connection) -> None:
         not isinstance(agent, dict) or agent.get("phase") != "configured"
     ):
         raise refuse("agentSetup", "requires_completed_agent_setup")
-    paired = connection.execute(
-        "SELECT 1 FROM actors WHERE role='device' AND active=1 LIMIT 1"
-    ).fetchone()
-    pending = connection.execute(
-        "SELECT 1 FROM pairing WHERE state IN ('awaiting_owner','ready') "
-        "AND expires>? LIMIT 1",
-        (time.time(),),
-    ).fetchone()
-    if paired is not None or pending is not None:
+    if queries.has_active_device_pairings():
         raise refuse("activeDevicePairings", "active_device_pairings")
-    session = connection.execute(
-        "SELECT 1 FROM credentials WHERE kind='session' AND active=1 "
-        "AND (expires IS NULL OR expires>?) LIMIT 1",
-        (time.time(),),
-    ).fetchone()
-    if session is not None:
+    if queries.has_active_owner_sessions():
         raise refuse("ownerSessions", "active_owner_sessions")
 
 
 def payloads(
-    record: dict[str, Any], selected: dict[str, str], connection: sqlite3.Connection
+    record: dict[str, Any],
+    selected: dict[str, str],
+    queries: RebindAuthorityQueries,
 ) -> tuple[Path, bytes, Path | None, bytes | None]:
     workspace = Path(record["binding"]["workspace"])
     path = workspace / "config.json"
@@ -132,27 +119,26 @@ def payloads(
     if sha256(current).hexdigest() not in accepted:
         raise refuse("config", "owner_config_changed")
     try:
-        _, target = _owner_configuration(
+        _, target = owner_configuration(
             current, workspace, selected["origin"], selected["ownerSubject"]
         )
     except ServiceError:
         raise refuse("origin", "requires_real_https_origin") from None
-    settings, settings_payload = agent_settings(record, selected, connection)
+    settings, settings_payload = agent_settings(record, selected, queries)
     return path, target, settings, settings_payload
 
 
 def agent_settings(
-    record: dict[str, Any], selected: dict[str, str], connection: sqlite3.Connection
+    record: dict[str, Any],
+    selected: dict[str, str],
+    queries: RebindAuthorityQueries,
 ) -> tuple[Path | None, bytes | None]:
     agent = record.get("agentSetup")
     if agent is None:
         return None, None
     binding = agent["binding"]
-    actor = connection.execute(
-        "SELECT sources,active FROM actors WHERE id=? AND role='agent'",
-        (agent["actorId"],),
-    ).fetchone()
-    if actor is None or not actor["active"]:
+    grant = queries.retained_agent_grant_sources(agent["actorId"])
+    if grant is None or not grant.active:
         raise refuse("agentGrant", "requires_retained_agent_grant")
     path = Path(binding["settings"])
     native_path(path)
@@ -164,7 +150,7 @@ def agent_settings(
         "credentialFile": binding["token"],
         "retryRoot": binding["retryRoot"],
         "clientId": "health-buddy-installer",
-        "writeSources": json.loads(actor["sources"]),
+        "writeSources": grant.sources,
         "acknowledgeAiEgress": True,
     }
     target = {**expected, "origin": selected["origin"]}
@@ -195,9 +181,9 @@ def publish(
     journal: Path,
     record: dict[str, Any],
     selected: dict[str, str],
-    connection: sqlite3.Connection,
+    queries: RebindAuthorityQueries,
 ) -> None:
-    path, target, settings, settings_payload = payloads(record, selected, connection)
+    path, target, settings, settings_payload = payloads(record, selected, queries)
     if sha256(target).hexdigest() != record["originRebind"]["newConfigSha256"]:
         raise refuse("config", "owner_config_changed")
     # A retry accepts exactly the old or intended bytes; no rollback of owner data.

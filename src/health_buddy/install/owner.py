@@ -71,7 +71,7 @@ def setup(
 ) -> dict[str, Any]:
     if not confirm_owner_setup:
         raise ServiceError(422, "install_owner_requires_explicit_consent")
-    _validate_native_caller()
+    validate_native_caller()
     journal = private_path(journal)
     native_path(journal)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
@@ -80,16 +80,14 @@ def setup(
         bundle = Path(prepared["binding"]["bundle"])
         native_path(workspace)
         native_path(bundle)
-        _validate_native_owner(workspace)
+        validate_native_owner(workspace)
         owner_token = private_path(owner_token)
         native_path(owner_token)
         configuration = workspace / "config.json"
         native_path(configuration)
         _validate_credential_output(owner_token, journal, bundle, workspace)
         current = read_file(configuration, 16384)
-        values, payload = _owner_configuration(
-            current, workspace, origin, owner_subject
-        )
+        values, payload = owner_configuration(current, workspace, origin, owner_subject)
         runtime = open_runtime(workspace)
         if not isinstance(runtime.operations, Service):
             raise ServiceError(503, "native_coordinator_required")
@@ -157,12 +155,12 @@ def _prepared_installation(journal: Path) -> dict[str, Any]:
     return dict(retained)
 
 
-def _validate_native_caller() -> None:
+def validate_native_caller() -> None:
     if os.geteuid() == 0:
         raise ServiceError(409, "install_owner_requires_native_nonroot_owner")
 
 
-def _identity_recovery(journal: Path) -> str:
+def identity_recovery(journal: Path) -> str:
     owner_uid: int | None = None
     try:
         owner_uid = journal.lstat().st_uid
@@ -182,7 +180,7 @@ def _identity_recovery(journal: Path) -> str:
     )
 
 
-def _validate_native_owner(workspace: Path) -> None:
+def validate_native_owner(workspace: Path) -> None:
     try:
         private_workspace(workspace)
         if workspace.lstat().st_gid != os.getegid():
@@ -210,7 +208,7 @@ def _validate_credential_output(
         raise ServiceError(422, "install_owner_requires_private_credential_output")
 
 
-def _owner_configuration(
+def owner_configuration(
     current: bytes, workspace: Path, origin: str, owner_subject: str
 ) -> tuple[Any, bytes]:
     """The current config values and the validated managed-ingress config bytes."""
@@ -320,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     except ServiceError as error:
         not_ready = error.code == "install_owner_workspace_not_ready"
         if error.code == "install_owner_requires_native_nonroot_owner":
-            recovery = _identity_recovery(args.journal)
+            recovery = identity_recovery(args.journal)
         else:
             recovery = NOT_READY_RECOVERY if not_ready else RECOVERY
         print(

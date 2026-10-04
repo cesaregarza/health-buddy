@@ -35,7 +35,7 @@ from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.service_api import ServiceError
 from health_buddy.runtime.artifact import containerd_store_diagnostic
-from health_buddy.runtime.inputs import _Redirect
+from health_buddy.runtime.inputs import RedirectHandler
 from health_buddy.runtime.manifest import (
     MAX_METADATA,
     SHA256,
@@ -89,7 +89,7 @@ def release_asset_redirect(source: str, target: str) -> bool:
     return hosts in RELEASE_ASSET_REDIRECTS
 
 
-class Redirect(_Redirect):
+class Redirect(RedirectHandler):
     """Same-origin redirects without a query, plus GitHub's release-asset hop."""
 
     def redirect_request(
@@ -105,7 +105,7 @@ class Redirect(_Redirect):
             if release_asset_redirect(req.full_url, newurl):
                 admitted_url(newurl, signed_query=True)
                 # Cross-origin by design: admitted_url already applies every
-                # other _Redirect rule, so CPython's base handler (method and
+                # other RedirectHandler rule, so CPython's base handler (method and
                 # status rules) runs here without the same-origin check.
                 return urllib.request.HTTPRedirectHandler.redirect_request(
                     self, req, fp, code, msg, headers, newurl

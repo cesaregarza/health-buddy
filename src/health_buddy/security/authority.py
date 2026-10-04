@@ -99,6 +99,51 @@ class Handle:
     csrf: str | None = field(default=None, repr=False)
 
 
+@dataclass(frozen=True)
+class RetainedAgentGrant:
+    active: bool
+    _sources_json: str = field(repr=False)
+
+    @property
+    def sources(self) -> object:
+        return json.loads(self._sources_json)
+
+
+class RebindAuthorityQueries:
+    """Narrow queries available while an owner admission holds authority locks."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def has_active_device_pairings(self) -> bool:
+        paired = self._connection.execute(
+            "SELECT 1 FROM actors WHERE role='device' AND active=1 LIMIT 1"
+        ).fetchone()
+        pending = self._connection.execute(
+            "SELECT 1 FROM pairing WHERE state IN ('awaiting_owner','ready') "
+            "AND expires>? LIMIT 1",
+            (time.time(),),
+        ).fetchone()
+        return paired is not None or pending is not None
+
+    def has_active_owner_sessions(self) -> bool:
+        session = self._connection.execute(
+            "SELECT 1 FROM credentials WHERE kind='session' AND active=1 "
+            "AND (expires IS NULL OR expires>?) LIMIT 1",
+            (time.time(),),
+        ).fetchone()
+        return session is not None
+
+    def retained_agent_grant_sources(self, actor_id: str) -> RetainedAgentGrant | None:
+        row = self._connection.execute(
+            "SELECT sources,active FROM actors WHERE id=? AND role='agent'",
+            (actor_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return RetainedAgentGrant(bool(row["active"]), row["sources"])
+
+
 class SecurityAuthority:
     def __init__(
         self, service: Service, *, proxy_boundary: object | None = None
@@ -221,75 +266,88 @@ class SecurityAuthority:
 
     def authenticate(self, proof: CredentialProof) -> Authenticated:
         with self._locked() as connection:
-            self.store.budget(connection, "authenticate", time.time())
-            epoch = self.store.epoch(connection)
-            csrf = None
-            csrf_verified = False
-            if isinstance(proof, ProxyProof):
-                ingress = self.service.config.ingress()
-                if (
-                    self.proxy_boundary is None
-                    or proof.boundary is not self.proxy_boundary
-                    or ingress.mode != "tailscale-uds"
-                    or proof.subject != ingress.owner_subject
-                ):
-                    raise denied()
-                actor = connection.execute(
-                    "SELECT * FROM actors WHERE role='owner' AND active=1 "
-                    "ORDER BY id LIMIT 1"
-                ).fetchone()
-                if actor is None:
-                    raise denied()
-                credential, mechanism = "proxy:" + actor["id"], "proxy"
-            else:
-                if not isinstance(proof, BearerProof | SessionProof):
-                    raise denied()
-                token = valid_secret(proof.token)
-                kinds = (
-                    ("session",)
-                    if isinstance(proof, SessionProof)
-                    else ("owner", "agent", "device")
-                )
-                row = None
-                for kind in kinds:
-                    candidate = connection.execute(
-                        "SELECT * FROM credentials WHERE digest=? AND kind=?",
-                        (fingerprint(kind, token), kind),
-                    ).fetchone()
-                    if candidate is not None:
-                        row = candidate
-                if (
-                    row is None
-                    or not row["active"]
-                    or row["epoch"] != epoch
-                    or (row["expires"] is not None and time.time() >= row["expires"])
-                ):
-                    raise denied()
-                credential = row["id"]
-                mechanism = "session" if isinstance(proof, SessionProof) else "bearer"
-                if isinstance(proof, SessionProof):
-                    csrf = csrf_value(token)
-                    # This result belongs to this proof presentation only. It
-                    # is deliberately absent from the reusable Handle object.
-                    if isinstance(proof.csrf, str) and len(proof.csrf) == 64:
-                        csrf_verified = secrets.compare_digest(
-                            fingerprint("csrf", proof.csrf), row["csrf_digest"]
-                        )
-                actor = connection.execute(
-                    "SELECT * FROM actors WHERE id=? AND active=1",
-                    (row["actor_id"],),
-                ).fetchone()
-                if actor is None:
-                    raise denied()
-            principal = self._handle(
-                credential, epoch, cast(Mechanism, mechanism), csrf
+            return self._authenticate_locked(connection, proof)
+
+    def _authenticate_locked(
+        self, connection: sqlite3.Connection, proof: CredentialProof
+    ) -> Authenticated:
+        self.store.budget(connection, "authenticate", time.time())
+        epoch = self.store.epoch(connection)
+        csrf = None
+        csrf_verified = False
+        if isinstance(proof, ProxyProof):
+            ingress = self.service.config.ingress()
+            if (
+                self.proxy_boundary is None
+                or proof.boundary is not self.proxy_boundary
+                or ingress.mode != "tailscale-uds"
+                or proof.subject != ingress.owner_subject
+            ):
+                raise denied()
+            actor = connection.execute(
+                "SELECT * FROM actors WHERE role='owner' AND active=1 "
+                "ORDER BY id LIMIT 1"
+            ).fetchone()
+            if actor is None:
+                raise denied()
+            credential, mechanism = "proxy:" + actor["id"], "proxy"
+        else:
+            if not isinstance(proof, BearerProof | SessionProof):
+                raise denied()
+            token = valid_secret(proof.token)
+            kinds = (
+                ("session",)
+                if isinstance(proof, SessionProof)
+                else ("owner", "agent", "device")
             )
-            return Authenticated(
-                principal,
-                cast(Mechanism, mechanism),
-                self._client(connection, actor),
-                csrf_verified,
-            )
+            row = None
+            for kind in kinds:
+                candidate = connection.execute(
+                    "SELECT * FROM credentials WHERE digest=? AND kind=?",
+                    (fingerprint(kind, token), kind),
+                ).fetchone()
+                if candidate is not None:
+                    row = candidate
+            if (
+                row is None
+                or not row["active"]
+                or row["epoch"] != epoch
+                or (row["expires"] is not None and time.time() >= row["expires"])
+            ):
+                raise denied()
+            credential = row["id"]
+            mechanism = "session" if isinstance(proof, SessionProof) else "bearer"
+            if isinstance(proof, SessionProof):
+                csrf = csrf_value(token)
+                # This result belongs to this proof presentation only. It
+                # is deliberately absent from the reusable Handle object.
+                if isinstance(proof.csrf, str) and len(proof.csrf) == 64:
+                    csrf_verified = secrets.compare_digest(
+                        fingerprint("csrf", proof.csrf), row["csrf_digest"]
+                    )
+            actor = connection.execute(
+                "SELECT * FROM actors WHERE id=? AND active=1",
+                (row["actor_id"],),
+            ).fetchone()
+            if actor is None:
+                raise denied()
+        principal = self._handle(credential, epoch, cast(Mechanism, mechanism), csrf)
+        return Authenticated(
+            principal,
+            cast(Mechanism, mechanism),
+            self._client(connection, actor),
+            csrf_verified,
+        )
+
+    @contextmanager
+    def admitted_owner(
+        self, proof: CredentialProof
+    ) -> Iterator[tuple[Authenticated, RebindAuthorityQueries]]:
+        """Authenticate and re-admit an owner while retaining locks for queries."""
+        with self._locked() as connection:
+            authenticated = self._authenticate_locked(connection, proof)
+            self._admit(connection, authenticated.principal, "grants.list")
+            yield authenticated, RebindAuthorityQueries(connection)
 
     def describe(self, principal: Principal) -> ClientIdentity:
         with self._locked() as connection:

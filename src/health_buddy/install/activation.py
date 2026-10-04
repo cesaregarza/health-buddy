@@ -25,7 +25,7 @@ from health_buddy.core.files import read_file, read_json
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
 from health_buddy.core.service_api import ServiceError
-from health_buddy.install.owner import _identity_recovery
+from health_buddy.install.owner import identity_recovery
 from health_buddy.install.preflight import preflight
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.runtime.manifest import file_digest
@@ -118,7 +118,7 @@ def activate(
             progress = {"binding": binding, "phase": "admitting"}
             prepared["activation"] = progress
             atomic_bytes(journal, encode(prepared))
-        environments = _runtime_environments(binding, manifest)
+        environments = runtime_environments(binding, manifest)
         if environment.exists() and read_file(environment, 4096) not in environments:
             raise ServiceError(409, "install_activation_environment_changed")
         if progress["phase"] in ("starting", "active") and not environment.exists():
@@ -198,7 +198,7 @@ def _validate_resume(progress: object, binding: dict[str, Any]) -> None:
         raise ServiceError(409, "install_activation_resume_requires_original_binding")
 
 
-def _runtime_environments(binding: dict[str, Any], manifest: Path) -> list[bytes]:
+def runtime_environments(binding: dict[str, Any], manifest: Path) -> list[bytes]:
     """The env file load_release writes, for each image the release admits."""
     artifact = selected_artifact(manifest, binding["target"]["architecture"])
     return [
@@ -227,7 +227,7 @@ def _start_runtime(
         if ids:
             if progress["phase"] not in ("starting", "active") or len(ids) != 1:
                 raise ServiceError(409, "install_activation_project_not_empty")
-            progress["runningImageId"] = _healthy_image(binding, manifest)
+            progress["runningImageId"] = healthy_image(binding, manifest)
             progress["phase"] = "active"
             atomic_bytes(journal, encode(prepared))
             return result(progress)
@@ -246,7 +246,7 @@ def _start_runtime(
             docker, environment, project, "up", "--detach", "--wait", "--no-deps", "api"
         )
         stage = "runtime_observation"
-        progress["runningImageId"] = _healthy_image(binding, manifest)
+        progress["runningImageId"] = healthy_image(binding, manifest)
         progress["phase"] = "active"
         atomic_bytes(journal, encode(prepared))
     except ServiceError:
@@ -293,7 +293,7 @@ def _load_environment(binding: dict[str, Any], manifest: Path) -> None:
         atomic_bytes(environment, read_file(loaded, 4096))
 
 
-def _healthy_image(binding: dict[str, Any], manifest: Path) -> str:
+def healthy_image(binding: dict[str, Any], manifest: Path) -> str:
     return running(
         Path(binding["docker"]),
         Path(binding["environment"]),
@@ -331,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
             os.geteuid() == 0
             and error.code == "install_activation_requires_nonroot_identity"
         ):
-            recovery = _identity_recovery(args.journal)
+            recovery = identity_recovery(args.journal)
         else:
             recovery = (
                 "Retain the journal and original selection; "
