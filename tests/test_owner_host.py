@@ -6,6 +6,7 @@ name, never skip, when pytest runs as root or the host has no Docker socket.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import pwd
@@ -122,6 +123,33 @@ def assert_client_launch_preserves_bundle(owner: Owner, client: str) -> None:
     verify_source_identity(owner.source, owner.bundle / "release/source-manifest.json")
 
 
+def assert_completion_report(owner: Owner, status: dict[str, Any]) -> None:
+    completed = owner_host.launch(
+        owner,
+        "health_buddy.install.status",
+        "--journal",
+        str(owner.journal),
+        "--report",
+    )
+    assert completed.returncode == 0, completed.stderr
+    print(completed.stdout, end="")
+    lines = completed.stdout.splitlines()
+    assert len(lines) == 4
+    assert lines[0] == "LOCAL SETUP: complete"
+    assert lines[1] == (
+        "OWNER ACCEPTANCE PENDING: "
+        + ", ".join(status["pendingAcceptance"])
+    )
+    assert lines[2] == "OPTIONAL: " + ", ".join(
+        status["optionalPendingAcceptance"]
+    )
+    canonical = json.dumps(
+        status, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    digest = hashlib.sha256(canonical).hexdigest()[:12]
+    assert lines[3] == f"REPORT DIGEST: {digest}"
+
+
 @pytest.mark.parametrize("client", ["codex", "claude"])
 def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
     tmp_path: Path, client: str
@@ -195,6 +223,7 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
     assert_read_back(json.loads(read.stdout), timestamp)
     status = done(owner, "status", "ownerAuthenticated", *journal)
     assert {key: status[key] for key in COMPLETION} == dict.fromkeys(COMPLETION, True)
+    assert_completion_report(owner, status)
     # The host, not the stages' word: nothing the stages wrote is open to others,
     # and the bundle holds only the bytecode Python writes before a stage's first
     # line, so it still verifies.

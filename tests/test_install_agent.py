@@ -1,5 +1,6 @@
 """Real authority/client files with bounded fake host responses; no model client."""
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -196,6 +197,44 @@ def test_readiness_refusal_probes_once_before_any_install_mutation(
     assert selected["journal"].read_bytes() == before
     assert not arguments["agent_token"].exists()
     assert not arguments["settings"].exists()
+
+
+def test_status_report_tracks_agent_stage_without_claiming_acceptance(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
+    argv = ["--journal", str(selected["journal"]), "--report"]
+
+    assert install_status.main(argv) == 0
+    incomplete = capsys.readouterr().out
+    assert incomplete.splitlines()[0] == (
+        "LOCAL SETUP: incomplete (next required stage: agent_configuration; "
+        "command: health_buddy.install.agent)"
+    )
+    assert len(incomplete.splitlines()) == 4
+
+    assert install_status.main(argv) == 0
+    assert capsys.readouterr().out == incomplete
+
+    install_agent.setup(**arguments)
+    assert install_status.main(argv) == 0
+    complete = capsys.readouterr().out
+    lines = complete.splitlines()
+    assert lines[0] == "LOCAL SETUP: complete"
+    assert lines[1] == (
+        "OWNER ACCEPTANCE PENDING: fresh_named_client_acceptance, "
+        "authenticated_record_readback"
+    )
+    assert len(lines) == 4
+    summary = install_status.status(journal=selected["journal"])
+    canonical = json.dumps(
+        summary, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    digest = hashlib.sha256(canonical).hexdigest()[:12]
+    assert lines[3] == f"REPORT DIGEST: {digest}"
+    assert lines[3] != incomplete.splitlines()[3]
+    assert str(selected["workspace"]) not in complete
+    assert str(arguments["agent_token"]) not in complete
 
 
 @pytest.mark.parametrize("lost", [None, "credential_written"])
