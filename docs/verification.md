@@ -170,6 +170,9 @@ Provision failure is not an install result; retain its host ID for teardown.
 "$REHEARSAL_KIT/provision.sh" "$REHEARSAL_NAME" > "$REHEARSAL_KIT/prepare.log" 2>&1
 ```
 
+Provisioning uses a fresh kit-local `.known_hosts`, records its trusted fingerprint once in
+`prepare.log`, leaves the global SSH file untouched, and teardown removes the kit file.
+
 ### 2. Render `one-url/2`
 
 Render with the sole canonical page URL. The helper rejects non-HTTPS or credentialed, query/fragment URLs; review for the single URL and no host facts or hints.

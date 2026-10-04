@@ -7,6 +7,7 @@
 # real client. Evidence lands in <run dir>/client-*. usage: client-check.sh <run dir>
 set -euo pipefail
 D=$(dirname "$(realpath "$0")")
+SSH_HOST_KEY_OPTS=(-o "UserKnownHostsFile=$D/.known_hosts" -o StrictHostKeyChecking=accept-new)
 IP=$(cat "$D/.droplet-ip")
 RUN=${1:?run directory}
 MODEL=${MODEL:-claude-haiku-4-5-20251001}
@@ -17,13 +18,13 @@ test "$(stat -c %a "$TOKEN_FILE")" = 600
 test "$(stat -c %u "$TOKEN_FILE")" = "$(id -u)"
 umask 077
 [[ "$MODEL" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 2
-H=$(ssh -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
+H=$(ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
 [[ "$H" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 2
 [[ "$JOURNAL" == "$H/"* && "$JOURNAL" =~ ^/[a-zA-Z0-9_./-]+$ && "/$JOURNAL/" != */../* ]] || exit 2
 S=$H/.hb-rehearsal
-trap 'ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2 $S/mcp.json" >/dev/null 2>&1 || true' EXIT
+trap 'ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2 $S/mcp.json" >/dev/null 2>&1 || true' EXIT
 
-ssh -o BatchMode=yes "root@$IP" "sudo -u owner -i python3 - <<'PYCONF'
+ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "sudo -u owner -i python3 - <<'PYCONF'
 import json, os, subprocess, sys, tomllib
 home = os.path.expanduser('~')
 record = json.load(open('$JOURNAL'))
@@ -61,12 +62,12 @@ os.chmod(out, 0o600)
 print('servers:', list(mcp.get('mcpServers', {})), '->', out)
 PYCONF"
 
-cat "$TOKEN_FILE" | ssh -o BatchMode=yes "root@$IP" \
+cat "$TOKEN_FILE" | ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" \
   "umask 077; IFS= read -r k; printf '%s\n' \"\$k\" > $S/env2; chown owner:owner $S/env2"
 
 # This clock/window belongs only to the post-run observer, never the install prompt.
 read -r HOST_CLOCK WINDOW_FROM WINDOW_TO < <(
-  ssh -o BatchMode=yes "root@$IP" "python3 - <<'PYCLOCK'
+  ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "python3 - <<'PYCLOCK'
 from datetime import UTC, datetime, timedelta
 now = datetime.now(UTC)
 start = (now - timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z')
@@ -80,7 +81,7 @@ printf '{"hostObservedAt":"%s","from":"%s","to":"%s","kinds":["body-mass"],"sour
 
 PROMPT="You have Health Buddy MCP tools available in this session. Using ONLY those tools (no shell commands, no file reads, no web): first list the tool names you see, then call sync_status and get_context with scopes weight, days 1 and limit 20. Also call list_records with from $WINDOW_FROM, to $WINDOW_TO, kinds [body-mass], sourceIds [manual] and limit 20. This bounded UTC window was derived from the host clock $HOST_CLOCK and covers the previous UTC day through the end of the current UTC day. Print the exact JSON results of all three calls, preserving the returned record value, unit and observedAt. Do not substitute the context date summary for list_records. If a call fails or the synthetic 150 lb record is missing, print the exact error or state clearly that it is missing. Keep your answer to those facts."
 
-ssh -o BatchMode=yes "root@$IP" "sudo -u owner -i bash -s" <<RUNEOF
+ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "sudo -u owner -i bash -s" <<RUNEOF
 IFS= read -r token < $S/env2
 export CLAUDE_CODE_OAUTH_TOKEN="\$token"
 unset token
@@ -95,9 +96,9 @@ echo "client exit=\$?" > $S/client-exit.txt
 RUNEOF
 
 for f in client-transcript.jsonl client.stderr client-exit.txt client-observer-catalog.json; do
-  scp -q "root@$IP:$S/$f" "$RUN/" 2>/dev/null || true
+  scp "${SSH_HOST_KEY_OPTS[@]}" -q "root@$IP:$S/$f" "$RUN/" 2>/dev/null || true
 done
-ssh -o BatchMode=yes "root@$IP" "rm -f $S/env2 $S/mcp.json"
+ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "rm -f $S/env2 $S/mcp.json"
 # Observed tool names detect shortcuts; raw results still require operator review.
 python3 - "$RUN/client-transcript.jsonl" > "$RUN/client-observer-check.json" <<'PYCHECK'
 import json, sys
