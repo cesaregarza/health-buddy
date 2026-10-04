@@ -125,32 +125,32 @@ architecture:
 uname -m
 ```
 
-On `x86_64`, install the repository's hash-locked wheels, the 55-package
-closure the [canonical guide](agent-guide.md) also uses. Nothing is resolved,
-and every wheel must match its recorded SHA-256:
+Choose the repository's hash-locked closure for the host architecture.
+The x86_64 lock contains 55 exact wheels and requires glibc 2.34 or newer. The
+aarch64 lock targets CPython 3.12 manylinux_2_28/manylinux2014 wheels and glibc
+2.28 or newer. Both match the Python 3.12 environment created in step 5.
+Nothing is resolved, and every wheel must match its recorded SHA-256:
 
 ```sh
-"$HOME/health-buddy/venv/bin/python" -m pip --isolated --disable-pip-version-check --no-cache-dir install --only-binary=:all: --require-hashes --no-deps --no-compile -r "$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-x86_64.lock"
+case "$(uname -m)" in
+  x86_64)
+    DEV_LOCK="$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-x86_64.lock"
+    ;;
+  aarch64)
+    DEV_LOCK="$HOME/health-buddy/bundle/source/packaging/dev-cp312-linux-aarch64.lock"
+    ;;
+  *) echo "unsupported Linux architecture; stop and tell the owner" >&2; exit 2 ;;
+esac
+"$HOME/health-buddy/venv/bin/python" -m pip --isolated --disable-pip-version-check --no-cache-dir install --only-binary=:all: --require-hashes --no-deps --no-compile -r "$DEV_LOCK"
 "$HOME/health-buddy/venv/bin/python" -m pip --isolated --disable-pip-version-check check
 ```
 
 Done: the install ends with `Successfully installed` and the check prints
 `No broken requirements found.` A hash mismatch or `No matching distribution`
-means a changed download, a host that is not x86_64 with glibc 2.34 or newer,
-or no route to PyPI: stop and tell the owner. Never drop `--require-hashes`.
-
-On `aarch64` the repository has no hash-locked closure yet. Tell the owner, and
-only with their approval run this fallback. It installs the bundle's exact
-top-level pins from `pyproject.toml` and the MCP extra, but lets pip choose the
-remaining versions without hash checks:
-
-```sh
-"$HOME/health-buddy/venv/bin/python" -m pip --isolated --disable-pip-version-check --no-cache-dir install --no-compile "$HOME/health-buddy/bundle/source[mcp]"
-"$HOME/health-buddy/venv/bin/python" -m pip --isolated --disable-pip-version-check check
-```
-
-Done and failure are as for `x86_64`. This is a plain, non-editable install;
-never use `pip install -e`.
+means a changed download, an incompatible Python/architecture/glibc, or no route
+to PyPI: stop and tell the owner. Never remove `--require-hashes`, install
+from the source project's dependency ranges, or use an owner-approved fallback.
+This is a plain, non-editable install; never use `pip install -e`.
 
 ### 7. Save the variables and point Python at the bundle
 
@@ -842,11 +842,10 @@ not need a working SDK. This check does not establish a live client connection.
 `agent_python_not_ready` reports `python`, the failing `dependency` import and
 `reason` (`missing_or_incompatible`, `probe_timeout` or `probe_failed`). Use that
 same environment for [bootstrap step 6](#6-install-the-pinned-dependencies-into-that-environment),
-including the x86_64 `--require-hashes` install and `pip check`, then rerun the
-same setup command. A core-only install omits the MCP extra and is insufficient;
-do not substitute `pip install -e .` or remove hash checks. On other architectures
-follow step 6's separate owner approval and dependency guidance. Keep all retained
-journal, credential and client files while repairing the environment. Setup
+including the matching architecture's `--require-hashes` install and `pip check`,
+then rerun the same setup command. A core-only install omits the MCP extra and is
+insufficient; do not substitute `pip install -e .` or remove hash checks. Keep
+all retained journal, credential and client files while repairing the environment. Setup
 never installs dependencies for you. After setup succeeds, restart the named
 client and verify tool discovery and an authenticated read in a fresh session.
 
