@@ -9,12 +9,15 @@ from __future__ import annotations
 import json
 import sys
 
+from completion_report import inspect_completion_report, latest_status_report
 from transcript import (
+    final_text,
     onboarding_findings,
     print_findings,
     publisher_findings,
     read_events,
     text_of,
+    tool_calls,
 )
 
 
@@ -66,7 +69,20 @@ def main(path: str) -> None:
     if final:
         print("## Final message\n")
         print(str(final)[:3000])
-    print_findings(onboarding_findings(events) + publisher_findings(events))
+    calls = tool_calls(events)
+    completion = inspect_completion_report(
+        final_text(events), latest_status_report(calls)
+    )
+    print("\n## Extracted completion report\n")
+    print(completion["completionReport"] or "- missing")
+    completion_findings = [
+        {"name": name} for name in completion["findings"]
+    ]
+    print_findings(
+        onboarding_findings(events)
+        + publisher_findings(events)
+        + completion_findings
+    )
 
 
 if __name__ == "__main__":
