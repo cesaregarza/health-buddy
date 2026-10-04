@@ -10,7 +10,13 @@ import json
 import re
 import sys
 
-from transcript import onboarding_findings, print_findings, read_events, tool_calls
+from transcript import (
+    onboarding_findings,
+    print_findings,
+    publisher_findings,
+    read_events,
+    tool_calls,
+)
 
 STAGE = re.compile(
     r"health_buddy\.install\.(\w+)|health_buddy\.cli|package_runtime\.py (\S+)"
@@ -56,7 +62,7 @@ def main(path: str) -> None:
         command = " ".join(call["command"].split())[:120]
         print(f"{ordinal:4d} {stage:12s} {command}\n       -> {verdict}")
 
-    print_findings(onboarding_findings(events))
+    print_findings(onboarding_findings(events) + publisher_findings(events))
 
 
 if __name__ == "__main__":

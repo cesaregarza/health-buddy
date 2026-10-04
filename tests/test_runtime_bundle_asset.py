@@ -156,13 +156,33 @@ def test_manifest_command_adds_the_bundle_asset_and_its_checksum(tmp_path):
     assert (again / ASSET).read_bytes() == (artifacts / ASSET).read_bytes()
 
 
+def publisher_launcher(commit: str) -> str:
+    """Only canonical metadata for this fixture commit; never contact GitHub."""
+    url = "https://api.github.com/repos/cesaregarza/health-buddy/commits/" + commit
+    payload = json.dumps({"sha": commit}).encode()
+    return f"""#!{sys.executable}
+import io, sys, urllib.request
+assert sys.argv[1:] == ["-", {commit!r}]
+def metadata(requested, *, timeout):
+    assert requested == {url!r} and timeout == 30
+    return io.BytesIO({payload!r})
+urllib.request.urlopen = metadata
+sys.argv = sys.argv[1:]
+# Repository-owned guide code with synthetic metadata only.
+exec(compile(sys.stdin.read(), "publisher-guide", "exec"), {{}})
+"""
+
+
 def test_fresh_host_follows_the_bootstrap_to_verified_artifacts(
     tmp_path, monkeypatch, capsys
 ):
     _bundle, artifacts = release(tmp_path)
     capsys.readouterr()  # The manifest command's own output.
     sums = checksums(artifacts)
+    manifest = json.loads((artifacts / "runtime-manifest.json").read_text())
+    commit = manifest["sourceCommit"]
     owner = {
+        "<source commit from the onboarding table>": commit,
         "<bundle URL from the owner>": RELEASE + ASSET,
         "<bundle SHA-256 from the owner>": sums[ASSET],
         "<manifest URL from the owner>": RELEASE + "runtime-manifest.json",
@@ -172,6 +192,7 @@ def test_fresh_host_follows_the_bootstrap_to_verified_artifacts(
     home.mkdir()
     curl = CURL.format(python=sys.executable, release=str(artifacts))
     executable(tools / "curl", curl)
+    executable(tools / "python3.12", publisher_launcher(commit))
     executable(tools / "docker", "#!/bin/sh\nexit 99\n")
     owner["/usr/bin/docker"] = str(tools / "docker")
     for block in blocks("Before the first stage"):
@@ -179,6 +200,10 @@ def test_fresh_host_follows_the_bootstrap_to_verified_artifacts(
             executable(home / "health-buddy/venv/bin/python", LAUNCHER)
         elif "-m pip" not in block:
             run(block, home, tools, owner)
+    marker = home / "health-buddy/publisher/commit-verified"
+    assert marker.read_text() == commit + "\n"
+    assert marker.stat().st_mode & 0o777 == 0o600
+    assert marker.parent.stat().st_mode & 0o777 == 0o700
     assert_private_bootstrap(home, tools, owner)
 
     (acquire,) = blocks("Acquire pinned release artifacts")
@@ -331,7 +356,7 @@ def undefined_variables(shell_blocks: list[str]) -> list[str]:
                     unknown = record_variables(line, defined)
                 if line == ENV_SOURCE:
                     defined |= saved
-                heredoc = re.search(r"<<'([A-Z]+)'$", line)
+                heredoc = re.search(r"<<'([A-Z]+)'(?: \|\| exit 1)?$", line)
                 if heredoc:
                     delimiter = heredoc[1]
                     writing_env = '"$HOME/health-buddy/env.sh"' in line

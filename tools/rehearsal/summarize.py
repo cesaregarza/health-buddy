@@ -9,7 +9,13 @@ from __future__ import annotations
 import json
 import sys
 
-from transcript import onboarding_findings, print_findings, read_events, text_of
+from transcript import (
+    onboarding_findings,
+    print_findings,
+    publisher_findings,
+    read_events,
+    text_of,
+)
 
 
 def main(path: str) -> None:
@@ -60,7 +66,7 @@ def main(path: str) -> None:
     if final:
         print("## Final message\n")
         print(str(final)[:3000])
-    print_findings(onboarding_findings(events))
+    print_findings(onboarding_findings(events) + publisher_findings(events))
 
 
 if __name__ == "__main__":
