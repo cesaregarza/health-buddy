@@ -370,13 +370,19 @@ def test_codex_observer_requires_three_distinct_successful_reads(tmp_path, kind)
     assert json.loads(output)["passed"] == (kind == "success")
 
 
-@pytest.mark.parametrize("kind", ["valid", "expired", "malformed", "unsafe_mode", "source_symlink", "output_symlink", "existing_output"])
+@pytest.mark.parametrize("kind", ["valid", "expired", "malformed", "unsafe_mode", "source_symlink", "output_symlink", "existing_output", "payload_shape", "auth_shape", "tokens_shape"])
 def test_codex_token_helper_uses_only_synthetic_credentials(tmp_path, kind):
     tmp_path.chmod(0o700)
     payload = base64.urlsafe_b64encode(json.dumps({"exp": int(time.time()) + (60 if kind == "expired" else 10800)}).encode()).decode().rstrip('=')
+    if kind == "payload_shape":
+        payload = base64.urlsafe_b64encode(b"[]").decode().rstrip("=")
     token = "synthetic." + payload + ".signature"
     source = tmp_path / "synthetic-auth.json"
     source.write_text(json.dumps({"tokens": {"access_token": "bad" if kind == "malformed" else token}}))
+    if kind == "auth_shape":
+        source.write_text("[]")
+    elif kind == "tokens_shape":
+        source.write_text('{"tokens": []}')
     source.chmod(0o644 if kind == "unsafe_mode" else 0o600)
     output = tmp_path / "token"
     if kind == "source_symlink":
@@ -394,6 +400,7 @@ def test_codex_token_helper_uses_only_synthetic_credentials(tmp_path, kind):
     )
     assert (result.returncode == 0) == (kind == "valid")
     assert token not in result.stdout + result.stderr
+    assert "Traceback" not in result.stderr
     if kind == "valid":
         assert "access token expires:" in result.stdout
         assert output.read_text() == token + "\n"

@@ -223,7 +223,7 @@ Codex keeps the same prompt, owner/umask conditions and wall timeout, with
 the Claude turn limit does not apply. Preserve raw JSONL, stderr and separate
 `last-message.txt`; derived views prefer that file without rewriting JSONL.
 A started tool item is not a successful result.
-Both print-mode sessions deny `ScheduleWakeup`, `CronCreate`, `CronList` and `CronDelete` with `--disallowedTools` (checked on Claude Code 2.1.197), because scheduling cannot resume them; this is a client limitation, and the tracked kit needs no operator overlay.
+Both Claude print-mode sessions deny `ScheduleWakeup`, `CronCreate`, `CronList` and `CronDelete` with `--disallowedTools` (checked on Claude Code 2.1.197), because scheduling cannot resume them; this is a client limitation, and the tracked kit needs no operator overlay.
 
 ```sh
 "$REHEARSAL_KIT/run.sh"
@@ -272,9 +272,6 @@ private files are not exact read-back. Report any development-mode use separatel
 
 ### 6. Check the fresh client and observer calls
 
-Back in the operator kit shell, supply the target's absolute install-journal path. The helper refuses an unfinished agent stage; never complete it by hand.
-With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Retain observer window/catalog, transcript and results.
-The independent observer keeps Haiku as its default; the everyday-execution gate requires all three successful MCP calls with a Haiku-class client.
 The observer still defaults to Haiku on Claude; explicitly select its `AGENT`,
 `MODEL`, `REASONING` and credential file for Codex. Codex ignores user config,
 uses a read-only sandbox, disables shell/web tools and registers only the
@@ -284,6 +281,10 @@ Record
 actual exposed capabilities on CLI 0.154.0; config intent alone is not proof.
 No shell/file/web call is acceptable; all three distinct MCP calls need completed
 successful results, with the same prompt/window and raw-result comparison.
+
+Back in the operator kit shell, supply the target's absolute install-journal path. The helper refuses an unfinished agent stage; never complete it by hand.
+With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Retain observer window/catalog, transcript and results.
+The independent observer keeps Haiku as its default; the everyday-execution gate requires all three successful MCP calls with a Haiku-class client.
 
 ```sh
 read -r -p 'Absolute install-journal path: ' PRIVATE_JOURNAL

@@ -34,6 +34,8 @@ def expiry(token):
     if len(parts) != 3:
         raise ValueError('access token has no readable JWT expiry')
     payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4)))
+    if not isinstance(payload, dict):
+        raise ValueError('JWT payload must be an object')
     exp = payload.get('exp')
     if not isinstance(exp, int) or isinstance(exp, bool) or exp - time.time() < 7200:
         raise ValueError('access token must have at least two hours remaining')
@@ -49,7 +51,10 @@ def main():
         token = raw.rstrip('\n')
         exp = expiry(token)
     elif len(args) == 2:
-        token = json.loads(private_file(args[0])).get('tokens', {}).get('access_token')
+        document = json.loads(private_file(args[0]))
+        if not isinstance(document, dict) or not isinstance(document.get('tokens'), dict):
+            raise ValueError('auth JSON must contain a tokens object')
+        token = document['tokens'].get('access_token')
         exp = expiry(token)
         out = Path(args[1]).absolute()
         if any(part.is_symlink() for part in (out, *out.parents)):
