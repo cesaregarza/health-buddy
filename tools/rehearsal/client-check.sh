@@ -36,10 +36,11 @@ H=$(ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "getent passwd own
 [[ "$JOURNAL" == "$H/"* && "$JOURNAL" =~ ^/[a-zA-Z0-9_./-]+$ && "/$JOURNAL/" != */../* ]] || exit 2
 S=$H/.hb-rehearsal
 CODEX_CREATED=0
+# Remove only the owned local copy; logout may revoke a shared ChatGPT session.
 cleanup_codex() {
   [[ "$CODEX_CREATED" == 1 ]] || return 0
   ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" \
-    "sudo -u owner env CODEX_HOME=$S/codex-home codex logout >/dev/null 2>&1 || true; rm -rf -- $S/codex-home; test ! -e $S/codex-home"
+    "rm -rf -- $S/codex-home; test ! -e $S/codex-home"
 }
 trap '[[ "$AGENT" != codex ]] || cleanup_codex >/dev/null 2>&1; ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=5 "root@$IP" "rm -f $S/env $S/env2 $S/mcp.json $S/codex-mcp.args" >/dev/null 2>&1 || true' EXIT
 

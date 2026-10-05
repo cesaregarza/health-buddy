@@ -574,6 +574,8 @@ elif 'codex login status' in command:
     state.write_text('synthetic auth exists')
     sys.exit(1 if failure == 'login' else 0)
 elif 'codex logout' in command:
+    sys.exit('logout must never revoke a copied shared session')
+elif 'rm -rf --' in command and 'codex-home' in command:
     if failure == 'cleanup':
         sys.exit(1)
     state.unlink(missing_ok=True)
@@ -588,6 +590,7 @@ elif 'claude-exit.txt' in command:
         p.write_text(program)
         p.chmod(0o755)
     state, copied, body = (tmp_path / n for n in ("state", "copied", "body"))
+    original_cache = token.read_text()
     output = subprocess.run(  # noqa: S603 - repository harness with synthetic SSH/scp only
         ["/bin/bash", str(kit / "run.sh")],
         capture_output=True,
@@ -607,7 +610,7 @@ elif 'claude-exit.txt' in command:
     assert (output.returncode == 0) == (failure == "none")
     assert copied.exists() == (failure == "none")
     assert "synthetic-refresh" not in output.stdout + output.stderr
-    assert "synthetic-refresh" in token.read_text()
+    assert token.read_text() == original_cache
     assert state.exists() == (failure == "cleanup")
     if body.exists():
         assert "--ephemeral --ignore-user-config" in body.read_text()

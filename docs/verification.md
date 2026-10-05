@@ -182,10 +182,11 @@ ChatGPT JWT extracted from this cache was rejected by CLI 0.154.0's workspace
 access-token login; the kit uses the approved cache path instead.
 The cache travels over SSH stdin into an isolated mode-0700 `CODEX_HOME` with
 an owner-owned mode-0600 `auth.json`. A silent login-status check must succeed
-before the model session. Logout and removal of the owned host auth directory
-must be confirmed before any copy-back, including failures and timeouts.
-Never copy refreshed host credentials back: the operator's original cache
-remains untouched. Before sharing evidence, require a private JWT-pattern scan
+before the model session. Remove only the exclusively owned local host auth
+directory and confirm it absent before any copy-back, including failures and
+timeouts; never run `codex logout` on a copied shared session because it may
+revoke the original credentials. Never copy refreshed host credentials back:
+the operator's original cache remains untouched. Before sharing evidence, require a private JWT-pattern scan
 of the kit and run to find nothing; model credentials are never transcript evidence.
 See [official non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
 and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
