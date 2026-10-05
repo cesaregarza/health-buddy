@@ -342,6 +342,13 @@ def test_release_curl_probes_remain_visible(
     ("command", "probe", "download"),
     [
         ("wget --spider $BUNDLE_URL", True, False),
+        ('/bin/bash -lc "curl -I $BUNDLE_URL"', True, False),
+        ('/bin/sh -c "curl --head $BUNDLE_URL"', True, False),
+        (
+            '/bin/bash -lc "curl -I $BUNDLE_URL; curl $BUNDLE_URL"',
+            True,
+            True,
+        ),
         ("wget $BUNDLE_URL", False, True),
         ("wget --spider --no-spider $BUNDLE_URL", False, True),
         (
@@ -422,6 +429,7 @@ def test_probe_before_raw_read_words_and_after_publisher_success(
         "unguarded",
         "download-first",
         "probe-then-download-first",
+        "python-download-first",
         "echo",
         "late-result",
         "empty-result",
@@ -459,6 +467,12 @@ def test_wrapped_publisher_block_keeps_failure_and_download_order(
         body = download + "\n" + body
         if kind == "probe-then-download-first":
             body = "curl -I $BUNDLE_URL\n" + body
+    elif kind == "python-download-first":
+        body = (
+            "python3 -c \"urllib.request.urlretrieve("
+            "'https://publisher.example/health-buddy-bundle.tar', 'bundle.tar')\"\n"
+            + body
+        )
     elif kind == "echo":
         body = body.replace(api_read, "print(url)")
     elif kind == "late-result":

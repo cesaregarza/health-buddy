@@ -238,8 +238,97 @@ def final_text(events: list[dict]) -> str:
     return ""
 
 
+def shell_command(command: str) -> str:
+    """Unwrap only a known shell -c form; never evaluate command source."""
+    if not re.match(r"^(?:/bin/)?(?:bash|sh)\s+-(?:l)?c\s", command):
+        return command
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return command
+    return words[2] if len(words) == 3 else command
+
+
+def curl_probe(args: list[str]) -> bool:
+    """HEAD or one null-body transfer with status output and no other target."""
+    head, write_out, other_output = False, False, False
+    outputs = []
+    index = 0
+    while index < len(args):
+        word = args[index]
+        option, equal, value = word.partition("=")
+        if option in {"-o", "--output", "-w", "--write-out"}:
+            if not equal:
+                index += 1
+                value = args[index] if index < len(args) else ""
+            if option in {"-o", "--output"}:
+                outputs.append(value)
+            else:
+                write_out = bool(value)
+        elif word.startswith("-o") and not word.startswith("--"):
+            outputs.append(word[2:])
+        elif word.startswith("-w") and not word.startswith("--"):
+            write_out = bool(word[2:])
+        elif option in {
+            "-H",
+            "--header",
+            "-A",
+            "--user-agent",
+            "-X",
+            "--request",
+            "-d",
+            "--data",
+            "-u",
+            "--user",
+            "-x",
+            "--proxy",
+        }:
+            index += not equal
+        elif word == "--no-head":
+            head = False
+        elif word == "--head" or re.fullmatch(r"-[a-zA-Z]*I[a-zA-Z]*", word):
+            head = True
+        elif (
+            word in {
+                "--remote-name",
+                "--remote-name-all",
+                "--dump-header",
+                "--stderr",
+            }
+            or re.fullmatch(r"-[a-zA-Z]*[OD][a-zA-Z]*", word)
+            or word.startswith(("-D", "--dump-header=", "--stderr=", ">", "1>"))
+        ):
+            other_output = True
+        index += 1
+    targets = [
+        word for word in args if ASSET.search(word) or ASSET_VARIABLE.search(word)
+    ]
+    return head or (
+        outputs == ["/dev/null"]
+        and write_out
+        and not other_output
+        and len(targets) == 1
+    )
+
+
+def transfer_groups(words: list[str]) -> list[list[str]]:
+    """--next resets curl options; keep each requested asset transfer separate."""
+    groups = [[]]
+    for word in words:
+        if word == "--next":
+            groups.append([])
+        else:
+            groups[-1].append(word)
+    return [
+        args
+        for args in groups
+        if any(ASSET.search(w) or ASSET_VARIABLE.search(w) for w in args)
+    ]
+
+
 def release_transfers(command: str) -> list[tuple[int, bool]]:
     """Classify bounded curl/wget invocations; unknown syntax stays a download."""
+    command = shell_command(command)
     transfers = []
     for match in re.finditer(r"\b(curl|wget)\b([^\n;&|]*)", command):
         text = match.group(2)
@@ -250,94 +339,31 @@ def release_transfers(command: str) -> list[tuple[int, bool]]:
         except ValueError:
             transfers.append((match.start(), False))
             continue
-        # --next resets curl options, so a HEAD transfer cannot hide a later GET.
-        groups = [[]]
-        for word in words:
-            if word == "--next":
-                groups.append([])
-            else:
-                groups[-1].append(word)
-        for args in groups:
-            if not any(ASSET.search(w) or ASSET_VARIABLE.search(w) for w in args):
-                continue
+        for args in transfer_groups(words):
             if match.group(1) == "wget":
                 probe = False
                 for word in args:
                     if word in {"--spider", "--no-spider"}:
                         probe = word == "--spider"
             else:
-                head, write_out, other_output = False, False, False
-                outputs = []
-                index = 0
-                while index < len(args):
-                    word = args[index]
-                    option, equal, value = word.partition("=")
-                    if option in {"-o", "--output", "-w", "--write-out"}:
-                        if not equal:
-                            index += 1
-                            value = args[index] if index < len(args) else ""
-                        if option in {"-o", "--output"}:
-                            outputs.append(value)
-                        else:
-                            write_out = bool(value)
-                    elif word.startswith("-o") and not word.startswith("--"):
-                        outputs.append(word[2:])
-                    elif word.startswith("-w") and not word.startswith("--"):
-                        write_out = bool(word[2:])
-                    elif option in {
-                        "-H",
-                        "--header",
-                        "-A",
-                        "--user-agent",
-                        "-X",
-                        "--request",
-                        "-d",
-                        "--data",
-                        "-u",
-                        "--user",
-                        "-x",
-                        "--proxy",
-                    }:
-                        index += not equal
-                    elif word == "--no-head":
-                        head = False
-                    elif word == "--head" or re.fullmatch(
-                        r"-[a-zA-Z]*I[a-zA-Z]*", word
-                    ):
-                        head = True
-                    elif (
-                        word in {
-                            "--remote-name",
-                            "--remote-name-all",
-                            "--dump-header",
-                            "--stderr",
-                        }
-                        or re.fullmatch(r"-[a-zA-Z]*[OD][a-zA-Z]*", word)
-                        or word.startswith(
-                            ("-D", "--dump-header=", "--stderr=", ">", "1>")
-                        )
-                    ):
-                        other_output = True
-                    index += 1
-                targets = [
-                    word
-                    for word in args
-                    if ASSET.search(word) or ASSET_VARIABLE.search(word)
-                ]
-                probe = head or (
-                    outputs == ["/dev/null"]
-                    and write_out
-                    and not other_output
-                    and len(targets) == 1
-                )
+                probe = curl_probe(args)
             transfers.append((match.start(), probe))
     return transfers
+
+
+def python_asset_downloads(command: str) -> list[int]:
+    """Locate explicit Python asset fetches, including ones with silent output."""
+    return [
+        match.start()
+        for match in re.finditer(r"\b(?:urlopen|urlretrieve)\([^\n]*", command)
+        if ASSET.search(match.group()) or ASSET_VARIABLE.search(match.group())
+    ]
 
 
 def release_download(call: dict) -> bool:
     """A requested release download, including a later failure, is evidence."""
     inputs = call["input"]
-    command = str(inputs.get("command") or "")
+    command = shell_command(str(inputs.get("command") or ""))
     if ASSET.search(str(inputs.get("url") or "")):
         return True
     transfers = release_transfers(command)
@@ -441,10 +467,10 @@ def publisher_success(call: dict, *, joined: bool = False) -> bool:
 
 def guarded_download(call: dict) -> bool:
     """Recognize the documented guarded Python check before every asset fetch."""
-    command = str(call["input"].get("command") or "")
+    command = shell_command(str(call["input"].get("command") or ""))
     downloads = [
         position for position, probe in release_transfers(command) if not probe
-    ]
+    ] + python_asset_downloads(command)
     if not publisher_check(call) or not downloads:
         return False
     prefix = command[: min(downloads)]
