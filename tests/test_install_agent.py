@@ -227,11 +227,23 @@ def test_status_report_tracks_agent_stage_without_claiming_acceptance(
     )
     assert len(lines) == 4
     summary = install_status.status(journal=selected["journal"])
+    assert summary["phoneInstruction"].startswith("If you want phone data:")
+    assert "before owner setup" in summary["phoneInstruction"]
+    assert not summary["healthkitReceiverEnabled"]
+    assert summary["healthkitMode"] == "read-only"
+    assert lines[2] == "OPTIONAL: actual_private_https_acceptance, phone_acceptance"
     canonical = json.dumps(
         summary, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
     digest = hashlib.sha256(canonical).hexdigest()[:12]
     assert lines[3] == f"REPORT DIGEST: {digest}"
+    changed_guidance = {
+        **summary,
+        "phoneInstruction": "Different optional phone guidance",
+    }
+    changed_report = install_status.format_report(changed_guidance).splitlines()
+    assert changed_report[:3] == lines[:3]
+    assert changed_report[3] != lines[3]
     assert lines[3] != incomplete.splitlines()[3]
     assert str(selected["workspace"]) not in complete
     assert str(arguments["agent_token"]) not in complete
@@ -283,7 +295,11 @@ def test_default_install_connection_repeats_with_same_authority_and_redacted_sta
     )
     assert summary["activeDeviceCount"] == 0 and not summary["connected"]
     assert not summary["phoneReceiverConfigured"]
+    assert not summary["healthkitReceiverEnabled"]
     assert summary["healthkitMode"] == "read-only"
+    assert summary["phoneInstruction"].startswith("If you want phone data:")
+    assert "before owner setup" in summary["phoneInstruction"]
+    assert "Deliberately approve pairing" in summary["phoneInstruction"]
     stages = {item["name"]: item["state"] for item in summary["localStages"]}
     assert stages["owner_setup"] == "currently_authenticated"
     assert stages["runtime_activation"] == "last_active"

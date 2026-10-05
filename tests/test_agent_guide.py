@@ -79,3 +79,36 @@ def test_onboarding_checklist_names_real_guide_sections_and_stages() -> None:
     assert stages
     for stage in stages:
         assert (ROOT / "src/health_buddy/install" / f"{stage}.py").is_file(), stage
+
+
+def test_phone_receiver_guidance_requires_an_owner_request() -> None:
+    guide = GUIDE.read_text().split("## Guided native owner setup", 1)[1]
+    guide = guide.split("## Explicit runtime activation", 1)[0]
+    phone = next(part for part in guide.split("\n\n") if "HealthKit" in part)
+    phone = " ".join(phone.split())
+    assert phone.startswith("Only if the owner asked for phone pairing")
+    assert "Otherwise leave the prepared default HealthKit disabled" in phone
+    assert "mode `read-only`" in phone
+    assert "owner setup preserves and binds it as-is" in phone
+    assert "explicitly edit only the intended" in phone
+    assert "health_buddy.core.config.load" in phone
+    assert "workspace describe --json" in phone
+    assert "Never silently enable the receiver" in phone
+    assert "already bound change requires explicit owner" in phone
+
+    onboarding = " ".join((ROOT / "docs/onboarding.md").read_text().split())
+    assert (
+        "HealthKit receiver stays disabled in `read-only` mode unless the owner "
+        "asked for phone pairing"
+    ) in onboarding
+    readback = (
+        (ROOT / "docs/verification.md")
+        .read_text()
+        .split("### 5. Independently check host state and authenticated read-back", 1)[
+            1
+        ]
+    )
+    readback = readback.split("### 6.", 1)[0]
+    assert "`healthkitMode` and `healthkitReceiverEnabled`" in readback
+    assert "without requested phone pairing" in readback
+    assert "require `read-only` and `false`" in readback

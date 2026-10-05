@@ -270,6 +270,9 @@ docker ps -a --format '{{.ID}} {{.Status}} {{.Image}}'
 Save the host's four-line `--report` output and compare all four lines with the
 block at the start of the final message; require an identical digest and
 completion claim. A missing, malformed or mismatched report fails completion.
+Record `healthkitMode` and `healthkitReceiverEnabled` from the host status JSON
+and compare them with the owner's request: without requested phone pairing,
+require `read-only` and `false`; report any deviation before repairing it.
 Require ready owner, active activation, configured agent, `ownerAuthenticated`, `runtimeLastActive` and `agentGrantRetained`; the last flag is retained journal state, not live
 health. Preserve write response/revision and authenticated read response; match kind `body-mass`, source `manual` and exact `observedAt`; compare returned value/unit with the write response, allowing canonical unit conversion. Context summaries or
 private files are not exact read-back. Report any development-mode use separately; it cannot replace credentialed installed-runtime success.
