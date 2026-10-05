@@ -591,20 +591,22 @@ HTTPS or verify a remote identity. Run as the existing nonroot workspace owner,
 with its nonzero group and private native credential-output directory. Stop
 other writers/editors during this action.
 
-The prepared default has HealthKit disabled with mode `read-only`. A reservation
-or private pairing proof does not prove redemption or ingest can work. Before
-`health_buddy.install.owner`, explicitly edit only the intended HealthKit configuration to
+Only if the owner asked for phone pairing, explicitly edit only the intended
+HealthKit configuration before `health_buddy.install.owner` to
 `integrations.healthkit: {enabled:true,mode:"receiver"}` using the supported
 [owner configuration](configuration.md#owner-configuration), validate it through
 `health_buddy.core.config.load` via the native workspace command, and review it:
 `"$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" workspace describe --json`.
-Keep that owner path inventory private. Owner
-setup preserves nonsecurity configuration and binds its exact resulting bytes.
-Never silently enable the receiver or edit a bound running installer config to
-bypass that binding; an already bound change requires explicit owner lifecycle
-review. Status exposes only receiver enabled/mode/configured booleans/enum.
-Phone setup remains the existing owner login and `/security` page headed
-“Connect a phone”; real HealthKit permission/device/build acceptance stays open.
+Keep that owner path inventory private. Otherwise leave the prepared default
+HealthKit disabled with mode `read-only`; owner setup preserves and binds it as-is.
+Owner setup preserves nonsecurity configuration and binds its exact resulting
+bytes. Never silently enable the receiver or edit a bound running installer
+config to bypass that binding; an already bound change requires explicit owner
+lifecycle review. A reservation or private pairing proof does not prove redemption
+or ingest can work. Status exposes only receiver enabled/mode/configured
+booleans/enum. Phone setup remains the existing owner login and `/security` page
+headed “Connect a phone”; real HealthKit permission/device/build acceptance stays
+open.
 
 
 ```sh

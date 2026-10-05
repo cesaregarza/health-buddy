@@ -238,9 +238,9 @@ def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
             "pairingStatus": pairing,
             "connected": False,
             "phoneInstruction": (
-                "Explicitly configure HealthKit enabled=true/mode=receiver "
-                "before owner setup; "
-                "then log in as owner and open /security (Connect a phone). "
+                "If you want phone data: explicitly configure HealthKit "
+                "enabled=true/mode=receiver before owner setup, then log in "
+                "as owner and open /security (Connect a phone). "
                 "Deliberately approve pairing and deliver its short-lived "
                 "proof privately to your phone."
             ),

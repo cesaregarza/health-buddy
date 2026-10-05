@@ -98,6 +98,8 @@ Notes the stages depend on:
   Without Tailscale, keep the guide's local-only origin and subject.
 - Stage 4 takes no `--client` arguments in the guided install; the client is
   configured in stage 7.
+- The HealthKit receiver stays disabled in `read-only` mode unless the owner
+  asked for phone pairing; make any requested receiver configuration before stage 5.
 - Stage 6 loads the runtime image and can take several minutes on a small
   host. Do not interrupt it; if it is interrupted, rerun the identical command
   until it reports `runtimeActivated: true`. Activation creates `runtime.env`
