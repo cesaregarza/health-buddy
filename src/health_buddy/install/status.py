@@ -110,9 +110,7 @@ CONFIG_RECOVERY = (
 
 
 def _report_list(value: object) -> str:
-    if not isinstance(value, list) or not all(
-        isinstance(item, str) for item in value
-    ):
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ServiceError(409, "install_status_invalid_retained_state")
     return ", ".join(value) if value else "none"
 
@@ -154,8 +152,7 @@ def format_report(value: dict[str, Any]) -> str:
     return "\n".join(
         (
             local,
-            "OWNER ACCEPTANCE PENDING: "
-            + _report_list(value.get("pendingAcceptance")),
+            "OWNER ACCEPTANCE PENDING: " + _report_list(value.get("pendingAcceptance")),
             f"OPTIONAL: {_report_list(value.get('optionalPendingAcceptance'))}",
             f"REPORT DIGEST: {digest}",
         )

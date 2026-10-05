@@ -384,7 +384,9 @@ def test_active_repeat_observes_binding_without_opening_stores(tmp_path, monkeyp
     monkeypatch.setattr(sqlite3, "connect", no_store)
     assert install_activation.activate(**arguments) == activated
     assert all("up" not in call and "load" not in call for call in state["calls"])
-    assert {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths} == before
+    assert {
+        path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths
+    } == before
 
 
 @pytest.mark.parametrize(

@@ -208,7 +208,8 @@ def _active_authority(workspace: Path) -> tuple[Config, Identity]:
         value = read_json(workspace / "identity.json", 4096)
         if (
             not isinstance(value, dict)
-            or set(value) != {
+            or set(value)
+            != {
                 "schemaVersion",
                 "installationId",
                 "datasetId",

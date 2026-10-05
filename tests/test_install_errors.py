@@ -127,7 +127,9 @@ def test_stage_cli_owns_retryable_store_refusal(
         raise ServiceError(503, "source_unavailable", retryable=True)
 
     monkeypatch.setattr(module, operation, refused)
-    arguments = [part for key, value in selection.items() for part in ("--" + key, value)]
+    arguments = [
+        part for key, value in selection.items() for part in ("--" + key, value)
+    ]
     assert module.main(arguments) == 2
     value = json.loads(capsys.readouterr().out)
     assert value["code"] == "install_runtime_store_not_ready"

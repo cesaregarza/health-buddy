@@ -17,11 +17,7 @@ STORE_RETRY_RECOVERY = (
 
 def store_retry_refusal(error: ServiceError) -> dict[str, Any]:
     """Keep permanent and stage-specific refusals intact; own the store retry."""
-    if (
-        error.status == 503
-        and error.retryable
-        and error.code == unavailable().code
-    ):
+    if error.status == 503 and error.retryable and error.code == unavailable().code:
         return {
             "code": STORE_NOT_READY,
             "retryable": True,
