@@ -208,7 +208,7 @@ def ready(config: Config, deadline: float) -> bool:
                     != head
                 ):
                     return False
-                binding = security._binding(identity)
+                binding = security.verify_binding(identity)
                 with _database(security.path, deadline) as database:
                     row = database.execute(
                         "SELECT CASE WHEN typeof(value)='text' "

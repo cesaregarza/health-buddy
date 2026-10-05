@@ -229,7 +229,7 @@ def _active_authority(workspace: Path) -> tuple[Config, Identity]:
             cast(str, value["restoreEpoch"]),
         )
         security = SecurityStore(workspace)
-        security._binding(identity)
+        security.verify_binding(identity)
         # Metadata permission checks only; never connect to either database.
         for path in (security.path, workspace / "operations/control.sqlite"):
             private_owned(path)
