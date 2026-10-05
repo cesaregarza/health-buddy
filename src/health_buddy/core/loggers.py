@@ -90,6 +90,64 @@ def _arguments(kind: str, fields: dict[str, JSON], config: Config) -> list[str]:
     return argv
 
 
+def _time_refusal(field: str, value: str, accepted: str) -> ServiceError:
+    code = (
+        "invalid_logger_timestamp"
+        if field.endswith("at_local")
+        else "invalid_logger_timezone"
+    )
+    return ServiceError(
+        422,
+        code,
+        details={
+            "argument": "--" + field.replace("_", "-"),
+            "received": value,
+            "accepted": accepted,
+        },
+    )
+
+
+def _validate_time_value(field: str, value: str) -> None:
+    if field.endswith("at_local"):
+        try:
+            if "T" not in value:
+                raise ValueError
+            datetime.fromisoformat(value)
+        except ValueError:
+            raise _time_refusal(
+                field,
+                value,
+                "an ISO-8601 local date-time containing T, e.g. 2030-01-01T08:00:00",
+            ) from None
+    else:
+        try:
+            ZoneInfo(value)
+        except (ValueError, ZoneInfoNotFoundError):
+            raise _time_refusal(
+                field, value, "an IANA time-zone name, e.g. America/Chicago"
+            ) from None
+
+
+def validate_time_arguments(kind: str, arguments: list[str], config: Config) -> None:
+    """Refuse invalid local times before workflow paths or intent state are created."""
+    if kind not in FIELDS:
+        raise ServiceError(422, "invalid_request")
+    parser = flag_parser(kind)
+
+    def reject(message: str) -> Never:
+        raise ServiceError(422, "invalid_logger_arguments")
+
+    parser.error = reject  # type: ignore[method-assign]
+    parsed = vars(parser.parse_args(arguments))
+    for field in ("measured_at_local", "event_at_local"):
+        if field in parsed:
+            _validate_time_value(field, cast(str, parsed[field]))
+    if "timezone" in FIELDS[kind].split():
+        _validate_time_value(
+            "timezone", cast(str, parsed.get("timezone", config.zone.key))
+        )
+
+
 def _circumference_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--measured-at-local", required=True)
@@ -166,8 +224,12 @@ def namespace(kind: str, fields: dict[str, JSON], config: Config) -> argparse.Na
                 raise invalid()
             if isinstance(value, int) and abs(value) > 1_000_000:
                 raise invalid()
+        for field in ("measured_at_local", "event_at_local"):
+            value = getattr(result, field, None)
+            if value is not None:
+                _validate_time_value(field, value)
         if hasattr(result, "timezone"):
-            ZoneInfo(result.timezone)
+            _validate_time_value("timezone", result.timezone)
         return result
     except (
         ValueError,

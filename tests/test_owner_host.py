@@ -78,6 +78,16 @@ def measure(owner: Owner) -> str:
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     token = str(owner.workspace / "secrets/native-owner-token")
     cli = ["--workspace", str(owner.workspace), "--credential-file", token]
+    malformed = owner_host.launch(
+        owner,
+        "health_buddy.cli",
+        *(*cli, "log", "measurement", "--measured-at-local", "2026-10-05 02:36:00"),
+        *("--timezone", "UTC", "--weight-lb", "150"),
+    )
+    assert malformed.returncode == 2
+    assert "2026-10-05 02:36:00" in malformed.stderr
+    assert "ISO-8601 local date-time" in malformed.stderr
+    assert not (owner.workspace / "personal/state/native-client.json").exists()
     written = owner_host.launch(
         owner,
         "health_buddy.cli",
@@ -136,13 +146,10 @@ def assert_completion_report(owner: Owner, status: dict[str, Any]) -> None:
     lines = completed.stdout.splitlines()
     assert len(lines) == 4
     assert lines[0] == "LOCAL SETUP: complete"
-    assert lines[1] == (
-        "OWNER ACCEPTANCE PENDING: "
-        + ", ".join(status["pendingAcceptance"])
+    assert lines[1] == "OWNER ACCEPTANCE PENDING: " + ", ".join(
+        status["pendingAcceptance"]
     )
-    assert lines[2] == "OPTIONAL: " + ", ".join(
-        status["optionalPendingAcceptance"]
-    )
+    assert lines[2] == "OPTIONAL: " + ", ".join(status["optionalPendingAcceptance"])
     canonical = json.dumps(
         status, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")

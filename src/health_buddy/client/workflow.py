@@ -298,7 +298,8 @@ class ClientWorkflow:
             not isinstance(value, dict)
             or type(value.get("schemaVersion")) is not int
             or value["schemaVersion"] not in (1, 2)
-            or value.get("state") not in ("pending", "complete", "discarded")
+            or value.get("state")
+            not in ("pending", "complete", "discarded", "rejected")
             or type(value.get("cursor")) is not int
             or cast(int, value["cursor"]) < 0
             or not isinstance(value.get("envelope"), dict)
@@ -447,6 +448,7 @@ class ClientWorkflow:
     def _execute(self, path: Path, state: dict[str, Any]) -> dict[str, JSON]:
         self._check_binding(state)
         request = self._request(state["envelope"])
+        result: Response | None = None
         try:
             result = self.operations.execute(
                 self.principal, replace(request, deadline=time.monotonic() + 20)
@@ -500,6 +502,16 @@ class ClientWorkflow:
                 else ServiceError(503, "outcome_unknown", retryable=True)
             )
             state["lastError"] = {"code": safe.code, "status": safe.status}
+            if (
+                request.operation == "logs.write"
+                and result is not None
+                and result.status == 422
+                and state["state"] == "pending"
+            ):
+                # A received validation refusal proves the write was not saved.
+                # Unlike transport uncertainty, it can be replaced by a corrected
+                # command without acknowledging a possible save.
+                state["state"] = "rejected"
             self._save(path, state)
             raise safe from None
         if state["state"] != "complete":
@@ -649,6 +661,15 @@ class ClientWorkflow:
             state = self._load(path)
             if state is None or state["state"] == "discarded":
                 raise ServiceError(409, "no_pending_write")
+            if state["state"] == "rejected":
+                error = state.get("lastError")
+                if (
+                    isinstance(error, dict)
+                    and type(error.get("status")) is int
+                    and isinstance(error.get("code"), str)
+                ):
+                    raise ServiceError(error["status"], error["code"])
+                raise ServiceError(422, "invalid_request")
             return self._execute(path, state)
 
     def _archive_resolution(self, path: Path) -> dict[str, JSON]:

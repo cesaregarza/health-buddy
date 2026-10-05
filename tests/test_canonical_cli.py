@@ -76,6 +76,44 @@ def test_cli_conflict_resolution_and_safe_diagnostics(tmp_path, capsys):
     assert App.development(root).snapshot()["weight"][0]["lb"] == 150
 
 
+@pytest.mark.parametrize(
+    "argument,value,accepted",
+    [
+        ("--measured-at-local", "2026-10-05 02:36:00", "ISO-8601 local date-time"),
+        ("--timezone", "Not/AZone", "IANA time-zone name"),
+    ],
+)
+def test_bad_logger_time_refuses_before_intent_and_names_expected_form(
+    tmp_path, capsys, argument, value, accepted
+):
+    root = tmp_path / "owner"
+    assert main(["--workspace", str(root), "init"]) == 0
+    capsys.readouterr()
+    assert (
+        main(
+            arguments(
+                root,
+                "log",
+                "measurement",
+                "--measured-at-local",
+                "2030-01-01T08:00:00",
+                "--timezone",
+                "UTC",
+                "--weight-lb",
+                "150",
+                argument,
+                value,
+            )
+        )
+        == 2
+    )
+    refusal = capsys.readouterr().err
+    assert refusal.count("\n") == 1
+    assert argument in refusal and value in refusal and accepted in refusal
+    assert not (root / "personal/state/native-client.json").exists()
+    assert not (root / "personal/state/native-client.lock").exists()
+
+
 def test_circumference_preview_has_no_write_or_retry_cursor(tmp_path):
     app = App.development(tmp_path / "owner")
     before = app.snapshot()["meta"]["dataRevision"]
