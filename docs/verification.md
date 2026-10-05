@@ -186,6 +186,7 @@ python3 "$REHEARSAL_KIT/render-prompt.py" "$ONBOARDING_URL"
 No resume, prior conversation, personal files, checkout or operator skills. The helper runs as `owner`, uses `umask 002`, clears Python path/bytecode overrides and retains `<
 /dev/null`; do not alter those conditions. Default is Haiku, 250 turns, 3600 seconds. Record explicit model/limit changes. Preserve transcript, stderr, exit record and `STALLS.md`;
 timeout or zero exit alone is not success. Do not intervene; if needed, record before/after actions, mark assisted and retry on a new host.
+Both print-mode sessions deny `ScheduleWakeup`, `CronCreate`, `CronList` and `CronDelete` with `--disallowedTools` (checked on Claude Code 2.1.197), because scheduling cannot resume them; this is a client limitation, and the tracked kit needs no operator overlay.
 
 ```sh
 "$REHEARSAL_KIT/run.sh"

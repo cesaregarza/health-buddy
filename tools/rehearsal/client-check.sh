@@ -87,10 +87,11 @@ export CLAUDE_CODE_OAUTH_TOKEN="\$token"
 unset token
 rm -f $S/env2
 cd $H
+# Claude Code 2.1.197: --disallowedTools <tools...>; scheduling cannot resume print mode.
 timeout 600 claude -p "$PROMPT" --model $MODEL --max-turns 12 --mcp-config $S/mcp.json --strict-mcp-config \
   --tools ToolSearch --disable-slash-commands --setting-sources "" --permission-mode dontAsk \
   --allowedTools ToolSearch,mcp__health_buddy__sync_status,mcp__health_buddy__get_context,mcp__health_buddy__list_records \
-  --disallowedTools mcp__health_buddy__discover_workspace,mcp__health_buddy__get_plan,mcp__health_buddy__record_workout,mcp__health_buddy__log_health,mcp__health_buddy__propose_plan,mcp__health_buddy__apply_plan,mcp__health_buddy__write_status,mcp__health_buddy__retry_write \
+  --disallowedTools ScheduleWakeup CronCreate CronList CronDelete mcp__health_buddy__discover_workspace,mcp__health_buddy__get_plan,mcp__health_buddy__record_workout,mcp__health_buddy__log_health,mcp__health_buddy__propose_plan,mcp__health_buddy__apply_plan,mcp__health_buddy__write_status,mcp__health_buddy__retry_write \
   --output-format stream-json --verbose < /dev/null > $S/client-transcript.jsonl 2> $S/client.stderr
 echo "client exit=\$?" > $S/client-exit.txt
 RUNEOF
