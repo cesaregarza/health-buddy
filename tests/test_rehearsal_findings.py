@@ -353,7 +353,7 @@ def test_release_curl_probes_remain_visible(
         ("wget --spider --no-spider $BUNDLE_URL", False, True),
         (
             "curl -I $BUNDLE_URL\n"
-            "python3 -c 'urllib.request.urlretrieve(\"$BUNDLE_URL\", \"bundle.tar\")'",
+            'python3 -c \'urllib.request.urlretrieve("$BUNDLE_URL", "bundle.tar")\'',
             True,
             True,
         ),
@@ -382,7 +382,6 @@ def test_release_probes_do_not_hide_actual_downloads(
     assert ("release_download_without_publisher_check" in output) == download
 
 
-
 @pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
 @pytest.mark.parametrize("agent", ["claude", "codex"])
 def test_probe_before_raw_read_words_and_after_publisher_success(
@@ -397,7 +396,7 @@ def test_probe_before_raw_read_words_and_after_publisher_success(
                 "Bash",
                 {
                     "command": (
-                        "python3 -c \"import urllib.request; "
+                        'python3 -c "import urllib.request; '
                         "urllib.request.urlopen("
                         "'https://api.github.com/repos/cesaregarza/health-buddy/commits/"
                         + commit
@@ -451,9 +450,7 @@ def test_wrapped_publisher_block_keeps_failure_and_download_order(
         + api_read
         + "\n"
         "marker = 'commit-verified'\n"
-        "print('Publisher commit verified: "
-        + commit
-        + "')\nPY\n"
+        "print('Publisher commit verified: " + commit + "')\nPY\n"
         'test "$(cat commit-verified)" = "$PUBLISHER_COMMIT"\n'
     )
     download = "curl -fL $BUNDLE_URL -o bundle.tar"
@@ -469,7 +466,7 @@ def test_wrapped_publisher_block_keeps_failure_and_download_order(
             body = "curl -I $BUNDLE_URL\n" + body
     elif kind == "python-download-first":
         body = (
-            "python3 -c \"urllib.request.urlretrieve("
+            'python3 -c "urllib.request.urlretrieve('
             "'https://publisher.example/health-buddy-bundle.tar', 'bundle.tar')\"\n"
             + body
         )

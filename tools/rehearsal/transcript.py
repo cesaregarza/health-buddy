@@ -289,7 +289,8 @@ def curl_probe(args: list[str]) -> bool:
         elif word == "--head" or re.fullmatch(r"-[a-zA-Z]*I[a-zA-Z]*", word):
             head = True
         elif (
-            word in {
+            word
+            in {
                 "--remote-name",
                 "--remote-name-all",
                 "--dump-header",
