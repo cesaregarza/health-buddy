@@ -80,13 +80,9 @@ def main(path: str) -> None:
     )
     print("\n## Extracted completion report\n")
     print(completion["completionReport"] or "- missing")
-    completion_findings = [
-        {"name": name} for name in completion["findings"]
-    ]
+    completion_findings = [{"name": name} for name in completion["findings"]]
     print_findings(
-        onboarding_findings(events)
-        + publisher_findings(events)
-        + completion_findings
+        onboarding_findings(events) + publisher_findings(events) + completion_findings
     )
 
 

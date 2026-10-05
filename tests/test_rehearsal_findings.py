@@ -47,8 +47,12 @@ def codex_transcript(events):
         for block in event["message"]["content"]:
             kind = block["type"]
             if kind == "text":
-                raw.append({"type": "item.completed", "item": {
-                    "type": "agent_message", "text": block["text"]}})
+                raw.append(
+                    {
+                        "type": "item.completed",
+                        "item": {"type": "agent_message", "text": block["text"]},
+                    }
+                )
             elif kind == "tool_use":
                 inputs = block["input"]
                 item = {"id": block["id"], "status": "in_progress"}
@@ -60,9 +64,11 @@ def codex_transcript(events):
                 raw.append({"type": "item.started", "item": item.copy()})
             elif kind == "tool_result":
                 item = items[block["tool_use_id"]].copy()
-                item.update(status="completed", aggregated_output=block["content"], exit_code=0)
+                item.update(
+                    status="completed", aggregated_output=block["content"], exit_code=0
+                )
                 raw.append({"type": "item.completed", "item": item})
-    return raw + [{"type": "turn.completed", "usage": {}}]
+    return [*raw, {"type": "turn.completed", "usage": {}}]
 
 
 @pytest.mark.parametrize("script", ["summarize.py", "stages.py"])
@@ -84,7 +90,9 @@ def codex_transcript(events):
         "malformed",
     ],
 )
-def test_raw_read_findings_preserve_prose_and_mutation_order(tmp_path, script, kind, agent):
+def test_raw_read_findings_preserve_prose_and_mutation_order(
+    tmp_path, script, kind, agent
+):
     url = "https://publisher.example/docs/onboarding.md"
     fetch = call("WebFetch", {"url": url, "prompt": "summarize"})
     install = call(
@@ -296,20 +304,34 @@ def run_view(tmp_path, events, script="summarize.py", final=None):
     if final is not None:
         (tmp_path / "last-message.txt").write_text(final)
     return subprocess.run(  # noqa: S603 - repository script, synthetic evidence
-        [sys.executable, str(KIT / script), str(path)], check=True,
-        capture_output=True, text=True,
+        [sys.executable, str(KIT / script), str(path)],
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
 
 
-@pytest.mark.parametrize("kind", ["valid", "missing", "not_first", "malformed", "mismatch"])
+@pytest.mark.parametrize(
+    "kind", ["valid", "missing", "not_first", "malformed", "mismatch"]
+)
 def test_codex_final_report_uses_last_message_and_status_result(tmp_path, kind):
-    report = ("LOCAL SETUP: complete\nOWNER ACCEPTANCE PENDING: none\n"
-              "OPTIONAL: none\nREPORT DIGEST: abcdef123456")
-    events = codex_transcript([
-        assistant(prose("RIVER STONE")),
-        assistant(call("Bash", {"command": "python -m health_buddy.install.status --report"})),
-        result(report), assistant(prose(report)),
-    ])
+    report = (
+        "LOCAL SETUP: complete\nOWNER ACCEPTANCE PENDING: none\n"
+        "OPTIONAL: none\nREPORT DIGEST: abcdef123456"
+    )
+    events = codex_transcript(
+        [
+            assistant(prose("RIVER STONE")),
+            assistant(
+                call(
+                    "Bash",
+                    {"command": "python -m health_buddy.install.status --report"},
+                )
+            ),
+            result(report),
+            assistant(prose(report)),
+        ]
+    )
     final = report
     expected = None
     if kind == "missing":
@@ -317,9 +339,15 @@ def test_codex_final_report_uses_last_message_and_status_result(tmp_path, kind):
     elif kind == "not_first":
         final, expected = "Done\n" + report, "completion_report_not_first"
     elif kind == "malformed":
-        final, expected = report.replace("abcdef123456", "invalid"), "completion_report_malformed_digest"
+        final, expected = (
+            report.replace("abcdef123456", "invalid"),
+            "completion_report_malformed_digest",
+        )
     elif kind == "mismatch":
-        final, expected = report.replace("abcdef123456", "fedcba654321"), "completion_report_host_digest_mismatch"
+        final, expected = (
+            report.replace("abcdef123456", "fedcba654321"),
+            "completion_report_host_digest_mismatch",
+        )
     output = run_view(tmp_path, events, final=final)
     if expected:
         assert expected in output
@@ -328,23 +356,46 @@ def test_codex_final_report_uses_last_message_and_status_result(tmp_path, kind):
 
 
 def test_codex_stage_call_is_not_duplicated_by_completed_item(tmp_path):
-    events = codex_transcript([
-        assistant(prose("RIVER STONE")),
-        assistant(call("Bash", {"command": "python -m health_buddy.install.preflight"})),
-        result('{"preflightPassed": true}'),
-    ])
+    events = codex_transcript(
+        [
+            assistant(prose("RIVER STONE")),
+            assistant(
+                call("Bash", {"command": "python -m health_buddy.install.preflight"})
+            ),
+            result('{"preflightPassed": true}'),
+        ]
+    )
     output = run_view(tmp_path, events, "stages.py")
     assert output.count("preflightPassed=True") == 1
     assert "   1 preflight" in output
 
 
-@pytest.mark.parametrize("kind", ["success", "pending", "failed", "protocol_error", "shell", "file", "web", "wrong_server", "malformed"])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "success",
+        "pending",
+        "failed",
+        "protocol_error",
+        "shell",
+        "file",
+        "web",
+        "wrong_server",
+        "malformed",
+    ],
+)
 def test_codex_observer_requires_three_distinct_successful_reads(tmp_path, kind):
     events = [{"type": "thread.started"}]
     for i, name in enumerate(("sync_status", "get_context", "list_records")):
-        item = {"id": str(i), "type": "mcp_tool_call", "server": "health_buddy",
-                "tool": name, "arguments": {}, "status": "completed",
-                "result": {"content": [{"type": "text", "text": '{}'}]}}
+        item = {
+            "id": str(i),
+            "type": "mcp_tool_call",
+            "server": "health_buddy",
+            "tool": name,
+            "arguments": {},
+            "status": "completed",
+            "result": {"content": [{"type": "text", "text": "{}"}]},
+        }
         if i == 2 and kind == "pending":
             events.append({"type": "item.started", "item": item})
             continue
@@ -356,29 +407,77 @@ def test_codex_observer_requires_three_distinct_successful_reads(tmp_path, kind)
             item["server"] = "other"
         events.append({"type": "item.completed", "item": item})
     if kind in {"shell", "file", "web"}:
-        events.append({"type": "item.completed", "item": {
-            "id": "shortcut", "type": {"shell": "command_execution", "file": "file_change", "web": "web_search"}[kind],
-            "command": "echo shortcut", "status": "completed", "exit_code": 0}})
+        events.append(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "shortcut",
+                    "type": {
+                        "shell": "command_execution",
+                        "file": "file_change",
+                        "web": "web_search",
+                    }[kind],
+                    "command": "echo shortcut",
+                    "status": "completed",
+                    "exit_code": 0,
+                },
+            }
+        )
     if kind == "malformed":
         events.append({"type": "invalid_transcript_line"})
     path = tmp_path / "transcript.jsonl"
     path.write_text("\n".join(json.dumps(e) for e in events))
     output = subprocess.run(  # noqa: S603 - fixed stdlib adapter, synthetic transcript
-        [sys.executable, "-c", "import json,sys; from transcript import read_events,observer_check; print(json.dumps(observer_check(read_events(sys.argv[1]))))", str(path)],
-        env={**os.environ, "PYTHONPATH": str(KIT)}, check=True, capture_output=True, text=True,
+        [
+            sys.executable,
+            "-c",
+            "import json,sys; from transcript import read_events,observer_check; "
+            "print(json.dumps(observer_check(read_events(sys.argv[1]))))",
+            str(path),
+        ],
+        env={**os.environ, "PYTHONPATH": str(KIT)},
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     assert json.loads(output)["passed"] == (kind == "success")
 
 
-@pytest.mark.parametrize("kind", ["valid", "expired", "malformed", "unsafe_mode", "source_symlink", "output_symlink", "existing_output", "payload_shape", "auth_shape", "tokens_shape"])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "valid",
+        "expired",
+        "malformed",
+        "unsafe_mode",
+        "source_symlink",
+        "output_symlink",
+        "existing_output",
+        "payload_shape",
+        "auth_shape",
+        "tokens_shape",
+    ],
+)
 def test_codex_token_helper_uses_only_synthetic_credentials(tmp_path, kind):
     tmp_path.chmod(0o700)
-    payload = base64.urlsafe_b64encode(json.dumps({"exp": int(time.time()) + (60 if kind == "expired" else 10800)}).encode()).decode().rstrip('=')
+    payload = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                {"exp": int(time.time()) + (60 if kind == "expired" else 10800)}
+            ).encode()
+        )
+        .decode()
+        .rstrip("=")
+    )
     if kind == "payload_shape":
         payload = base64.urlsafe_b64encode(b"[]").decode().rstrip("=")
     token = "synthetic." + payload + ".signature"
     source = tmp_path / "synthetic-auth.json"
-    source.write_text(json.dumps({"tokens": {"access_token": "bad" if kind == "malformed" else token}}))
+    source.write_text(
+        json.dumps(
+            {"tokens": {"access_token": "bad" if kind == "malformed" else token}}
+        )
+    )
     if kind == "auth_shape":
         source.write_text("[]")
     elif kind == "tokens_shape":
@@ -396,7 +495,8 @@ def test_codex_token_helper_uses_only_synthetic_credentials(tmp_path, kind):
             output.write_text("retained")
     result = subprocess.run(  # noqa: S603 - fixed repository helper, fabricated token
         ["/bin/bash", str(KIT / "codex-token.sh"), str(source), str(output)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert (result.returncode == 0) == (kind == "valid")
     assert token not in result.stdout + result.stderr
@@ -415,18 +515,30 @@ def test_codex_run_cleans_auth_before_any_copyback(tmp_path, failure):
 
     kit = tmp_path / "kit"
     kit.mkdir(mode=0o700)
-    for name in ("run.sh", "codex-token.sh", "summarize.py", "transcript.py", "completion_report.py"):
+    for name in (
+        "run.sh",
+        "codex-token.sh",
+        "summarize.py",
+        "transcript.py",
+        "completion_report.py",
+    ):
         shutil.copyfile(KIT / name, kit / name)
         (kit / name).chmod(0o755)
-    (kit / "prompt.md").write_text("Prompt protocol: one-url/2.\nhttps://publisher.example/onboarding.md\n")
+    (kit / "prompt.md").write_text(
+        "Prompt protocol: one-url/2.\nhttps://publisher.example/onboarding.md\n"
+    )
     (kit / ".droplet-ip").write_text("192.0.2.1\n")
-    payload = base64.urlsafe_b64encode(json.dumps({"exp": int(time.time()) + 10800}).encode()).decode().rstrip('=')
+    payload = (
+        base64.urlsafe_b64encode(json.dumps({"exp": int(time.time()) + 10800}).encode())
+        .decode()
+        .rstrip("=")
+    )
     token = tmp_path / "synthetic-token"
     token.write_text("synthetic." + payload + ".signature\n")
     token.chmod(0o600)
     stub = tmp_path / "bin"
     stub.mkdir()
-    program = '''#!/usr/bin/env python3
+    program = """#!/usr/bin/env python3
 import os, pathlib, sys
 state = pathlib.Path(os.environ['STUB_STATE'])
 command = sys.argv[-1]
@@ -454,18 +566,27 @@ elif 'sudo -u owner -i bash -s' in command:
     pathlib.Path(os.environ['STUB_BODY']).write_text(body)
 elif 'claude-exit.txt' in command:
     print('codex exit=124')
-'''
+"""
     for name in ("ssh", "scp"):
         p = stub / name
         p.write_text(program)
         p.chmod(0o755)
     state, copied, body = (tmp_path / n for n in ("state", "copied", "body"))
     output = subprocess.run(  # noqa: S603 - repository harness with synthetic SSH/scp only
-        ["/bin/bash", str(kit / "run.sh")], capture_output=True, text=True,
-        env={**os.environ, "PATH": str(stub) + os.pathsep + os.environ["PATH"],
-             "AGENT": "codex", "AUTH": "access-token", "PRIVATE_MODEL_TOKEN_FILE": str(token),
-             "STUB_STATE": str(state), "STUB_COPY": str(copied), "STUB_BODY": str(body),
-             "STUB_FAILURE": failure},
+        ["/bin/bash", str(kit / "run.sh")],
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PATH": str(stub) + os.pathsep + os.environ["PATH"],
+            "AGENT": "codex",
+            "AUTH": "access-token",
+            "PRIVATE_MODEL_TOKEN_FILE": str(token),
+            "STUB_STATE": str(state),
+            "STUB_COPY": str(copied),
+            "STUB_BODY": str(body),
+            "STUB_FAILURE": failure,
+        },
     )
     assert (output.returncode == 0) == (failure == "none")
     assert copied.exists() == (failure == "none")

@@ -40,7 +40,8 @@ def read_events(path: str | Path) -> list[dict]:
     if any(event.get("type") == "thread.started" for event in events):
         events = codex_events(events)
         final = Path(path).with_name(
-            "client-last-message.txt" if Path(path).name.startswith("client-")
+            "client-last-message.txt"
+            if Path(path).name.startswith("client-")
             else "last-message.txt"
         )
         if final.is_file():
@@ -63,8 +64,11 @@ def codex_call(item: dict) -> dict:
         if not isinstance(action, dict):
             action = {"query": action}
         name = "WebFetch"
-        inputs = {"url": action.get("url") or item.get("url") or "",
-                  "prompt": "summarizing web search", "action": action}
+        inputs = {
+            "url": action.get("url") or item.get("url") or "",
+            "prompt": "summarizing web search",
+            "action": action,
+        }
         if not inputs["url"]:
             urls = re.findall(r"https://[^\s\"\\]+", json.dumps(action))
             inputs["url"] = next((url for url in urls if onboarding_url(url)), "")
@@ -82,13 +86,20 @@ def codex_result(item: dict) -> dict:
         result = error or ""
     if not isinstance(result, str):
         result = json.dumps(result)
-    failed = (item.get("status") != "completed" or bool(error)
-              or item.get("exit_code") not in (None, 0))
+    failed = (
+        item.get("status") != "completed"
+        or bool(error)
+        or item.get("exit_code") not in (None, 0)
+    )
     # MCP protocol errors may be returned in an otherwise completed CLI item.
     payload = item.get("result")
     failed = failed or (isinstance(payload, dict) and bool(payload.get("isError")))
-    return {"type": "tool_result", "tool_use_id": item.get("id"),
-            "content": result, "is_error": failed}
+    return {
+        "type": "tool_result",
+        "tool_use_id": item.get("id"),
+        "content": result,
+        "is_error": failed,
+    }
 
 
 def codex_events(raw: list[dict]) -> list[dict]:
@@ -104,8 +115,12 @@ def codex_events(raw: list[dict]) -> list[dict]:
         if kind in ("item.started", "item.completed"):
             item_kind = item.get("type")
             if item_kind == "agent_message" and kind == "item.completed":
-                mapped.update(type="assistant", message={"content": [
-                    {"type": "text", "text": item.get("text", "")}]})
+                mapped.update(
+                    type="assistant",
+                    message={
+                        "content": [{"type": "text", "text": item.get("text", "")}]
+                    },
+                )
             elif item_kind not in ("agent_message", "reasoning", "todo_list"):
                 content = []
                 if identity not in started:
@@ -133,18 +148,27 @@ def observer_check(events: list[dict]) -> dict:
             metadata.append(name)
         elif name.startswith("mcp__health_buddy__") and short in required:
             required[short] = True
-            if call["result_position"] is not None and call["result"] and not call["is_error"]:
+            if (
+                call["result_position"] is not None
+                and call["result"]
+                and not call["is_error"]
+            ):
                 successful[short] = True
         elif name.startswith("mcp__"):
             unexpected.append(name)
         else:
             non_mcp.append(name)
     invalid = sum(event.get("type") == "invalid_transcript_line" for event in events)
-    return {"requiredMcpCallsObserved": required, "requiredMcpCallsSuccessful": successful,
-            "nonMcpTools": non_mcp, "unexpectedMcpTools": unexpected,
-            "metadataDiscoveryTools": metadata, "invalidTranscriptLines": invalid,
-            "rawResultReviewRequired": True,
-            "passed": not (non_mcp or unexpected or invalid) and all(successful.values())}
+    return {
+        "requiredMcpCallsObserved": required,
+        "requiredMcpCallsSuccessful": successful,
+        "nonMcpTools": non_mcp,
+        "unexpectedMcpTools": unexpected,
+        "metadataDiscoveryTools": metadata,
+        "invalidTranscriptLines": invalid,
+        "rawResultReviewRequired": True,
+        "passed": not (non_mcp or unexpected or invalid) and all(successful.values()),
+    }
 
 
 def text_of(block: dict) -> str:
