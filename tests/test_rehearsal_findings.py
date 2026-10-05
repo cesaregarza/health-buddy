@@ -445,20 +445,41 @@ def test_codex_observer_requires_three_distinct_successful_reads(tmp_path, kind)
 
 @pytest.mark.parametrize(
     "kind",
-    ["valid", "expired", "malformed", "unsafe_mode", "source_symlink",
-     "ancestor_symlink", "payload_shape", "auth_shape", "tokens_shape", "wrong_mode"],
+    [
+        "valid",
+        "expired",
+        "malformed",
+        "unsafe_mode",
+        "source_symlink",
+        "ancestor_symlink",
+        "payload_shape",
+        "auth_shape",
+        "tokens_shape",
+        "wrong_mode",
+    ],
 )
 def test_codex_auth_helper_uses_only_synthetic_cache(tmp_path, kind):
-    payload = base64.urlsafe_b64encode(
-        json.dumps({"exp": int(time.time()) + (60 if kind == "expired" else 10800)}).encode()
-    ).decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                {"exp": int(time.time()) + (60 if kind == "expired" else 10800)}
+            ).encode()
+        )
+        .decode()
+        .rstrip("=")
+    )
     if kind == "payload_shape":
         payload = base64.urlsafe_b64encode(b"[]").decode().rstrip("=")
     token = "synthetic." + payload + ".signature"
     source = tmp_path / "synthetic-auth.json"
-    document = {"auth_mode": "chatgpt", "tokens": {
-        "access_token": "bad" if kind == "malformed" else token,
-        "refresh_token": "synthetic-refresh", "id_token": "synthetic-id"}}
+    document = {
+        "auth_mode": "chatgpt",
+        "tokens": {
+            "access_token": "bad" if kind == "malformed" else token,
+            "refresh_token": "synthetic-refresh",
+            "id_token": "synthetic-id",
+        },
+    }
     if kind == "auth_shape":
         document = []
     elif kind == "tokens_shape":
@@ -478,7 +499,8 @@ def test_codex_auth_helper_uses_only_synthetic_cache(tmp_path, kind):
         source = link / source.name
     result = subprocess.run(  # noqa: S603 - repository helper, synthetic cache
         ["/bin/bash", str(KIT / "codex-auth.sh"), str(source)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert (result.returncode == 0) == (kind == "valid")
     assert token not in result.stdout + result.stderr
@@ -514,9 +536,18 @@ def test_codex_run_cleans_auth_before_any_copyback(tmp_path, failure):
         .rstrip("=")
     )
     token = tmp_path / "synthetic-token"
-    token.write_text(json.dumps({"auth_mode": "chatgpt", "tokens": {
-        "access_token": "synthetic." + payload + ".signature",
-        "refresh_token": "synthetic-refresh", "id_token": "synthetic-id"}}))
+    token.write_text(
+        json.dumps(
+            {
+                "auth_mode": "chatgpt",
+                "tokens": {
+                    "access_token": "synthetic." + payload + ".signature",
+                    "refresh_token": "synthetic-refresh",
+                    "id_token": "synthetic-id",
+                },
+            }
+        )
+    )
     token.chmod(0o600)
     stub = tmp_path / "bin"
     stub.mkdir()
