@@ -81,11 +81,11 @@ def measure(owner: Owner) -> str:
     malformed = owner_host.launch(
         owner,
         "health_buddy.cli",
-        *(*cli, "log", "measurement", "--measured-at-local", "yesterday"),
+        *(*cli, "log", "measurement", "--measured-at-local", "2026-10-05 02:36:00"),
         *("--timezone", "UTC", "--weight-lb", "150"),
     )
     assert malformed.returncode == 2
-    assert "yesterday" in malformed.stderr
+    assert "2026-10-05 02:36:00" in malformed.stderr
     assert "ISO-8601 local date-time" in malformed.stderr
     assert not (owner.workspace / "personal/state/native-client.json").exists()
     written = owner_host.launch(

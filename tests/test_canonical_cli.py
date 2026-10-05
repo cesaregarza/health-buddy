@@ -79,7 +79,7 @@ def test_cli_conflict_resolution_and_safe_diagnostics(tmp_path, capsys):
 @pytest.mark.parametrize(
     "argument,value,accepted",
     [
-        ("--measured-at-local", "yesterday", "ISO-8601 local date-time"),
+        ("--measured-at-local", "2026-10-05 02:36:00", "ISO-8601 local date-time"),
         ("--timezone", "Not/AZone", "IANA time-zone name"),
     ],
 )

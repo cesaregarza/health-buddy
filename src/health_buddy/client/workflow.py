@@ -669,7 +669,7 @@ class ClientWorkflow:
                     and isinstance(error.get("code"), str)
                 ):
                     raise ServiceError(error["status"], error["code"])
-                raise ServiceError(422, "request_rejected")
+                raise ServiceError(422, "invalid_request")
             return self._execute(path, state)
 
     def _archive_resolution(self, path: Path) -> dict[str, JSON]:
