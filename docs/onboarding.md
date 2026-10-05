@@ -9,6 +9,8 @@ a completion test, not a substitute for the install guide: every command, value
 rule and refusal code lives in [docs/install-preflight.md](install-preflight.md),
 and that guide wins whenever this page is less specific.
 
+For installation, use a Sonnet-class or stronger coding agent qualified by the rehearsal protocol; smaller models have been seen to summarize this page and skip stages.
+
 ## Current release
 
 The owner, or the published copy of this page, supplies the five values below.

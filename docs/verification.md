@@ -237,6 +237,7 @@ private files are not exact read-back. Report any development-mode use separatel
 
 Back in the operator kit shell, supply the target's absolute install-journal path. The helper refuses an unfinished agent stage; never complete it by hand.
 With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Retain observer window/catalog, transcript and results.
+The independent observer keeps Haiku as its default; the everyday-execution gate requires all three successful MCP calls with a Haiku-class client.
 
 ```sh
 read -r -p 'Absolute install-journal path: ' PRIVATE_JOURNAL
@@ -259,5 +260,6 @@ Preserve receipts, then remove only the recorded numeric host ID:
 
 Require a refreshed provider inventory confirming that ID absent; API/auth/network failure is not proof. Revoke credentials created only for this run when appropriate; remove
 borrowed temporary copies without revoking shared authority. Report installation, authenticated write/read-back, client check, stalls/intervention, skipped checks and teardown
-separately. Acceptance needs two consecutive unassisted Haiku runs with raw evidence and linked stall fixes, then Sonnet repetition. No run qualifies release, physical-device or
+separately. Acceptance needs two consecutive unassisted Sonnet-class `one-url/2` installation runs and one wrong-commit refusal run, with raw evidence, independent host read-back and linked stall fixes.
+Haiku-class installation runs remain recorded robustness data with their findings and do not gate acceptance. No run qualifies release, physical-device or
 cross-agent behavior. Preserve history unchanged; do not retroactively pass older prompt protocols.
