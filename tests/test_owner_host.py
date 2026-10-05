@@ -146,13 +146,10 @@ def assert_completion_report(owner: Owner, status: dict[str, Any]) -> None:
     lines = completed.stdout.splitlines()
     assert len(lines) == 4
     assert lines[0] == "LOCAL SETUP: complete"
-    assert lines[1] == (
-        "OWNER ACCEPTANCE PENDING: "
-        + ", ".join(status["pendingAcceptance"])
+    assert lines[1] == "OWNER ACCEPTANCE PENDING: " + ", ".join(
+        status["pendingAcceptance"]
     )
-    assert lines[2] == "OPTIONAL: " + ", ".join(
-        status["optionalPendingAcceptance"]
-    )
+    assert lines[2] == "OPTIONAL: " + ", ".join(status["optionalPendingAcceptance"])
     canonical = json.dumps(
         status, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
