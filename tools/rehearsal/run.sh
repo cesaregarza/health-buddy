@@ -4,7 +4,8 @@
 # then bring the transcript and evidence home.
 #
 # Credential input: PRIVATE_MODEL_TOKEN_FILE (one-line private file), AUTH=oauth
-# or apikey for Claude; access-token for Codex. Never use shell tracing.
+# or apikey for Claude; chatgpt-cache for Codex. Never use shell tracing.
+# Codex reads only the explicitly supplied PRIVATE_CODEX_AUTH_FILE login cache.
 # Raw receipts can contain synthetic product credentials, never model tokens.
 set -euo pipefail
 D=$(dirname "$(realpath "$0")")
@@ -29,17 +30,21 @@ fi
 IP=$(cat "$D/.droplet-ip")
 AGENT=${AGENT:-claude}
 [[ "$AGENT" == claude || "$AGENT" == codex ]] || exit 2
-AUTH=${AUTH:?set AUTH to oauth, apikey or access-token}
-TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}
+AUTH=${AUTH:?set AUTH to oauth, apikey or chatgpt-cache}
+if [[ "$AGENT" == codex ]]; then
+  TOKEN_FILE=${PRIVATE_CODEX_AUTH_FILE:?set PRIVATE_CODEX_AUTH_FILE}
+else
+  TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}
+fi
 test -f "$TOKEN_FILE" && test ! -L "$TOKEN_FILE"
 test "$(stat -c %a "$TOKEN_FILE")" = 600
 test "$(stat -c %u "$TOKEN_FILE")" = "$(id -u)"
 umask 077
 if [[ "$AGENT" == codex ]]; then
   MODEL=${MODEL:-gpt-5.6-luna}
-  [[ "$AUTH" == access-token ]] || { echo 'Codex requires AUTH=access-token' >&2; exit 2; }
-  [[ "$(realpath "$TOKEN_FILE")" != "$D/"* ]] || { echo 'Keep the model token outside the kit' >&2; exit 2; }
-  "$D/codex-token.sh" --check-token "$TOKEN_FILE"
+  [[ "$AUTH" == chatgpt-cache ]] || { echo 'Codex requires AUTH=chatgpt-cache' >&2; exit 2; }
+  [[ "$(realpath "$TOKEN_FILE")" != "$D/"* ]] || { echo 'Keep the auth cache outside the kit' >&2; exit 2; }
+  "$D/codex-auth.sh" "$TOKEN_FILE"
 else
   MODEL=${MODEL:-claude-haiku-4-5-20251001}
 fi
@@ -68,8 +73,8 @@ trap '[[ "$AGENT" != codex ]] || cleanup_codex >/dev/null 2>&1; ssh "${SSH_HOST_
 case $AUTH in
   apikey) VAR=ANTHROPIC_API_KEY ;;
   oauth) VAR=CLAUDE_CODE_OAUTH_TOKEN ;;
-  access-token) [[ "$AGENT" == codex ]] || exit 2 ;;
-  *) echo "AUTH must be apikey, oauth or access-token" >&2; exit 2 ;;
+  chatgpt-cache) [[ "$AGENT" == codex ]] || exit 2 ;;
+  *) echo "AUTH must be apikey, oauth or chatgpt-cache" >&2; exit 2 ;;
 esac
 
 ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "install -d -m 0700 -o owner -g owner $S"
@@ -78,8 +83,8 @@ if [[ "$AGENT" == codex ]]; then
     "test ! -e $H/.codex/auth.json && test ! -L $H/.codex/auth.json && test ! -e $S/codex-home && test ! -L $S/codex-home && install -d -m 0700 -o owner -g owner $S/codex-home"
   CODEX_CREATED=1
   if ! cat "$TOKEN_FILE" | ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" \
-    "sudo -u owner env CODEX_HOME=$S/codex-home codex login -c cli_auth_credentials_store='\"file\"' --with-access-token >/dev/null 2>&1"; then
-    echo 'Codex stdin access-token login failed or unsupported; no model run started' >&2
+    "set -e; umask 077; cat > $S/codex-home/auth.json; chown owner:owner $S/codex-home/auth.json; chmod 0600 $S/codex-home/auth.json; sudo -u owner env CODEX_HOME=$S/codex-home codex login status >/dev/null 2>&1"; then
+    echo 'Codex cache login-status check failed; no model run started' >&2
     exit 2
   fi
 else

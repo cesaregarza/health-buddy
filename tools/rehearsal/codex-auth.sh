@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Operator-only extraction/check. Never trace this script or print credential bytes.
+# Operator-only ChatGPT cache check; never print credential bytes or trace it.
 set -euo pipefail
 umask 077
 python3 - "$@" <<'PY'
@@ -44,35 +44,22 @@ def expiry(token):
 
 def main():
     args = sys.argv[1:]
-    if len(args) == 2 and args[0] == '--check-token':
-        raw = private_file(args[1])
-        if len(raw.splitlines()) != 1:
-            raise ValueError('token file must contain exactly one line')
-        token = raw.rstrip('\n')
-        exp = expiry(token)
-    elif len(args) == 2:
+    if len(args) == 1:
         document = json.loads(private_file(args[0]))
         if not isinstance(document, dict) or not isinstance(document.get('tokens'), dict):
             raise ValueError('auth JSON must contain a tokens object')
+        if document.get('auth_mode') != 'chatgpt':
+            raise ValueError('expected a ChatGPT login cache')
         token = document['tokens'].get('access_token')
         exp = expiry(token)
-        out = Path(args[1]).absolute()
-        if any(part.is_symlink() for part in (out, *out.parents)):
-            raise ValueError('symlink output path refused')
-        parent = out.parent.stat()
-        if parent.st_uid != os.getuid() or stat.S_IMODE(parent.st_mode) != 0o700:
-            raise ValueError('output directory must belong to the operator with mode 0700')
-        fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, 'w') as stream:
-            stream.write(token + '\n')
     else:
-        raise ValueError('usage: codex-token.sh AUTH_JSON NEW_TOKEN_FILE | --check-token TOKEN_FILE')
-    print('access token expires: ' + datetime.fromtimestamp(exp, UTC).isoformat())
+        raise ValueError('usage: codex-auth.sh PRIVATE_CODEX_AUTH_FILE')
+    print('ChatGPT cache access token expires: ' + datetime.fromtimestamp(exp, UTC).isoformat())
 
 
 try:
     main()
 except (ValueError, OSError, KeyError, TypeError, OverflowError):
     # No exception text: malformed JSON/base64 can include credential bytes.
-    sys.exit('Codex credential extraction/check refused; check private paths, format and expiry')
+    sys.exit('Codex cache check refused; check private path, ownership, mode, shape and expiry')
 PY

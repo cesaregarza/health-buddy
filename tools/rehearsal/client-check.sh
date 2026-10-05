@@ -15,15 +15,20 @@ AGENT=${AGENT:-claude}
 if [[ "$AGENT" == codex ]]; then MODEL=${MODEL:-gpt-5.6-luna}; else MODEL=${MODEL:-claude-haiku-4-5-20251001}; fi
 REASONING=${REASONING:-medium}
 [[ "$REASONING" =~ ^(minimal|low|medium|high|xhigh)$ ]] || exit 2
-TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}
+if [[ "$AGENT" == codex ]]; then
+  [[ "${AUTH:-}" == chatgpt-cache ]] || { echo 'Codex requires AUTH=chatgpt-cache' >&2; exit 2; }
+  TOKEN_FILE=${PRIVATE_CODEX_AUTH_FILE:?set PRIVATE_CODEX_AUTH_FILE}
+else
+  TOKEN_FILE=${PRIVATE_MODEL_TOKEN_FILE:?set PRIVATE_MODEL_TOKEN_FILE}
+fi
 JOURNAL=${PRIVATE_JOURNAL:?absolute journal path from this run}
 test -f "$TOKEN_FILE" && test ! -L "$TOKEN_FILE"
 test "$(stat -c %a "$TOKEN_FILE")" = 600
 test "$(stat -c %u "$TOKEN_FILE")" = "$(id -u)"
 umask 077
 if [[ "$AGENT" == codex ]]; then
-  [[ "$(realpath "$TOKEN_FILE")" != "$D/"* ]] || { echo 'Keep the model token outside the kit' >&2; exit 2; }
-  "$D/codex-token.sh" --check-token "$TOKEN_FILE"
+  [[ "$(realpath "$TOKEN_FILE")" != "$D/"* ]] || { echo 'Keep the auth cache outside the kit' >&2; exit 2; }
+  "$D/codex-auth.sh" "$TOKEN_FILE"
 fi
 [[ "$MODEL" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 2
 H=$(ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
@@ -100,8 +105,8 @@ if [[ "$AGENT" == codex ]]; then
     "test ! -e $H/.codex/auth.json && test ! -L $H/.codex/auth.json && test ! -e $S/codex-home && test ! -L $S/codex-home && install -d -m 0700 -o owner -g owner $S/codex-home"
   CODEX_CREATED=1
   if ! cat "$TOKEN_FILE" | ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" \
-    "sudo -u owner env CODEX_HOME=$S/codex-home codex login -c cli_auth_credentials_store='\"file\"' --with-access-token >/dev/null 2>&1"; then
-    echo 'Codex stdin access-token login failed or unsupported; observer not started' >&2
+    "set -e; umask 077; cat > $S/codex-home/auth.json; chown owner:owner $S/codex-home/auth.json; chmod 0600 $S/codex-home/auth.json; sudo -u owner env CODEX_HOME=$S/codex-home codex login status >/dev/null 2>&1"; then
+    echo 'Codex cache login-status check failed; observer not started' >&2
     exit 2
   fi
 else

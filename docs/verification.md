@@ -152,8 +152,8 @@ read -r -p 'Unique disposable host name: ' REHEARSAL_NAME
 read -r -p 'Authorized SSH key ID: ' DO_SSH_KEY_ID
 read -r -p 'Cloud region: ' DO_REGION
 read -r -p 'Host size (at least 2 vCPU/4 GB): ' DO_SIZE
-read -r -p 'Private one-line model credential file: ' PRIVATE_MODEL_TOKEN_FILE
-read -r -p 'Credential kind (oauth, apikey or access-token): ' AUTH
+read -r -p 'Private Claude credential file (empty for Codex): ' PRIVATE_MODEL_TOKEN_FILE
+read -r -p 'Credential kind (oauth, apikey or chatgpt-cache): ' AUTH
 read -r -p 'Canonical onboarding Markdown URL: ' ONBOARDING_URL
 export DO_SSH_KEY_ID DO_REGION DO_SIZE PRIVATE_MODEL_TOKEN_FILE AUTH
 ```
@@ -165,32 +165,32 @@ Codex defaults to `gpt-5.6-luna` and `REASONING=medium`; `gpt-5.6-terra` is the
 other initial qualification target. Their installation results remain recorded
 agent-class data until they pass the installation bar, not qualification claims.
 
-For Codex, the operator extracts their own access token into a new private file;
-never copy the source auth JSON to the host or read it during agent work:
+For Codex, use the operator-approved existing ChatGPT login cache, including
+its refresh credentials. Keep the source outside the kit/run directories:
 
 ```sh
-read -r -p 'Operator-owned mode-0600 Codex auth JSON: ' PRIVATE_CODEX_AUTH
-TOKEN_DIRECTORY="$(mktemp -d /tmp/hb-codex-token.XXXXXXXX)"
-PRIVATE_MODEL_TOKEN_FILE="$TOKEN_DIRECTORY/access-token"
-"$REHEARSAL_KIT/codex-token.sh" "$PRIVATE_CODEX_AUTH" "$PRIVATE_MODEL_TOKEN_FILE"
-AGENT=codex AUTH=access-token MODEL=gpt-5.6-luna REASONING=medium
-export AGENT AUTH MODEL REASONING PRIVATE_MODEL_TOKEN_FILE
+read -r -p 'Operator-owned mode-0600 Codex login cache: ' PRIVATE_CODEX_AUTH_FILE
+AGENT=codex AUTH=chatgpt-cache MODEL=gpt-5.6-luna REASONING=medium
+export AGENT AUTH MODEL REASONING PRIVATE_CODEX_AUTH_FILE
+"$REHEARSAL_KIT/codex-auth.sh" "$PRIVATE_CODEX_AUTH_FILE"
 ```
 
-The token helper prints expiry only and refuses symlinks, unsafe ownership/modes
-or less than two hours remaining; JWT expiry is not an assumed lifetime or proof
-of credential validity. Access-token login depends on credential/account type:
-failed or unsupported stdin login stops before the model session. Each login
-uses an isolated disposable-host `CODEX_HOME`. Logout and removal of that owned
-auth directory must be confirmed before any copy-back, including failures and
-timeouts. Operator credentials remain untouched; remove the extracted copy
-after the run. See [official non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
+The helper checks owned regular mode-0600 input, no symlink ancestors, ChatGPT
+cache shape and at least two hours of access-token lifetime; it prints only
+expiry. Expiry is not a signature or credential-validity check. An ordinary
+ChatGPT JWT extracted from this cache was rejected by CLI 0.154.0's workspace
+access-token login; the kit uses the approved cache path instead.
+The cache travels over SSH stdin into an isolated mode-0700 `CODEX_HOME` with
+an owner-owned mode-0600 `auth.json`. A silent login-status check must succeed
+before the model session. Logout and removal of the owned host auth directory
+must be confirmed before any copy-back, including failures and timeouts.
+Never copy refreshed host credentials back: the operator's original cache
+remains untouched. Before sharing evidence, require a private JWT-pattern scan
+of the kit and run to find nothing; model credentials are never transcript evidence.
+See [official non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
 and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
-Keep the extracted token outside the kit/run directories. Before sharing any
-evidence, require a private JWT-pattern scan of the kit and run to find nothing;
-model credentials are never acceptable transcript evidence.
 
-Credential file must be owner-owned, non-symlink, mode 0600, one line plus newline. Keep credentials out of prompts, arguments, Git and shared logs; the harness transfers them over
+Claude's one-line credential file must be owner-owned, non-symlink, mode 0600, one line plus newline. Keep credentials out of prompts, arguments, Git and shared logs; the harness transfers them over
 SSH stdin and removes remote temporary copies. Never enable shell tracing. If `AUTH=apikey`, the later client check needs a separate OAuth file. Record source / published-doc
 commits, URLs/pins, host and tool versions, umask, times, limits and auth kind privately. Inspect `prepare.log`; do not silently alter the host scenario.
 
