@@ -15,20 +15,52 @@ commit, unexpected repository, mismatch or failed request is a stop, not a reaso
 to choose a different commit.
 
 ```sh
-python3.12 - <<'PY'
+umask 077
+PUBLISHER_COMMIT='<source commit from the onboarding table>'
+python3.12 - "$PUBLISHER_COMMIT" <<'PY' || exit 1
 import json
+import os
 import re
+import sys
+import urllib.error
 import urllib.request
+from pathlib import Path
 
-commit = "<source commit from the onboarding table>"
-if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
-    raise SystemExit("stop: a full source commit is required")
-url = "https://api.github.com/repos/cesaregarza/health-buddy/commits/" + commit
-with urllib.request.urlopen(url, timeout=30) as response:
-    metadata = json.load(response)
-if metadata["sha"] != commit:
-    raise SystemExit("stop: publisher commit mismatch")
-print("Publisher commit:", metadata["sha"], "tree:", metadata["commit"]["tree"]["sha"])
+commit = sys.argv[1]
+publisher = Path.home() / "health-buddy" / "publisher"
+marker = publisher / "commit-verified"
+try:
+    root = publisher.parent
+    root.mkdir(mode=0o700, exist_ok=True)
+    if root.is_symlink() or not root.is_dir() or root.stat().st_mode & 0o777 != 0o700 or root.stat().st_uid != os.getuid():
+        raise SystemExit("stop: install directory is not private and owner-owned; do not download; tell the owner")
+    publisher.mkdir(mode=0o700, exist_ok=True)
+    if publisher.is_symlink() or not publisher.is_dir() or publisher.stat().st_mode & 0o777 != 0o700 or publisher.stat().st_uid != os.getuid():
+        raise SystemExit("stop: publisher directory is not private and owner-owned; do not download; tell the owner")
+    # Only after validating both directories may this run clear a stale marker.
+    marker.unlink(missing_ok=True)
+    if any(publisher.iterdir()):
+        raise SystemExit("stop: publisher directory has retained or unknown contents; do not download; tell the owner")
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise SystemExit("stop: a full source commit is required; do not download; tell the owner")
+    url = "https://api.github.com/repos/cesaregarza/health-buddy/commits/" + commit
+    with urllib.request.urlopen(url, timeout=30) as response:
+        metadata = json.load(response)
+    if metadata["sha"] != commit:
+        raise SystemExit("stop: publisher commit mismatch; do not download; tell the owner")
+    marker.write_text(commit + "\n")
+    marker.chmod(0o600)
+except urllib.error.HTTPError as error:
+    if error.code in (404, 422):
+        print(f"stop: source commit {commit} does not exist in cesaregarza/health-buddy (HTTP {error.code}). Do not download any release asset; tell the owner the page's source commit is wrong.")
+    else:
+        print(f"stop: the publisher check could not run (HTTP {error.code}); do not download; tell the owner.")
+    raise SystemExit(1) from None
+except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as error:
+    reason = " ".join(str(getattr(error, "reason", error)).split())
+    print(f"stop: the publisher check could not run ({reason}); do not download; tell the owner.")
+    raise SystemExit(1) from None
+print("Publisher commit verified:", commit)
 PY
 ```
 
@@ -41,16 +73,18 @@ tarball has different archive headers/prefixes; its raw hash is not this release
 store, and fetches only the selected public source commit. Never substitute an
 unverified clone, local checkout or private repository.
 
-Replace the same commit and manifest values from the onboarding table. Start
-with a new private verification directory; on a retry inspect the retained
-directory and report failure rather than reuse unknown contents.
+Replace the same commit and manifest values from the onboarding table. Use the private directory and mode-0600 commit marker created by the check above.
+Only that marker may be present before source comparison; on a retry inspect
+retained comparison outputs and report failure rather than reuse unknown contents.
 
 ```sh
 set -e
 umask 077
 PUBLISHER_COMMIT='<source commit from the onboarding table>'
 PUBLISHER_ROOT="$HOME/health-buddy/publisher"
-mkdir -m 0700 "$PUBLISHER_ROOT"
+test "$(cat "$HOME/health-buddy/publisher/commit-verified" 2>/dev/null)" = "$PUBLISHER_COMMIT" || { echo 'stop: the publisher commit check has not passed'; exit 1; }
+test ! -L "$PUBLISHER_ROOT" && test "$(stat -c %a "$PUBLISHER_ROOT")" = 700 || { echo 'stop: publisher directory is not private'; exit 1; }
+test "$(find "$PUBLISHER_ROOT" -mindepth 1 -maxdepth 1 -printf '%f\n')" = commit-verified || { echo 'stop: publisher comparison directory has retained or unknown contents'; exit 1; }
 curl -fL --max-time 60 -o "$PUBLISHER_ROOT/runtime-manifest.json" '<manifest URL from the owner>'
 printf '%s  %s\n' '<manifest SHA-256 from the owner>' "$PUBLISHER_ROOT/runtime-manifest.json" | sha256sum -c -
 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git -c core.hooksPath=/dev/null init --bare "$PUBLISHER_ROOT/repository.git"

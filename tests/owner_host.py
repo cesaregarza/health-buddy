@@ -214,12 +214,15 @@ def bootstrapped(tmp_path: Path) -> Owner:
     release, built = published_release(tmp_path.parent)
     assert change_times(release) == built, "a test changed the shared release"
     sums = asset.checksums(release)
+    manifest = json.loads((release / "runtime-manifest.json").read_text())
+    commit = manifest["sourceCommit"]
     home, tools = tmp_path / "home", tmp_path / "tools"
     home.mkdir(mode=0o750)  # Ubuntu 24.04's HOME_MODE.
     owner = Owner(
         home,
         tools,
         {
+            "<source commit from the onboarding table>": commit,
             "<bundle URL from the owner>": RELEASE + asset.ASSET,
             "<bundle SHA-256 from the owner>": sums[asset.ASSET],
             "<manifest URL from the owner>": RELEASE + "runtime-manifest.json",
@@ -229,12 +232,17 @@ def bootstrapped(tmp_path: Path) -> Owner:
     )
     curl = asset.CURL.format(python=sys.executable, release=str(release))
     asset.executable(tools / "curl", curl)
+    asset.executable(tools / "python3.12", asset.publisher_launcher(commit))
     fake_docker(owner, release / "runtime-manifest.json")
     for block in asset.blocks("Before the first stage"):
         if "-m venv" in block:
             asset.executable(owner.python, asset.LAUNCHER)
         elif "-m pip" not in block:
             owner.run(block)
+    marker = owner.root / "publisher/commit-verified"
+    assert marker.read_text() == commit + "\n"
+    assert marker.stat().st_mode & 0o777 == 0o600
+    assert marker.parent.stat().st_mode & 0o777 == 0o700
     acquire(owner, release)
     return owner
 

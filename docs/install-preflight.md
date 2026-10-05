@@ -51,17 +51,77 @@ two 64-character lowercase hexadecimal hashes and one 40-character lowercase
 hexadecimal source commit. If any is missing, stop and ask; never use a hash
 computed from a downloaded file as the expected value.
 
+Set the source commit from that table now. Repeat this exact selection in each
+bootstrap block below so a new shell cannot lose it; never infer it from the
+marker or download:
+
+```sh
+PUBLISHER_COMMIT='<source commit from the onboarding table>'
+```
+
 ### 2. Download the bundle into a private directory
 
-Replace the placeholder with the bundle URL, then run:
+Replace the source-commit and bundle-URL placeholders, then run this whole block.
+The metadata check and marker guard must succeed before curl can run:
 
 ```sh
 umask 077
-mkdir -m 0700 "$HOME/health-buddy"
-curl -fL -o "$HOME/health-buddy/health-buddy-bundle.tar" '<bundle URL from the owner>'
+PUBLISHER_COMMIT='<source commit from the onboarding table>'
+mkdir -m 0700 "$HOME/health-buddy" || { test ! -L "$HOME/health-buddy" && test "$(stat -c '%a %u' "$HOME/health-buddy")" = "700 $(id -u)" || exit 1; }
+python3.12 - "$PUBLISHER_COMMIT" <<'PY' || exit 1
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+commit = sys.argv[1]
+publisher = Path.home() / "health-buddy" / "publisher"
+marker = publisher / "commit-verified"
+try:
+    root = publisher.parent
+    root.mkdir(mode=0o700, exist_ok=True)
+    if root.is_symlink() or not root.is_dir() or root.stat().st_mode & 0o777 != 0o700 or root.stat().st_uid != os.getuid():
+        raise SystemExit("stop: install directory is not private and owner-owned; do not download; tell the owner")
+    publisher.mkdir(mode=0o700, exist_ok=True)
+    if publisher.is_symlink() or not publisher.is_dir() or publisher.stat().st_mode & 0o777 != 0o700 or publisher.stat().st_uid != os.getuid():
+        raise SystemExit("stop: publisher directory is not private and owner-owned; do not download; tell the owner")
+    # Only after validating both directories may this run clear a stale marker.
+    marker.unlink(missing_ok=True)
+    if any(publisher.iterdir()):
+        raise SystemExit("stop: publisher directory has retained or unknown contents; do not download; tell the owner")
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise SystemExit("stop: a full source commit is required; do not download; tell the owner")
+    url = "https://api.github.com/repos/cesaregarza/health-buddy/commits/" + commit
+    with urllib.request.urlopen(url, timeout=30) as response:
+        metadata = json.load(response)
+    if metadata["sha"] != commit:
+        raise SystemExit("stop: publisher commit mismatch; do not download; tell the owner")
+    marker.write_text(commit + "\n")
+    marker.chmod(0o600)
+except urllib.error.HTTPError as error:
+    if error.code in (404, 422):
+        print(f"stop: source commit {commit} does not exist in cesaregarza/health-buddy (HTTP {error.code}). Do not download any release asset; tell the owner the page's source commit is wrong.")
+    else:
+        print(f"stop: the publisher check could not run (HTTP {error.code}); do not download; tell the owner.")
+    raise SystemExit(1) from None
+except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as error:
+    reason = " ".join(str(getattr(error, "reason", error)).split())
+    print(f"stop: the publisher check could not run ({reason}); do not download; tell the owner.")
+    raise SystemExit(1) from None
+print("Publisher commit verified:", commit)
+PY
+test "$(cat "$HOME/health-buddy/publisher/commit-verified" 2>/dev/null)" = "$PUBLISHER_COMMIT" || { echo 'stop: the publisher commit check has not passed'; exit 1; }
+curl -fL -o "$HOME/health-buddy/health-buddy-bundle.tar" '<bundle URL from the owner>' || exit 1
+echo 'Release bundle downloaded: health-buddy-bundle.tar'
 ```
 
-Done: no line starting `curl: (` is printed. On a curl error, run
+Done: the metadata check prints `Publisher commit verified: <commit>`, the
+mode-0600 marker contains that commit, and curl prints no error. HTTP 403, 404,
+422 and network failures stop with one line and no release download; there is no
+“not yet public” exception. A failed new check removes a stale marker. On a curl error, run
 `rm -f "$HOME/health-buddy/health-buddy-bundle.tar"`, confirm the URL with the
 owner and run the curl line again; if curl is missing, ask the owner to install
 it. `File exists` from `mkdir` on a rerun is fine when
@@ -75,6 +135,8 @@ stages refuse directories that are not private.
 Replace the placeholder with the bundle SHA-256, then run:
 
 ```sh
+PUBLISHER_COMMIT='<source commit from the onboarding table>'
+test "$(cat "$HOME/health-buddy/publisher/commit-verified" 2>/dev/null)" = "$PUBLISHER_COMMIT" || { echo 'stop: the publisher commit check has not passed'; exit 1; }
 printf '%s  %s\n' '<bundle SHA-256 from the owner>' "$HOME/health-buddy/health-buddy-bundle.tar" | sha256sum -c -
 ```
 
@@ -95,6 +157,8 @@ on any mismatch.
 ### 4. Extract the bundle
 
 ```sh
+PUBLISHER_COMMIT='<source commit from the onboarding table>'
+test "$(cat "$HOME/health-buddy/publisher/commit-verified" 2>/dev/null)" = "$PUBLISHER_COMMIT" || { echo 'stop: the publisher commit check has not passed'; exit 1; }
 tar -xf "$HOME/health-buddy/health-buddy-bundle.tar" -C "$HOME/health-buddy"
 ls "$HOME/health-buddy/bundle" "$HOME/health-buddy/bundle/release"
 ```
@@ -181,6 +245,7 @@ export EXACT_OWNER_SUBJECT='owner'
 export OWNER_UID="$(id -u)"
 export OWNER_GID="$(id -g)"
 export NEW_PRIVATE_RECOVERY_TOKEN="$PRIVATE_INSTALL/recovered-owner-token"
+export PUBLISHER_COMMIT='<source commit from the onboarding table>'
 export PUBLISHER_MANIFEST_URL='<manifest URL from the owner>'
 export TRUSTED_MANIFEST_SHA256='<manifest SHA-256 from the owner>'
 export PYTHONPATH="$SOURCE/src"

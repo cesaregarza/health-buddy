@@ -30,7 +30,8 @@ The publisher is [cesaregarza/health-buddy](https://github.com/cesaregarza/healt
 Before downloading release assets, follow [publisher verification](publisher-verification.md):
 confirm the repository independently with the owner, check the table's full source
 commit against the public repository and published release, and stop on any
-mismatch. The same guide compares the source archive and bundle with that public
+mismatch. HTTP 403, 404, 422 and network failure are stops before any release
+download; there is no “not yet public” exception. The same guide compares the source archive and bundle with that public
 commit before extraction, and gives the exact Cosign workflow-signature checks.
 When Cosign is absent, report “signature not verified”; do not claim a signature
 check passed or install another tool on the owner's behalf.
