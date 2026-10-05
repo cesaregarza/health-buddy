@@ -26,6 +26,7 @@ from health_buddy.core.files import read_file, read_json
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import BearerProof
 from health_buddy.core.service_api import ServiceError
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.packaged_runtime import private_workspace
 from health_buddy.security.runtime import open_runtime, read_credential, setup_security
 from health_buddy.security.store import SecurityStore
@@ -328,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
                     "code": error.code,
                     "ownerSetupReady": False,
                     "recovery": recovery,
+                    **store_retry_refusal(error),
                 }
             )
         )

@@ -21,6 +21,7 @@ from health_buddy.core.domain import encode
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_json
 from health_buddy.core.service_api import ServiceError
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.serve import (
     check_routes,
     command,
@@ -293,6 +294,7 @@ def main(argv: list[str] | None = None) -> int:
                         "Never auto-login, enable certs or reset Serve. "
                         "Retain intent and repeat the quiesced selection."
                     ),
+                    **store_retry_refusal(error),
                 }
             )
         )

@@ -26,6 +26,7 @@ from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, matches, owner, read_policy
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.preflight import preflight
 from health_buddy.install.remove import container, serve_binding, serve_state
 from health_buddy.runtime.manifest import file_digest
@@ -273,7 +274,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = rearm(**vars(parser.parse_args(argv)))
     except ServiceError as error:
-        print(json.dumps({"schemaVersion": 1, "code": error.code, "rearmed": False}))
+        print(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "code": error.code,
+                    "rearmed": False,
+                    **store_retry_refusal(error),
+                }
+            )
+        )
         return 2
     except (OSError, ValueError, KeyError, TypeError):
         print(

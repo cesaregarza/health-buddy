@@ -34,6 +34,7 @@ from health_buddy.core.durability import (
 from health_buddy.core.files import private_directory, read_json
 from health_buddy.core.release_identity import ReleaseIdentity
 from health_buddy.core.service_api import ServiceError
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.runtime.artifact import containerd_store_diagnostic
 from health_buddy.runtime.inputs import RedirectHandler
 from health_buddy.runtime.manifest import (
@@ -495,6 +496,7 @@ def main(argv: list[str] | None = None) -> int:
         result = {"schemaVersion": 1, "code": error.code, "installed": False}
         if error.code in RECOVERY:
             result["recovery"] = RECOVERY[error.code]
+        result.update(store_retry_refusal(error))
         print(json.dumps(result, sort_keys=True))
         return 2
     except (

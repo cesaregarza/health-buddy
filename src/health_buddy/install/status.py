@@ -20,6 +20,7 @@ from health_buddy.core.files import read_json
 from health_buddy.core.security_api import BearerProof, SecurityRequest
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, owner
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.security.runtime import read_credential
 
 
@@ -283,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif error.code == "install_agent_owner_config_changed":
             result["recovery"] = CONFIG_RECOVERY
+        result.update(store_retry_refusal(error))
         print(json.dumps(result, sort_keys=True))
         return 2
     except (OSError, ValueError, TypeError, KeyError):

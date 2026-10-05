@@ -15,7 +15,7 @@ from health_buddy.backup.lifecycle import (
     materialize,
     private_path,
 )
-from health_buddy.core.config import load
+from health_buddy.core.config import Config, load
 from health_buddy.core.domain import digest, encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, fsync_path
 from health_buddy.core.files import read_file
@@ -45,6 +45,24 @@ def preflight(
 ) -> dict[str, Any]:
     if not isinstance(runtime.operations, Service):
         raise ServiceError(503, "native_coordinator_required")
+    return preflight_config(
+        runtime.operations.config,
+        manifest,
+        manifest_sha256,
+        architecture,
+        check_personal=check_personal,
+    )
+
+
+def preflight_config(
+    config: Config,
+    manifest: Path,
+    manifest_sha256: str,
+    architecture: str,
+    *,
+    check_personal: bool = True,
+) -> dict[str, Any]:
+    """Verify the release and personal compatibility without opening stores."""
     if not SHA256.fullmatch(manifest_sha256):
         raise ServiceError(422, "upgrade_requires_manifest_sha256")
     if file_digest(manifest, MAX_METADATA)[1] != manifest_sha256:
@@ -62,14 +80,14 @@ def preflight(
         raise ServiceError(422, "upgrade_invalid_manifest")
     if file_digest(manifest, MAX_METADATA)[1] != manifest_sha256:
         raise ServiceError(409, "upgrade_target_changed")
-    with exclusive(runtime.operations.lock):
-        forks = forks_locked(runtime.operations.config, value["sourceCommit"])
+    with exclusive(config.path("operations/manual.lock")):
+        forks = forks_locked(config, value["sourceCommit"])
     if check_personal and any(
         not isinstance(item, dict) or item.get("state") != "recorded_compatible"
         for item in forks
     ):
         raise ServiceError(409, "upgrade_core_fork_requires_rebase_and_review")
-    statuses = Registry(runtime.operations.config).compatibility(extension_api=1)
+    statuses = Registry(config).compatibility(extension_api=1)
     if check_personal and any(
         item.enabled and item.state != "ready" for item in statuses
     ):

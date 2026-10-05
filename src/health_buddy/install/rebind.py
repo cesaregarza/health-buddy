@@ -19,6 +19,7 @@ from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_file, read_json
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.activation import healthy_image, runtime_environments
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.owner import identity_recovery, validate_native_caller
 from health_buddy.install.rebind_state import (
     authority,
@@ -194,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
                     "originRebound": False,
                     "details": error.details,
                     "recovery": recovery,
+                    **store_retry_refusal(error),
                 },
                 sort_keys=True,
             )

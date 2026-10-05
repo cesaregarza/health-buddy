@@ -2,6 +2,7 @@
 
 import json
 import os
+import sqlite3
 import subprocess
 from types import SimpleNamespace
 
@@ -345,3 +346,175 @@ def test_lost_start_ack_waits_for_healthy_without_restarting(tmp_path, monkeypat
     assert install_activation.activate(**arguments)["runtimeActivated"]
     assert sum("up" in item for item in state["calls"]) == 1
     assert sum("load" in item for item in state["calls"]) == 1
+
+
+def activation_cli(arguments):
+    return [
+        "--journal",
+        str(arguments["journal"]),
+        "--environment",
+        str(arguments["environment"]),
+        "--project",
+        arguments["project"],
+        "--uid",
+        str(arguments["uid"]),
+        "--gid",
+        str(arguments["gid"]),
+        "--confirm-local-daemon",
+        "--confirm-quiesced",
+    ]
+
+
+def test_active_repeat_observes_binding_without_opening_stores(tmp_path, monkeypatch):
+    arguments, state, selected, _identity, note = fixture(tmp_path, monkeypatch)
+    activated = install_activation.activate(**arguments)
+    paths = [
+        arguments["journal"],
+        arguments["environment"],
+        note,
+        selected["workspace"] / "config.json",
+    ]
+    before = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
+    state["calls"].clear()
+
+    def no_store(*args, **kwargs):
+        pytest.fail("an active rerun must not open or probe a store")
+
+    monkeypatch.setattr(install_activation, "open_runtime", no_store)
+    monkeypatch.setattr(sqlite3, "connect", no_store)
+    assert install_activation.activate(**arguments) == activated
+    assert all("up" not in call and "load" not in call for call in state["calls"])
+    assert {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths} == before
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("project", "health-buddy-changed"),
+        ("uid", 1001),
+        ("gid", 1001),
+        ("uid", 0),
+        ("confirm_local_daemon", False),
+        ("confirm_quiesced", False),
+    ],
+)
+def test_active_repeat_rejects_changed_or_invalid_admission(
+    tmp_path, monkeypatch, field, value
+):
+    arguments, state, _selected, _identity, _note = fixture(tmp_path, monkeypatch)
+    install_activation.activate(**arguments)
+    before = arguments["journal"].read_bytes()
+    state["calls"].clear()
+    with pytest.raises(ServiceError):
+        install_activation.activate(**{**arguments, field: value})
+    assert state["calls"] == []
+    assert arguments["journal"].read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "changed",
+    ["identity", "authority", "permissions", "environment", "compose", "manifest"],
+)
+def test_active_repeat_rejects_changed_metadata_before_daemon_contact(
+    tmp_path, monkeypatch, capsys, changed
+):
+    arguments, state, selected, _identity, _note = fixture(tmp_path, monkeypatch)
+    install_activation.activate(**arguments)
+    workspace = selected["workspace"]
+    if changed == "identity":
+        path = workspace / "identity.json"
+        value = json.loads(path.read_bytes())
+        value["restoreEpoch"] = "synthetic-changed-epoch"
+        path.write_text(json.dumps(value))
+    elif changed == "authority":
+        (workspace / "security/epoch.json").unlink()
+    elif changed == "permissions":
+        (workspace / "security/authority.sqlite").chmod(0o644)
+    elif changed == "environment":
+        arguments["environment"].write_text("synthetic changed environment")
+    elif changed == "compose":
+        (selected["bundle"] / "source/packaging/compose.yaml").write_text(
+            "synthetic changed compose"
+        )
+    else:
+        selected["manifest"].write_text("{}")
+    before = arguments["journal"].read_bytes()
+    state["calls"].clear()
+    assert install_activation.main(activation_cli(arguments)) == 2
+    assert json.loads(capsys.readouterr().out)["runtimeActivated"] is False
+    assert state["calls"] == []
+    assert arguments["journal"].read_bytes() == before
+
+
+@pytest.mark.parametrize("health", ["starting", "unhealthy", "missing", "unrelated"])
+def test_active_repeat_never_claims_success_for_lost_or_unhealthy_runtime(
+    tmp_path, monkeypatch, capsys, health
+):
+    arguments, state, _selected, _identity, _note = fixture(tmp_path, monkeypatch)
+    install_activation.activate(**arguments)
+    if health == "missing":
+        state["active"] = state["created"] = False
+    elif health == "unrelated":
+        state["other"] = True
+    else:
+        state["health"] = health
+    before = arguments["journal"].read_bytes()
+    state["calls"].clear()
+    assert install_activation.main(activation_cli(arguments)) == 2
+    value = json.loads(capsys.readouterr().out)
+    assert value["runtimeActivated"] is False
+    assert value["code"] != "install_runtime_store_not_ready"
+    assert all("up" not in call and "load" not in call for call in state["calls"])
+    assert arguments["journal"].read_bytes() == before
+
+
+def test_transient_activation_store_refusal_keeps_same_selection_retryable(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, state, selected, _identity, _note = fixture(tmp_path, monkeypatch)
+    before = selected["journal"].read_bytes()
+    original = install_activation.open_runtime
+
+    def starting_store(*args, **kwargs):
+        raise ServiceError(503, "source_unavailable", retryable=True)
+
+    monkeypatch.setattr(install_activation, "open_runtime", starting_store)
+    assert install_activation.main(activation_cli(arguments)) == 2
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal["code"] == "install_runtime_store_not_ready"
+    assert refusal["retryable"] is True
+    assert refusal["runtimeActivated"] is False
+    assert "starting or temporarily locked" in refusal["recovery"]
+    assert "wait ten seconds" in refusal["recovery"]
+    assert "same command again unchanged" in refusal["recovery"]
+    assert selected["journal"].read_bytes() == before
+    assert state["calls"] == []
+    monkeypatch.setattr(install_activation, "open_runtime", original)
+    assert install_activation.main(activation_cli(arguments)) == 0
+    assert json.loads(capsys.readouterr().out)["runtimeActivated"] is True
+
+
+def test_claimed_active_phase_still_requires_a_bound_running_runtime(
+    tmp_path, monkeypatch, capsys
+):
+    arguments, state, selected, _identity, _note = fixture(tmp_path, monkeypatch)
+    state["lost"] = "load"
+    with pytest.raises(ServiceError, match="load_interrupted"):
+        install_activation.activate(**arguments)
+    retained = json.loads(selected["journal"].read_bytes())
+    retained["activation"]["phase"] = "active"
+    selected["journal"].write_text(json.dumps(retained))
+    arguments["environment"].write_bytes(
+        install_activation.runtime_environments(
+            retained["activation"]["binding"], selected["manifest"]
+        )[0]
+    )
+    arguments["environment"].chmod(0o600)
+    before = selected["journal"].read_bytes()
+    state["calls"].clear()
+    assert install_activation.main(activation_cli(arguments)) == 2
+    refused = json.loads(capsys.readouterr().out)
+    assert refused["code"] == "install_activation_recorded_runtime_missing"
+    assert refused["runtimeActivated"] is False
+    assert selected["journal"].read_bytes() == before
+    assert all("up" not in call and "load" not in call for call in state["calls"])

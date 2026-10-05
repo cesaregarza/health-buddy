@@ -174,16 +174,18 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
         *("--origin", "https://health-buddy.local", "--owner-subject", "owner"),
         "--confirm-owner-setup",
     )
-    done(
-        owner,
-        "activation",
-        "runtimeActivated",
-        *journal,
-        *("--environment", str(owner.root / "install/runtime.env")),
-        *("--project", "health-buddy-personal"),
-        *("--uid", str(os.getuid()), "--gid", str(os.getgid())),
-        *("--confirm-local-daemon", "--confirm-quiesced"),
-    )
+    # A redundant identical command remains successful once the API is active.
+    for _ in range(2):
+        done(
+            owner,
+            "activation",
+            "runtimeActivated",
+            *journal,
+            *("--environment", str(owner.root / "install/runtime.env")),
+            *("--project", "health-buddy-personal"),
+            *("--uid", str(os.getuid()), "--gid", str(os.getgid())),
+            *("--confirm-local-daemon", "--confirm-quiesced"),
+        )
     policy, _codex, _claude = blocks("Explicit agent grant and redacted owner status")
     owner.run(policy)
     arguments = agent_arguments(owner, client)
