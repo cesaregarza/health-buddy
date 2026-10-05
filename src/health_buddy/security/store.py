@@ -108,7 +108,11 @@ class SecurityStore:
             ):
                 raise unavailable()
 
-    def _binding(self, identity: Identity) -> dict[str, object]:
+    def verify_binding(self, identity: Identity) -> dict[str, object]:
+        """Read epoch/binding metadata, validating ownership/permissions.
+
+        Never opens SQLite.
+        """
         self.owner()
         values = []
         for path in (self.epoch_path, self.binding_path):
@@ -134,7 +138,7 @@ class SecurityStore:
     def connection(self, identity: Identity) -> Iterator[sqlite3.Connection]:
         connection = None
         try:
-            binding = self._binding(identity)
+            binding = self.verify_binding(identity)
             private_owned(self.path)
             for suffix in ("-journal", "-wal", "-shm"):
                 sidecar = Path(str(self.path) + suffix)
