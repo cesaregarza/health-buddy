@@ -51,6 +51,8 @@ small dictionary when maintaining the existing examples:
 | tests/notes/migrations/state | Owner retains these beside editable code. Connector state retains the original request/key/receipt before send; retry reuses it. State and canonical health records are never rolled back by code revert. |
 | jobs and secrets | Native owner explicitly prepares/enables/runs jobs. Install/enable starts no scheduler. Host owns canonical write/retry; secrets remain private references outside hook input. External scheduling is a separate operator decision. |
 
+A confirmed server HTTP 422 marks a logger request rejected so a corrected command can replace it; transport failures and timeouts remain pending for retry because their save outcome is unknown.
+
 Interfaces: `src/health_buddy/core/extension_api.py`,
 `src/health_buddy/extension_manifest.schema.json`, `src/health_buddy/core/service_api.py`.
 Abstract examples: `contracts/v1/examples/{weekly-mass,water-import}.json` and

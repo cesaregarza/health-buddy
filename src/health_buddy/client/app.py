@@ -164,6 +164,7 @@ class App:
         *,
         new_write: bool = False,
     ) -> dict[str, JSON]:
+        loggers.validate_time_arguments(kind, arguments, self.config)
         if kind == "circumference" and "--apply" not in arguments:
             denial = self.operations.preflight(self.principal, "logs.write")
             if denial is not None:

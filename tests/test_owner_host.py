@@ -78,6 +78,16 @@ def measure(owner: Owner) -> str:
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     token = str(owner.workspace / "secrets/native-owner-token")
     cli = ["--workspace", str(owner.workspace), "--credential-file", token]
+    malformed = owner_host.launch(
+        owner,
+        "health_buddy.cli",
+        *(*cli, "log", "measurement", "--measured-at-local", "yesterday"),
+        *("--timezone", "UTC", "--weight-lb", "150"),
+    )
+    assert malformed.returncode == 2
+    assert "yesterday" in malformed.stderr
+    assert "ISO-8601 local date-time" in malformed.stderr
+    assert not (owner.workspace / "personal/state/native-client.json").exists()
     written = owner_host.launch(
         owner,
         "health_buddy.cli",

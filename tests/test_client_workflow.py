@@ -38,6 +38,7 @@ class ScriptedOperations:
         self.allowed = True
         self.mutate = lambda result: result
         self.failure = None
+        self.failure_status = 409
 
     def preflight(self, principal, operation):
         return None
@@ -54,7 +55,10 @@ class ScriptedOperations:
         assert pending["envelope"]["payload"] == request.payload
         self.requests.append(replace(request, deadline=None))
         if self.failure:
-            return Response(409, encode({"error": {"code": self.failure}, "meta": {}}))
+            return Response(
+                self.failure_status,
+                encode({"error": {"code": self.failure}, "meta": {}}),
+            )
         if request.idempotency_key not in self.receipts:
             self.revision += 1
             data = {"saved": True, "projection": {"state": "pending"}}
@@ -148,6 +152,32 @@ def test_definitive_conflict_retains_original_until_explicit_resolution(
     service.failure = None
     write(workflow)
     assert state(config)["envelope"]["idempotencyKey"] != original["idempotencyKey"]
+
+
+def test_definitive_422_rejects_intent_and_allows_corrected_retry(fixture):
+    config, service, workflow = fixture
+    service.failure = "invalid_request"
+    service.failure_status = 422
+    with pytest.raises(ServiceError, match="invalid_request"):
+        write(workflow)
+    rejected = state(config)
+    assert rejected["state"] == "rejected"
+    assert workflow.inspect()["state"] == "rejected"
+    with pytest.raises(ServiceError, match="invalid_request"):
+        workflow.retry()
+    assert len(service.requests) == 1
+
+    service.failure = None
+    workflow.write(
+        "logs.write",
+        lambda: {"sourceId": "manual", "fields": {"notes": "corrected"}},
+        intent=["--notes", "corrected"],
+        resource_id="measurement",
+    )
+    corrected = state(config)
+    assert corrected["state"] == "complete" and corrected["cursor"] == 1
+    assert corrected["envelope"]["payload"]["fields"]["notes"] == "corrected"
+    assert len(service.requests) == 2 and service.revision == 1
 
 
 def test_completed_replay_rechecks_authority_and_explicit_new_write(fixture):

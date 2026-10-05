@@ -65,6 +65,18 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         _run_app_command(_app(args), args)
     except ServiceError as exc:
+        details = exc.details if isinstance(exc.details, dict) else {}
+        if exc.code in {"invalid_logger_timestamp", "invalid_logger_timezone"}:
+            argument = details.get("argument")
+            received = details.get("received")
+            accepted = details.get("accepted")
+            if all(isinstance(value, str) for value in (argument, received, accepted)):
+                print(
+                    f"Health Buddy: {argument} received {json.dumps(received)}; "
+                    f"expected {accepted} (HTTP 422).",
+                    file=sys.stderr,
+                )
+                return 2
         # Safe protocol code only. Pending inspection never dumps payloads;
         # retry success prints the ordinary verified canonical receipt.
         print(f"Health Buddy: {exc.code} (HTTP {exc.status}).", file=sys.stderr)
