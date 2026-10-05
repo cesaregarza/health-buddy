@@ -6,6 +6,8 @@ canonical MCP tools, receiver/revision checks, private retry state and
 are integration evidence; named-client discovery, workflows and cross-client
 upgrade qualification require separate live evidence.
 
+Everyday use is supported with Haiku-class agents, with all three successful MCP reads required by the [independent observer gate](verification.md#6-check-the-fresh-client-and-observer-calls).
+
 | Component | Exact evidence |
 | --- | --- |
 | Claude Code documented target | 2.1.285, [official Anthropic changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md), inspected 2026-09-30; not installed or executed by this change |
