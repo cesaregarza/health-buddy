@@ -120,28 +120,29 @@ section entirely; nothing in stages 1–9 depends on it.
 
 ## Completion test
 
-The installing agent verifies items 1 and 2, then reports local setup complete
-with the exact `pendingAcceptance` list printed by status. The owner performs
-item 3; local setup alone does not complete the owner's acceptance.
+The final message starts with the four plain-text lines from `status --report`,
+pasted verbatim with no preamble or code fence. Do not say the installation is
+complete or verified unless the first line says `LOCAL SETUP: complete`.
+The owner performs item 3; local setup alone does not complete owner acceptance.
 
-1. This command prints `true` for all four of `runtimeLastActive`,
-   `ownerAuthenticated`, `agentGrantRetained` and
-   `clientConfigurationLastPrepared` (`connected: false` is expected):
+1. The report block's first line reads `LOCAL SETUP: complete`:
 
    ```sh
    . "$HOME/health-buddy/env.sh"
-   "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
+   "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json" --report
    ```
 
-   The status includes `localStages`, `nextRequiredStage` and
-   `nextRequiredCommand`. `ownerAuthenticated` means the retained owner is
-   authenticated now; `runtimeLastActive` and
-   `clientConfigurationLastPrepared` are retained last-completion evidence,
-   not a live runtime or client check. Complete the named local stage before
-   acceptance work. When local setup is complete, status reports
-   `authenticated_record_readback` and `fresh_named_client_acceptance` in
-   `pendingAcceptance`; it never infers these from configuration. Private HTTPS
-   and phone checks are listed separately as optional when requested.
+   The default status command still prints the unchanged JSON output and fields.
+   The report derives local completion from the `localStages` readiness values;
+   it never infers owner acceptance. Its second and third lines render each list
+   in status order, separated by comma and space, or `none` when empty. The
+   digest is the first 12 lowercase hex characters of SHA-256 over the complete
+   status JSON serialized with sorted keys, compact separators and UTF-8. The
+   current status has no volatile timestamp fields, so every status field affects
+   it. `pendingAcceptance` keeps `authenticated_record_readback` and
+   `fresh_named_client_acceptance` pending even when local setup is complete.
+   Private HTTPS and phone checks remain separately listed as optional when
+   requested.
 2. The stage-9 authenticated read returned the record you wrote, with the
    receipt's `observedAt` timestamp.
 3. **Owner's acceptance:** open a fresh session of the configured client
@@ -153,20 +154,22 @@ item 3; local setup alone does not complete the owner's acceptance.
    The installing agent must not attempt to log a client in on the owner's
    behalf or count a direct MCP protocol probe as this acceptance.
 
-If item 1 or 2 fails, report local setup as incomplete, including the failed
-check and last command output. If only item 3 remains, report local setup
-complete and the owner's fresh-client acceptance pending.
+If item 1 or 2 fails, report local setup as incomplete, starting with the exact
+report block and including the failed check and last command output. If only
+item 3 remains, keep the report block first and say owner acceptance is pending.
+Never claim the owner has accepted the installation.
 
 ## What to tell the owner
 
-Give the owner: the status command from stage 8 with its output, the
-measurement you wrote and read back, which client you configured, whether
-private HTTPS was configured or skipped, and every refusal you hit with the
-command, the code and what resolved it. Include `pendingAcceptance` exactly as
-status prints it, even when the agent has separately verified the record
-read-back: status does not infer acceptance from that check. Tell the owner
-to open the configured client from its launcher directory, approve the project
-MCP server, and perform the authenticated read; do not try to log in for them.
+Begin by pasting the four `status --report` lines verbatim, with no introductory
+text or code fence. Do not claim the installation is complete or verified
+unless its first line says `LOCAL SETUP: complete`. Then give the measurement
+you wrote and read back, which client you configured, whether private HTTPS was
+configured or skipped, and every refusal with its command, code and resolution.
+Keep `OWNER ACCEPTANCE PENDING` exactly as printed, even after a separate record
+read-back. Tell the owner to open the configured client from its launcher
+directory, approve the project MCP server and perform the authenticated read;
+do not try to log in for them.
 
 ## After installation
 

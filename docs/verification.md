@@ -201,7 +201,14 @@ python3 "$REHEARSAL_KIT/summarize.py" "$RUN/transcript.jsonl" > "$RUN/summary.md
 
 Ledger and summary are lossy. Keep raw prompt/transcript immutable; review every stage, command, refusal, retry, final claim and stall, with full error and next attempt. Link
 stalls to fix commits/issues. Keep receipts private; redact before sharing.
-Review the named `onboarding_summarized_fetch` and `raw_read_check_missing` findings: only assistant prose quoting the final-page words before the first installation mutation counts, not fetched text or commands.
+The summary extracts the report only from the actual final message, not tool
+output or intermediate quotes. Treat these as failed completion findings:
+`completion_report_missing`, `completion_report_not_first`,
+`completion_report_malformed_digest`, `completion_report_host_digest_mismatch`
+and `completion_report_host_block_mismatch`. Also review
+`onboarding_summarized_fetch` and `raw_read_check_missing`; only assistant
+prose quoting the final-page words before the first installation mutation counts,
+not fetched text or commands.
 
 ### 5. Independently check host state and authenticated read-back
 
@@ -210,6 +217,7 @@ From the target host's ordinary `owner` shell, use retained `env.sh`; do not rep
 ```sh
 read -r -p 'Written UTC instant from transcript: ' MEASURED_AT_UTC
 . "$HOME/health-buddy/env.sh"
+"$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json" --report
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 "$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" status --json
 "$PYTHON" -m health_buddy.cli --workspace "$OWNER_WORKSPACE" --credential-file "$OWNER_WORKSPACE/secrets/native-owner-token" records --source-ids manual --kinds body-mass --from "$MEASURED_AT_UTC" --to "$MEASURED_AT_UTC" --limit 10
@@ -217,6 +225,9 @@ find "$OWNER_WORKSPACE" -perm /022 -print
 docker ps -a --format '{{.ID}} {{.Status}} {{.Image}}'
 ```
 
+Save the host's four-line `--report` output and compare all four lines with the
+block at the start of the final message; require an identical digest and
+completion claim. A missing, malformed or mismatched report fails completion.
 Require ready owner, active activation, configured agent, `ownerAuthenticated`, `runtimeLastActive` and `agentGrantRetained`; the last flag is retained journal state, not live
 health. Preserve write response/revision and authenticated read response; match kind `body-mass`, source `manual` and exact `observedAt`; compare returned value/unit with the write response, allowing canonical unit conversion. Context summaries or
 private files are not exact read-back. Report any development-mode use separately; it cannot replace credentialed installed-runtime success.

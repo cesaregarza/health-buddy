@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -107,6 +108,59 @@ CONFIG_RECOVERY = (
 )
 
 
+def _report_list(value: object) -> str:
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) for item in value
+    ):
+        raise ServiceError(409, "install_status_invalid_retained_state")
+    return ", ".join(value) if value else "none"
+
+
+def _local_setup_complete(value: dict[str, Any]) -> bool:
+    expected = {
+        "workspace_preparation": "retained_complete",
+        "owner_setup": "currently_authenticated",
+        "runtime_activation": "last_active",
+        "agent_configuration": "last_prepared",
+        "agent_grant_authority": "currently_retained",
+    }
+    stages = value.get("localStages")
+    if not isinstance(stages, list):
+        return False
+    states = {
+        stage.get("name"): stage.get("state")
+        for stage in stages
+        if isinstance(stage, dict)
+    }
+    return all(states.get(name) == state for name, state in expected.items())
+
+
+def format_report(value: dict[str, Any]) -> str:
+    if _local_setup_complete(value):
+        local = "LOCAL SETUP: complete"
+    else:
+        next_stage = text(value.get("nextRequiredStage"))
+        command = text(value.get("nextRequiredCommand"))
+        local = (
+            f"LOCAL SETUP: incomplete (next required stage: {next_stage}; "
+            f"command: {command})"
+        )
+    # The status schema has no volatile timestamp fields; hash every status field.
+    canonical = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    digest = hashlib.sha256(canonical).hexdigest()[:12]
+    return "\n".join(
+        (
+            local,
+            "OWNER ACCEPTANCE PENDING: "
+            + _report_list(value.get("pendingAcceptance")),
+            f"OPTIONAL: {_report_list(value.get('optionalPendingAcceptance'))}",
+            f"REPORT DIGEST: {digest}",
+        )
+    )
+
+
 def status(*, journal: Path, pairing_id: str | None = None) -> dict[str, Any]:
     journal = private_path(journal)
     with exclusive(journal.parent / ".health-buddy-install.lock"):
@@ -207,8 +261,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--journal", type=Path, required=True)
     parser.add_argument("--pairing-id")
+    parser.add_argument("--report", action="store_true")
     try:
-        value = status(**vars(parser.parse_args(argv)))
+        arguments = vars(parser.parse_args(argv))
+        report = arguments.pop("report")
+        value = status(**arguments)
     except ServiceError as error:
         result: dict[str, Any] = {
             "schemaVersion": 1,
@@ -239,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 2
-    print(json.dumps(value, sort_keys=True))
+    print(format_report(value) if report else json.dumps(value, sort_keys=True))
     return 0
 
 
