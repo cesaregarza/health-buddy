@@ -66,8 +66,9 @@ rm -f $S/env
 cd $H
 umask 002
 unset PYTHONDONTWRITEBYTECODE PYTHONPYCACHEPREFIX PYTHONPATH
+# Claude Code 2.1.197: --disallowedTools <tools...>; scheduling cannot resume print mode.
 timeout $WALL claude -p "\$(cat $S/prompt.md)" --model $MODEL --max-turns $MAX_TURNS \
-  --dangerously-skip-permissions --output-format stream-json --verbose \
+  --dangerously-skip-permissions --disallowedTools ScheduleWakeup CronCreate CronList CronDelete --output-format stream-json --verbose \
   < /dev/null > $S/transcript.jsonl 2> $S/claude.stderr
 echo "claude exit=\$?" > $S/claude-exit.txt
 EOF
