@@ -248,6 +248,9 @@ and `completion_report_host_block_mismatch`. Also review
 `onboarding_summarized_fetch` and `raw_read_check_missing`; only assistant
 prose quoting the final-page words before the first installation mutation counts,
 not fetched text or commands.
+Release HEAD/null-output status probes and wget spider checks remain visible as
+`release_asset_probe_before_publisher_check`; only actual asset downloads before
+a successful publisher check produce `release_download_without_publisher_check`.
 
 ### 5. Independently check host state and authenticated read-back
 
