@@ -20,6 +20,7 @@ from health_buddy.core.files import read_json
 from health_buddy.core.security_api import BearerProof, SecurityRequest
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, owner
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.security.runtime import read_credential
 
 
@@ -109,9 +110,7 @@ CONFIG_RECOVERY = (
 
 
 def _report_list(value: object) -> str:
-    if not isinstance(value, list) or not all(
-        isinstance(item, str) for item in value
-    ):
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ServiceError(409, "install_status_invalid_retained_state")
     return ", ".join(value) if value else "none"
 
@@ -153,8 +152,7 @@ def format_report(value: dict[str, Any]) -> str:
     return "\n".join(
         (
             local,
-            "OWNER ACCEPTANCE PENDING: "
-            + _report_list(value.get("pendingAcceptance")),
+            "OWNER ACCEPTANCE PENDING: " + _report_list(value.get("pendingAcceptance")),
             f"OPTIONAL: {_report_list(value.get('optionalPendingAcceptance'))}",
             f"REPORT DIGEST: {digest}",
         )
@@ -283,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif error.code == "install_agent_owner_config_changed":
             result["recovery"] = CONFIG_RECOVERY
+        result.update(store_retry_refusal(error))
         print(json.dumps(result, sort_keys=True))
         return 2
     except (OSError, ValueError, TypeError, KeyError):

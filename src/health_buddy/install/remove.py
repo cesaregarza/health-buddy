@@ -25,6 +25,7 @@ from health_buddy.core.files import read_file, read_json
 from health_buddy.core.security_api import Authenticated, Runtime, SecurityRequest
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.agent import actors, matches, owner
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.https import route
 from health_buddy.install.serve import (
     check_routes,
@@ -383,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
                     "code": error.code,
                     "removed": False,
                     "dataRetained": True,
+                    **store_retry_refusal(error),
                 }
             )
         )

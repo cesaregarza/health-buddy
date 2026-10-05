@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from health_buddy.core.service_api import ServiceError
 from health_buddy.install.acquire import download
+from health_buddy.install.errors import store_retry_refusal
 
 
 def main() -> int:
@@ -22,7 +23,7 @@ def main() -> int:
             raise ValueError("data-only request")
         download(value)
     except ServiceError as error:
-        print(json.dumps({"code": error.code}))
+        print(json.dumps({"code": error.code, **store_retry_refusal(error)}))
         return 1
     except (OSError, ValueError, TypeError, KeyError):
         print(json.dumps({"code": "install_acquire_transport_failed"}))

@@ -22,6 +22,7 @@ from health_buddy.core.operations import Service
 from health_buddy.core.security_api import IngressConfig
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import initialize
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.preflight import GUIDANCE, preflight, require_docker
 from health_buddy.mcp.settings import Settings
 from health_buddy.security.runtime import open_runtime
@@ -332,6 +333,8 @@ def main(argv: list[str] | None = None) -> int:
             details = error.details if isinstance(error.details, dict) else {}
             missing = details.get("missingArguments", [])
             failure["missingArguments"] = missing if isinstance(missing, list) else []
+        if isinstance(error, ServiceError):
+            failure.update(store_retry_refusal(error))
         print(json.dumps(failure, sort_keys=True))
         return 2
     print(json.dumps(result, sort_keys=True))

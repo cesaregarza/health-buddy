@@ -714,7 +714,10 @@ image, workspace mount, runtime user and healthy status before accepting success
 A `starting` or `unhealthy` observation returns retryable
 `install_activation_runtime_not_healthy`; repeat only observes the pending runtime
 and never issues another load/up while that bound container exists. An already
-active repeat only observes that binding. An absent recorded active runtime,
+active repeat checks private owner/identity/authority metadata, release and
+personal compatibility, the original selection and environment, then observes
+that healthy container binding without reopening Git or SQLite stores. An absent
+recorded active runtime,
 stopped/unrelated container, edited environment, changed identity/release or
 changed project/UID/GID refuses further writes and requires owner inspection.
 Retain the original journal and environment; do not edit them to adopt another
@@ -724,7 +727,13 @@ CLI failures expose fixed stage codes, such as
 `install_activation_load_interrupted`, `install_activation_start_interrupted`,
 `install_activation_project_not_empty` and
 `install_activation_environment_changed`, with no paths or captured daemon
-output. `runtimeActivated:true` records only the observed local API runtime.
+output. A retryable canonical-store 503 is reported as
+`install_runtime_store_not_ready`: the store may be starting or temporarily
+locked. Retain the journal and original selection; wait ten seconds and run the
+same command again unchanged. This recovery also applies if another install
+stage encounters that transient store refusal. It does not authorize changing
+inputs or discarding retained state. `runtimeActivated:true` records only the
+observed local API runtime.
 `connected:false` remains explicit: next configure the scoped agent grant and,
 for the phone and browser, private HTTPS. Phone pairing and named-client qualification require live acceptance. The source
 profile's `runtimeActivated:false` remains its preparation-time description;

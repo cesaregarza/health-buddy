@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 # ruff: noqa: E402
 # Imported in place from the source bundle: never write bytecode into its tree.
@@ -19,20 +19,24 @@ sys.dont_write_bytecode = True
 
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
+from health_buddy.core.config import Config
 from health_buddy.core.domain import encode, identity_value
 from health_buddy.core.durability import atomic_bytes, exclusive, private_umask
 from health_buddy.core.files import read_file, read_json
 from health_buddy.core.operations import Service
 from health_buddy.core.security_api import Runtime
-from health_buddy.core.service_api import ServiceError
+from health_buddy.core.service_api import Identity, ServiceError
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.owner import identity_recovery
 from health_buddy.install.preflight import preflight
 from health_buddy.packaged_runtime import managed_ingress
 from health_buddy.runtime.manifest import file_digest
 from health_buddy.runtime.release import docker_command, load_release, selected_artifact
 from health_buddy.security.runtime import open_runtime
+from health_buddy.security.store import SecurityStore, private_owned
 from health_buddy.upgrade.activation import COMPOSE, compose, running
 from health_buddy.upgrade.staging import preflight as upgrade_preflight
+from health_buddy.upgrade.staging import preflight_config as upgrade_preflight_config
 
 
 def result(progress: dict[str, Any]) -> dict[str, Any]:
@@ -92,15 +96,23 @@ def activate(
         }
         if refusals or checked["release"] != prepared["release"]:
             raise ServiceError(409, "install_activation_release_preflight_refused")
-        runtime, service = _ready_runtime(workspace)
         architecture = checked["host"]["architecture"]
-        target = upgrade_preflight(
-            runtime, manifest, original["manifestSha256"], architecture
-        )
+        progress = prepared.get("activation")
+        if isinstance(progress, dict) and progress.get("phase") == "active":
+            settings, identity = _active_authority(workspace)
+            target = upgrade_preflight_config(
+                settings, manifest, original["manifestSha256"], architecture
+            )
+        else:
+            runtime, service = _ready_runtime(workspace)
+            target = upgrade_preflight(
+                runtime, manifest, original["manifestSha256"], architecture
+            )
+            identity = service.journal.verify().identity
         _validate_compose(bundle)
         binding = {
             "target": target,
-            "identity": identity_value(service.journal.verify().identity),
+            "identity": identity_value(identity),
             "workspace": str(workspace),
             "environment": str(environment),
             "docker": str(docker),
@@ -109,7 +121,6 @@ def activate(
             "gid": gid,
             "composeSha256": file_digest(COMPOSE, 16384)[1],
         }
-        progress = prepared.get("activation")
         if progress is not None:
             _validate_resume(progress, binding)
         else:
@@ -180,6 +191,55 @@ def _ready_runtime(workspace: Path) -> tuple[Runtime, Service]:
     return runtime, runtime.operations
 
 
+def _active_authority(workspace: Path) -> tuple[Config, Identity]:
+    """Recheck private authority metadata; the bound container owns live stores.
+
+    An active rerun must not reopen/recover Git or SQLite while the API is using
+    them. Docker's current healthy observation still admits runtime success.
+    """
+    try:
+        read_file(workspace / "config.json", 16384)
+        settings = managed_ingress(workspace)
+    except (OSError, ValueError):
+        raise ServiceError(
+            409, "install_activation_requires_managed_owner_setup"
+        ) from None
+    try:
+        value = read_json(workspace / "identity.json", 4096)
+        if (
+            not isinstance(value, dict)
+            or set(value)
+            != {
+                "schemaVersion",
+                "installationId",
+                "datasetId",
+                "restoreEpoch",
+            }
+            or type(value["schemaVersion"]) is not int
+            or value["schemaVersion"] != 1
+            or any(
+                not isinstance(value[key], str) or not value[key]
+                for key in ("installationId", "datasetId", "restoreEpoch")
+            )
+        ):
+            raise ValueError("invalid identity metadata")
+        identity = Identity(
+            cast(str, value["installationId"]),
+            cast(str, value["datasetId"]),
+            cast(str, value["restoreEpoch"]),
+        )
+        security = SecurityStore(workspace)
+        security._binding(identity)
+        # Metadata permission checks only; never connect to either database.
+        for path in (security.path, workspace / "operations/control.sqlite"):
+            private_owned(path)
+    except (OSError, ValueError, TypeError, KeyError, ServiceError):
+        raise ServiceError(
+            409, "install_activation_requires_ready_owner_authority"
+        ) from None
+    return settings, identity
+
+
 def _validate_compose(bundle: Path) -> None:
     native_path(COMPOSE)
     native_path(bundle / "source/packaging/compose.yaml")
@@ -227,7 +287,10 @@ def _start_runtime(
         if ids:
             if progress["phase"] not in ("starting", "active") or len(ids) != 1:
                 raise ServiceError(409, "install_activation_project_not_empty")
-            progress["runningImageId"] = healthy_image(binding, manifest)
+            image = healthy_image(binding, manifest)
+            if progress["phase"] == "active":
+                return result(progress)
+            progress["runningImageId"] = image
             progress["phase"] = "active"
             atomic_bytes(journal, encode(prepared))
             return result(progress)
@@ -358,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
                         else {}
                     ),
                     "recovery": recovery,
+                    **store_retry_refusal(error),
                 }
             )
         )

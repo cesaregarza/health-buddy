@@ -39,6 +39,7 @@ from health_buddy.core.security_api import (
 )
 from health_buddy.core.service_api import ServiceError
 from health_buddy.core.workspace import create_file
+from health_buddy.install.errors import store_retry_refusal
 from health_buddy.install.owner import identity_recovery
 from health_buddy.mcp.settings import Settings
 from health_buddy.packaged_runtime import managed_ingress
@@ -644,6 +645,7 @@ def main(argv: list[str] | None = None) -> int:
             details = error.details if isinstance(error.details, dict) else {}
             differing = details.get("differingFields", [])
             result["differingFields"] = differing if isinstance(differing, list) else []
+        result.update(store_retry_refusal(error))
         print(json.dumps(result, sort_keys=True))
         return 2
     except (OSError, ValueError, TypeError, KeyError):
