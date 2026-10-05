@@ -140,8 +140,8 @@ Never compute pins from downloads, switch publisher or alter the served URL. Pro
 and the owner's local-only/no-private-HTTPS decision. The agent must discover host facts; provide no artifact URLs/hashes, host facts, stage answers or command hints.
 Supplied-input prompts are historical, not `one-url/2` evidence.
 
-Use a private native Linux kit, authenticated `doctl`, OpenSSH, Bash and Python 3. The fresh host needs at least 2 vCPU/4 GB; the helper prepares Docker Compose and Claude Code,
-records versions and creates ordinary `owner`. It seeds no workspace, checkout, credential, receipts or stage answers. Record actual OS/architecture and Claude Code version. Enter
+Use a private native Linux kit, authenticated `doctl`, OpenSSH, Bash and Python 3. The fresh host needs at least 2 vCPU/4 GB; the helper prepares CPython 3.12 venv support, Docker Compose and Claude Code,
+records versions and creates ordinary `owner`. It must satisfy every prerequisite the onboarding page lists; a prerequisite stop is a kit defect, not an agent finding. It seeds no workspace, checkout, credential, receipts or stage answers. Record actual OS/architecture and Claude Code version. Enter
 operator inputs once:
 
 ```sh
