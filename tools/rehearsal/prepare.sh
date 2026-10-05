@@ -23,6 +23,8 @@ apt-get install -y -q docker-ce docker-ce-cli containerd.io docker-compose-plugi
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y -q nodejs
 npm install -g @anthropic-ai/claude-code
+# Codex flag/config contract inspected on 0.154.0; record the installed version.
+npm install -g @openai/codex@0.154.0
 # Record the version; fail instead of silently testing a different Docker major.
 docker version --format '{{.Server.Version}}' | grep -q '^29\.'
 id owner >/dev/null 2>&1 || { useradd -m -s /bin/bash -G docker owner; echo 'owner ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/owner; chmod 0440 /etc/sudoers.d/owner; }
@@ -30,7 +32,7 @@ owner_home=$(getent passwd owner | cut -d: -f6)
 printf '\numask 002\n' >> "$owner_home/.profile"
 sudo -u owner bash -c 'set -e; t=$(mktemp -d /tmp/hb-venv.XXXXXXXX); trap "rm -rf -- \"$t\"" EXIT; python3.12 -m venv "$t/venv"; echo "venv support: OK"'
 echo "--- host ready ---"
-python3 --version; docker --version; docker compose version; node --version; claude --version; id owner
+python3 --version; docker --version; docker compose version; node --version; claude --version; codex --version; id owner
 df -h / | tail -1
 REMOTE
 echo "droplet at $IP prepared"

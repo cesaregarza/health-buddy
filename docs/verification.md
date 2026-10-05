@@ -152,13 +152,46 @@ read -r -p 'Unique disposable host name: ' REHEARSAL_NAME
 read -r -p 'Authorized SSH key ID: ' DO_SSH_KEY_ID
 read -r -p 'Cloud region: ' DO_REGION
 read -r -p 'Host size (at least 2 vCPU/4 GB): ' DO_SIZE
-read -r -p 'Private one-line model credential file: ' PRIVATE_MODEL_TOKEN_FILE
-read -r -p 'Credential kind (oauth or apikey): ' AUTH
+read -r -p 'Private Claude credential file (empty for Codex): ' PRIVATE_MODEL_TOKEN_FILE
+read -r -p 'Credential kind (oauth, apikey or chatgpt-cache): ' AUTH
 read -r -p 'Canonical onboarding Markdown URL: ' ONBOARDING_URL
 export DO_SSH_KEY_ID DO_REGION DO_SIZE PRIVATE_MODEL_TOKEN_FILE AUTH
 ```
 
-Credential file must be owner-owned, non-symlink, mode 0600, one line plus newline. Keep credentials out of prompts, arguments, Git and shared logs; the harness transfers them over
+The installer defaults to `AGENT=claude`; explicitly select `AGENT=codex` for
+Codex. The helper installs Codex CLI 0.154.0, whose flags were inspected. Record
+the actual client version, `AGENT`, `MODEL` and `REASONING` from the receipts.
+Codex defaults to `gpt-5.6-luna` and `REASONING=medium`; `gpt-5.6-terra` is the
+other initial qualification target. Their installation results remain recorded
+agent-class data until they pass the installation bar, not qualification claims.
+
+For Codex, use the operator-approved existing ChatGPT login cache, including
+its refresh credentials. Keep the source outside the kit/run directories:
+
+```sh
+read -r -p 'Operator-owned mode-0600 Codex login cache: ' PRIVATE_CODEX_AUTH_FILE
+AGENT=codex AUTH=chatgpt-cache MODEL=gpt-5.6-luna REASONING=medium
+export AGENT AUTH MODEL REASONING PRIVATE_CODEX_AUTH_FILE
+"$REHEARSAL_KIT/codex-auth.sh" "$PRIVATE_CODEX_AUTH_FILE"
+```
+
+The helper checks owned regular mode-0600 input, no symlink ancestors, ChatGPT
+cache shape and at least two hours of access-token lifetime; it prints only
+expiry. Expiry is not a signature or credential-validity check. An ordinary
+ChatGPT JWT extracted from this cache was rejected by CLI 0.154.0's workspace
+access-token login; the kit uses the approved cache path instead.
+The cache travels over SSH stdin into an isolated mode-0700 `CODEX_HOME` with
+an owner-owned mode-0600 `auth.json`. A silent login-status check must succeed
+before the model session. Remove only the exclusively owned local host auth
+directory and confirm it absent before any copy-back, including failures and
+timeouts; never run `codex logout` on a copied shared session because it may
+revoke the original credentials. Never copy refreshed host credentials back:
+the operator's original cache remains untouched. Before sharing evidence, require a private JWT-pattern scan
+of the kit and run to find nothing; model credentials are never transcript evidence.
+See [official non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
+and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+
+Claude's one-line credential file must be owner-owned, non-symlink, mode 0600, one line plus newline. Keep credentials out of prompts, arguments, Git and shared logs; the harness transfers them over
 SSH stdin and removes remote temporary copies. Never enable shell tracing. If `AUTH=apikey`, the later client check needs a separate OAuth file. Record source / published-doc
 commits, URLs/pins, host and tool versions, umask, times, limits and auth kind privately. Inspect `prepare.log`; do not silently alter the host scenario.
 
@@ -186,7 +219,12 @@ python3 "$REHEARSAL_KIT/render-prompt.py" "$ONBOARDING_URL"
 No resume, prior conversation, personal files, checkout or operator skills. The helper runs as `owner`, uses `umask 002`, clears Python path/bytecode overrides and retains `<
 /dev/null`; do not alter those conditions. Default is Haiku, 250 turns, 3600 seconds. Record explicit model/limit changes. Preserve transcript, stderr, exit record and `STALLS.md`;
 timeout or zero exit alone is not success. Do not intervene; if needed, record before/after actions, mark assisted and retry on a new host.
-Both print-mode sessions deny `ScheduleWakeup`, `CronCreate`, `CronList` and `CronDelete` with `--disallowedTools` (checked on Claude Code 2.1.197), because scheduling cannot resume them; this is a client limitation, and the tracked kit needs no operator overlay.
+Codex keeps the same prompt, owner/umask conditions and wall timeout, with
+`--ephemeral`, `--ignore-user-config`, `--skip-git-repo-check` and `< /dev/null`;
+the Claude turn limit does not apply. Preserve raw JSONL, stderr and separate
+`last-message.txt`; derived views prefer that file without rewriting JSONL.
+A started tool item is not a successful result.
+Both Claude print-mode sessions deny `ScheduleWakeup`, `CronCreate`, `CronList` and `CronDelete` with `--disallowedTools` (checked on Claude Code 2.1.197), because scheduling cannot resume them; this is a client limitation, and the tracked kit needs no operator overlay.
 
 ```sh
 "$REHEARSAL_KIT/run.sh"
@@ -234,6 +272,16 @@ health. Preserve write response/revision and authenticated read response; match 
 private files are not exact read-back. Report any development-mode use separately; it cannot replace credentialed installed-runtime success.
 
 ### 6. Check the fresh client and observer calls
+
+The observer still defaults to Haiku on Claude; explicitly select its `AGENT`,
+`MODEL`, `REASONING` and credential file for Codex. Codex ignores user config,
+uses a read-only sandbox, disables shell/web tools and registers only the
+installed `health_buddy` launcher with the three read tools enabled. An isolated
+temporary working directory avoids owner project config and is removed on exit.
+Record
+actual exposed capabilities on CLI 0.154.0; config intent alone is not proof.
+No shell/file/web call is acceptable; all three distinct MCP calls need completed
+successful results, with the same prompt/window and raw-result comparison.
 
 Back in the operator kit shell, supply the target's absolute install-journal path. The helper refuses an unfinished agent stage; never complete it by hand.
 With initial `AUTH=apikey`, set `PRIVATE_MODEL_TOKEN_FILE` to the separate OAuth file. Retain observer window/catalog, transcript and results.
