@@ -37,7 +37,114 @@ def read_events(path: str | Path) -> list[dict]:
         events.append(
             event if isinstance(event, dict) else {"type": "invalid_transcript_line"}
         )
+    if any(event.get("type") == "thread.started" for event in events):
+        events = codex_events(events)
+        final = Path(path).with_name(
+            "client-last-message.txt" if Path(path).name.startswith("client-")
+            else "last-message.txt"
+        )
+        if final.is_file():
+            events.append({"type": "result", "result": final.read_text()})
     return events
+
+
+def codex_call(item: dict) -> dict:
+    """Map tool identity without hiding unknown tools from the observer audit."""
+    kind = item.get("type", "unknown")
+    if kind == "command_execution":
+        name, inputs = "Bash", {"command": item.get("command", "")}
+    elif kind == "mcp_tool_call":
+        name = "mcp__" + str(item.get("server", "")) + "__" + str(item.get("tool", ""))
+        inputs = item.get("arguments") or {}
+        if not isinstance(inputs, dict):
+            inputs = {"arguments": inputs}
+    elif kind == "web_search":
+        action = item.get("action") or {}
+        if not isinstance(action, dict):
+            action = {"query": action}
+        name = "WebFetch"
+        inputs = {"url": action.get("url") or item.get("url") or "",
+                  "prompt": "summarizing web search", "action": action}
+        if not inputs["url"]:
+            urls = re.findall(r"https://[^\s\"\\]+", json.dumps(action))
+            inputs["url"] = next((url for url in urls if onboarding_url(url)), "")
+    else:
+        name, inputs = str(kind), item
+    return {"type": "tool_use", "id": item.get("id"), "name": name, "input": inputs}
+
+
+def codex_result(item: dict) -> dict:
+    result = item.get("aggregated_output")
+    if result is None:
+        result = item.get("result")
+    error = item.get("error")
+    if result is None:
+        result = error or ""
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    failed = (item.get("status") != "completed" or bool(error)
+              or item.get("exit_code") not in (None, 0))
+    # MCP protocol errors may be returned in an otherwise completed CLI item.
+    payload = item.get("result")
+    failed = failed or (isinstance(payload, dict) and bool(payload.get("isError")))
+    return {"type": "tool_result", "tool_use_id": item.get("id"),
+            "content": result, "is_error": failed}
+
+
+def codex_events(raw: list[dict]) -> list[dict]:
+    """One mapped event per raw ordinal; started/completed items stay ordered."""
+    events = []
+    started = set()
+    completed = set()
+    for index, event in enumerate(raw):
+        mapped = {"type": "codex_event", "raw_event_index": index}
+        kind = event.get("type")
+        item = event.get("item") or {}
+        identity = item.get("id")
+        if kind in ("item.started", "item.completed"):
+            item_kind = item.get("type")
+            if item_kind == "agent_message" and kind == "item.completed":
+                mapped.update(type="assistant", message={"content": [
+                    {"type": "text", "text": item.get("text", "")}]})
+            elif item_kind not in ("agent_message", "reasoning", "todo_list"):
+                content = []
+                if identity not in started:
+                    content.append(codex_call(item))
+                    started.add(identity)
+                if content:
+                    mapped.update(type="assistant", message={"content": content})
+                if kind == "item.completed" and identity not in completed:
+                    mapped["codex_result"] = codex_result(item)
+                    completed.add(identity)
+        elif kind in ("turn.failed", "error", "invalid_transcript_line"):
+            mapped.update(type="invalid_transcript_line", codex_error=event)
+        events.append(mapped)
+    return events
+
+
+def observer_check(events: list[dict]) -> dict:
+    required = {name: False for name in ("sync_status", "get_context", "list_records")}
+    successful = required.copy()
+    non_mcp, unexpected, metadata = [], [], []
+    for call in tool_calls(events):
+        name = str(call["name"] or "")
+        short = name.removeprefix("mcp__health_buddy__")
+        if name == "ToolSearch":
+            metadata.append(name)
+        elif name.startswith("mcp__health_buddy__") and short in required:
+            required[short] = True
+            if call["result_position"] is not None and call["result"] and not call["is_error"]:
+                successful[short] = True
+        elif name.startswith("mcp__"):
+            unexpected.append(name)
+        else:
+            non_mcp.append(name)
+    invalid = sum(event.get("type") == "invalid_transcript_line" for event in events)
+    return {"requiredMcpCallsObserved": required, "requiredMcpCallsSuccessful": successful,
+            "nonMcpTools": non_mcp, "unexpectedMcpTools": unexpected,
+            "metadataDiscoveryTools": metadata, "invalidTranscriptLines": invalid,
+            "rawResultReviewRequired": True,
+            "passed": not (non_mcp or unexpected or invalid) and all(successful.values())}
 
 
 def text_of(block: dict) -> str:
@@ -56,6 +163,8 @@ def blocks(events: list[dict]):
         ):
             if isinstance(block, dict):
                 yield (event_index, block_index), event.get("type"), block
+        if "codex_result" in event:
+            yield (event_index, 1), "user", event["codex_result"]
 
 
 def tool_calls(events: list[dict]) -> list[dict]:

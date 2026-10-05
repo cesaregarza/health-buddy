@@ -1,4 +1,4 @@
-"""Turn a Claude Code stream-json transcript into a readable rehearsal timeline.
+"""Turn a Claude Code or Codex JSONL transcript into a rehearsal timeline.
 
 Shows every tool call (command or file touched), the first lines of each tool
 result, every error, and the agent's final message. Stdlib only.
@@ -19,6 +19,16 @@ from transcript import (
     text_of,
     tool_calls,
 )
+
+
+def show_result(block: dict) -> bool:
+    body = text_of(block)
+    is_error = bool(block.get("is_error"))
+    lines = [line for line in body.splitlines() if line.strip()]
+    preview = " / ".join(lines[:3])[:400]
+    tag = "ERROR " if is_error else ""
+    print(f"    {tag}→ {preview}")
+    return is_error
 
 
 def main(path: str) -> None:
@@ -49,14 +59,7 @@ def main(path: str) -> None:
         elif kind == "user":
             for block in content:
                 if block.get("type") == "tool_result":
-                    body = text_of(block)
-                    is_error = bool(block.get("is_error"))
-                    if is_error:
-                        errors += 1
-                    lines = [line for line in body.splitlines() if line.strip()]
-                    preview = " / ".join(lines[:3])[:400]
-                    tag = "ERROR " if is_error else ""
-                    print(f"    {tag}→ {preview}")
+                    errors += show_result(block)
         elif kind == "result":
             final = event.get("result") or ""
             print(
@@ -65,6 +68,8 @@ def main(path: str) -> None:
                 f"duration_ms={event.get('duration_ms')} "
                 f"cost_usd={event.get('total_cost_usd')}\n"
             )
+        if event.get("codex_result"):
+            errors += show_result(event["codex_result"])
     print(f"\n## Totals\n\n- tool calls: {calls}\n- tool errors: {errors}\n")
     if final:
         print("## Final message\n")
