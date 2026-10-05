@@ -101,9 +101,13 @@ def test_phone_receiver_guidance_requires_an_owner_request() -> None:
         "HealthKit receiver stays disabled in `read-only` mode unless the owner "
         "asked for phone pairing"
     ) in onboarding
-    readback = (ROOT / "docs/verification.md").read_text().split(
-        "### 5. Independently check host state and authenticated read-back", 1
-    )[1]
+    readback = (
+        (ROOT / "docs/verification.md")
+        .read_text()
+        .split("### 5. Independently check host state and authenticated read-back", 1)[
+            1
+        ]
+    )
     readback = readback.split("### 6.", 1)[0]
     assert "`healthkitMode` and `healthkitReceiverEnabled`" in readback
     assert "without requested phone pairing" in readback

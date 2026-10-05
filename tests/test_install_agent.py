@@ -237,7 +237,10 @@ def test_status_report_tracks_agent_stage_without_claiming_acceptance(
     ).encode("utf-8")
     digest = hashlib.sha256(canonical).hexdigest()[:12]
     assert lines[3] == f"REPORT DIGEST: {digest}"
-    changed_guidance = {**summary, "phoneInstruction": "Different optional phone guidance"}
+    changed_guidance = {
+        **summary,
+        "phoneInstruction": "Different optional phone guidance",
+    }
     changed_report = install_status.format_report(changed_guidance).splitlines()
     assert changed_report[:3] == lines[:3]
     assert changed_report[3] != lines[3]
