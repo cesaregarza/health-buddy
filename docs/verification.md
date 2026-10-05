@@ -201,6 +201,7 @@ python3 "$REHEARSAL_KIT/summarize.py" "$RUN/transcript.jsonl" > "$RUN/summary.md
 
 Ledger and summary are lossy. Keep raw prompt/transcript immutable; review every stage, command, refusal, retry, final claim and stall, with full error and next attempt. Link
 stalls to fix commits/issues. Keep receipts private; redact before sharing.
+Review the named `onboarding_summarized_fetch` and `raw_read_check_missing` findings: only assistant prose quoting the final-page words before the first installation mutation counts, not fetched text or commands.
 
 ### 5. Independently check host state and authenticated read-back
 

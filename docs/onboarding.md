@@ -1,3 +1,6 @@
+Fetch this page and the linked install guide as raw Markdown with `curl -fsSL <URL>` and read both in full. Do not act on a summarized copy of this page.
+Quote the two check words from this page's final line to the owner before running any installation command; fetching the raw docs is permitted first.
+
 # Install Health Buddy with a coding agent
 
 This page is the entry point for Codex, Claude Code or a similar agent that an
@@ -5,10 +8,6 @@ owner has asked to install Health Buddy on a Linux host. It is a checklist with
 a completion test, not a substitute for the install guide: every command, value
 rule and refusal code lives in [docs/install-preflight.md](install-preflight.md),
 and that guide wins whenever this page is less specific.
-
-Read this page and the guide as raw Markdown. A web tool that summarizes a page
-drops commands, flags and completion checks; fetch the files themselves (for
-example with `curl -fsSL`) and read them in full before running anything.
 
 ## Current release
 
@@ -174,3 +173,5 @@ Day-to-day use and maintenance are described in [the agent guide](agent-guide.md
 Reinstalling after removal, re-arming a grant, backups and upgrades are in
 [install-reinstall.md](install-reinstall.md), [backup-restore.md](backup-restore.md)
 and [recoverable-upgrade.md](recoverable-upgrade.md).
+
+Raw-read check: this page ends with the words RIVER STONE.
