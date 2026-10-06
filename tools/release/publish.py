@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .candidate import (
+from release.candidate import (
     BUNDLES,
     PAYLOADS,
     ReleaseError,

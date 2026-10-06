@@ -5,7 +5,7 @@ from __future__ import annotations
 import tarfile
 from pathlib import Path, PurePosixPath
 
-from .candidate import ReleaseError
+from release.candidate import ReleaseError
 
 ROOT_DOCUMENTS = {
     "README.md",

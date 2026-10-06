@@ -12,7 +12,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from .candidate import (
+from release.candidate import (
     BUNDLES,
     PAYLOADS,
     REPOSITORY,
@@ -27,7 +27,7 @@ from .candidate import (
     selected_sha,
     verify_candidate,
 )
-from .docs import extract_docs
+from release.docs import extract_docs
 
 MANIFEST_NAMES = {
     **{

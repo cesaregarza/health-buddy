@@ -9,13 +9,15 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 import zipfile
 from pathlib import Path
 
 import pytest
 
-from tools.release import candidate, docs, publish, workflow
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from release import candidate, docs, publish, workflow  # noqa: E402
 
 SHA = "a" * 40
 
