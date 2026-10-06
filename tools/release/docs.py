@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from .candidate import ReleaseError
 
 ROOT_DOCUMENTS = {
-    "README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "THIRD_PARTY.md", "LICENSE"
+    "README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "THIRD_PARTY.md", "LICENSE", "SECURITY.md"
 }
 REQUIRED = {"docs/onboarding.md", "docs/install-preflight.md", "docs/publisher-verification.md"}
 
