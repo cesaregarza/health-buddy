@@ -38,9 +38,13 @@ def valid_run():
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("id", 8), ("head_sha", "b" * 40), ("head_branch", "candidate"),
-        ("event", "push"), ("path", ".github/workflows/other.yml"),
-        ("status", "in_progress"), ("conclusion", "failure"),
+        ("id", 8),
+        ("head_sha", "b" * 40),
+        ("head_branch", "candidate"),
+        ("event", "push"),
+        ("path", ".github/workflows/other.yml"),
+        ("status", "in_progress"),
+        ("conclusion", "failure"),
         ("repository", {"full_name": "other/health-buddy"}),
         ("head_repository", {"full_name": "fork/health-buddy"}),
         ("run_attempt", 0),
@@ -66,7 +70,9 @@ def artifact_metadata():
 
 
 @pytest.mark.parametrize("failure", ["missing", "duplicate", "expired", "sha", "run"])
-def test_artifact_selection_refuses_incomplete_or_unbound_metadata(monkeypatch, failure):
+def test_artifact_selection_refuses_incomplete_or_unbound_metadata(
+    monkeypatch, failure
+):
     items = artifact_metadata()
     if failure == "missing":
         items.pop()
@@ -77,16 +83,22 @@ def test_artifact_selection_refuses_incomplete_or_unbound_metadata(monkeypatch, 
     else:
         items[0]["workflow_run"]["head_sha" if failure == "sha" else "id"] = "wrong"
     monkeypatch.setattr(
-        workflow, "api", lambda endpoint: {"artifacts": items, "total_count": len(items)}
+        workflow,
+        "api",
+        lambda endpoint: {"artifacts": items, "total_count": len(items)},
     )
     with pytest.raises(candidate.ReleaseError):
         workflow.selected_artifacts(7, SHA)
 
 
-@pytest.mark.parametrize("failure", ["traversal", "absolute", "unexpected", "symlink", "duplicate"])
+@pytest.mark.parametrize(
+    "failure", ["traversal", "absolute", "unexpected", "symlink", "duplicate"]
+)
 def test_zip_inventory_is_rejected_before_writing_any_member(tmp_path, failure):
     archive = tmp_path / "artifact.zip"
-    allowed = {"artifacts/runtime-manifest.json": "manifest/artifacts/runtime-manifest.json"}
+    allowed = {
+        "artifacts/runtime-manifest.json": "manifest/artifacts/runtime-manifest.json"
+    }
     name = next(iter(allowed))
     with zipfile.ZipFile(archive, "w") as output:
         output.writestr(name, b"synthetic")
@@ -139,11 +151,18 @@ def synthetic_payloads(tmp_path):
     return directory, values
 
 
-@pytest.mark.parametrize("failure", ["missing_image", "tamper", "missing_bundle", "source_sha", "bad_signature"])
-def test_candidate_requires_all_payloads_and_both_valid_signatures(tmp_path, monkeypatch, failure):
+@pytest.mark.parametrize(
+    "failure",
+    ["missing_image", "tamper", "missing_bundle", "source_sha", "bad_signature"],
+)
+def test_candidate_requires_all_payloads_and_both_valid_signatures(
+    tmp_path, monkeypatch, failure
+):
     directory, _ = synthetic_payloads(tmp_path)
     calls = []
-    monkeypatch.setattr(candidate, "execute", lambda command: calls.append(command) or b"")
+    monkeypatch.setattr(
+        candidate, "execute", lambda command: calls.append(command) or b""
+    )
     if failure == "missing_image":
         (directory / "health-buddy-linux-arm64.docker.tar").unlink()
     elif failure == "tamper":
@@ -156,23 +175,33 @@ def test_candidate_requires_all_payloads_and_both_valid_signatures(tmp_path, mon
             candidate.verify_candidate(directory, other_sha, Path("/synthetic/cosign"))
         return
     else:
+
         def refused(command):
             raise candidate.ReleaseError("synthetic_signature_rejected")
+
         monkeypatch.setattr(candidate, "execute", refused)
     with pytest.raises(candidate.ReleaseError):
         candidate.verify_candidate(directory, SHA, Path("/synthetic/cosign"))
 
 
-def test_signed_verification_uses_exact_identity_issuer_and_immutable_bytes(tmp_path, monkeypatch):
+def test_signed_verification_uses_exact_identity_issuer_and_immutable_bytes(
+    tmp_path, monkeypatch
+):
     directory, values = synthetic_payloads(tmp_path)
     calls = []
-    monkeypatch.setattr(candidate, "execute", lambda command: calls.append(command) or b"")
+    monkeypatch.setattr(
+        candidate, "execute", lambda command: calls.append(command) or b""
+    )
     verified = candidate.verify_candidate(directory, SHA, Path("/synthetic/cosign"))
     assert verified["candidateKind"] == "signed workflow candidate"
     assert len(calls) == 2
     for command in calls:
-        assert command[command.index("--certificate-identity") + 1] == candidate.IDENTITY
-        assert command[command.index("--certificate-oidc-issuer") + 1] == candidate.ISSUER
+        assert (
+            command[command.index("--certificate-identity") + 1] == candidate.IDENTITY
+        )
+        assert (
+            command[command.index("--certificate-oidc-issuer") + 1] == candidate.ISSUER
+        )
         assert "--insecure-ignore-tlog" not in command
     assert {name: (directory / name).read_bytes() for name in values} == values
     for name in candidate.BUNDLES:
@@ -213,7 +242,11 @@ def test_fetch_finalizes_only_after_all_archives_checks_and_docs(tmp_path, monke
     final = workflow.fetch(SHA, 7)
     evidence = json.loads((final / "workflow-evidence.json").read_bytes())
     assert evidence["runId"] == 7 and evidence["sourceCommit"] == SHA
-    assert (final / "manifest/docs-source/docs/onboarding.md").read_bytes().startswith(b"synthetic")
+    assert (
+        (final / "manifest/docs-source/docs/onboarding.md")
+        .read_bytes()
+        .startswith(b"synthetic")
+    )
     assert set(evidence["payloads"]) == candidate.PAYLOADS
     assert not (final / "downloads").exists()
     with pytest.raises(candidate.ReleaseError, match="already_exists"):
@@ -221,7 +254,9 @@ def test_fetch_finalizes_only_after_all_archives_checks_and_docs(tmp_path, monke
 
 
 @pytest.mark.parametrize("bad_public", [False, True])
-def test_publish_verifies_every_public_payload_and_signature(tmp_path, monkeypatch, bad_public):
+def test_publish_verifies_every_public_payload_and_signature(
+    tmp_path, monkeypatch, bad_public
+):
     directory, values = synthetic_payloads(tmp_path)
     root = tmp_path / "out"
     root.mkdir(mode=0o700)
@@ -236,14 +271,18 @@ def test_publish_verifies_every_public_payload_and_signature(tmp_path, monkeypat
     config.write_text("[default]\n# synthetic protected config\n")
     config.chmod(0o600)
     for name, value in {
-        "RELEASE_OUT_ROOT": str(root), "RELEASE_S3_CONFIG": str(config),
-        "RELEASE_BUCKET": "synthetic-bucket", "RELEASE_PUBLIC_BASE": "https://publisher.example",
+        "RELEASE_OUT_ROOT": str(root),
+        "RELEASE_S3_CONFIG": str(config),
+        "RELEASE_BUCKET": "synthetic-bucket",
+        "RELEASE_PUBLIC_BASE": "https://publisher.example",
     }.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv("UNSIGNED", raising=False)
     monkeypatch.setattr(publish, "pinned_cosign", lambda: Path("/synthetic/cosign"))
     signatures = []
-    monkeypatch.setattr(candidate, "execute", lambda command: signatures.append(command) or b"")
+    monkeypatch.setattr(
+        candidate, "execute", lambda command: signatures.append(command) or b""
+    )
     uploads = []
 
     def execute(command):
@@ -325,14 +364,19 @@ with open(os.environ["SYNTHETIC_COMMANDS"], "a") as log:
     assert result.returncode == 0
     calls = [json.loads(line) for line in logs.read_text().splitlines()]
     assert calls[0][1:] == [
-        "run", "watch", "7", "--repo", candidate.REPOSITORY, "--exit-status"
+        "run",
+        "watch",
+        "7",
+        "--repo",
+        candidate.REPOSITORY,
+        "--exit-status",
     ]
     assert calls[1][1:] == ["-m", "release.workflow", "fetch", SHA, "7"]
     assert calls[2][1:] == ["-m", "release.publish", SHA]
     assert calls[3][1:] == [
-        SHA, str(tmp_path / "out" / SHA / "manifest/docs-source/docs/onboarding.md")
+        SHA,
+        str(tmp_path / "out" / SHA / "manifest/docs-source/docs/onboarding.md"),
     ]
-
 
 
 @pytest.mark.parametrize("failure", ["duplicate", "missing", "unexpected", "traversal"])
@@ -360,7 +404,9 @@ def test_cosign_binary_pin_and_version_are_required_before_signature_checks(
     binary.write_bytes(b"synthetic admitted executable bytes")
     expected = candidate.digest(binary)
     monkeypatch.setenv("RELEASE_COSIGN", str(binary))
-    monkeypatch.setenv("RELEASE_COSIGN_SHA256", "0" * 64 if failure == "pin" else expected)
+    monkeypatch.setenv(
+        "RELEASE_COSIGN_SHA256", "0" * 64 if failure == "pin" else expected
+    )
     monkeypatch.setattr(candidate, "execute", lambda command: b"GitVersion: v3.0.0\n")
     with pytest.raises(candidate.ReleaseError):
         candidate.pinned_cosign()

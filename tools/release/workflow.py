@@ -30,8 +30,11 @@ from .candidate import (
 from .docs import extract_docs
 
 MANIFEST_NAMES = {
-    **{f"artifacts/{name}": f"manifest/artifacts/{name}" for name in PAYLOADS
-       if ".docker.tar" not in name},
+    **{
+        f"artifacts/{name}": f"manifest/artifacts/{name}"
+        for name in PAYLOADS
+        if ".docker.tar" not in name
+    },
     "artifacts/SHA256SUMS": "manifest/artifacts/SHA256SUMS",
     **{f"artifacts/{name}": f"manifest/artifacts/{name}" for name in BUNDLES},
     "qualification-amd64.json": "manifest/qualification-amd64.json",
@@ -115,14 +118,19 @@ def archive_names(kind: str) -> dict[str, str]:
     if kind == "manifest":
         return MANIFEST_NAMES
     return {
-        f"health-buddy-linux-{kind}.docker.tar":
-        f"manifest/artifacts/health-buddy-linux-{kind}.docker.tar",
+        f"health-buddy-linux-{kind}.docker.tar": (
+            f"manifest/artifacts/health-buddy-linux-{kind}.docker.tar"
+        ),
         **{name: f"{kind}/{name}" for name in RECEIPT_NAMES},
     }
 
 
 def extract_artifact(
-    archive: Path, stage: Path, allowed: dict[str, str], *, required: set[str] | None = None
+    archive: Path,
+    stage: Path,
+    allowed: dict[str, str],
+    *,
+    required: set[str] | None = None,
 ) -> None:
     """Validate the full ZIP inventory before writing any payload bytes."""
     with zipfile.ZipFile(archive) as zipped:
@@ -174,13 +182,18 @@ def fetch(sha: str, run_id: int) -> Path:
             archive = zips / f"{kind}.zip"
             with archive.open("xb") as output:
                 execute(
-                    ["gh", "api",
-                     f"repos/{REPOSITORY}/actions/artifacts/{item['id']}/zip"],
+                    [
+                        "gh",
+                        "api",
+                        f"repos/{REPOSITORY}/actions/artifacts/{item['id']}/zip",
+                    ],
                     output=output,
                 )
-            required = None if kind == "manifest" else {
-                f"health-buddy-linux-{kind}.docker.tar"
-            }
+            required = (
+                None
+                if kind == "manifest"
+                else {f"health-buddy-linux-{kind}.docker.tar"}
+            )
             extract_artifact(archive, stage, archive_names(kind), required=required)
             run["artifacts"][kind] = {
                 "id": item["id"],
@@ -200,8 +213,13 @@ def fetch(sha: str, run_id: int) -> Path:
     except Exception as error:
         save_receipt(
             stage / "fetch-failure.json",
-            {"runId": run_id, "sourceCommit": sha,
-             "code": str(error) if isinstance(error, ReleaseError) else "fetch_failed"},
+            {
+                "runId": run_id,
+                "sourceCommit": sha,
+                "code": str(error)
+                if isinstance(error, ReleaseError)
+                else "fetch_failed",
+            },
         )
         raise
     print(json.dumps({**verified, "runId": run_id, "candidateFinalized": True}))
@@ -214,8 +232,10 @@ def matching_runs(sha: str) -> list[dict]:
         f"?event=workflow_dispatch&branch=main&head_sha={sha}&per_page=100"
     )
     return [
-        run for run in value["workflow_runs"]
-        if run.get("head_sha") == sha and run.get("head_branch") == "main"
+        run
+        for run in value["workflow_runs"]
+        if run.get("head_sha") == sha
+        and run.get("head_branch") == "main"
         and run.get("event") == "workflow_dispatch"
     ]
 
@@ -229,9 +249,15 @@ def dispatch(sha: str) -> int:
         raise ReleaseError("dispatch_requires_current_main_commit")
     before = {run["id"] for run in matching_runs(sha)}
     execute(
-        ["gh", "api", "--method", "POST",
-         f"repos/{REPOSITORY}/actions/workflows/runtime-candidate.yml/dispatches",
-         "-f", "ref=main"]
+        [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{REPOSITORY}/actions/workflows/runtime-candidate.yml/dispatches",
+            "-f",
+            "ref=main",
+        ]
     )
     for _ in range(30):
         created = [run for run in matching_runs(sha) if run["id"] not in before]

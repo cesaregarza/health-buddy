@@ -8,9 +8,19 @@ from pathlib import Path, PurePosixPath
 from .candidate import ReleaseError
 
 ROOT_DOCUMENTS = {
-    "README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "THIRD_PARTY.md", "LICENSE", "SECURITY.md"
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "THIRD_PARTY.md",
+    "LICENSE",
+    "SECURITY.md",
 }
-REQUIRED = {"docs/onboarding.md", "docs/install-preflight.md", "docs/publisher-verification.md"}
+REQUIRED = {
+    "docs/onboarding.md",
+    "docs/install-preflight.md",
+    "docs/publisher-verification.md",
+}
 
 
 def extract_docs(archive: Path, destination: Path) -> None:
@@ -31,7 +41,8 @@ def extract_docs(archive: Path, destination: Path) -> None:
                 raise ReleaseError("unsafe_source_archive_member")
             names.add(member.name)
             if member.name in ROOT_DOCUMENTS or (
-                len(path.parts) == 2 and path.parts[0] == "docs"
+                len(path.parts) == 2
+                and path.parts[0] == "docs"
                 and path.suffix == ".md"
             ):
                 if not member.isfile() or not 0 <= member.size <= 32 * 1024 * 1024:

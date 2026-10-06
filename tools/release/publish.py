@@ -48,9 +48,18 @@ def target_settings() -> tuple[str, str, Path]:
 def public_copy(url: str, destination: Path) -> None:
     status = execute(
         [
-            "curl", "--fail", "--silent", "--show-error", "--location",
-            "--max-time", "600", "--output", str(destination),
-            "--write-out", "%{http_code}", url,
+            "curl",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--max-time",
+            "600",
+            "--output",
+            str(destination),
+            "--write-out",
+            "%{http_code}",
+            url,
         ]
     )
     if status != b"200":
@@ -79,17 +88,21 @@ def publish(sha: str) -> dict:
         for name, path in sources.items():
             execute(
                 [
-                    "s3cmd", "-c", str(config), "--no-progress", "--acl-public",
-                    "put", str(path), f"s3://{bucket}/{sha}/{name}",
+                    "s3cmd",
+                    "-c",
+                    str(config),
+                    "--no-progress",
+                    "--acl-public",
+                    "put",
+                    str(path),
+                    f"s3://{bucket}/{sha}/{name}",
                 ]
             )
         for name, path in sources.items():
             public_copy(f"{base}/{sha}/{name}", downloaded / name)
             if digest(downloaded / name) != digest(path):
                 raise ReleaseError("public_copy_byte_mismatch")
-        observed = verify_candidate(
-            downloaded, sha, cosign, allow_unsigned=unsigned
-        )
+        observed = verify_candidate(downloaded, sha, cosign, allow_unsigned=unsigned)
         receipt = {
             **observed,
             "publicationVerified": True,
@@ -100,8 +113,13 @@ def publish(sha: str) -> dict:
     except Exception as error:
         save_receipt(
             stage / "publication-failure.json",
-            {"sourceCommit": sha, "publicationVerified": False,
-             "code": str(error) if isinstance(error, ReleaseError) else "publish_failed"},
+            {
+                "sourceCommit": sha,
+                "publicationVerified": False,
+                "code": str(error)
+                if isinstance(error, ReleaseError)
+                else "publish_failed",
+            },
         )
         raise
     # Keep compact evidence while discarding only this task-created read-back.
