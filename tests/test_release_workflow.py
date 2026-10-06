@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from release import candidate, docs, publish, workflow  # noqa: E402
+from release import candidate, docs, publish, workflow
 
 SHA = "a" * 40
 
