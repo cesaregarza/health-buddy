@@ -151,6 +151,12 @@ retains `runtime-manifest.json.sigstore.json` and `SHA256SUMS.sigstore.json`
 beside their signed files; a publication must copy all four without rewriting
 them. Other candidate refs are not official signed releases.
 
+Use the manifest URL in the onboarding page's table to download
+`runtime-manifest.json`. Download its sibling `SHA256SUMS` from the same fixed
+directory, along with each signed file's adjacent `.sigstore.json` bundle:
+`runtime-manifest.json.sigstore.json` and `SHA256SUMS.sigstore.json`. All four
+files must come from that same fixed release directory.
+
 After saving those four files from the same fixed release into the private
 `publisher` directory, run these exact checks. If `cosign` is absent, report
 **signature not verified** and continue the owner-pinned source checks; absence
