@@ -86,9 +86,7 @@ elif name == 'install':
 
 
 @pytest.mark.parametrize("setting", [None, "0", "1", "invalid"])
-def test_cosign_option_defaults_off_and_passes_only_validated_input(
-    tmp_path, setting
-):
+def test_cosign_option_defaults_off_and_passes_only_validated_input(tmp_path, setting):
     kit = tmp_path / "kit"
     kit.mkdir()
     (kit / "prepare.sh").write_text(PREPARE.read_text())
@@ -112,6 +110,4 @@ def test_cosign_option_defaults_off_and_passes_only_validated_input(
     if setting == "invalid":
         assert not arguments.exists()
     else:
-        assert arguments.read_text().rstrip().endswith(
-            "bash -s -- " + (setting or "0")
-        )
+        assert arguments.read_text().rstrip().endswith("bash -s -- " + (setting or "0"))

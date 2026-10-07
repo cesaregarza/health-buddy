@@ -612,7 +612,10 @@ def test_signature_verification_success_or_absent(tmp_path, script, agent, kind)
         pytest.param([], [], False, "before", id="missing"),
         pytest.param([MANIFEST_CHECK], ["Verified OK"], False, "before", id="partial"),
         pytest.param(
-            [MANIFEST_CHECK, CHECKSUMS_CHECK.replace("refs/heads/main", "refs/heads/dev")],
+            [
+                MANIFEST_CHECK,
+                CHECKSUMS_CHECK.replace("refs/heads/main", "refs/heads/dev"),
+            ],
             ["Verified OK"] * 2,
             False,
             "before",
@@ -729,7 +732,9 @@ def test_signature_requirement_uses_retained_host_evidence(
     run = tmp_path / "runs" / "synthetic"
     run.mkdir(parents=True)
     if evidence == "kit-log":
-        (tmp_path / "prepare.log").write_text("GitVersion: v3.1.3\ncosign present: yes\n")
+        (tmp_path / "prepare.log").write_text(
+            "GitVersion: v3.1.3\ncosign present: yes\n"
+        )
     elif evidence == "absent":
         (run / "agent.json").write_text('{"cosign": false}')
         (tmp_path / "prepare.log").write_text("cosign present: no\n")
