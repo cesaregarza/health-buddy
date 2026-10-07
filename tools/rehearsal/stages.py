@@ -15,6 +15,8 @@ from transcript import (
     print_findings,
     publisher_findings,
     read_events,
+    signature_findings,
+    signature_success,
     tool_calls,
 )
 
@@ -43,13 +45,20 @@ def main(path: str) -> None:
         ordinal = call["ordinal"]
         call["command"] = call["input"].get("command") or ""
         match = STAGE.search(call.get("command") or "")
-        if call.get("name") != "Bash" or not match:
+        signatures = signature_success(call)
+        if call.get("name") != "Bash" or not (match or signatures):
             continue
-        stage = match.group(1) or match.group(2) or "cli"
+        stage = (
+            "signature_verification"
+            if signatures
+            else match.group(1) or match.group(2) or "cli"
+        )
         out = call.get("result") or ""
         verdict = out.strip().replace("\n", " | ")[:200]
+        if signatures:
+            verdict = "Verified OK: " + ", ".join(sorted(signatures))
         found = re.search(r"\{.*\}", out, re.S)
-        if found:
+        if found and not signatures:
             try:
                 result = json.loads(found.group(0))
             except json.JSONDecodeError:
@@ -62,7 +71,11 @@ def main(path: str) -> None:
         command = " ".join(call["command"].split())[:120]
         print(f"{ordinal:4d} {stage:12s} {command}\n       -> {verdict}")
 
-    print_findings(onboarding_findings(events) + publisher_findings(events))
+    print_findings(
+        onboarding_findings(events)
+        + publisher_findings(events)
+        + signature_findings(events, path)
+    )
 
 
 if __name__ == "__main__":
