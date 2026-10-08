@@ -1,5 +1,7 @@
 """Bounded raw-document observations; unknown shell forms need manual review."""
 
+# Literal paths below match transcript text; this observer creates no files.
+
 from __future__ import annotations
 
 import posixpath
@@ -32,8 +34,8 @@ def curl_target(words: list[str], cwd: str) -> tuple[str, str, bool] | None:
                 return None
             output = word.split("=", 1)[1] if word.startswith("--") else word[2:]
         elif word in options or re.fullmatch(r"-[fLsS]+", word):
-            fail = fail or word == "--fail" or (
-                not word.startswith("--") and "f" in word
+            fail = (
+                fail or word == "--fail" or (not word.startswith("--") and "f" in word)
             )
         elif word.startswith("https://") and not url:
             url = word
@@ -91,10 +93,10 @@ def raw_transfers(call: dict, command: str) -> list[tuple[str, str, bool]] | Non
             if not cwd:
                 return None
         elif words[:2] == ["mkdir", "-p"] and len(words) == 3:
-            if not (local_path(words[2], cwd) or "").startswith("/tmp/"):
+            if not (local_path(words[2], cwd) or "").startswith("/tmp/"):  # noqa: S108
                 return None
         elif words[:3] == ["mkdir", "-m", "700"] and len(words) == 4:
-            if not (local_path(words[3], cwd) or "").startswith("/tmp/"):
+            if not (local_path(words[3], cwd) or "").startswith("/tmp/"):  # noqa: S108
                 return None
         elif words[:2] == ["wc", "-l"] and len(words) > 2:
             if not all(local_path(word, cwd) for word in words[2:]):
@@ -186,9 +188,7 @@ def linked_reference(content: str, base: str, name: str) -> str | None:
     return next(iter(urls)) if len(urls) == 1 else None
 
 
-def observed_reads(
-    calls: list[dict], commands: list[str], first: tuple | None
-) -> dict:
+def observed_reads(calls: list[dict], commands: list[str], first: tuple | None) -> dict:
     downloads, barriers, writes = [], [], []
     for call, command in zip(calls, commands, strict=True):
         transfers = raw_transfers(call, command)
@@ -220,11 +220,13 @@ def observed_reads(
             continue
         ends = [position for position in barriers if position > download["position"]]
         ends += [
-            later["position"] for later in downloads[index + 1 :]
+            later["position"]
+            for later in downloads[index + 1 :]
             if later["path"] == download["path"]
         ]
         ends += [
-            position for position, path in writes
+            position
+            for position, path in writes
             if path == download["path"] and position > download["position"]
         ]
         if first is not None:

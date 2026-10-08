@@ -1,5 +1,7 @@
 """V3 uses paired raw downloads and real Claude Read ranges, not checkwords."""
 
+# Literal paths below are synthetic transcript data, never created.
+
 from __future__ import annotations
 
 import json
@@ -59,12 +61,10 @@ def result(identity, text="", *, failed=False, file=None):
 def read(name, start=1, count=None, identity=None):
     lines = DOCS[name].splitlines()
     selected = (
-        lines[start - 1 :]
-        if count is None
-        else lines[start - 1 : start - 1 + count]
+        lines[start - 1 :] if count is None else lines[start - 1 : start - 1 + count]
     )
     identity = identity or name
-    path = f"/tmp/hb-install-docs/{name}.md"
+    path = f"/tmp/hb-install-docs/{name}.md"  # noqa: S108
     return [
         tool("Read", identity, file_path=path, offset=start, limit=len(selected)),
         result(
@@ -125,7 +125,8 @@ def view(transcript, script="stages.py"):
 
 def missing(findings):
     return {
-        finding["document"] for finding in findings
+        finding["document"]
+        for finding in findings
         if finding["name"] == "raw_document_read_missing"
     }
 
@@ -136,7 +137,8 @@ def test_webfetch_can_recover_with_complete_raw_reads(tmp_path, script, coverage
     events = [
         tool("WebFetch", "fetch", url=ENTRY, prompt="Return the page verbatim"),
         result(
-            "fetch", "I will fetch both raw docs and quote RIVER STONE before installing."
+            "fetch",
+            "I will fetch both raw docs and quote RIVER STONE before installing.",
         ),
         *download(),
         *read("onboarding"),
@@ -188,8 +190,17 @@ def test_assistant_voice_and_sentinel_do_not_establish_a_raw_read(tmp_path, scri
 @pytest.mark.parametrize(
     "failure",
     [
-        "partial", "gap", "failed", "pending", "late", "wrong_path", "wrong_input",
-        "metadata_missing", "metadata_length", "conflicting", "different_total",
+        "partial",
+        "gap",
+        "failed",
+        "pending",
+        "late",
+        "wrong_path",
+        "wrong_input",
+        "metadata_missing",
+        "metadata_length",
+        "conflicting",
+        "different_total",
         "ambiguous",
     ],
 )
@@ -199,7 +210,8 @@ def test_incomplete_or_unbound_reference_reads_remain_missing(tmp_path, failure)
         reads = read("install-preflight", count=3, identity="first")
         if failure != "partial":
             reads += read(
-                "install-preflight", start=5 if failure == "gap" else 3,
+                "install-preflight",
+                start=5 if failure == "gap" else 3,
                 identity="second",
             )
         if failure == "conflicting":
@@ -213,11 +225,9 @@ def test_incomplete_or_unbound_reference_reads_remain_missing(tmp_path, failure)
     elif failure == "pending":
         reads.pop()
     elif failure == "wrong_path":
-        reads[-1]["tool_use_result"]["file"]["filePath"] = "/tmp/unrelated.md"
+        reads[-1]["tool_use_result"]["file"]["filePath"] = "/tmp/unrelated.md"  # noqa: S108
     elif failure == "wrong_input":
-        reads[0]["message"]["content"][0]["input"]["file_path"] = (
-            "/tmp/unrelated.md"
-        )
+        reads[0]["message"]["content"][0]["input"]["file_path"] = "/tmp/unrelated.md"  # noqa: S108
     elif failure == "metadata_missing":
         del reads[-1]["tool_use_result"]
     elif failure == "metadata_length":
@@ -231,8 +241,11 @@ def test_incomplete_or_unbound_reference_reads_remain_missing(tmp_path, failure)
     findings = evidence(
         tmp_path,
         [
-            *download(), *read("onboarding"), *read("publisher-verification"),
-            *reads, install(),
+            *download(),
+            *read("onboarding"),
+            *read("publisher-verification"),
+            *reads,
+            install(),
         ],
     )
     assert missing(findings) == {"install-preflight"}
@@ -241,8 +254,14 @@ def test_incomplete_or_unbound_reference_reads_remain_missing(tmp_path, failure)
 @pytest.mark.parametrize(
     "failure",
     [
-        "failed", "pending", "late_result", "missing", "wrong_url", "source_only",
-        "masked_failure", "variable_path",
+        "failed",
+        "pending",
+        "late_result",
+        "missing",
+        "wrong_url",
+        "source_only",
+        "masked_failure",
+        "variable_path",
     ],
 )
 def test_reads_need_a_prior_successful_recognized_download(tmp_path, failure):
@@ -269,7 +288,9 @@ def test_reads_need_a_prior_successful_recognized_download(tmp_path, failure):
             "cd /tmp/hb-install-docs", 'cd "$docs_dir"'
         )
     events = [
-        *transfers, *read("onboarding"), *read("publisher-verification"),
+        *transfers,
+        *read("onboarding"),
+        *read("publisher-verification"),
         *read("install-preflight"),
     ]
     if failure == "late_result":
@@ -313,7 +334,9 @@ def test_root_url_uses_same_site_raw_representation(tmp_path):
     assert missing(evidence(tmp_path, [*events, install()], entry=entry)) == set()
 
 
-def test_observed_single_line_chain_does_not_mistake_hostname_for_installation(tmp_path):
+def test_observed_single_line_chain_does_not_mistake_hostname_for_installation(
+    tmp_path,
+):
     entry = "https://health-buddy.garz.ai/onboarding.md"
     transfers = download(entry)
     inputs = transfers[0]["message"]["content"][0]["input"]
@@ -328,14 +351,13 @@ def test_observed_single_line_chain_does_not_mistake_hostname_for_installation(t
 
 
 @pytest.mark.parametrize(
-    "replacement", ["failed", "pending", "no_fail_flag", "Write", "Edit", "unknown_shell"]
+    "replacement",
+    ["failed", "pending", "no_fail_flag", "Write", "Edit", "unknown_shell"],
 )
 def test_overwrite_attempt_bounds_earlier_download(tmp_path, replacement):
-    path = "/tmp/hb-install-docs/install-preflight.md"
+    path = "/tmp/hb-install-docs/install-preflight.md"  # noqa: S108
     if replacement in ("Write", "Edit"):
-        overwrite = [
-            tool(replacement, "overwrite", file_path=path, content="Changed")
-        ]
+        overwrite = [tool(replacement, "overwrite", file_path=path, content="Changed")]
     elif replacement == "unknown_shell":
         overwrite = [tool("Bash", "overwrite", command="python3 replace_document.py")]
     else:
@@ -345,40 +367,62 @@ def test_overwrite_attempt_bounds_earlier_download(tmp_path, replacement):
     if replacement != "pending":
         overwrite.append(result("overwrite", failed=replacement == "failed"))
     events = [
-        *download(), *read("onboarding"), *read("publisher-verification"),
-        *overwrite, *read("install-preflight"), install(),
+        *download(),
+        *read("onboarding"),
+        *read("publisher-verification"),
+        *overwrite,
+        *read("install-preflight"),
+        install(),
     ]
     assert missing(evidence(tmp_path, events)) == {"install-preflight"}
 
 
 def test_unversioned_transcript_cannot_gain_v2_credit_from_checkwords(tmp_path):
     transcript = tmp_path / "transcript.jsonl"
-    transcript.write_text(json.dumps({
-        "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "RIVER STONE"}]},
-    }))
+    transcript.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "RIVER STONE"}]},
+            }
+        )
+    )
     assert [item["name"] for item in view(transcript)] == ["prompt_evidence_invalid"]
 
 
 def test_original_v2_prompt_header_retains_the_historical_view(tmp_path):
     transcript = tmp_path / "transcript.jsonl"
-    transcript.write_text(json.dumps({
-        "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "RIVER STONE"}]},
-    }))
+    transcript.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "RIVER STONE"}]},
+            }
+        )
+    )
     (tmp_path / "prompt.md").write_text("Prompt protocol: one-url/2.\n" + ENTRY)
     assert view(transcript) == []
 
 
 @pytest.mark.parametrize(
     "tamper",
-    ["hash", "marker", "receipt", "missing_receipt", "missing_prompt", "missing_marker", "legacy_marker"],
+    [
+        "hash",
+        "marker",
+        "receipt",
+        "missing_receipt",
+        "missing_prompt",
+        "missing_marker",
+        "legacy_marker",
+    ],
 )
 def test_v3_metadata_cannot_fall_back_to_legacy_sentinel_acceptance(tmp_path, tamper):
-    events = [{
-        "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "RIVER STONE"}]},
-    }]
+    events = [
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "RIVER STONE"}]},
+        }
+    ]
     evidence(tmp_path, events)
     if tamper == "hash":
         with (tmp_path / "prompt.md").open("a") as handle:
@@ -412,12 +456,24 @@ def test_rendered_prompt_is_natural_and_receipt_binds_actual_bytes(tmp_path):
     assert "150 lb" in prompt and "local-only" in prompt
     assert all(
         word not in prompt
-        for word in ("Prompt protocol:", "curl", "RIVER STONE", "SHA-256", "raw Markdown")
+        for word in (
+            "Prompt protocol:",
+            "curl",
+            "RIVER STONE",
+            "SHA-256",
+            "raw Markdown",
+        )
     )
 
 
 @pytest.mark.parametrize(
-    "url", ["http://publisher.example/", "https://user@publisher.example/", ENTRY + "?x=1", ENTRY + "#anchor"]
+    "url",
+    [
+        "http://publisher.example/",
+        "https://user@publisher.example/",
+        ENTRY + "?x=1",
+        ENTRY + "#anchor",
+    ],
 )
 def test_prompt_url_rules_still_reject_ambiguous_entry_points(tmp_path, url):
     (tmp_path / "prompt.template.md").write_text("__ONBOARDING_URL__\n")

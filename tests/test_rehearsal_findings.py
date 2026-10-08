@@ -194,7 +194,11 @@ def test_onboarding_keeps_complete_reference_and_publisher_contract():
     assert "curl -fsSL '<raw page URL>' -o onboarding.md" in page
     assert "versioned `.md` URL" in page
     for placeholder in (
-        "bundle URL", "bundle SHA-256", "manifest URL", "manifest SHA-256", "source commit"
+        "bundle URL",
+        "bundle SHA-256",
+        "manifest URL",
+        "manifest SHA-256",
+        "source commit",
     ):
         assert page.count("`<" + placeholder + ">`") == 1
     for number in range(1, 10):

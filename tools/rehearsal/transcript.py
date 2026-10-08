@@ -589,7 +589,9 @@ def legacy_onboarding_findings(events: list[dict]) -> list[dict]:
     return findings
 
 
-def onboarding_findings(events: list[dict], path: str | Path | None = None) -> list[dict]:
+def onboarding_findings(
+    events: list[dict], path: str | Path | None = None
+) -> list[dict]:
     """Keep historical v2 views; a retained v3 run never falls back on checkwords."""
     directory = Path(path).parent if path is not None else None
     marker = directory / "prompt-protocol.txt" if directory else None
@@ -597,12 +599,15 @@ def onboarding_findings(events: list[dict], path: str | Path | None = None) -> l
     receipt_exists = bool(directory and (directory / "prompt-receipt.json").exists())
     prompt = directory / "prompt.md" if directory else None
     historical = bool(
-        prompt and prompt.is_file()
+        prompt
+        and prompt.is_file()
         and prompt.read_text().startswith("Prompt protocol: one-url/2.")
     )
     if not receipt_exists and protocol in ("", "one-url/2"):
-        if path is None or historical or (
-            protocol == "one-url/2" and not (prompt and prompt.is_file())
+        if (
+            path is None
+            or historical
+            or (protocol == "one-url/2" and not (prompt and prompt.is_file()))
         ):
             return legacy_onboarding_findings(events)
     try:
@@ -627,7 +632,8 @@ def onboarding_findings(events: list[dict], path: str | Path | None = None) -> l
         (
             call["position"]
             for call, command in zip(calls, commands, strict=True)
-            if install_mutation(call) and (
+            if install_mutation(call)
+            and (
                 release_download(call)
                 or INSTALL_EXECUTION.search(command)
                 or not document_inspection(call, command)
@@ -637,7 +643,8 @@ def onboarding_findings(events: list[dict], path: str | Path | None = None) -> l
     )
     findings = document_findings(calls, commands, receipt["onboardingUrl"], first)
     observed = {
-        finding["url"] for finding in findings
+        finding["url"]
+        for finding in findings
         if finding["name"] == "raw_document_read_observed"
     }
     entry_read = any(
@@ -655,9 +662,8 @@ def onboarding_findings(events: list[dict], path: str | Path | None = None) -> l
                     "name": "onboarding_summarized_fetch",
                     "ordinal": call["ordinal"],
                     "url": url,
-                    "rawRecoveryObserved": url in observed or (
-                        url == receipt["onboardingUrl"] and entry_read
-                    ),
+                    "rawRecoveryObserved": url in observed
+                    or (url == receipt["onboardingUrl"] and entry_read),
                 }
             )
     if any(event.get("type") == "invalid_transcript_line" for event in events):
