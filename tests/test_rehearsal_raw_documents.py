@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from tools.rehearsal.prompt_protocol import read_receipt, render
+from tools.rehearsal.raw_documents import complete_read, read_page
 
 KIT = Path(__file__).resolve().parents[1] / "tools/rehearsal"
 ENTRY = "https://publisher.example/candidate/onboarding.md"
@@ -59,7 +60,7 @@ def result(identity, text="", *, failed=False, file=None):
 
 
 def read(name, start=1, count=None, identity=None):
-    lines = DOCS[name].splitlines()
+    lines = DOCS[name].split("\n")
     selected = (
         lines[start - 1 :] if count is None else lines[start - 1 : start - 1 + count]
     )
@@ -74,7 +75,7 @@ def read(name, start=1, count=None, identity=None):
             ),
             file={
                 "filePath": path,
-                "content": "\n".join(selected) + "\n",
+                "content": "\n".join(selected),
                 "startLine": start,
                 "numLines": len(selected),
                 "totalLines": len(lines),
@@ -129,6 +130,47 @@ def missing(findings):
         for finding in findings
         if finding["name"] == "raw_document_read_missing"
     }
+
+
+@pytest.mark.parametrize("total", [209, 179])
+@pytest.mark.parametrize("count_delta", [0, -1, 1])
+def test_claude_read_retains_terminal_line_and_refuses_bad_counts(total, count_delta):
+    path = "/home/synthetic/document.md"
+    content = "Synthetic documentation line\n" * (total - 1)
+    call = {
+        "name": "Read",
+        "input": {"file_path": path},
+        "position": (1, 0),
+        "result_position": (2, 0),
+        "ordinal": 2,
+        "is_error": False,
+        "result": content,
+        "read_file": {
+            "filePath": path,
+            "content": content,
+            "startLine": 1,
+            "numLines": total + count_delta,
+            "totalLines": total,
+        },
+    }
+    page = read_page(call, path)
+    download = {
+        "url": ENTRY,
+        "path": path,
+        "ordinal": 1,
+        "result_position": (0, 0),
+    }
+    observed = complete_read(download, [call], None)
+    if count_delta:
+        assert page is None
+        assert observed is None
+    else:
+        assert page is not None
+        assert len(page["lines"]) == total
+        assert page["lines"][-1] == ""
+        assert observed is not None
+        assert observed["totalLines"] == total
+        assert observed["content"] == content
 
 
 @pytest.mark.parametrize("script", ["stages.py", "summarize.py"])

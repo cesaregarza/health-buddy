@@ -135,11 +135,13 @@ def read_page(call: dict, path: str) -> dict | None:
     if not all(type(value) is int and value > 0 for value in (start, count, total)):
         return None
     content = data.get("content")
-    if not isinstance(content, str) or len(content.splitlines()) != count:
+    if not isinstance(content, str):
         return None
-    if start + count - 1 > total:
+    # Claude counts newline-delimited fields, including a terminal empty line.
+    lines = content.split("\n")
+    if len(lines) != count or start + count - 1 > total:
         return None
-    return {"start": start, "total": total, "lines": content.splitlines()}
+    return {"start": start, "total": total, "lines": lines}
 
 
 def complete_read(download: dict, calls: list[dict], end: tuple | None) -> dict | None:
