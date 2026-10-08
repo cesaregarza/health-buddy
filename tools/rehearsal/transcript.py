@@ -8,6 +8,9 @@ import shlex
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from prompt_protocol import PROTOCOL, read_receipt
+from raw_documents import document_findings, document_inspection
+
 CHECK_WORDS = "RIVER STONE"
 INSTALL_EXECUTION = re.compile(
     r"health_buddy\.install\.(?:acquire|prepare|owner|activation|agent|serve|remove)\b"
@@ -226,6 +229,17 @@ def tool_calls(events: list[dict]) -> list[dict]:
                     result_position=position,
                     is_error=bool(block.get("is_error")),
                 )
+                # Claude Read puts complete file/range data beside message.content.
+                # Bind it only when this event has one unambiguous tool result.
+                event = events[position[0]]
+                results = [
+                    value
+                    for value in (event.get("message") or {}).get("content", [])
+                    if isinstance(value, dict) and value.get("type") == "tool_result"
+                ]
+                metadata = event.get("tool_use_result")
+                if len(results) == 1 and isinstance(metadata, dict):
+                    call["read_file"] = metadata.get("file")
     return calls
 
 
@@ -535,7 +549,7 @@ def onboarding_url(url: str) -> bool:
     ) or (parsed.hostname == "health-buddy.garz.ai" and parsed.path in ("", "/"))
 
 
-def onboarding_findings(events: list[dict]) -> list[dict]:
+def legacy_onboarding_findings(events: list[dict]) -> list[dict]:
     calls = tool_calls(events)
     findings = []
     for call in calls:
@@ -570,6 +584,82 @@ def onboarding_findings(events: list[dict]) -> list[dict]:
         findings.append(
             {"name": "raw_read_check_missing", "beforeFirstInstallMutation": True}
         )
+    if any(event.get("type") == "invalid_transcript_line" for event in events):
+        findings.append({"name": "transcript_malformed"})
+    return findings
+
+
+def onboarding_findings(events: list[dict], path: str | Path | None = None) -> list[dict]:
+    """Keep historical v2 views; a retained v3 run never falls back on checkwords."""
+    directory = Path(path).parent if path is not None else None
+    marker = directory / "prompt-protocol.txt" if directory else None
+    protocol = marker.read_text().strip() if marker and marker.is_file() else ""
+    receipt_exists = bool(directory and (directory / "prompt-receipt.json").exists())
+    prompt = directory / "prompt.md" if directory else None
+    historical = bool(
+        prompt and prompt.is_file()
+        and prompt.read_text().startswith("Prompt protocol: one-url/2.")
+    )
+    if not receipt_exists and protocol in ("", "one-url/2"):
+        if path is None or historical or (
+            protocol == "one-url/2" and not (prompt and prompt.is_file())
+        ):
+            return legacy_onboarding_findings(events)
+    try:
+        if directory is None or protocol != PROTOCOL:
+            raise ValueError("missing or unknown prompt protocol marker")
+        receipt = read_receipt(directory)
+    except ValueError as error:
+        return [
+            {
+                "name": "prompt_evidence_invalid",
+                "reason": str(error),
+                "rawReviewRequired": True,
+            }
+        ]
+    calls = tool_calls(events)
+    commands = [
+        shell_command(str(call["input"].get("command") or "")) for call in calls
+    ]
+    # Legacy mkdir matching can also see a hostname later in a doc curl chain.
+    # Only bounded doc inspection is exempt; release/installer execution is not.
+    first = next(
+        (
+            call["position"]
+            for call, command in zip(calls, commands, strict=True)
+            if install_mutation(call) and (
+                release_download(call)
+                or INSTALL_EXECUTION.search(command)
+                or not document_inspection(call, command)
+            )
+        ),
+        None,
+    )
+    findings = document_findings(calls, commands, receipt["onboardingUrl"], first)
+    observed = {
+        finding["url"] for finding in findings
+        if finding["name"] == "raw_document_read_observed"
+    }
+    entry_read = any(
+        finding["name"] == "raw_document_read_observed"
+        and finding["document"] == "onboarding"
+        for finding in findings
+    )
+    for call in calls:
+        url = str(call["input"].get("url") or "")
+        if call["name"] == "WebFetch" and (
+            url == receipt["onboardingUrl"] or onboarding_url(url)
+        ):
+            findings.append(
+                {
+                    "name": "onboarding_summarized_fetch",
+                    "ordinal": call["ordinal"],
+                    "url": url,
+                    "rawRecoveryObserved": url in observed or (
+                        url == receipt["onboardingUrl"] and entry_read
+                    ),
+                }
+            )
     if any(event.get("type") == "invalid_transcript_line" for event in events):
         findings.append({"name": "transcript_malformed"})
     return findings

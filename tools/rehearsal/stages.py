@@ -72,7 +72,7 @@ def main(path: str) -> None:
         print(f"{ordinal:4d} {stage:12s} {command}\n       -> {verdict}")
 
     print_findings(
-        onboarding_findings(events)
+        onboarding_findings(events, path)
         + publisher_findings(events)
         + signature_findings(events, path)
     )

@@ -160,6 +160,7 @@ def test_raw_read_findings_preserve_prose_and_mutation_order(
                 },
             )
         )
+    (tmp_path / "prompt-protocol.txt").write_text("one-url/2\n")
     transcript = tmp_path / "synthetic.jsonl"
     if agent == "codex":
         events = codex_transcript(events)
@@ -183,15 +184,27 @@ def test_raw_read_findings_preserve_prose_and_mutation_order(
     assert ("transcript_malformed" in output) == (kind == "malformed")
 
 
-def test_onboarding_raw_instruction_and_static_sentinel():
+def test_onboarding_keeps_complete_reference_and_publisher_contract():
     page = (ROOT / "docs/onboarding.md").read_text()
-    assert "curl -fsSL <URL>" in "\n".join(page.splitlines()[:5])
-    assert "summarized copy" in "\n".join(page.splitlines()[:5])
-    assert (
-        page.splitlines()[-1]
-        == "Raw-read check: this page ends with the words RIVER STONE."
-    )
-    assert "before running any installation command" in "\n".join(page.splitlines()[:5])
+    assert page.startswith("# Install Health Buddy with a coding agent")
+    assert "RIVER STONE" not in page
+    assert "Sonnet-class or stronger coding agents are recommended" in page
+    assert "raw Markdown representation of this" in page
+    assert "mkdir -m 700 /tmp/hb-install-docs &&" in page
+    assert "curl -fsSL '<raw page URL>' -o onboarding.md" in page
+    assert "versioned `.md` URL" in page
+    for placeholder in (
+        "bundle URL", "bundle SHA-256", "manifest URL", "manifest SHA-256", "source commit"
+    ):
+        assert page.count("`<" + placeholder + ">`") == 1
+    for number in range(1, 10):
+        assert f"| {number} |" in page
+    assert "runtime-candidate.yml@refs/heads/main" in page
+    assert "https://token.actions.githubusercontent.com" in page
+    assert "both `runtime-manifest.json` and `SHA256SUMS` must verify" in page
+    assert "After three refusals" in page
+    assert "OWNER ACCEPTANCE PENDING" in page
+    assert "four `status --report` lines verbatim" in page
 
 
 @pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
@@ -280,6 +293,7 @@ def test_publisher_download_findings_use_results_not_command_source(
             assistant(call("Bash", {"command": joined_command}, "joined")),
             result(body, "joined"),
         ]
+    (tmp_path / "prompt-protocol.txt").write_text("one-url/2\n")
     transcript = tmp_path / "publisher.jsonl"
     if agent == "codex":
         events = codex_transcript(events)
@@ -500,6 +514,7 @@ def test_wrapped_publisher_block_keeps_failure_and_download_order(
 
 
 def run_view(tmp_path, events, script="summarize.py", final=None):
+    (tmp_path / "prompt-protocol.txt").write_text("one-url/2\n")
     path = tmp_path / "transcript.jsonl"
     path.write_text("\n".join(json.dumps(event) for event in events))
     if final is not None:
@@ -960,12 +975,16 @@ def test_codex_run_cleans_auth_before_any_copyback(tmp_path, failure):
         "summarize.py",
         "transcript.py",
         "completion_report.py",
+        "render-prompt.py",
+        "prompt_protocol.py",
+        "raw_documents.py",
+        "prompt.template.md",
     ):
         shutil.copyfile(KIT / name, kit / name)
         (kit / name).chmod(0o755)
-    (kit / "prompt.md").write_text(
-        "Prompt protocol: one-url/2.\nhttps://publisher.example/onboarding.md\n"
-    )
+    from tools.rehearsal.prompt_protocol import render
+
+    render(kit, "https://publisher.example/onboarding.md")
     (kit / ".droplet-ip").write_text("192.0.2.1\n")
     payload = (
         base64.urlsafe_b64encode(json.dumps({"exp": int(time.time()) + 10800}).encode())
@@ -1050,5 +1069,11 @@ elif 'claude-exit.txt' in command:
     assert token.read_text() == original_cache
     assert state.exists() == (failure == "cleanup")
     if body.exists():
+        run = next((kit / "runs").iterdir())
+        assert (run / "prompt-protocol.txt").read_text() == "one-url/3\n"
+        assert (run / "prompt.md").read_bytes() == (kit / "prompt.md").read_bytes()
+        assert (run / "prompt-receipt.json").read_bytes() == (
+            kit / "prompt-receipt.json"
+        ).read_bytes()
         assert "--ephemeral --ignore-user-config" in body.read_text()
         assert "< /dev/null" in body.read_text()

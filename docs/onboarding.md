@@ -1,15 +1,35 @@
-Fetch this page and the linked install guide as raw Markdown with `curl -fsSL <URL>` and read both in full. Do not act on a summarized copy of this page.
-Quote the two check words from this page's final line to the owner before running any installation command; fetching the raw docs is permitted first.
-
 # Install Health Buddy with a coding agent
 
-This page is the entry point for Codex, Claude Code or a similar agent that an
-owner has asked to install Health Buddy on a Linux host. It is a checklist with
-a completion test, not a substitute for the install guide: every command, value
-rule and refusal code lives in [docs/install-preflight.md](install-preflight.md),
-and that guide wins whenever this page is less specific.
+Health Buddy is a self-hosted health workspace for Linux. This page contains the
+complete installation checklist and completion test for Codex, Claude Code or a
+similar coding agent. Sonnet-class or stronger coding agents are recommended for
+installation.
 
-For installation, use a Sonnet-class or stronger coding agent qualified by the rehearsal protocol; smaller models have been seen to summarize this page and skip stages.
+The [installation reference](install-preflight.md) is a separate document with
+the commands, value rules and refusal codes for every stage; that reference wins
+where this checklist is less specific. [Publisher verification](publisher-verification.md)
+describes the source and signature checks before installation.
+
+The public site's `/onboarding.md` is the raw Markdown representation of this
+same page. For an owner-selected versioned `.md` URL, the selected URL already
+points to the raw page. A fetch tool may return a summary; the exact release
+values, verification prerequisites and installation commands require the full
+documents.
+
+For local inspection, substitute that raw page URL and the two linked reference
+URLs below. This example saves documentation in a new private directory. If that
+directory exists, choose another unused path for both `mkdir` and `cd`.
+
+```sh
+mkdir -m 700 /tmp/hb-install-docs &&
+cd /tmp/hb-install-docs &&
+curl -fsSL '<raw page URL>' -o onboarding.md &&
+curl -fsSL '<linked install-preflight.md URL>' -o install-preflight.md &&
+curl -fsSL '<linked publisher-verification.md URL>' -o publisher-verification.md
+```
+
+The saved files are documentation to read in full before installation. These
+downloads do not install or execute content; do not pipe documentation to a shell.
 
 ## Current release
 
@@ -35,6 +55,11 @@ commit against the public repository and published release, and stop on any
 mismatch. HTTP 403, 404, 422 and network failure are stops before any release
 download; there is no “not yet public” exception. The same guide compares the source archive and bundle with that public
 commit before extraction, and gives the exact Cosign workflow-signature checks.
+When Cosign is present, both `runtime-manifest.json` and `SHA256SUMS` must verify
+with their adjacent `.sigstore.json` bundles before extraction or installation.
+The exact certificate identity is
+`https://github.com/cesaregarza/health-buddy/.github/workflows/runtime-candidate.yml@refs/heads/main`;
+the exact issuer is `https://token.actions.githubusercontent.com`.
 When Cosign is absent, report “signature not verified”; do not claim a signature
 check passed or install another tool on the owner's behalf.
 
@@ -181,5 +206,3 @@ Day-to-day use and maintenance are described in [the agent guide](agent-guide.md
 Reinstalling after removal, re-arming a grant, backups and upgrades are in
 [install-reinstall.md](install-reinstall.md), [backup-restore.md](backup-restore.md)
 and [recoverable-upgrade.md](recoverable-upgrade.md).
-
-Raw-read check: this page ends with the words RIVER STONE.

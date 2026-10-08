@@ -83,7 +83,7 @@ def main(path: str) -> None:
     print(completion["completionReport"] or "- missing")
     completion_findings = [{"name": name} for name in completion["findings"]]
     print_findings(
-        onboarding_findings(events)
+        onboarding_findings(events, path)
         + publisher_findings(events)
         + signature_findings(events, path)
         + completion_findings

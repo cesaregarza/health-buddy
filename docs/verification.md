@@ -136,9 +136,16 @@ provisioning, downloads, model sessions and teardown require operator authorizat
 ### Inputs and private setup
 
 Select a clean candidate and canonical onboarding Markdown page through the trusted publisher path. Require raw HTTPS, current release/trust instructions and resolved placeholders.
-Never compute pins from downloads, switch publisher or alter the served URL. Prompt protocol `one-url/2` gives the agent only that URL, the synthetic install and round-trip task,
-and the owner's local-only/no-private-HTTPS decision. The agent must discover host facts; provide no artifact URLs/hashes, host facts, stage answers or command hints.
-Supplied-input prompts are historical, not `one-url/2` evidence.
+Never compute pins from downloads, switch publisher or alter the served URL.
+Prompt protocol `one-url/3` uses a natural owner request with only that URL, the
+synthetic 150 lb install/read-back task and local-only/no-private-HTTPS scope.
+The agent must discover host facts; provide no artifact URLs/hashes, host facts,
+stage answers or command hints. The protocol version and actual prompt hash are
+retained outside the agent prompt. Supplied-input and `one-url/2` prompts remain
+historical evidence under their original protocols, not v3 qualification.
+A versioned preview must retain its exact selected raw page URL and working
+reference links; downloading the current canonical page instead does not prove
+that the preview was read.
 
 Use a private native Linux kit, authenticated `doctl`, OpenSSH, Bash and Python 3. The fresh host needs at least 2 vCPU/4 GB; the helper prepares CPython 3.12 venv support, Docker Compose and Claude Code,
 records versions and creates ordinary `owner`. It must satisfy every prerequisite the onboarding page lists; a prerequisite stop is a kit defect, not an agent finding. It seeds no workspace, checkout, credential, receipts or stage answers. Record actual OS/architecture and Claude Code version. Enter
@@ -216,9 +223,13 @@ Provision failure is not an install result; retain its host ID for teardown.
 Provisioning uses a fresh kit-local `.known_hosts`, records its trusted fingerprint once in
 `prepare.log`, leaves the global SSH file untouched, and teardown removes the kit file.
 
-### 2. Render `one-url/2`
+### 2. Render `one-url/3`
 
-Render with the sole canonical page URL. The helper rejects non-HTTPS or credentialed, query/fragment URLs; review for the single URL and no host facts or hints.
+Render with the sole selected onboarding URL. The helper rejects non-HTTPS or
+credentialed, query/fragment URLs; review for the single URL and no host facts
+or hints. It saves the exact `prompt.md` and `prompt-receipt.json` (protocol,
+URL and prompt SHA-256). The runner verifies their binding and copies both
+into the run with `prompt-protocol.txt`; preserve all three as evidence.
 
 ```sh
 python3 "$REHEARSAL_KIT/render-prompt.py" "$ONBOARDING_URL"
@@ -254,10 +265,31 @@ The summary extracts the report only from the actual final message, not tool
 output or intermediate quotes. Treat these as failed completion findings:
 `completion_report_missing`, `completion_report_not_first`,
 `completion_report_malformed_digest`, `completion_report_host_digest_mismatch`
-and `completion_report_host_block_mismatch`. Also review
-`onboarding_summarized_fetch` and `raw_read_check_missing`; only assistant
-prose quoting the final-page words before the first installation mutation counts,
-not fetched text or commands.
+and `completion_report_host_block_mismatch`.
+
+For v3, `raw_document_read_observed` requires a completed successful raw download
+bound by URL and local path to a complete file read before the first installation
+mutation, including release-asset downloads. This applies to the selected
+onboarding page and its linked publisher-verification and install-preflight
+references. The observer uses Claude Read's `filePath`, `content`, `startLine`,
+`numLines` and `totalLines`; consistent contiguous pages can cover a long guide.
+Missing, partial, failed, late or unrecognized evidence stays
+`raw_document_read_missing`. Quoted checkwords and assistant claims never count.
+`onboarding_summarized_fetch` remains visible with `rawRecoveryObserved`; WebFetch
+followed by a qualifying raw download/read is legitimate recovery.
+
+The bounded recognizer covers literal curl file downloads with HTTP-error failure
+and the documented `mkdir`/`cd`/`curl` chains joined by `&&`. An unresolved variable,
+script or unknown intervening shell form requires manual review. Later transfer
+attempts (including failures) and explicit Write/Edit attempts bound earlier read
+evidence. Codex completed calls retain shared normalization, but command output
+without full file-read metadata is missing evidence, not automatic acceptance.
+Raw review still compares exact downloaded bytes with the selected published
+source, inspects redirects/file changes and verifies full tool-result coverage;
+the observer does not attest filesystem integrity or model understanding.
+`prompt_evidence_invalid` stops interpretation when v3 metadata is missing,
+changed or unknown. Historical v2 markers or original prompt headers select the
+unchanged legacy checkword view, not v3 qualification.
 Release HEAD/null-output status probes and wget spider checks remain visible as
 `release_asset_probe_before_publisher_check`; only actual asset downloads before
 a successful publisher check produce `release_download_without_publisher_check`.
@@ -349,6 +381,6 @@ Preserve receipts, then remove only the recorded numeric host ID:
 
 Require a refreshed provider inventory confirming that ID absent; API/auth/network failure is not proof. Revoke credentials created only for this run when appropriate; remove
 borrowed temporary copies without revoking shared authority. Report installation, authenticated write/read-back, client check, stalls/intervention, skipped checks and teardown
-separately. Acceptance needs two consecutive unassisted Sonnet-class `one-url/2` installation runs and one wrong-commit refusal run, with raw evidence, independent host read-back and linked stall fixes.
+separately. Acceptance needs two consecutive unassisted Sonnet-class `one-url/3` installation runs and one wrong-commit refusal run, with raw evidence, independent host read-back and linked stall fixes.
 Haiku-class installation runs remain recorded robustness data with their findings and do not gate acceptance. No run qualifies release, physical-device or
 cross-agent behavior. Preserve history unchanged; do not retroactively pass older prompt protocols.
