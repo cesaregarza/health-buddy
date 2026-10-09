@@ -1226,7 +1226,10 @@ def test_probe_chain_does_not_hide_real_execution(tmp_path, separator, probe):
         "sed -n '/health_buddy.install.status/p' /tmp/guide.md",
         "sed -n '1p' /tmp/health_buddy.install.status.md",
         "sed -n '1,20p' /tmp/health_buddy.install.status.md",
-        'grep "health_buddy.install.status; python -m health_buddy.install.owner" guide',
+        (
+            'grep "health_buddy.install.status; '
+            'python -m health_buddy.install.owner" guide'
+        ),
     ],
 )
 @pytest.mark.parametrize("execute", [False, True])
