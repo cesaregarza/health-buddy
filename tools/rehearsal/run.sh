@@ -56,7 +56,25 @@ mkdir -p "$RUN"
 printf '%s\n' 'one-url/3' > "$RUN/prompt-protocol.txt"
 cp "$D/prompt.md" "$RUN/prompt.md"
 cp "$D/prompt-receipt.json" "$RUN/prompt-receipt.json"
-printf '{"agent":"%s","model":"%s","reasoning":"%s"}\n' "$AGENT" "$MODEL" "$REASONING" > "$RUN/agent.json"
+ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" \
+  "sudo -u owner -i $AGENT --version" > "$RUN/agent-version.txt"
+python3 - "$RUN" "$AGENT" "$MODEL" "$REASONING" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+run = Path(sys.argv[1])
+version = (run / "agent-version.txt").read_text().rstrip("\r\n")
+if not version.strip():
+    raise SystemExit("client version is empty; no model run started")
+metadata = {
+    "agent": sys.argv[2],
+    "model": sys.argv[3],
+    "reasoning": sys.argv[4],
+    "clientVersion": version,
+}
+(run / "agent.json").write_text(json.dumps(metadata, indent=2) + "\n")
+PY
 H=$(ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "getent passwd owner | cut -d: -f6")
 [[ "$H" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 2
 S=$H/.hb-rehearsal
@@ -99,7 +117,6 @@ export CODEX_HOME=$S/codex-home
 cd $H
 umask 002
 unset PYTHONDONTWRITEBYTECODE PYTHONPYCACHEPREFIX PYTHONPATH
-codex --version > $S/agent-version.txt
 timeout $WALL codex exec --json --ephemeral --ignore-user-config --skip-git-repo-check \
   --dangerously-bypass-approvals-and-sandbox -C $H -m $MODEL -c model_reasoning_effort='"$REASONING"' \
   -o $S/last-message.txt "\$(cat $S/prompt.md)" < /dev/null > $S/transcript.jsonl 2> $S/codex.stderr
@@ -115,7 +132,6 @@ rm -f $S/env
 cd $H
 umask 002
 unset PYTHONDONTWRITEBYTECODE PYTHONPYCACHEPREFIX PYTHONPATH
-claude --version > $S/agent-version.txt
 # Claude Code 2.1.197: --disallowedTools <tools...>; scheduling cannot resume print mode.
 timeout $WALL claude -p "\$(cat $S/prompt.md)" --model $MODEL --max-turns $MAX_TURNS \
   --dangerously-skip-permissions --disallowedTools ScheduleWakeup CronCreate CronList CronDelete --output-format stream-json --verbose \
@@ -125,7 +141,7 @@ EOF
 fi
 
 ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "cat $S/claude-exit.txt; rm -f $S/env" > "$RUN/exit.txt" 2>&1 || true
-for f in transcript.jsonl claude.stderr codex.stderr last-message.txt agent-version.txt; do
+for f in transcript.jsonl claude.stderr codex.stderr last-message.txt; do
   scp "${SSH_HOST_KEY_OPTS[@]}" -q "root@$IP:$S/$f" "$RUN/" 2>/dev/null || true
 done
 scp "${SSH_HOST_KEY_OPTS[@]}" -q "root@$IP:$H/STALLS.md" "$RUN/" 2>/dev/null || true
