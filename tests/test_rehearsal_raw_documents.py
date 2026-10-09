@@ -816,7 +816,5 @@ def test_run27_stdout_witness_does_not_complete_partial_reference(tmp_path):
 )
 def test_document_mkdir_rejects_unrecognized_options(mkdir):
     directory = "/tmp/hb-install-docs"  # noqa: S108
-    command = (
-        f"{mkdir} {directory} && curl -fsSL {ENTRY} -o {directory}/onboarding.md"
-    )
+    command = f"{mkdir} {directory} && curl -fsSL {ENTRY} -o {directory}/onboarding.md"
     assert raw_transfers({"name": "Bash"}, command) is None

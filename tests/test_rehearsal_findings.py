@@ -1254,10 +1254,7 @@ def test_stage_ledger_ignores_search_arguments_but_keeps_chain(
     [
         "sed -n 'e python -m health_buddy.install.owner' /tmp/guide.md",
         "sed 's/.*/python -m health_buddy.install.owner/e' /tmp/guide.md",
-        (
-            "sed -n '/health_buddy.install.owner/p' "
-            "-f /tmp/extra.sed /tmp/guide.md"
-        ),
+        ("sed -n '/health_buddy.install.owner/p' -f /tmp/extra.sed /tmp/guide.md"),
     ],
 )
 def test_execution_capable_sed_keeps_signature_boundary(tmp_path, script, command):
