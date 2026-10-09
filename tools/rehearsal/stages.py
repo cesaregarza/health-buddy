@@ -11,6 +11,7 @@ import re
 import sys
 
 from transcript import (
+    execution_commands,
     onboarding_findings,
     print_findings,
     publisher_findings,
@@ -44,7 +45,14 @@ def main(path: str) -> None:
     for call in tool_calls(events):
         ordinal = call["ordinal"]
         call["command"] = call["input"].get("command") or ""
-        match = STAGE.search(call.get("command") or "")
+        match = next(
+            (
+                found
+                for command in execution_commands(call["command"])
+                if (found := STAGE.search(command))
+            ),
+            None,
+        )
         signatures = signature_success(call)
         if call.get("name") != "Bash" or not (match or signatures):
             continue
