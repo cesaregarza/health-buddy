@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import posixpath
 import re
 import shlex
@@ -20,20 +21,22 @@ def local_path(value: str, cwd: str = "") -> str | None:
     return path if path.startswith("/") and path != "/dev/null" else None
 
 
-def curl_target(words: list[str], cwd: str) -> tuple[str, str, bool] | None:
-    """One curl transfer attempt to a literal local file, retaining HTTP policy."""
+def curl_target(
+    words: list[str], cwd: str, *, stdout: bool = False
+) -> tuple[str, str, bool] | None:
+    """One literal curl transfer; stdout is allowed only for a standalone call."""
     options = {"--fail", "--location", "--silent", "--show-error"}
-    url, output, fail = "", "", False
+    url, output, fail = "", None, False
     index = 1
     while index < len(words):
         word = words[index]
         if word in ("-o", "--output"):
             index += 1
-            if output or index >= len(words):
+            if output is not None or index >= len(words):
                 return None
             output = words[index]
         elif word.startswith("--output=") or re.match(r"^-o.+", word):
-            if output:
+            if output is not None:
                 return None
             output = word.split("=", 1)[1] if word.startswith("--") else word[2:]
         elif word in options or re.fullmatch(r"-[fLsS]+", word):
@@ -46,9 +49,9 @@ def curl_target(words: list[str], cwd: str) -> tuple[str, str, bool] | None:
             return None
         index += 1
     parsed = urlsplit(url)
-    path = local_path(output, cwd)
+    path = "" if stdout and output is None else local_path(output or "", cwd)
     if (
-        path
+        path is not None
         and parsed.hostname
         and parsed.username is None
         and parsed.password is None
@@ -87,7 +90,7 @@ def raw_transfers(call: dict, command: str) -> list[tuple[str, str, bool]] | Non
         if not words:
             return None
         if words[0] in ("curl", "/usr/bin/curl"):
-            target = curl_target(words, cwd)
+            target = curl_target(words, cwd, stdout=len(groups) == 1)
             if target is None:
                 return None
             transfers.append(target)
@@ -95,11 +98,13 @@ def raw_transfers(call: dict, command: str) -> list[tuple[str, str, bool]] | Non
             cwd = local_path(words[1], cwd) or ""
             if not cwd:
                 return None
-        elif words[:2] == ["mkdir", "-p"] and len(words) == 3:
-            if not (local_path(words[2], cwd) or "").startswith(DOCUMENT_DIRECTORIES):
-                return None
-        elif words[:3] == ["mkdir", "-m", "700"] and len(words) == 4:
-            if not (local_path(words[3], cwd) or "").startswith(DOCUMENT_DIRECTORIES):
+        elif words[0] == "mkdir" and words[1:-1] in (
+            ["-p"],
+            ["-m", "700"],
+            ["-m", "700", "-p"],
+            ["-p", "-m", "700"],
+        ):
+            if not (local_path(words[-1], cwd) or "").startswith(DOCUMENT_DIRECTORIES):
                 return None
         elif words[:2] == ["wc", "-l"] and len(words) > 2:
             if not all(local_path(word, cwd) for word in words[2:]):
@@ -193,7 +198,12 @@ def linked_reference(content: str, base: str, name: str) -> str | None:
     return next(iter(urls)) if len(urls) == 1 else None
 
 
-def observed_reads(calls: list[dict], commands: list[str], first: tuple | None) -> dict:
+def observed_reads(
+    calls: list[dict],
+    commands: list[str],
+    first: tuple | None,
+    published: dict[str, str],
+) -> dict:
     downloads, barriers, writes = [], [], []
     for call, command in zip(calls, commands, strict=True):
         transfers = raw_transfers(call, command)
@@ -240,13 +250,52 @@ def observed_reads(calls: list[dict], commands: list[str], first: tuple | None) 
         read = complete_read(download, calls, end)
         if read is not None:
             observed[download["url"]] = read
+    for download in downloads:
+        # Printed bytes need independent, URL-bound completeness evidence.
+        reference = observed.get(download["url"])
+        if (
+            download["path"]
+            or download["is_error"]
+            or download.get("output_incomplete")
+            or download["result_position"] is None
+            or not download["fail_on_http_error"]
+            or (first is not None and download["result_position"] >= first)
+        ):
+            continue
+        body = download["result"]
+        witness = None
+        for content in (body, body + "\n"):
+            if hashlib.sha256(content.encode("utf-8")).hexdigest() == published.get(
+                download["url"]
+            ):
+                witness = "publishedSha256"
+                break
+            if reference and content == reference["content"]:
+                witness = "completeRead"
+                break
+        if witness is None:
+            continue
+        observed[download["url"]] = {
+            "url": download["url"],
+            "path": "stdout",
+            "downloadOrdinal": download["ordinal"],
+            "readOrdinals": [download["ordinal"]],
+            "totalLines": len(content.split("\n")),
+            "content": content,
+            "completenessWitness": witness,
+            "terminalLfRestored": content != body,
+        }
     return observed
 
 
 def document_findings(
-    calls: list[dict], commands: list[str], entry_url: str, first: tuple | None
+    calls: list[dict],
+    commands: list[str],
+    entry_url: str,
+    first: tuple | None,
+    published: dict[str, str],
 ) -> list[dict]:
-    observed = observed_reads(calls, commands, first)
+    observed = observed_reads(calls, commands, first, published)
     # A root HTML page and its same-site /onboarding.md are representations of
     # one document. A selected versioned Markdown URL must remain that exact URL.
     raw_url = (

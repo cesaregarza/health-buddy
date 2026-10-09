@@ -303,6 +303,18 @@ Missing, partial, failed, late or unrecognized evidence stays
 `onboarding_summarized_fetch` remains visible with `rawRecoveryObserved`; WebFetch
 followed by a qualifying raw download/read is legitimate recovery.
 
+A successful standalone `curl -fsSL` to stdout can also establish a raw read
+when its exact output matches a complete URL-bound Read or independently retained
+published bytes. For the latter, the operator may add `publishedDocumentSha256`
+to `agent.json`: an object mapping exact direct HTTPS document URLs to their
+published SHA-256 digests (64 lowercase hexadecimal characters). Use independent
+publication receipts; never derive these expected digests from agent output or
+a new observer network fetch. For historical review, add the witness only to a
+separate replay copy and preserve the original metadata and transcript.
+Only restoration of one terminal LF is allowed; findings record
+`completenessWitness`, `terminalLfRestored` and `rawReviewRequired`. Partial,
+interrupted or mismatched output remains missing, including incomplete references.
+
 The bounded recognizer covers literal curl file downloads with HTTP-error failure
 and the documented `mkdir`/`cd`/`curl` chains joined by `&&`. Directory creation
 must use a literal path under `/tmp/` or the kit's `/home/owner/`. An unresolved

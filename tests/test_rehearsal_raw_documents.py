@@ -400,14 +400,15 @@ def test_root_url_uses_same_site_raw_representation(tmp_path):
     assert missing(evidence(tmp_path, [*events, install()], entry=entry)) == set()
 
 
+@pytest.mark.parametrize("mkdir", ["mkdir -p", "mkdir -m 700 -p", "mkdir -p -m 700"])
 def test_observed_single_line_chain_does_not_mistake_hostname_for_installation(
-    tmp_path,
+    tmp_path, mkdir
 ):
     entry = "https://health-buddy.garz.ai/onboarding.md"
     transfers = download(entry)
     inputs = transfers[0]["message"]["content"][0]["input"]
     inputs["command"] = (
-        inputs["command"].replace("mkdir -m 700", "mkdir -p").replace("\n", " ")
+        inputs["command"].replace("mkdir -m 700", mkdir).replace("\n", " ")
         + " && wc -l onboarding.md && ls -la"
     )
     events = transfers
@@ -454,7 +455,9 @@ def test_run26_literal_owner_home_download_and_full_read(
     assert (tmp_path / "prompt-protocol.txt").read_text() == protocol + "\n"
 
 
-@pytest.mark.parametrize("mkdir", ["mkdir -p", "mkdir -m 700"])
+@pytest.mark.parametrize(
+    "mkdir", ["mkdir -p", "mkdir -m 700", "mkdir -m 700 -p", "mkdir -p -m 700"]
+)
 @pytest.mark.parametrize(
     ("directory", "accepted"),
     [
@@ -682,3 +685,138 @@ def test_prompt_url_rules_still_reject_ambiguous_entry_points(tmp_path, url):
     (tmp_path / "prompt.template.md").write_text("__ONBOARDING_URL__\n")
     with pytest.raises(ValueError, match="direct HTTPS"):
         render(tmp_path, url)
+
+
+@pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
+@pytest.mark.parametrize("witness", ["publishedSha256", "completeRead"])
+@pytest.mark.parametrize("strip_lf", [False, True])
+def test_direct_stdout_requires_independent_complete_document(
+    tmp_path, script, witness, strip_lf
+):
+    content = DOCS["onboarding"]
+    body = content.removesuffix("\n") if strip_lf else content
+    if witness == "publishedSha256":
+        digest = hashlib.sha256(content.encode()).hexdigest()
+        (tmp_path / "agent.json").write_text(
+            json.dumps({"publishedDocumentSha256": {ENTRY: digest}})
+        )
+    events = [
+        tool("Bash", "stdout", command=f"curl -fsSL {ENTRY}"),
+        result("stdout", body),
+        *download(),
+        *read("publisher-verification"),
+        *read("install-preflight"),
+    ]
+    if witness == "completeRead":
+        events += read("onboarding")
+    findings = evidence(tmp_path, [*events, install()], script)
+    assert missing(findings) == set()
+    observed = next(item for item in findings if item.get("document") == "onboarding")
+    assert observed["path"] == "stdout"
+    assert observed["downloadOrdinal"] == 1
+    assert observed["readOrdinals"] == [1]
+    assert observed["completenessWitness"] == witness
+    assert observed["terminalLfRestored"] is strip_lf
+    assert observed["rawReviewRequired"] is True
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "missing_witness",
+        "wrong_url",
+        "bad_digest",
+        "wrong_digest",
+        "invalid_url",
+        "invalid_mapping",
+        "truncated",
+        "same_lines_changed",
+        "two_missing_lfs",
+        "failed",
+        "interrupted",
+        "pending",
+        "late",
+        "pipe",
+        "chained",
+        "no_fail",
+        "empty_output",
+    ],
+)
+def test_stdout_rejects_incomplete_or_unbound_evidence(tmp_path, failure):
+    content = DOCS["onboarding"]
+    body = content
+    command = f"curl -fsSL {ENTRY}"
+    digest = hashlib.sha256(content.encode()).hexdigest()
+    published = {ENTRY: digest}
+    if failure == "missing_witness":
+        published = {}
+    elif failure == "wrong_url":
+        published = {ENTRY.replace("/candidate/", "/other/"): digest}
+    elif failure == "bad_digest":
+        published = {ENTRY: digest.upper()}
+    elif failure == "wrong_digest":
+        published = {ENTRY: "0" * 64}
+    elif failure == "invalid_url":
+        published = {ENTRY + "?download=1": digest}
+    elif failure == "invalid_mapping":
+        published = [ENTRY, digest]
+    elif failure == "truncated":
+        body = content[: len(content) // 2]
+    elif failure == "same_lines_changed":
+        body = content.replace("Synthetic", "Truncated")
+    elif failure == "two_missing_lfs":
+        published = {ENTRY: hashlib.sha256((content + "\n").encode()).hexdigest()}
+        body = content.removesuffix("\n")
+    elif failure == "pipe":
+        command += " | head -1000"
+    elif failure == "chained":
+        command += " && echo finished"
+    elif failure == "no_fail":
+        command = f"curl -sSL {ENTRY}"
+    elif failure == "empty_output":
+        command += " -o ''"
+    (tmp_path / "agent.json").write_text(
+        json.dumps({"publishedDocumentSha256": published})
+    )
+    output = result("stdout", body, failed=failure == "failed")
+    if failure == "interrupted":
+        output["tool_use_result"] = {"interrupted": True}
+    events = [tool("Bash", "stdout", command=command)]
+    if failure not in {"pending", "late"}:
+        events.append(output)
+    events.append(install())
+    if failure == "late":
+        events.append(output)
+    assert "onboarding" in missing(evidence(tmp_path, events))
+
+
+def test_run27_stdout_witness_does_not_complete_partial_reference(tmp_path):
+    content = DOCS["onboarding"]
+    digest = hashlib.sha256(content.encode()).hexdigest()
+    (tmp_path / "agent.json").write_text(
+        json.dumps({"publishedDocumentSha256": {ENTRY: digest}})
+    )
+    transfers = download()
+    inputs = transfers[0]["message"]["content"][0]["input"]
+    inputs["command"] = inputs["command"].replace("mkdir -m 700", "mkdir -m 700 -p")
+    events = [
+        tool("Bash", "stdout", command=f"curl -fsSL {ENTRY}"),
+        result("stdout", content.removesuffix("\n")),
+        *transfers,
+        *read("publisher-verification"),
+        *read("install-preflight", count=3),
+        install(),
+    ]
+    assert missing(evidence(tmp_path, events)) == {"install-preflight"}
+
+
+@pytest.mark.parametrize(
+    "mkdir",
+    ["mkdir -m 755 -p", "mkdir -p -p", "mkdir -m 700 -v", "mkdir -p extra"],
+)
+def test_document_mkdir_rejects_unrecognized_options(mkdir):
+    directory = "/tmp/hb-install-docs"  # noqa: S108
+    command = (
+        f"{mkdir} {directory} && curl -fsSL {ENTRY} -o {directory}/onboarding.md"
+    )
+    assert raw_transfers({"name": "Bash"}, command) is None
