@@ -138,7 +138,8 @@ def test_signed_candidate_directory_is_a_supported_install_source() -> None:
 
     publisher = " ".join((ROOT / "docs/publisher-verification.md").read_text().split())
     assert (
-        "verified workflow signature bundles, not a release page, provide the attestation"
+        "verified workflow signature bundles, not a release page, "
+        "provide the attestation"
     ) in publisher
     assert "absence of a GitHub Release is not a stop" in publisher
     assert "locally emulated candidate without workflow signature bundles" in publisher
