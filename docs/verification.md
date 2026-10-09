@@ -138,7 +138,8 @@ provisioning, downloads, model sessions and teardown require operator authorizat
 Select a clean candidate and canonical onboarding Markdown page through the trusted publisher path. Require raw HTTPS, current release/trust instructions and resolved placeholders.
 Never compute pins from downloads, switch publisher or alter the served URL.
 Prompt protocol `one-url/3` uses a natural owner request with only that URL, the
-synthetic 150 lb install/read-back task and local-only/no-private-HTTPS scope.
+synthetic 150 lb install/read-back task, authorization for documented agent
+access and local-only/no-private-HTTPS scope.
 The agent must discover host facts; provide no artifact URLs/hashes, host facts,
 stage answers or command hints. The protocol version and actual prompt hash are
 retained outside the agent prompt. Supplied-input and `one-url/2` prompts remain

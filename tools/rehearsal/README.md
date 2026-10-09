@@ -3,8 +3,9 @@
 The repeatable procedure and evidence rules live in
 [docs/verification.md](../../docs/verification.md#fresh-agent-install-rehearsal).
 The current unattended prompt uses protocol `one-url/3`: a natural owner install
-request, one selected onboarding URL, local-only scope and a synthetic 150 lb
-measurement/read-back. Protocol metadata stays outside the agent prompt. Earlier
+request, one selected onboarding URL, local-only scope, authorization for
+documented agent access and a synthetic 150 lb measurement/read-back. Protocol
+metadata stays outside the agent prompt. Earlier
 `one-url/2` and supplied-input runs remain historical evidence under their own
 protocols; they do not count as v3 runs.
 

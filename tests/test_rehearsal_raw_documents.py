@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -17,6 +18,10 @@ from tools.rehearsal.raw_documents import complete_read, read_page
 KIT = Path(__file__).resolve().parents[1] / "tools/rehearsal"
 ENTRY = "https://publisher.example/candidate/onboarding.md"
 REFERENCE = "https://publisher.example/docs/"
+AGENT_ACCESS_REQUEST = (
+    "Also set up the agent access the documentation describes, "
+    "so this coding agent can use Health Buddy for me afterwards."
+)
 DOCS = {
     "onboarding": (
         "# Install Health Buddy\n"
@@ -490,10 +495,13 @@ def test_v3_metadata_cannot_fall_back_to_legacy_sentinel_acceptance(tmp_path, ta
 
 def test_rendered_prompt_is_natural_and_receipt_binds_actual_bytes(tmp_path):
     evidence(tmp_path, [])
-    prompt = (tmp_path / "prompt.md").read_text()
+    prompt_bytes = (tmp_path / "prompt.md").read_bytes()
+    prompt = prompt_bytes.decode("utf-8")
     receipt = read_receipt(tmp_path)
     assert receipt["protocol"] == "one-url/3"
     assert receipt["onboardingUrl"] == ENTRY
+    assert receipt["promptSha256"] == hashlib.sha256(prompt_bytes).hexdigest()
+    assert prompt.count(AGENT_ACCESS_REQUEST) == 1
     assert prompt.count("https://") == 1
     assert "150 lb" in prompt and "local-only" in prompt
     assert all(
@@ -506,6 +514,24 @@ def test_rendered_prompt_is_natural_and_receipt_binds_actual_bytes(tmp_path):
             "raw Markdown",
         )
     )
+
+
+def test_revised_prompt_rejects_pre_authorization_receipt(tmp_path):
+    template = (KIT / "prompt.template.md").read_text()
+    template_path = tmp_path / "prompt.template.md"
+    template_path.write_text(template.replace(f" {AGENT_ACCESS_REQUEST}", ""))
+    render(tmp_path, ENTRY)
+    assert AGENT_ACCESS_REQUEST not in (tmp_path / "prompt.md").read_text()
+    read_receipt(tmp_path)
+    receipt_path = tmp_path / "prompt-receipt.json"
+    prior_receipt = receipt_path.read_bytes()
+
+    template_path.write_text(template)
+    render(tmp_path, ENTRY)
+    assert AGENT_ACCESS_REQUEST in (tmp_path / "prompt.md").read_text()
+    receipt_path.write_bytes(prior_receipt)
+    with pytest.raises(ValueError, match="prompt hash does not match its receipt"):
+        read_receipt(tmp_path)
 
 
 @pytest.mark.parametrize(
