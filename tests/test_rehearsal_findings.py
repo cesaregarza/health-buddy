@@ -189,7 +189,17 @@ def test_onboarding_keeps_complete_reference_and_publisher_contract():
     assert page.startswith("# Install Health Buddy with a coding agent")
     assert "RIVER STONE" not in page
     assert "Sonnet-class or stronger coding agents are recommended" in page
+    opening = page.split("The [installation reference]", 1)[0]
+    assert "https://github.com/cesaregarza/health-buddy" in opening
+    assert "Official signed candidates" in opening
+    assert "Before downloading release assets" in opening
+    assert "runtime-candidate.yml@refs/heads/main" in opening
+    assert "both `runtime-manifest.json` and `SHA256SUMS` must verify" in opening
     assert "raw Markdown representation of this" in page
+    assert "https://health-buddy.garz.ai/onboarding.md" in page
+    assert "keep that selected page and its linked references" in page
+    assert "installer command cannot complete a stage" in page
+    assert "Stop and report a trust or safety concern" in page
     assert "mkdir -m 700 /tmp/hb-install-docs &&" in page
     assert "curl -fsSL '<raw page URL>' -o onboarding.md" in page
     assert "versioned `.md` URL" in page

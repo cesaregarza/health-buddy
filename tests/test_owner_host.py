@@ -50,7 +50,7 @@ def done(owner: Owner, name: str, key: str, *arguments: str) -> dict[str, Any]:
 
 
 def agent_arguments(owner: Owner, client: str) -> list[str]:
-    """The guide's agent command for one client, Codex's or Claude Code's block."""
+    """The guide's supported handoff arguments for the selected client."""
     config = owner.client / "config.toml"
     if client == "claude":
         (owner.client / "claude").mkdir(mode=0o700)
@@ -186,7 +186,7 @@ def test_fresh_owner_runs_every_stage_through_the_entry_points_under_umask_002(
             *("--uid", str(os.getuid()), "--gid", str(os.getgid())),
             *("--confirm-local-daemon", "--confirm-quiesced"),
         )
-    policy, _codex, _claude = blocks("Explicit agent grant and redacted owner status")
+    policy, _setup = blocks("Connect the owner's coding agent and view status")
     owner.run(policy)
     arguments = agent_arguments(owner, client)
     agent = done(owner, "agent", "agentGrantRetained", *journal, *arguments)
@@ -314,7 +314,7 @@ def test_agent_rejects_real_foreign_owned_policy_without_mutation(
             "--confirm-quiesced",
         ),
     )
-    policy, _codex, _claude = blocks("Explicit agent grant and redacted owner status")
+    policy, _setup = blocks("Connect the owner's coding agent and view status")
     owner.run(policy)
     policy_path = owner.client / "policy.json"
     changed = owner_host.run_as_root(
@@ -339,13 +339,14 @@ def printed(output: str) -> list[dict[str, Any]]:
     return [json.loads(line) for line in output.splitlines() if line.startswith("{")]
 
 
-def test_documented_stage_blocks_run_as_written(tmp_path: Path) -> None:
+@pytest.mark.parametrize("client", ["codex", "claude"])
+def test_documented_stage_blocks_run_as_written(tmp_path: Path, client: str) -> None:
     owner = owner_host.bootstrapped(tmp_path)
     (preflight,) = blocks("Read-only preflight")
     prepare, _existing_credential = blocks("Durable local preparation")
     owner_setup, _recovery = blocks("Guided native owner setup")
     (activation,) = blocks("Explicit runtime activation")
-    policy, codex, _claude = blocks("Explicit agent grant and redacted owner status")
+    policy, setup = blocks("Connect the owner's coding agent and view status")
     (measurement,) = blocks("Log and verify a measurement")
     # Owner.run fails the test with the block's output unless it exits 0.
     checked, with_port = printed(owner.run(preflight))
@@ -354,9 +355,20 @@ def test_documented_stage_blocks_run_as_written(tmp_path: Path) -> None:
     assert printed(owner.run(owner_setup))[0]["ownerSetupReady"]
     assert printed(owner.run(activation))[0]["runtimeActivated"]
     owner.run(policy)
-    agent, status = printed(owner.run(codex))
+    setup = setup.replace("HEALTH_BUDDY_CLIENT=codex", f"HEALTH_BUDDY_CLIENT={client}")
+    agent, status = printed(owner.run(setup))
     assert agent["agentGrantRetained"] and agent["clientConfigurationPrepared"]
     assert {key: status[key] for key in COMPLETION} == dict.fromkeys(COMPLETION, True)
+    config = owner.client / ("config.toml" if client == "codex" else "claude/.mcp.json")
+    assert config.is_file()
+    retained_token = (owner.client / "agent-token").read_bytes()
+    repeated_agent, repeated_status = printed(owner.run(setup))
+    assert repeated_agent["agentGrantRetained"]
+    assert repeated_agent["clientConfigurationPrepared"]
+    assert {key: repeated_status[key] for key in COMPLETION} == dict.fromkeys(
+        COMPLETION, True
+    )
+    assert (owner.client / "agent-token").read_bytes() == retained_token
     output = owner.run(measurement)
     receipt, read = printed(output)
     assert receipt["data"]["saved"] is True
@@ -373,7 +385,7 @@ def test_install_stages_run_as_root_are_refused_by_identity(tmp_path: Path) -> N
     activation = activation.replace('"$OWNER_UID"', str(os.getuid())).replace(
         '"$OWNER_GID"', str(os.getgid())
     )
-    policy, agent, _claude = blocks("Explicit agent grant and redacted owner status")
+    policy, agent = blocks("Connect the owner's coding agent and view status")
     owner.run(policy)
     expected_owner = pwd.getpwuid(os.getuid()).pw_name
     before, written = owner_host.files(owner), owner_host.bytecode(owner)

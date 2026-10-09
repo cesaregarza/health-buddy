@@ -135,7 +135,11 @@ provisioning, downloads, model sessions and teardown require operator authorizat
 
 ### Inputs and private setup
 
-Select a clean candidate and canonical onboarding Markdown page through the trusted publisher path. Require raw HTTPS, current release/trust instructions and resolved placeholders.
+Select a clean candidate through the trusted publisher path. The canonical public
+onboarding entry is `https://health-buddy.garz.ai/onboarding.md`; use it as
+`ONBOARDING_URL` for the current published candidate. Keep an owner-selected
+versioned Markdown URL when rehearsing that version instead. Require raw HTTPS,
+current release/trust instructions and resolved placeholders.
 Never compute pins from downloads, switch publisher or alter the served URL.
 Prompt protocol `one-url/3` uses a natural owner request with only that URL, the
 synthetic 150 lb install/read-back task, authorization for documented agent

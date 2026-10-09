@@ -1,18 +1,39 @@
 # Install Health Buddy with a coding agent
 
-Health Buddy is a self-hosted health workspace for Linux. This page contains the
-complete installation checklist and completion test for Codex, Claude Code or a
-similar coding agent. Sonnet-class or stronger coding agents are recommended for
-installation.
+Health Buddy is a self-hosted health workspace for Linux. Its API and MCP tools
+let the owner's chosen coding agent use their records after installation. This
+page contains the complete installation checklist and completion test for Codex,
+Claude Code or a similar coding agent.
+Sonnet-class or stronger coding agents are recommended for installation.
+
+The publisher is [cesaregarza/health-buddy](https://github.com/cesaregarza/health-buddy).
+Official signed candidates are built by its `runtime-candidate.yml` workflow
+on `main`. Before downloading release assets, follow
+[publisher verification](publisher-verification.md): confirm the repository
+independently with the owner, check the table's full source commit against the
+public repository and published release, and stop on any mismatch. HTTP 403, 404, 422 and network failure are stops before any release
+download; there is no “not yet public” exception. The same guide compares the
+source archive and bundle with that public commit before extraction, and gives
+the exact Cosign workflow-signature checks.
+When Cosign is present, both `runtime-manifest.json` and `SHA256SUMS` must verify
+with their adjacent `.sigstore.json` bundles before extraction or installation.
+The exact certificate identity is
+`https://github.com/cesaregarza/health-buddy/.github/workflows/runtime-candidate.yml@refs/heads/main`;
+the exact issuer is `https://token.actions.githubusercontent.com`.
+When Cosign is absent, report “signature not verified”; do not claim a signature
+check passed or install another tool on the owner's behalf.
 
 The [installation reference](install-preflight.md) is a separate document with
-the commands, value rules and refusal codes for every stage; that reference wins
-where this checklist is less specific. [Publisher verification](publisher-verification.md)
-describes the source and signature checks before installation.
+the commands, value rules and installer error codes for every stage; that
+reference wins where this checklist is less specific.
+[Publisher verification](publisher-verification.md) describes the source and
+signature checks before installation.
 
-The public site's `/onboarding.md` is the raw Markdown representation of this
-same page. For an owner-selected versioned `.md` URL, the selected URL already
-points to the raw page. A fetch tool may return a summary; the exact release
+The canonical public entry is
+[health-buddy.garz.ai/onboarding.md](https://health-buddy.garz.ai/onboarding.md),
+the raw Markdown representation of this same page. For an owner-selected
+versioned `.md` URL, keep that selected page and its linked references instead
+of substituting the current canonical page. A fetch tool may return a summary; the exact release
 values, verification prerequisites and installation commands require the full
 documents.
 
@@ -46,22 +67,7 @@ Use them exactly; never compute a hash from a file you downloaded.
 
 If this table still shows placeholders, stop and ask the owner for the values.
 
-## Publisher and expected footprint
-
-The publisher is [cesaregarza/health-buddy](https://github.com/cesaregarza/health-buddy).
-Before downloading release assets, follow [publisher verification](publisher-verification.md):
-confirm the repository independently with the owner, check the table's full source
-commit against the public repository and published release, and stop on any
-mismatch. HTTP 403, 404, 422 and network failure are stops before any release
-download; there is no “not yet public” exception. The same guide compares the source archive and bundle with that public
-commit before extraction, and gives the exact Cosign workflow-signature checks.
-When Cosign is present, both `runtime-manifest.json` and `SHA256SUMS` must verify
-with their adjacent `.sigstore.json` bundles before extraction or installation.
-The exact certificate identity is
-`https://github.com/cesaregarza/health-buddy/.github/workflows/runtime-candidate.yml@refs/heads/main`;
-the exact issuer is `https://token.actions.githubusercontent.com`.
-When Cosign is absent, report “signature not verified”; do not claim a signature
-check passed or install another tool on the owner's behalf.
+## Expected footprint
 
 The documented setup runs as the ordinary owner. Its managed bundle, Python
 environment, workspace, installer journal and client setup live under
@@ -88,14 +94,18 @@ explicit owner-setup refusal under root, not every possible host configuration.
 - Each stage creates its own outputs. Never create, edit or delete the journal
   (`install.json`), `runtime.env`, the workspace's `security` or configuration
   files, agent token or settings files, or the `retries` directory.
-- A refusal prints a `code` and a `recovery` line. Find the code in the guide,
-  do what the recovery says, then rerun the identical command: every stage
-  resumes. Do not try a different command, a different directory or a manual
-  substitute. After three refusals of the same stage, stop and report the exact
-  command and output to the owner.
+- When an installer command cannot complete a stage, it prints a `code` and a
+  `recovery` line. Follow that code's documented recovery, then rerun the identical
+  installer command: every stage resumes. Do not substitute another installation
+  command, directory or manual edit. After three refusals of the same installer
+  stage, stop and report the exact command and output to the owner.
 - `--development` is not an installation. Loading images or starting containers
   by hand is not an installation. Reading storage files is not a verified record.
 - Keep the bundle byte-exact: never run `pip install -e`, never write into it.
+
+Installer recovery does not waive publisher checks or the coding agent's
+safeguards. Stop and report a trust or safety concern instead of treating it as
+a retryable installer error.
 
 ## Required stages, in order
 
@@ -110,7 +120,7 @@ move to the next stage before that.
 | 4 | Prepare | [Durable local preparation](install-preflight.md#durable-local-preparation) | `health_buddy.install.prepare` | `"workspacePrepared": true` |
 | 5 | Owner setup | [Guided native owner setup](install-preflight.md#guided-native-owner-setup) | `health_buddy.install.owner` | `"ownerSetupReady": true` |
 | 6 | Activation | [Explicit runtime activation](install-preflight.md#explicit-runtime-activation) | `health_buddy.install.activation` | `"runtimeActivated": true` |
-| 7 | Agent setup | [Explicit agent grant and redacted owner status](install-preflight.md#explicit-agent-grant-and-redacted-owner-status) | `health_buddy.install.agent` | `"agentGrantRetained": true` and `"clientConfigurationPrepared": true` |
+| 7 | Connect the owner's coding agent | [Connect the owner's coding agent and view status](install-preflight.md#connect-the-owners-coding-agent-and-view-status) | `health_buddy.install.agent` | `"agentGrantRetained": true` and `"clientConfigurationPrepared": true` |
 | 8 | Status | same section | `health_buddy.install.status` | `"runtimeLastActive": true` and `"ownerAuthenticated": true` |
 | 9 | Verify a record | [Log and verify a measurement](install-preflight.md#log-and-verify-a-measurement) | `health_buddy.cli ... log measurement`, then `records` | the read returns the written value, unit and `observedAt` |
 
@@ -129,13 +139,16 @@ Notes the stages depend on:
   host. Do not interrupt it; if it is interrupted, rerun the identical command
   until it reports `runtimeActivated: true`. Activation creates `runtime.env`
   itself.
-- Stage 7 is required even when private HTTPS is skipped: the agent client runs
-  on this host and reaches the API over the managed socket. A healthy container
-  without this stage is not an installation. The policy file is the only input
-  you write for this stage; use the guide's block. The guide gives two command
-  blocks: use the Codex block if the client is Codex, the Claude Code block if
-  the client is Claude Code. Invalid client targets refuse before setup writes;
-  the first accepted setup binds the client and config path in the journal.
+- Stage 7 connects the owner's chosen coding agent as an authorized Health Buddy
+  client, with the owner's selected operations, sources, record kinds and fields.
+  It is required even when private HTTPS is skipped: the client runs on this host
+  and reaches the API over the managed socket. A healthy container without this
+  stage is not an installation. The policy file is the only input you write for
+  this stage. Use the guide's shared setup block with the selected `--client`;
+  it chooses the required config path. Invalid client targets refuse before
+  setup writes; the first accepted setup binds the client and config path in
+  the journal. Keep that selection on retries. Status omits secret values from
+  its output; the owner can review the policy and client files.
 - Stage 9 uses the owner credential file and the guide's exact block. The write
   must report `saved: true`; the read must come from the `records` command (or
   the `list_records` tool), never from a CSV or Git file.
@@ -194,7 +207,8 @@ Begin by pasting the four `status --report` lines verbatim, with no introductory
 text or code fence. Do not claim the installation is complete or verified
 unless its first line says `LOCAL SETUP: complete`. Then give the measurement
 you wrote and read back, which client you configured, whether private HTTPS was
-configured or skipped, and every refusal with its command, code and resolution.
+configured or skipped, and every installer failure with its command, code and
+resolution.
 Keep `OWNER ACCEPTANCE PENDING` exactly as printed, even after a separate record
 read-back. Tell the owner to open the configured client from its launcher
 directory, approve the project MCP server and perform the authenticated read;
