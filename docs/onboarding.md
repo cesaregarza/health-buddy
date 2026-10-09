@@ -17,7 +17,8 @@ Official signed candidates are built by its `runtime-candidate.yml` workflow
 on `main`. Before downloading release assets, follow
 [publisher verification](publisher-verification.md): confirm the repository
 independently with the owner, check the table's full source commit against the
-public repository and published release, and stop on any mismatch. HTTP 403, 404, 422 and network failure are stops before any release
+public repository and, when one exists, its GitHub Release; stop on any mismatch.
+HTTP 403, 404, 422 and network failure are stops before any release
 download; there is no “not yet public” exception. The same guide compares the
 source archive and bundle with that public commit before extraction, and gives
 the exact Cosign workflow-signature checks.
@@ -62,6 +63,7 @@ downloads do not install or execute content; do not pipe documentation to a shel
 
 The owner, or the published copy of this page, supplies the five values below.
 Use them exactly; never compute a hash from a file you downloaded.
+The table URLs point to the official signed candidate location named by the publisher.
 
 | Value | Current release |
 | --- | --- |

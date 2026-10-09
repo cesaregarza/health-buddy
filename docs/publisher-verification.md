@@ -3,9 +3,14 @@
 The canonical publisher is [cesaregarza/health-buddy](https://github.com/cesaregarza/health-buddy).
 Confirm that repository with the owner through a trusted channel; a lookalike
 onboarding page cannot establish its own publisher identity. Use the full source
-commit in the onboarding table. For a published release, its source-commit link
-on the canonical repository's release page must agree with that table. A locally
-emulated candidate has no public release attestation; report that distinction.
+commit in the onboarding table. The publisher's signed candidate directory
+named on that page is an official source even without a GitHub Release. Its
+verified workflow signature bundles, not a release page, provide the attestation.
+If the repository has no releases, compare the table's commit with the repository
+and follow the source and signature checks below; the absence of a GitHub Release
+is not a stop. When a GitHub Release exists, its source-commit link must agree
+with that table. A locally emulated candidate without workflow signature bundles
+has no workflow attestation; report that distinction.
 
 ## Before downloading release assets
 
@@ -149,15 +154,15 @@ Official signed artifacts use this repository's `runtime-candidate.yml` workflow
 on `refs/heads/main`, with GitHub Actions as the OIDC issuer. The manifest job
 retains `runtime-manifest.json.sigstore.json` and `SHA256SUMS.sigstore.json`
 beside their signed files; a publication must copy all four without rewriting
-them. Other candidate refs are not official signed releases.
+them. Other workflow refs are not official signed candidates.
 
 Use the manifest URL in the onboarding page's table to download
 `runtime-manifest.json`. Download its sibling `SHA256SUMS` from the same fixed
 directory, along with each signed file's adjacent `.sigstore.json` bundle:
 `runtime-manifest.json.sigstore.json` and `SHA256SUMS.sigstore.json`. All four
-files must come from that same fixed release directory.
+files must come from that same fixed candidate or GitHub Release directory.
 
-After saving those four files from the same fixed release into the private
+After saving those four files from the same fixed directory into the private
 `publisher` directory, run these exact checks. If `cosign` is absent, report
 **signature not verified** and continue the owner-pinned source checks; absence
 alone is not an installation failure. If it is present and verification fails,

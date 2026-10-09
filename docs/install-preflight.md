@@ -34,19 +34,25 @@ does not cover, stop and tell the owner instead of working around it.
 
 Ask the owner for:
 
-- the URL of the release's `health-buddy-bundle.tar`;
+- the URL of `health-buddy-bundle.tar`;
 - that archive's SHA-256;
-- the URL of the same release's `runtime-manifest.json`;
+- the URL of its matching `runtime-manifest.json`;
 - that manifest's SHA-256;
-- the release's full 40-character source commit, used by the
+- the full 40-character source commit, used by the
   [publisher verification](publisher-verification.md) checks before the download
   in step 2 and the source comparison linked from step 3.
 
-For a GitHub Release the URLs are
-`https://github.com/<owner>/<repo>/releases/download/<tag>/health-buddy-bundle.tar`
-and `.../<tag>/runtime-manifest.json`, naming a fixed tag, never `latest`. The
-owner reads both hashes from the release's `SHA256SUMS` or notes and confirms
-them through a separate channel before giving them to you. Done: two HTTPS URLs,
+Use the publisher's signed candidate directory named on the onboarding page:
+`https://health-buddy-releases.nyc3.digitaloceanspaces.com/<source-commit>/health-buddy-bundle.tar`
+and `.../<source-commit>/runtime-manifest.json`. Its workflow signature bundles
+provide the publisher attestation, subject to the verification below.
+
+A GitHub Release, when one exists, is also supported:
+`https://github.com/cesaregarza/health-buddy/releases/download/<tag>/health-buddy-bundle.tar`
+and `.../<tag>/runtime-manifest.json`, naming a fixed tag, never `latest`. Use the
+page's selected URLs; do not substitute another host, source commit or tag.
+The owner reads both hashes from that publication's `SHA256SUMS` or notes and
+confirms them through a separate channel before giving them to you. Done: two HTTPS URLs,
 two 64-character lowercase hexadecimal hashes and one 40-character lowercase
 hexadecimal source commit. If any is missing, stop and ask; never use a hash
 computed from a downloaded file as the expected value.
@@ -414,24 +420,32 @@ put files into `$ARTIFACTS`, so move them out;
 `install_acquire_requires_trusted_manifest_pin` mean the manifest values in
 `env.sh` are not the owner's URL and hash.
 
-The supported source is a GitHub Release. Pass the manifest asset's URL,
-`https://github.com/<owner>/<repo>/releases/download/<tag>/runtime-manifest.json`,
-naming a fixed tag rather than `latest`. The same release carries the three
-fixed neighboring assets fetched beside it: `health-buddy-source.tar` and
+Use the publisher's signed candidate directory named on the onboarding page:
+`https://health-buddy-releases.nyc3.digitaloceanspaces.com/<source-commit>/runtime-manifest.json`.
+The [verified workflow signature bundles](publisher-verification.md#verify-the-workflow-signature-when-cosign-is-installed)
+attest this candidate; a GitHub Release page is not required.
+A GitHub Release, when one exists, is also supported:
+`https://github.com/cesaregarza/health-buddy/releases/download/<tag>/runtime-manifest.json`,
+naming a fixed tag rather than `latest`.
+
+Either selected directory carries the three fixed neighboring assets fetched
+beside the manifest: `health-buddy-source.tar` and
 `health-buddy-linux-{amd64,arm64}.docker.tar`. It also carries
 `health-buddy-bundle.tar`, which the bootstrap downloads, and `SHA256SUMS`,
 which lists all five; acquire fetches neither. Read the manifest SHA-256 from
-the release page or its notes, then confirm it through a separate channel
-before passing it as the pin. The URL must be HTTPS on port 443 with no
-userinfo, query or fragment; no cookies, ambient proxies or authorization
-headers are sent. GitHub answers each download with a 302 to a short-lived
-signed URL on `release-assets.githubusercontent.com`. The installer admits that
-hop, and only that hop, across origins: from exactly `github.com` to exactly
-that host, over HTTPS on port 443, keeping its signed query string. Every other
-redirect must stay on the same HTTPS origin without query/fragment/userinfo, so
-a maintainer-run same-origin publisher still works. The maintained redirect
-count and closed original bodies apply to every hop. No other download host is
-silently adopted.
+the selected publication's `SHA256SUMS` or notes, then confirm it through a
+separate channel before passing it as the pin.
+
+Acquire requires HTTPS on port 443 with no userinfo, query or fragment;
+no cookies, ambient proxies or authorization headers are sent. Publisher-directory
+redirects must stay on the same HTTPS origin without query/fragment/userinfo.
+For GitHub Release downloads, the sole cross-origin redirect is from exactly
+`github.com` to exactly `release-assets.githubusercontent.com`, over HTTPS on
+port 443, keeping its signed query string. This exception does not allow a
+publisher-directory download to redirect to GitHub's asset host. Every other
+redirect must stay on the same HTTPS origin without query/fragment/userinfo.
+The maintained redirect count and closed original bodies apply to every hop.
+No other download host is silently adopted.
 
 The journal binds origin URL/pin/source identity before network activity. Each
 file streams at most 64 KiB per read; metadata is capped at 2 MiB, source archive
