@@ -1,5 +1,6 @@
 runs/
 prompt.md
+prompt-receipt.json
 .droplet*
 .deleted-droplet-id
 .known_hosts

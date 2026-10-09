@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -28,12 +29,17 @@ def call(name, inputs, identity="read"):
     return {"type": "tool_use", "id": identity, "name": name, "input": inputs}
 
 
-def result(text, identity="read"):
+def result(text, identity="read", *, failed=False):
     return {
         "type": "user",
         "message": {
             "content": [
-                {"type": "tool_result", "tool_use_id": identity, "content": text}
+                {
+                    "type": "tool_result",
+                    "tool_use_id": identity,
+                    "content": text,
+                    "is_error": failed,
+                }
             ]
         },
     }
@@ -65,7 +71,9 @@ def codex_transcript(events):
             elif kind == "tool_result":
                 item = items[block["tool_use_id"]].copy()
                 item.update(
-                    status="completed", aggregated_output=block["content"], exit_code=0
+                    status="completed",
+                    aggregated_output=block["content"],
+                    exit_code=1 if block.get("is_error") else 0,
                 )
                 raw.append({"type": "item.completed", "item": item})
     return [*raw, {"type": "turn.completed", "usage": {}}]
@@ -152,6 +160,7 @@ def test_raw_read_findings_preserve_prose_and_mutation_order(
                 },
             )
         )
+    (tmp_path / "prompt-protocol.txt").write_text("one-url/2\n")
     transcript = tmp_path / "synthetic.jsonl"
     if agent == "codex":
         events = codex_transcript(events)
@@ -175,15 +184,31 @@ def test_raw_read_findings_preserve_prose_and_mutation_order(
     assert ("transcript_malformed" in output) == (kind == "malformed")
 
 
-def test_onboarding_raw_instruction_and_static_sentinel():
+def test_onboarding_keeps_complete_reference_and_publisher_contract():
     page = (ROOT / "docs/onboarding.md").read_text()
-    assert "curl -fsSL <URL>" in "\n".join(page.splitlines()[:5])
-    assert "summarized copy" in "\n".join(page.splitlines()[:5])
-    assert (
-        page.splitlines()[-1]
-        == "Raw-read check: this page ends with the words RIVER STONE."
-    )
-    assert "before running any installation command" in "\n".join(page.splitlines()[:5])
+    assert page.startswith("# Install Health Buddy with a coding agent")
+    assert "RIVER STONE" not in page
+    assert "Sonnet-class or stronger coding agents are recommended" in page
+    assert "raw Markdown representation of this" in page
+    assert "mkdir -m 700 /tmp/hb-install-docs &&" in page
+    assert "curl -fsSL '<raw page URL>' -o onboarding.md" in page
+    assert "versioned `.md` URL" in page
+    for placeholder in (
+        "bundle URL",
+        "bundle SHA-256",
+        "manifest URL",
+        "manifest SHA-256",
+        "source commit",
+    ):
+        assert page.count("`<" + placeholder + ">`") == 1
+    for number in range(1, 10):
+        assert f"| {number} |" in page
+    assert "runtime-candidate.yml@refs/heads/main" in page
+    assert "https://token.actions.githubusercontent.com" in page
+    assert "both `runtime-manifest.json` and `SHA256SUMS` must verify" in page
+    assert "After three refusals" in page
+    assert "OWNER ACCEPTANCE PENDING" in page
+    assert "four `status --report` lines verbatim" in page
 
 
 @pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
@@ -272,6 +297,7 @@ def test_publisher_download_findings_use_results_not_command_source(
             assistant(call("Bash", {"command": joined_command}, "joined")),
             result(body, "joined"),
         ]
+    (tmp_path / "prompt-protocol.txt").write_text("one-url/2\n")
     transcript = tmp_path / "publisher.jsonl"
     if agent == "codex":
         events = codex_transcript(events)
@@ -492,6 +518,7 @@ def test_wrapped_publisher_block_keeps_failure_and_download_order(
 
 
 def run_view(tmp_path, events, script="summarize.py", final=None):
+    (tmp_path / "prompt-protocol.txt").write_text("one-url/2\n")
     path = tmp_path / "transcript.jsonl"
     path.write_text("\n".join(json.dumps(event) for event in events))
     if final is not None:
@@ -502,6 +529,242 @@ def run_view(tmp_path, events, script="summarize.py", final=None):
         capture_output=True,
         text=True,
     ).stdout
+
+
+def signature_command(name):
+    blob = f"$HOME/health-buddy/publisher/{name}"
+    return (
+        f'cosign verify-blob "{blob}" --bundle "{blob}.sigstore.json" '
+        "--certificate-identity https://github.com/cesaregarza/health-buddy/"
+        ".github/workflows/runtime-candidate.yml@refs/heads/main "
+        "--certificate-oidc-issuer https://token.actions.githubusercontent.com"
+    )
+
+
+MANIFEST_CHECK = signature_command("runtime-manifest.json")
+CHECKSUMS_CHECK = signature_command("SHA256SUMS")
+SIGNATURE_BLOCK = (
+    "if command -v cosign >/dev/null 2>&1; then\n"
+    + MANIFEST_CHECK
+    + " &&\n"
+    + CHECKSUMS_CHECK
+    + " || exit 1\nelse\necho 'signature not verified: cosign is not installed'\nfi"
+)
+
+
+def signature_events(commands, outputs, *, failed=False, order="before"):
+    events = [
+        assistant(prose("RIVER STONE")),
+        assistant(
+            call(
+                "Bash",
+                {
+                    "command": (
+                        'mkdir -p "$HOME/health-buddy/publisher"\n'
+                        "curl -fL https://publisher.example/runtime-manifest.json"
+                        " -o runtime-manifest.json"
+                    )
+                },
+                "staging",
+            )
+        ),
+    ]
+    install = assistant(
+        call("Bash", {"command": "tar -xf health-buddy-bundle.tar"}, "install")
+    )
+    results = []
+    if order == "late":
+        events.append(install)
+    for index, (command, output) in enumerate(zip(commands, outputs, strict=True)):
+        identity = f"signature-{index}"
+        events.append(assistant(call("Bash", {"command": command}, identity)))
+        response = result(output, identity, failed=failed)
+        if order == "pending":
+            results.append(response)
+        else:
+            events.append(response)
+    if order != "late":
+        events.append(install)
+    return events + results
+
+
+@pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
+@pytest.mark.parametrize("agent", ["claude", "codex"])
+@pytest.mark.parametrize(
+    "kind", ["verified", "combined", "wrapped", "equals", "absent"]
+)
+def test_signature_verification_success_or_absent(tmp_path, script, agent, kind):
+    commands, outputs = [MANIFEST_CHECK, CHECKSUMS_CHECK], ["Verified OK"] * 2
+    if kind in {"combined", "wrapped"}:
+        command = SIGNATURE_BLOCK
+        if kind == "wrapped":
+            command = "/bin/bash -lc " + shlex.quote(command)
+        commands, outputs = [command], ["Verified OK\nVerified OK\n"]
+    elif kind == "equals":
+        commands = [
+            command.replace("--bundle ", "--bundle=")
+            .replace("--certificate-identity ", "--certificate-identity=")
+            .replace("--certificate-oidc-issuer ", "--certificate-oidc-issuer=")
+            + " 2>&1"
+            for command in commands
+        ]
+    elif kind == "absent":
+        commands, outputs = ["command -v cosign"], ["cosign is not installed"]
+    present = "no" if kind == "absent" else "yes"
+    (tmp_path / "prepare.log").write_text(f"cosign present: {present}\n")
+    events = signature_events(commands, outputs)
+    if agent == "codex":
+        events = codex_transcript(events)
+    rendered = run_view(tmp_path, events, script)
+    assert "signature_check_missing" not in rendered
+    if script == "stages.py":
+        assert ("signature_verification" in rendered) == (kind != "absent")
+        if kind != "absent":
+            assert "runtime-manifest.json" in rendered and "SHA256SUMS" in rendered
+
+
+@pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
+@pytest.mark.parametrize("agent", ["claude", "codex"])
+@pytest.mark.parametrize(
+    ("commands", "outputs", "failed", "order"),
+    [
+        pytest.param([], [], False, "before", id="missing"),
+        pytest.param([MANIFEST_CHECK], ["Verified OK"], False, "before", id="partial"),
+        pytest.param(
+            [
+                MANIFEST_CHECK,
+                CHECKSUMS_CHECK.replace("refs/heads/main", "refs/heads/dev"),
+            ],
+            ["Verified OK"] * 2,
+            False,
+            "before",
+            id="wrong-identity",
+        ),
+        pytest.param(
+            [MANIFEST_CHECK, CHECKSUMS_CHECK.replace("token.actions", "other.actions")],
+            ["Verified OK"] * 2,
+            False,
+            "before",
+            id="wrong-issuer",
+        ),
+        pytest.param(
+            [
+                MANIFEST_CHECK,
+                CHECKSUMS_CHECK.replace("SHA256SUMS.sigstore", "other.sigstore"),
+            ],
+            ["Verified OK"] * 2,
+            False,
+            "before",
+            id="wrong-bundle",
+        ),
+        pytest.param(
+            [MANIFEST_CHECK, CHECKSUMS_CHECK + " --insecure-ignore-tlog"],
+            ["Verified OK"] * 2,
+            False,
+            "before",
+            id="weakened-check",
+        ),
+        pytest.param(
+            [
+                MANIFEST_CHECK,
+                CHECKSUMS_CHECK.replace(
+                    "--certificate-identity ", "--certificate-identity-regexp "
+                ),
+            ],
+            ["Verified OK"] * 2,
+            False,
+            "before",
+            id="regex-identity",
+        ),
+        pytest.param(
+            [MANIFEST_CHECK] * 2,
+            ["Verified OK"] * 2,
+            False,
+            "before",
+            id="same-file-twice",
+        ),
+        pytest.param(
+            [SIGNATURE_BLOCK], ["Verified OK"], False, "before", id="partial-block"
+        ),
+        pytest.param(
+            [SIGNATURE_BLOCK],
+            ["Verified OK\nVerified OK"],
+            True,
+            "before",
+            id="failed-result",
+        ),
+        pytest.param(
+            [SIGNATURE_BLOCK],
+            ["verification failed"],
+            True,
+            "before",
+            id="failed-check",
+        ),
+        pytest.param(
+            [SIGNATURE_BLOCK],
+            ["Verified OK\nVerified OK"],
+            False,
+            "pending",
+            id="pending-results",
+        ),
+        pytest.param(
+            [SIGNATURE_BLOCK],
+            ["Verified OK\nVerified OK"],
+            False,
+            "late",
+            id="late-checks",
+        ),
+        pytest.param(
+            ["printf '%s\\n' " + shlex.quote(SIGNATURE_BLOCK)],
+            ["Verified OK\nVerified OK"],
+            False,
+            "before",
+            id="quoted-source",
+        ),
+        pytest.param(
+            ["cat <<'DOC'\n" + SIGNATURE_BLOCK + "\nDOC"],
+            ["Verified OK\nVerified OK"],
+            False,
+            "before",
+            id="heredoc-source",
+        ),
+    ],
+)
+def test_signature_checks_require_both_completed_exact_results(
+    tmp_path, script, agent, commands, outputs, failed, order
+):
+    (tmp_path / "agent.json").write_text('{"cosign": true}')
+    events = signature_events(commands, outputs, failed=failed, order=order)
+    if agent == "codex":
+        events = codex_transcript(events)
+    rendered = run_view(tmp_path, events, script)
+    assert rendered.count("- signature_check_missing:") == 1
+    assert '"beforeFirstInstallMutation": true' in rendered
+
+
+@pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
+@pytest.mark.parametrize("agent", ["claude", "codex"])
+@pytest.mark.parametrize("evidence", ["kit-log", "absent", "unknown", "requested-only"])
+def test_signature_requirement_uses_retained_host_evidence(
+    tmp_path, script, agent, evidence
+):
+    run = tmp_path / "runs" / "synthetic"
+    run.mkdir(parents=True)
+    if evidence == "kit-log":
+        (tmp_path / "prepare.log").write_text(
+            "GitVersion: v3.1.3\ncosign present: yes\n"
+        )
+    elif evidence == "absent":
+        (run / "agent.json").write_text('{"cosign": false}')
+        (tmp_path / "prepare.log").write_text("cosign present: no\n")
+    elif evidence == "requested-only":
+        (tmp_path / "prepare.log").write_text("COSIGN=1\nchecksum failed\n")
+    events = signature_events([], [])
+    events.insert(1, assistant(prose("Cosign is installed; both signatures verified.")))
+    if agent == "codex":
+        events = codex_transcript(events)
+    rendered = run_view(run, events, script)
+    assert ("signature_check_missing" in rendered) == (evidence == "kit-log")
 
 
 @pytest.mark.parametrize(
@@ -716,12 +979,16 @@ def test_codex_run_cleans_auth_before_any_copyback(tmp_path, failure):
         "summarize.py",
         "transcript.py",
         "completion_report.py",
+        "render-prompt.py",
+        "prompt_protocol.py",
+        "raw_documents.py",
+        "prompt.template.md",
     ):
         shutil.copyfile(KIT / name, kit / name)
         (kit / name).chmod(0o755)
-    (kit / "prompt.md").write_text(
-        "Prompt protocol: one-url/2.\nhttps://publisher.example/onboarding.md\n"
-    )
+    from tools.rehearsal.prompt_protocol import render
+
+    render(kit, "https://publisher.example/onboarding.md")
     (kit / ".droplet-ip").write_text("192.0.2.1\n")
     payload = (
         base64.urlsafe_b64encode(json.dumps({"exp": int(time.time()) + 10800}).encode())
@@ -806,5 +1073,11 @@ elif 'claude-exit.txt' in command:
     assert token.read_text() == original_cache
     assert state.exists() == (failure == "cleanup")
     if body.exists():
+        run = next((kit / "runs").iterdir())
+        assert (run / "prompt-protocol.txt").read_text() == "one-url/3\n"
+        assert (run / "prompt.md").read_bytes() == (kit / "prompt.md").read_bytes()
+        assert (run / "prompt-receipt.json").read_bytes() == (
+            kit / "prompt-receipt.json"
+        ).read_bytes()
         assert "--ephemeral --ignore-user-config" in body.read_text()
         assert "< /dev/null" in body.read_text()

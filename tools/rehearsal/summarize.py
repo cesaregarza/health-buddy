@@ -16,6 +16,7 @@ from transcript import (
     print_findings,
     publisher_findings,
     read_events,
+    signature_findings,
     text_of,
     tool_calls,
 )
@@ -82,7 +83,10 @@ def main(path: str) -> None:
     print(completion["completionReport"] or "- missing")
     completion_findings = [{"name": name} for name in completion["findings"]]
     print_findings(
-        onboarding_findings(events) + publisher_findings(events) + completion_findings
+        onboarding_findings(events, path)
+        + publisher_findings(events)
+        + signature_findings(events, path)
+        + completion_findings
     )
 
 
