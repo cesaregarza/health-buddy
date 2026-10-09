@@ -297,8 +297,19 @@ def execution_commands(command: str) -> list[str]:
         if not words:
             continue
         name, args = Path(words[0]).name, words[1:]
-        if name in {"grep", "sed"} or words[:2] == ["command", "-v"]:
+        if name == "grep" or words[:2] == ["command", "-v"]:
             continue
+        if (
+            name == "sed"
+            and len(args) >= 2
+            and args[0] == "-n"
+            and re.fullmatch(r"(?:\d+(?:,\d+)?|/(?:\\.|[^/\\\n])*/)p", args[1])
+            and all(
+                not arg.startswith("-") and not re.search(r"[<>]", arg)
+                for arg in args[2:]
+            )
+        ):
+            continue  # Only literal print scripts; e, s///e and -f stay visible.
         probe = args in (["--help"], ["--version"])
         if re.fullmatch(r"python(?:3(?:\.\d+)?)?", name):
             probe = probe or args in (
