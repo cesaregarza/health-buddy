@@ -6,6 +6,12 @@ page contains the complete installation checklist and completion test for Codex,
 Claude Code or a similar coding agent.
 Sonnet-class or stronger coding agents are recommended for installation.
 
+Owners: tell your coding agent that you know and trust
+`cesaregarza/health-buddy` and chose this software, only if that is true. Explicitly
+authorize the documented installer, container and persistent client policy. If
+you will be away, authorize it to make setup decisions and continue without
+waiting for you, while following this documentation's stop rules.
+
 The publisher is [cesaregarza/health-buddy](https://github.com/cesaregarza/health-buddy).
 Official signed candidates are built by its `runtime-candidate.yml` workflow
 on `main`. Before downloading release assets, follow

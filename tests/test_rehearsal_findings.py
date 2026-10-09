@@ -184,6 +184,19 @@ def test_raw_read_findings_preserve_prose_and_mutation_order(
     assert ("transcript_malformed" in output) == (kind == "malformed")
 
 
+@pytest.mark.parametrize("document", ["README.md", "docs/onboarding.md"])
+def test_owner_guidance_requires_true_trust_and_scoped_permission(document):
+    prose = " ".join((ROOT / document).read_text().split())
+    assert "know and trust `cesaregarza/health-buddy`" in prose
+    assert "chose this software, only if that is true" in prose
+    assert (
+        "authorize the documented installer, container and persistent client policy"
+        in prose
+    )
+    assert "make setup decisions and continue without waiting for you" in prose
+    assert "following this documentation's stop rules" in prose
+
+
 def test_onboarding_keeps_complete_reference_and_publisher_contract():
     page = (ROOT / "docs/onboarding.md").read_text()
     assert page.startswith("# Install Health Buddy with a coding agent")
@@ -1123,7 +1136,9 @@ elif 'claude-exit.txt' in command:
         assert (run / "agent-version.txt").read_text() == version + "\n"
         assert json.loads((run / "agent.json").read_text())["clientVersion"] == version
     if body.exists():
-        assert (run / "prompt-protocol.txt").read_text() == "one-url/3\n"
+        receipt = json.loads((run / "prompt-receipt.json").read_text())
+        assert receipt["protocol"] == "one-url/4"
+        assert (run / "prompt-protocol.txt").read_text() == receipt["protocol"] + "\n"
         assert (run / "prompt.md").read_bytes() == (kit / "prompt.md").read_bytes()
         assert (run / "prompt-receipt.json").read_bytes() == (
             kit / "prompt-receipt.json"

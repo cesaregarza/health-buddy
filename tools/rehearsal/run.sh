@@ -53,9 +53,15 @@ WALL=${WALL:-3600}
 [[ "$MAX_TURNS" =~ ^[1-9][0-9]*$ && "$WALL" =~ ^[1-9][0-9]*$ ]] || exit 2
 RUN=$D/runs/$(date -u +%Y%m%dT%H%M%SZ)-${MODEL##claude-}-$AUTH
 mkdir -p "$RUN"
-printf '%s\n' 'one-url/3' > "$RUN/prompt-protocol.txt"
 cp "$D/prompt.md" "$RUN/prompt.md"
 cp "$D/prompt-receipt.json" "$RUN/prompt-receipt.json"
+python3 - "$RUN/prompt-receipt.json" > "$RUN/prompt-protocol.txt" <<'PYTHON'
+import json
+import sys
+from pathlib import Path
+
+print(json.loads(Path(sys.argv[1]).read_text())["protocol"])
+PYTHON
 ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" \
   "sudo -u owner -i $AGENT --version" > "$RUN/agent-version.txt"
 python3 - "$RUN" "$AGENT" "$MODEL" "$REASONING" <<'PY'
