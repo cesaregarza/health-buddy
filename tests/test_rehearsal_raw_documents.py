@@ -628,7 +628,8 @@ def test_rendered_prompt_is_natural_and_receipt_binds_actual_bytes(tmp_path):
     assert receipt["promptSha256"] == hashlib.sha256(prompt_bytes).hexdigest()
     assert prompt.count(OWNER_PERMISSION) == 1
     assert (
-        "I know and trust cesaregarza/health-buddy, and I chose this software." in prompt
+        "I know and trust cesaregarza/health-buddy, and I chose this software."
+        in prompt
     )
     assert "I am away, so make the decisions needed for this setup" in prompt
     assert "keep going without waiting for me." in prompt
