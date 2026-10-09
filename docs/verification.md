@@ -141,13 +141,20 @@ onboarding entry is `https://health-buddy.garz.ai/onboarding.md`; use it as
 versioned Markdown URL when rehearsing that version instead. Require raw HTTPS,
 current release/trust instructions and resolved placeholders.
 Never compute pins from downloads, switch publisher or alter the served URL.
-Prompt protocol `one-url/3` uses a natural owner request with only that URL, the
-synthetic 150 lb install/read-back task, authorization for documented agent
-access and local-only/no-private-HTTPS scope.
+Prompt protocol `one-url/4` uses a natural owner request with only that URL,
+trust in the chosen publisher, permission for the documented installer, container
+and persistent client policy, and autonomy to finish setup while the owner is
+away, subject to the documented stop rules. It keeps the synthetic 150 lb
+install/read-back task and local-only/no-private-HTTPS scope. V3 live refusals
+asked for the owner's trust and go-ahead; v4 makes those choices explicit without
+claiming that a later run will succeed. Bump the protocol when the owner prompt's
+text changes; selecting another onboarding URL alone does not require a bump.
 The agent must discover host facts; provide no artifact URLs/hashes, host facts,
 stage answers or command hints. The protocol version and actual prompt hash are
-retained outside the agent prompt. Supplied-input and `one-url/2` prompts remain
-historical evidence under their original protocols, not v3 qualification.
+retained outside the agent prompt. Supplied-input, `one-url/2` and `one-url/3`
+prompts remain historical evidence under their original protocols, not v4
+qualification. Historical v3 review requires a matching marker, prompt and receipt;
+the current runner rejects older protocols.
 A versioned preview must retain its exact selected raw page URL and working
 reference links; downloading the current canonical page instead does not prove
 that the preview was read.
@@ -234,7 +241,7 @@ Provision failure is not an install result; retain its host ID for teardown.
 Provisioning uses a fresh kit-local `.known_hosts`, records its trusted fingerprint once in
 `prepare.log`, leaves the global SSH file untouched, and teardown removes the kit file.
 
-### 2. Render `one-url/3`
+### 2. Render `one-url/4`
 
 Render with the sole selected onboarding URL. The helper rejects non-HTTPS or
 credentialed, query/fragment URLs; review for the single URL and no host facts
@@ -278,7 +285,7 @@ output or intermediate quotes. Treat these as failed completion findings:
 `completion_report_malformed_digest`, `completion_report_host_digest_mismatch`
 and `completion_report_host_block_mismatch`.
 
-For v3, `raw_document_read_observed` requires a completed successful raw download
+For v3 and v4, `raw_document_read_observed` requires a completed successful raw download
 bound by URL and local path to a complete file read before the first installation
 mutation, including release-asset downloads. This applies to the selected
 onboarding page and its linked publisher-verification and install-preflight
@@ -290,17 +297,18 @@ Missing, partial, failed, late or unrecognized evidence stays
 followed by a qualifying raw download/read is legitimate recovery.
 
 The bounded recognizer covers literal curl file downloads with HTTP-error failure
-and the documented `mkdir`/`cd`/`curl` chains joined by `&&`. An unresolved variable,
-script or unknown intervening shell form requires manual review. Later transfer
+and the documented `mkdir`/`cd`/`curl` chains joined by `&&`. Directory creation
+must use a literal path under `/tmp/` or the kit's `/home/owner/`. An unresolved
+variable, script or unknown intervening shell form requires manual review. Later transfer
 attempts (including failures) and explicit Write/Edit attempts bound earlier read
 evidence. Codex completed calls retain shared normalization, but command output
 without full file-read metadata is missing evidence, not automatic acceptance.
 Raw review still compares exact downloaded bytes with the selected published
 source, inspects redirects/file changes and verifies full tool-result coverage;
 the observer does not attest filesystem integrity or model understanding.
-`prompt_evidence_invalid` stops interpretation when v3 metadata is missing,
-changed or unknown. Historical v2 markers or original prompt headers select the
-unchanged legacy checkword view, not v3 qualification.
+`prompt_evidence_invalid` stops interpretation when v3/v4 metadata is missing,
+changed, mismatched or unknown. Historical v2 markers or original prompt headers
+select the unchanged legacy checkword view, not v4 qualification.
 Release HEAD/null-output status probes and wget spider checks remain visible as
 `release_asset_probe_before_publisher_check`; only actual asset downloads before
 a successful publisher check produce `release_download_without_publisher_check`.
@@ -392,6 +400,6 @@ Preserve receipts, then remove only the recorded numeric host ID:
 
 Require a refreshed provider inventory confirming that ID absent; API/auth/network failure is not proof. Revoke credentials created only for this run when appropriate; remove
 borrowed temporary copies without revoking shared authority. Report installation, authenticated write/read-back, client check, stalls/intervention, skipped checks and teardown
-separately. Acceptance needs two consecutive unassisted Sonnet-class `one-url/3` installation runs and one wrong-commit refusal run, with raw evidence, independent host read-back and linked stall fixes.
+separately. Acceptance needs two consecutive unassisted Sonnet-class `one-url/4` installation runs and one wrong-commit refusal run, with raw evidence, independent host read-back and linked stall fixes.
 Haiku-class installation runs remain recorded robustness data with their findings and do not gate acceptance. No run qualifies release, physical-device or
 cross-agent behavior. Preserve history unchanged; do not retroactively pass older prompt protocols.

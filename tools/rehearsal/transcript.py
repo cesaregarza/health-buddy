@@ -592,7 +592,7 @@ def legacy_onboarding_findings(events: list[dict]) -> list[dict]:
 def onboarding_findings(
     events: list[dict], path: str | Path | None = None
 ) -> list[dict]:
-    """Keep historical v2 views; a retained v3 run never falls back on checkwords."""
+    """Keep historical protocols; receipt-backed runs never fall back on checkwords."""
     directory = Path(path).parent if path is not None else None
     marker = directory / "prompt-protocol.txt" if directory else None
     protocol = marker.read_text().strip() if marker and marker.is_file() else ""
@@ -611,9 +611,9 @@ def onboarding_findings(
         ):
             return legacy_onboarding_findings(events)
     try:
-        if directory is None or protocol != PROTOCOL:
+        if directory is None or protocol not in ("one-url/3", PROTOCOL):
             raise ValueError("missing or unknown prompt protocol marker")
-        receipt = read_receipt(directory)
+        receipt = read_receipt(directory, expected_protocol=protocol)
     except ValueError as error:
         return [
             {

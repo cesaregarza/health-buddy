@@ -11,6 +11,12 @@ Coding agents start at [docs/onboarding.md](docs/onboarding.md): the ordered
 stage checklist with its completion test, linking each stage to the guide
 below.
 
+Owners: tell your coding agent that you know and trust
+`cesaregarza/health-buddy` and chose this software, only if that is true. Explicitly
+authorize the documented installer, container and persistent client policy. If
+you will be away, authorize it to make setup decisions and continue without
+waiting for you, while following this documentation's stop rules.
+
 Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
 Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
 every command. Step zero, its "Before the first stage" section, gets the source

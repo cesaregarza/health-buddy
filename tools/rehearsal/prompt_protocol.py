@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-PROTOCOL = "one-url/3"
+PROTOCOL = "one-url/4"
 PLACEHOLDER = "__ONBOARDING_URL__"
 
 
@@ -46,16 +46,22 @@ def render(directory: Path, url: str) -> None:
     (directory / "prompt-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
-def read_receipt(directory: Path) -> dict:
-    """Reject missing, changed or unknown v3 evidence instead of falling back."""
+def read_receipt(directory: Path, *, expected_protocol: str = PROTOCOL) -> dict:
+    """Verify current prompts; historical review must explicitly select its version."""
     try:
         receipt = json.loads((directory / "prompt-receipt.json").read_text())
         data = (directory / "prompt.md").read_bytes()
         prompt = data.decode("utf-8")
     except (OSError, ValueError) as error:
         raise ValueError("prompt or prompt receipt is missing or unreadable") from error
-    if not isinstance(receipt, dict) or receipt.get("protocol") != PROTOCOL:
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("protocol") not in ("one-url/3", PROTOCOL)
+        or expected_protocol not in ("one-url/3", PROTOCOL)
+    ):
         raise ValueError("unknown prompt protocol")
+    if receipt["protocol"] != expected_protocol:
+        raise ValueError("prompt protocol does not match its receipt")
     url = receipt.get("onboardingUrl")
     if not isinstance(url, str):
         raise ValueError("prompt receipt has no onboarding URL")

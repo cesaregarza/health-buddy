@@ -9,6 +9,9 @@ import re
 import shlex
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+# The rehearsal kit provisions this fixed owner home; no shell expansion occurs.
+DOCUMENT_DIRECTORIES = ("/tmp/", "/home/owner/")  # noqa: S108
+
 
 def local_path(value: str, cwd: str = "") -> str | None:
     if not value or re.search(r"[$`~*?{}]", value):
@@ -93,10 +96,10 @@ def raw_transfers(call: dict, command: str) -> list[tuple[str, str, bool]] | Non
             if not cwd:
                 return None
         elif words[:2] == ["mkdir", "-p"] and len(words) == 3:
-            if not (local_path(words[2], cwd) or "").startswith("/tmp/"):  # noqa: S108
+            if not (local_path(words[2], cwd) or "").startswith(DOCUMENT_DIRECTORIES):
                 return None
         elif words[:3] == ["mkdir", "-m", "700"] and len(words) == 4:
-            if not (local_path(words[3], cwd) or "").startswith("/tmp/"):  # noqa: S108
+            if not (local_path(words[3], cwd) or "").startswith(DOCUMENT_DIRECTORIES):
                 return None
         elif words[:2] == ["wc", "-l"] and len(words) > 2:
             if not all(local_path(word, cwd) for word in words[2:]):
