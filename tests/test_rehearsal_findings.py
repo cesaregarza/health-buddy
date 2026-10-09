@@ -967,8 +967,20 @@ def test_codex_auth_helper_uses_only_synthetic_cache(tmp_path, kind):
         assert "access token expires:" in result.stdout
 
 
-@pytest.mark.parametrize("failure", ["none", "login", "cleanup"])
-def test_codex_run_cleans_auth_before_any_copyback(tmp_path, failure):
+@pytest.mark.parametrize(
+    ("agent", "failure"),
+    [
+        ("codex", "none"),
+        ("codex", "login"),
+        ("codex", "cleanup"),
+        ("codex", "version_failed"),
+        ("codex", "version_empty"),
+        ("claude", "none"),
+        ("claude", "version_failed"),
+        ("claude", "version_empty"),
+    ],
+)
+def test_run_records_version_and_preserves_auth_boundary(tmp_path, agent, failure):
     import shutil
 
     kit = tmp_path / "kit"
@@ -1008,6 +1020,8 @@ def test_codex_run_cleans_auth_before_any_copyback(tmp_path, failure):
             }
         )
     )
+    if agent == "claude":
+        token.write_text("synthetic-claude-token\n")
     token.chmod(0o600)
     stub = tmp_path / "bin"
     stub.mkdir()
@@ -1016,6 +1030,11 @@ import json, os, pathlib, sys
 state = pathlib.Path(os.environ['STUB_STATE'])
 command = sys.argv[-1]
 failure = os.environ['STUB_FAILURE']
+agent = os.environ['STUB_AGENT']
+if not command.endswith(' --version'):
+    run = next((pathlib.Path(os.environ['STUB_KIT']) / 'runs').iterdir())
+    metadata = json.loads((run / 'agent.json').read_text())
+    assert metadata['clientVersion'] == 'synthetic "' + agent + '" version'
 if pathlib.Path(sys.argv[0]).name == 'scp':
     if ':' in command:
         sys.exit(0)
@@ -1024,8 +1043,17 @@ if pathlib.Path(sys.argv[0]).name == 'scp':
     with open(os.environ['STUB_COPY'], 'a') as f:
         f.write('copyback\\n')
     sys.exit(0)
-if 'getent passwd' in command:
+if command.endswith(' --version'):
+    assert command == 'sudo -u owner -i ' + agent + ' --version'
+    assert not state.exists()
+    if failure == 'version_failed':
+        sys.exit(1)
+    if failure != 'version_empty':
+        print('synthetic "' + agent + '" version')
+elif 'getent passwd' in command:
     print('/home/synthetic-owner')
+elif 'IFS= read -r k' in command:
+    assert sys.stdin.read() == 'synthetic-claude-token\\n'
 elif 'codex login status' in command:
     cache = json.loads(sys.stdin.read())
     assert cache['auth_mode'] == 'chatgpt'
@@ -1043,14 +1071,14 @@ elif 'sudo -u owner -i bash -s' in command:
     body = sys.stdin.read()
     pathlib.Path(os.environ['STUB_BODY']).write_text(body)
 elif 'claude-exit.txt' in command:
-    print('codex exit=124')
+    print(agent + ' exit=124')
 """
     for name in ("ssh", "scp"):
         p = stub / name
         p.write_text(program)
         p.chmod(0o755)
     state, copied, body = (tmp_path / n for n in ("state", "copied", "body"))
-    original_cache = token.read_text()
+    original_token = token.read_text()
     output = subprocess.run(  # noqa: S603 - repository harness with synthetic SSH/scp only
         ["/bin/bash", str(kit / "run.sh")],
         capture_output=True,
@@ -1058,9 +1086,12 @@ elif 'claude-exit.txt' in command:
         env={
             **os.environ,
             "PATH": str(stub) + os.pathsep + os.environ["PATH"],
-            "AGENT": "codex",
-            "AUTH": "chatgpt-cache",
+            "AGENT": agent,
+            "AUTH": "chatgpt-cache" if agent == "codex" else "oauth",
             "PRIVATE_CODEX_AUTH_FILE": str(token),
+            "PRIVATE_MODEL_TOKEN_FILE": str(token),
+            "STUB_AGENT": agent,
+            "STUB_KIT": str(kit),
             "STUB_STATE": str(state),
             "STUB_COPY": str(copied),
             "STUB_BODY": str(body),
@@ -1070,14 +1101,23 @@ elif 'claude-exit.txt' in command:
     assert (output.returncode == 0) == (failure == "none")
     assert copied.exists() == (failure == "none")
     assert "synthetic-refresh" not in output.stdout + output.stderr
-    assert token.read_text() == original_cache
+    assert "synthetic-claude-token" not in output.stdout + output.stderr
+    assert token.read_text() == original_token
     assert state.exists() == (failure == "cleanup")
+    run = next((kit / "runs").iterdir())
+    if failure.startswith("version_"):
+        assert not (run / "agent.json").exists()
+        assert not body.exists()
+    else:
+        version = f'synthetic "{agent}" version'
+        assert (run / "agent-version.txt").read_text() == version + "\n"
+        assert json.loads((run / "agent.json").read_text())["clientVersion"] == version
     if body.exists():
-        run = next((kit / "runs").iterdir())
         assert (run / "prompt-protocol.txt").read_text() == "one-url/3\n"
         assert (run / "prompt.md").read_bytes() == (kit / "prompt.md").read_bytes()
         assert (run / "prompt-receipt.json").read_bytes() == (
             kit / "prompt-receipt.json"
         ).read_bytes()
-        assert "--ephemeral --ignore-user-config" in body.read_text()
+        if agent == "codex":
+            assert "--ephemeral --ignore-user-config" in body.read_text()
         assert "< /dev/null" in body.read_text()

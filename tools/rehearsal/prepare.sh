@@ -42,9 +42,10 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 apt-get update -q
 apt-get install -y -q docker-ce docker-ce-cli containerd.io docker-compose-plugin
 # Agent harness only; not a product prerequisite.
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y -q nodejs
-npm install -g @anthropic-ai/claude-code
+# Deliberately select the current tag; run.sh records the actual client version.
+npm install -g @anthropic-ai/claude-code@latest
 # Codex flag/config contract inspected on 0.154.0; record the installed version.
 npm install -g @openai/codex@0.154.0
 if [[ "$1" == 1 ]]; then
