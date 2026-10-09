@@ -49,7 +49,7 @@ expand them and change the selected command/environment. PYTHON follows the
 interpreter rules in [Codex setup](codex-integration.md#connect-repeat-and-update).
 Setup also checks the selected interpreter's MCP imports before writing managed
 files. For `agent_python_not_ready`, use the reported interpreter and follow the
-[locked dependency recovery](install-preflight.md#explicit-agent-grant-and-redacted-owner-status),
+[locked dependency recovery](install-preflight.md#connect-the-owners-coding-agent-and-view-status),
 then rerun setup. This import check does not connect a client; removal still
 works without a functioning SDK.
 

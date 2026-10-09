@@ -72,9 +72,12 @@ def heading_slugs(markdown: str) -> set[str]:
 
 def test_onboarding_checklist_names_real_guide_sections_and_stages() -> None:
     document = (ROOT / "docs/onboarding.md").read_text()
-    anchors = re.findall(r"\(install-preflight\.md#([^)]+)\)", document)
-    assert anchors
-    assert set(anchors) <= heading_slugs(GUIDE.read_text())
+    guide_anchors = heading_slugs(GUIDE.read_text())
+    for name in ("onboarding.md", "codex-integration.md", "claude-integration.md"):
+        entrypoint = (ROOT / "docs" / name).read_text()
+        anchors = re.findall(r"\(install-preflight\.md#([^)]+)\)", entrypoint)
+        assert anchors
+        assert set(anchors) <= guide_anchors
     stages = re.findall(r"`health_buddy\.install\.([a-z]+)`", document)
     assert stages
     for stage in stages:

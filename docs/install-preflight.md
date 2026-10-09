@@ -361,8 +361,9 @@ Leave staging, journal and workspace empty. Acquire downloads the manifest and
 image archives into `$ARTIFACTS` itself and refuses files it did not put there,
 and preflight treats a non-empty workspace as an existing installation.
 
-Under `$PRIVATE_CLIENT`, only the empty `skills` parent may exist at this point
-(the Claude Code variant of the agent stage adds its launcher directory then).
+Under `$PRIVATE_CLIENT`, only the empty `skills` parent may exist at this point.
+The shared client-setup block adds a private launcher directory when Claude is
+selected.
 Do not precreate `agent-token`, `adapter.json`, `retries`, `config.toml` or
 `skills/health-buddy`. The policy block in the agent section creates the one
 owner-authored input, `policy.json`, after review. The agent stage creates the
@@ -835,7 +836,15 @@ used. `privateRouteConfigured:true` records observed configuration only;
 `connected:false` remains until actual private HTTPS and named-client/phone
 acceptance. The agent-grant slice below prepares configuration; live acceptance remains pending.
 
-## Explicit agent grant and redacted owner status
+## Connect the owner's coding agent and view status
+
+This stage connects the owner's selected coding agent to Health Buddy as an
+ongoing MCP client. The owner authorizes that connection and chooses which API
+operations, sources, record kinds and fields the client may access, including
+what may be disclosed to its AI service. The policy below scopes Health Buddy
+API access; the coding agent's own safeguards still apply. The owner can review
+the saved policy and client files. Status output omits credentials and other
+secret values.
 
 Agent setup needs the active runtime, not private HTTPS: the configured client
 runs on this host and its MCP adapter reaches the API over the workspace's
@@ -888,29 +897,42 @@ Keep token/settings/retry paths and the fresh example's client config and
 token/settings files; the installer/adapter owns those outputs. Existing unrelated
 client settings, when deliberately selecting an existing native config instead,
 are preserved by `connect_agent`; owned local edits refuse further changes.
-Stop competing config/grant editors
-while running this explicit setup. No client process is launched:
+Stop competing config/grant editors while running this explicit setup. No client
+process is launched or logged in by this command.
+
+Set `HEALTH_BUDDY_CLIENT` below to the owner's chosen `codex` or `claude` before
+running this shared block. Codex uses `config.toml`; Claude Code uses `.mcp.json`
+in its private launcher directory. The target check rejects an invalid path
+before setup writes. The first accepted setup binds the client, config path and
+policy in the journal: keep that selection and the original policy on retries.
+A retained Claude launcher directory is reused without changing it; installer
+target checks still apply.
 
 ```sh
 . "$HOME/health-buddy/env.sh"
-"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
+HEALTH_BUDDY_CLIENT=codex
+case "$HEALTH_BUDDY_CLIENT" in
+  codex)
+    HEALTH_BUDDY_CLIENT_CONFIG="$PRIVATE_CLIENT/config.toml"
+    ;;
+  claude)
+    HEALTH_BUDDY_CLIENT_CONFIG="$PRIVATE_CLIENT/claude/.mcp.json"
+    if [ ! -e "$PRIVATE_CLIENT/claude" ]; then
+      mkdir -m 0700 "$PRIVATE_CLIENT/claude" || exit 1
+    fi
+    ;;
+  *)
+    echo 'Choose codex or claude before connecting the client.' >&2
+    exit 1
+    ;;
+esac
+"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client "$HEALTH_BUDDY_CLIENT" --client-config "$HEALTH_BUDDY_CLIENT_CONFIG" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
 
-That block is the Codex variant. If the client on this host is Claude Code, run
-this variant instead. Its config must be a file named `.mcp.json` inside a
-private launcher directory that Claude Code is started from. The target check
-rejects a differently named file before setup writes; the first accepted run
-binds the client and config path in the journal, so choose them before then:
-
-```sh
-. "$HOME/health-buddy/env.sh"
-mkdir -m 0700 "$PRIVATE_CLIENT/claude"
-"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client claude --client-config "$PRIVATE_CLIENT/claude/.mcp.json" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
-"$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
-```
-
-Start Claude Code from `$PRIVATE_CLIENT/claude` so it reads that `.mcp.json`.
+For Claude Code, the owner starts a fresh client session from
+`$PRIVATE_CLIENT/claude` so it reads that `.mcp.json`. The fresh-client acceptance
+step remains separate from this configuration command.
 
 Done: `agentGrantRetained: true` and `clientConfigurationPrepared: true`.
 Before journal progress, grant creation or managed-file writes, setup checks the
