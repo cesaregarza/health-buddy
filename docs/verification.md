@@ -184,11 +184,18 @@ Codex defaults to `gpt-5.6-luna` and `REASONING=medium`; `gpt-5.6-terra` is the
 other initial qualification target. Their installation results remain recorded
 agent-class data until they pass the installation bar, not qualification claims.
 
-The helper prepares Node 22 and deliberately installs
-`@anthropic-ai/claude-code@latest`. Before transferring credentials, the runner
-reads the selected client's `--version` as `owner` and records its full output in
-`agent-version.txt` and `agent.json` (`clientVersion`). A failed or empty version
-read stops before the model session.
+The helper prepares Node 22 and installs `@anthropic-ai/claude-code@latest` by
+default. Set `export CLAUDE_CODE_VERSION=2.1.197` before provisioning or running
+`prepare.sh` to reproduce that client version. Only `latest` or a numeric `x.y.z`
+version is accepted; an invalid value stops before SSH. Unset the variable (or
+set it to `latest`) to select the current tag. Retain the
+`Claude Code requested version:` line in `prepare.log`.
+
+Before transferring credentials, the runner reads the selected client's
+`--version` as `owner` and records its full output in `agent-version.txt` and
+`agent.json` (`clientVersion`). The recorded `agent.json.clientVersion` is the
+authoritative evidence of the installed client; the requested tag is not proof.
+A failed or empty version read stops before the model session.
 
 For a signature-enabled rehearsal, `export COSIGN=1` before provisioning or
 running `prepare.sh`. The helper installs Cosign v3.1.3 for Linux amd64 or arm64
