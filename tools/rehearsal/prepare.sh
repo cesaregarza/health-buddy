@@ -7,9 +7,16 @@ D=$(dirname "$(realpath "$0")")
 SSH_HOST_KEY_OPTS=(-o "UserKnownHostsFile=$D/.known_hosts" -o StrictHostKeyChecking=accept-new)
 COSIGN=${COSIGN:-0}
 [[ "$COSIGN" == 0 || "$COSIGN" == 1 ]] || { echo 'COSIGN must be 0 or 1' >&2; exit 2; }
+CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION:-latest}
+[[ "$CLAUDE_CODE_VERSION" == latest || "$CLAUDE_CODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  echo 'CLAUDE_CODE_VERSION must be latest or a numeric x.y.z version' >&2
+  exit 2
+}
+printf 'Claude Code requested version: %s\n' "$CLAUDE_CODE_VERSION"
 IP=$(cat "$D/.droplet-ip")
-ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "bash -s -- $COSIGN" <<'REMOTE'
+ssh "${SSH_HOST_KEY_OPTS[@]}" -o BatchMode=yes "root@$IP" "bash -s -- '$COSIGN' '$CLAUDE_CODE_VERSION'" <<'REMOTE'
 set -euo pipefail
+claude_code_version=$2
 install_cosign() (
   case "$(uname -m)" in
     x86_64) cosign_arch=amd64; cosign_sha=4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71 ;;
@@ -44,8 +51,8 @@ apt-get install -y -q docker-ce docker-ce-cli containerd.io docker-compose-plugi
 # Agent harness only; not a product prerequisite.
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y -q nodejs
-# Deliberately select the current tag; run.sh records the actual client version.
-npm install -g @anthropic-ai/claude-code@latest
+# run.sh records the actual installed client version.
+npm install -g "@anthropic-ai/claude-code@$claude_code_version"
 # Codex flag/config contract inspected on 0.154.0; record the installed version.
 npm install -g @openai/codex@0.154.0
 if [[ "$1" == 1 ]]; then

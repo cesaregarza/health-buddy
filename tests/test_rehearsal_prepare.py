@@ -86,7 +86,11 @@ elif name == 'install':
 
 
 @pytest.mark.parametrize("setting", [None, "0", "1", "invalid"])
-def test_cosign_option_defaults_off_and_passes_only_validated_input(tmp_path, setting):
+@pytest.mark.parametrize(
+    "version",
+    [None, "latest", "2.1.197", "invalid", "2.1.197-rc.1", "2.1.197; exit 0"],
+)
+def test_prepare_options_defaults_and_validation(tmp_path, setting, version):
     kit = tmp_path / "kit"
     kit.mkdir()
     (kit / "prepare.sh").write_text(PREPARE.read_text())
@@ -100,14 +104,23 @@ def test_cosign_option_defaults_off_and_passes_only_validated_input(tmp_path, se
     arguments = tmp_path / "arguments"
     env = {**os.environ, "PATH": str(stub) + os.pathsep + os.environ["PATH"]}
     env.pop("COSIGN", None)
+    env.pop("CLAUDE_CODE_VERSION", None)
     if setting is not None:
         env["COSIGN"] = setting
+    if version is not None:
+        env["CLAUDE_CODE_VERSION"] = version
     env["STUB_ARGS"] = str(arguments)
     output = subprocess.run(  # noqa: S603 - repository entrypoint, SSH stub only
         ["/bin/bash", str(kit / "prepare.sh")], env=env, capture_output=True, text=True
     )
-    assert (output.returncode == 0) == (setting != "invalid")
-    if setting == "invalid":
+    valid = setting != "invalid" and version in (None, "latest", "2.1.197")
+    assert output.returncode == (0 if valid else 2)
+    if not valid:
         assert not arguments.exists()
+        option = "COSIGN" if setting == "invalid" else "CLAUDE_CODE_VERSION"
+        assert option + " must be " in output.stderr
     else:
-        assert arguments.read_text().rstrip().endswith("bash -s -- " + (setting or "0"))
+        requested_version = version or "latest"
+        expected_command = f"bash -s -- '{setting or '0'}' '{requested_version}'"
+        assert arguments.read_text().rstrip().endswith(expected_command)
+        assert f"Claude Code requested version: {requested_version}\n" in output.stdout
