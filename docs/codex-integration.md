@@ -5,6 +5,9 @@ shared canonical tools and [agent guide](agent-guide.md), with no second health
 API or model key. Source tests do not establish named-client discovery, workflow
 behavior or release qualification.
 
+See [the skill and playbooks](skills.md) for invocation, supported requests,
+required read grants and owned updates/removal.
+
 Everyday use is supported with Haiku-class agents, with all three successful MCP reads required by the [independent observer gate](verification.md#6-check-the-fresh-client-and-observer-calls).
 
 | Component | Exact version/evidence |

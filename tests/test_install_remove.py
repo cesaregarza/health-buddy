@@ -356,21 +356,25 @@ def test_removal_uses_recorded_discovery_target_and_preserves_unowned_files(
     assert {path.name for path in skill.iterdir()} == {
         "SKILL.md",
         "WORKSPACE.json",
+        "playbooks",
         ".health-buddy-install.json",
     }
     note = skill / "owner-note.md"
     note.write_text("Retain this owner note")
+    nested_note = skill / "playbooks/owner-note.md"
+    nested_note.write_text("Keep this unowned playbook note")
     sibling = skill.parent / "other-skill"
     sibling.mkdir(mode=0o700)
     (sibling / "SKILL.md").write_text("Unrelated owner skill")
     parent_mode = skill.parent.stat().st_mode
     retained = {
         path: path.read_bytes()
-        for path in (note, sibling / "SKILL.md", connection["agent_token"])
+        for path in (note, nested_note, sibling / "SKILL.md", connection["agent_token"])
     }
     assert install_remove.remove(**arguments)["removed"]
     assert install_remove.remove(**arguments)["removed"]
-    assert {path.name for path in skill.iterdir()} == {"owner-note.md"}
+    assert {path.name for path in skill.iterdir()} == {"owner-note.md", "playbooks"}
+    assert {path.name for path in nested_note.parent.iterdir()} == {"owner-note.md"}
     assert all(path.read_bytes() == value for path, value in retained.items())
     assert skill.parent.stat().st_mode == parent_mode
     if client == "claude":

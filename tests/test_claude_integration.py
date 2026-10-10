@@ -59,7 +59,19 @@ def test_repeat_update_remove_keeps_unrelated_config_and_workspace(tmp_path):
     assert {path.name for path in skill.iterdir()} == {
         "SKILL.md",
         "WORKSPACE.json",
+        "playbooks",
         ".health-buddy-install.json",
+    }
+    playbook = skill / "playbooks/status.md"
+    packaged = ROOT / "src/health_buddy/integrations/codex/health-buddy"
+    assert playbook.read_bytes() == (packaged / "playbooks/status.md").read_bytes()
+    assert playbook.stat().st_mode & 0o777 == 0o600
+    assert playbook.parent.stat().st_mode & 0o777 == 0o700
+    manifest = json.loads((skill / ".health-buddy-install.json").read_bytes())
+    assert set(manifest["files"]) == {
+        "SKILL.md",
+        "WORKSPACE.json",
+        "playbooks/status.md",
     }
     before = config.read_bytes()
     assert setup(config, skill, workspace, settings) == launch
