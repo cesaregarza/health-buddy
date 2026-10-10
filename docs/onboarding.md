@@ -1,10 +1,11 @@
 # Install Health Buddy with a coding agent
 
-Health Buddy is a self-hosted health workspace for Linux. Its API and MCP tools
+Health Buddy is a self-hosted health workspace. Its API and MCP tools
 let the owner's chosen coding agent use their records after installation. This
 page contains the complete installation checklist and completion test for Codex,
 Claude Code or a similar coding agent.
-Sonnet-class or stronger coding agents are recommended for installation.
+Sonnet-class or stronger coding agents are recommended for installation; see
+[platform support](platforms.md) for the host requirements and recorded model evidence.
 
 Owners: tell your coding agent that you know and trust
 `cesaregarza/health-buddy` and chose this software, only if that is true. Explicitly
@@ -81,8 +82,8 @@ The documented setup runs as the ordinary owner. Its managed bundle, Python
 environment, workspace, installer journal and client setup live under
 `$HOME/health-buddy`; the product's installer and application source are readable
 Python in the bundle. The guide also uses Git and standard shell/download tools.
-CPython 3.12 with venv support and Docker with Compose must already be available;
-stop for missing prerequisites instead of installing system packages yourself.
+Follow the [current prerequisites and preparation boundary](platforms.md#current-prerequisites)
+before starting these stages.
 Downloads include the pinned bundle, pinned Python wheels and release archives,
 plus public repository metadata/source and optional signature evidence for the
 publisher check. The runtime is one API container reached over a Unix socket;

@@ -10,16 +10,12 @@ The fixture oracle specifies examples; it is not a production implementation.
   Codex or Claude Code harness supplies reasoning. Jev/Fast mode is optional.
 - Native read-only iPhone HealthKit companion; owned public code is MIT. Keep
   third-party notices during allowlisted extraction.
-- An already-running 64-bit Linux x86-64 host or ARM64 Raspberry Pi is the v1
-  implementation target. Supported OS/version, minimum RAM/disk and physical
-  Pi qualification require installer and release evidence; they are not verified
-  support claims.
-- Host and clients join an owner-controlled Tailscale network. The agent client
-  runs on the API host as the workspace owner and reaches the API over the
-  managed socket; a client on another host is not supported in v1. Private
-  connectivity, DNS/HTTPS reachability, clock validity and application
-  authorization must pass installer preflight. Tailscale access alone does not
-  grant application access.
+- Host targets, prerequisites and recorded qualification are defined in
+  [platform support](platforms.md); qualification remains specific to the
+  recorded architecture, environment and model tier.
+- Client placement and optional private HTTPS follow the
+  [platform transport requirements](platforms.md#transport-and-admission-limits).
+  Tailscale access alone does not grant application access.
 - Public documentation and Apple privacy/setup distribution require a verified
   publisher and immutable artifact. No example hostname or digest is a deployment
   decision.

@@ -5,8 +5,9 @@ Read `AGENTS.md`, `docs/architecture.md`, `docs/v1-contract.md` and
 contract corpus and synthetic examples. State the exact baseline commit in a
 handoff; keep durable decisions in source-controlled docs/tests, not only chat.
 
-Use native Linux and Python 3.12+. Core extracted ingest/render code uses the
-standard library. SleepIQ, PostgreSQL and browser tooling are optional extras.
+Prepare the [source-development prerequisites](docs/platforms.md#source-development).
+Core extracted ingest/render code uses the standard library. SleepIQ, PostgreSQL
+and browser tooling are optional extras.
 No health account, agent provider key or private repository is needed for the
 synthetic checks. Never import personal data to repair a failing test.
 `make test` is the fast tier and includes both maintained extension examples;

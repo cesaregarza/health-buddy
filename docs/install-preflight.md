@@ -183,12 +183,9 @@ python3.12 -m venv "$HOME/health-buddy/venv"
 "$HOME/health-buddy/venv/bin/python" --version
 ```
 
-Done: it prints `Python 3.12.` and a patch number. If `python3.12` is not found,
-stop and ask the owner to install CPython 3.12; the installer does not install
-Python. If venv reports that `ensurepip is not available`, ask the owner to
-install the OS package it names (on Ubuntu 24.04,
-`sudo apt-get install python3.12-venv`), then run this step again. Never
-install Python packages into the system Python.
+Done: it prints `Python 3.12.` and a patch number; if Python or venv support is
+missing, stop and follow the [owner preparation boundary](platforms.md#current-prerequisites)
+before retrying this step.
 
 ### 6. Install the pinned dependencies into that environment
 
@@ -199,10 +196,8 @@ architecture:
 uname -m
 ```
 
-Choose the repository's hash-locked closure for the host architecture.
-The x86_64 lock contains 55 exact wheels and requires glibc 2.34 or newer. The
-aarch64 lock targets CPython 3.12 manylinux_2_28/manylinux2014 wheels and glibc
-2.28 or newer. Both match the Python 3.12 environment created in step 5.
+Choose the architecture's hash-locked closure under the
+[platform and interpreter requirements](platforms.md#source-development).
 Nothing is resolved, and every wheel must match its recorded SHA-256:
 
 ```sh
@@ -313,8 +308,8 @@ Discover the Docker executable:
 command -v docker
 ```
 
-Done: an absolute executable path, commonly `/usr/bin/docker`. If none is
-printed, stop and have the owner install/admit native Docker and Compose.
+Done: an absolute executable path, commonly `/usr/bin/docker`; if none is
+printed, stop and follow the [host preparation boundary](platforms.md#current-prerequisites).
 After inspecting that executable, replace `/usr/bin/docker` below if necessary
 and persist it with this exact append-and-reload step:
 
@@ -496,16 +491,9 @@ loading, as described in [runtime packaging](runtime-packaging.md).
 "$PYTHON" -m health_buddy.install.preflight --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --port 8791
 ```
 
-The supported architecture mapping is x86_64→amd64 and aarch64/arm64→arm64, native
-Linux only; 32-bit Raspberry Pi OS and emulation are refused. Initial planning
-bounds are two logical CPUs, 2 GiB physical RAM and 6 GiB free workspace space.
-These are conservative preflight policy bounds, not measured capacity for
-personal history. Free space on the Docker data root, staging filesystem and
-future data growth still require separate admission. Physical host facts do not
-prove cgroup/container quotas. A present native Docker executable and local
-socket are metadata checks only: daemon reachability/version, Compose discovery,
-rootless/remapped ownership and CLI/plugin trust remain unqualified. Nothing is
-started or reconfigured automatically.
+The [platform requirements and admission limits](platforms.md#transport-and-admission-limits)
+define the architecture, resource, storage and Docker checks and what their
+success establishes; this read-only stage starts or reconfigures nothing.
 
 JSON schema 1 returns fixed actionable diagnostic codes, architecture/resource
 facts, archive/source verification state and future requirements. It emits no

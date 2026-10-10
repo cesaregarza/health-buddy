@@ -17,8 +17,8 @@ authorize the documented installer, container and persistent client policy. If
 you will be away, authorize it to make setup decisions and continue without
 waiting for you, while following this documentation's stop rules.
 
-Run as the owner on 64-bit Linux with Docker Compose and, for private HTTPS,
-Tailscale 1.102.5. [docs/install-preflight.md](docs/install-preflight.md) gives
+Select a host and preparation boundary from the [platform support page](docs/platforms.md).
+[docs/install-preflight.md](docs/install-preflight.md) gives
 every command. Step zero, its "Before the first stage" section, gets the source
 bundle from URLs and SHA-256s the owner supplies; never take a hash from
 downloaded files. Then each step is done when this field is `true`: acquire
@@ -46,7 +46,7 @@ installer distribution, a released phone companion, outside pilot.
 ## Developer loopback mode (not an installation)
 
 For developing Health Buddy itself; never use it to install for an owner.
-From a checkout, in a Python 3.12 venv after `python -m pip install .`:
+From a checkout prepared under the [source-development prerequisites](docs/platforms.md#source-development), after `python -m pip install .`:
 
 ```sh
 export PYTHONPATH="$PWD/src"
@@ -102,4 +102,4 @@ Owned code is MIT licensed
 ([LICENSE](LICENSE)); extracted third-party material must retain its notices.
 No private records, credentials, private defaults or source repository history
 belong here. Daily tracking works without an agent session or a model API key.
-The code needs Python 3.12+; the contract checks alone run on 3.11+.
+Interpreter baselines are defined in [platform support](docs/platforms.md#source-development).

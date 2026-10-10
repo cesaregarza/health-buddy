@@ -24,7 +24,8 @@ or other servers. A plugin-directory release is not required or claimed.
 
 ## Private operator preparation
 
-Use Bash and native Linux. Select an independently verified, retained source
+Follow the [platform prerequisites](platforms.md#current-prerequisites).
+Select an independently verified, retained source
 bundle and a reachable persistent owner WORKSPACE outside the source tree.
 Health tools connect to the API over that workspace's managed socket, so Codex
 runs on the API host as the workspace's OS owner; native extension maintenance

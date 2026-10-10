@@ -33,11 +33,22 @@ from health_buddy.runtime.release import docker_command, selected_artifact
 
 GIB = 1024**3
 GUIDANCE = {
-    "unsupported_host": "Use native Linux amd64 or arm64; no emulation is admitted.",
-    "resources_unknown": "Inspect host CPU/memory before admitting installation.",
-    "resources_low": "Provide two CPUs and 2 GiB RAM for the service budget.",
-    "disk_low": "Provide 6 GiB staging/runtime space plus separate data capacity.",
-    "path_unavailable": "Select an existing native private directory, without links.",
+    "unsupported_host": (
+        "Use an admitted native Linux architecture from docs/platforms.md; "
+        "no emulation is admitted."
+    ),
+    "resources_unknown": (
+        "Inspect host CPU/memory against docs/platforms.md before installation."
+    ),
+    "resources_low": "Provide the CPU/memory minimums in docs/platforms.md.",
+    "disk_low": (
+        "Provide the workspace free-space minimum in docs/platforms.md "
+        "plus separate staging/runtime/data capacity."
+    ),
+    "path_unavailable": (
+        "Select an existing native private directory under docs/platforms.md's "
+        "path rules, without links."
+    ),
     "permissions_partial": "Inspect selected ownership/mode without recursive repair.",
     "target_overlaps_source": "Keep the owner workspace outside release source.",
     "existing_state_requires_review": (
@@ -49,9 +60,12 @@ GUIDANCE = {
     "docker_cli_unavailable": (
         "Set --docker from INSPECTED_NATIVE_DOCKER in env.sh to an inspected "
         "native executable, for example /usr/bin/docker (command -v docker). "
-        "A socket such as /var/run/docker.sock is not an executable."
+        "A socket such as /var/run/docker.sock is not an executable. "
+        "See docs/platforms.md for host admission."
     ),
-    "docker_socket_unavailable": "Inspect the local daemon/socket; do not auto-start.",
+    "docker_socket_unavailable": (
+        "Inspect the local daemon/socket under docs/platforms.md; do not auto-start."
+    ),
     "port_conflict": "Inspect the listener; never kill unknown services.",
 }
 
