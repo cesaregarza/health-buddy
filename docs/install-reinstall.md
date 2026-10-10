@@ -46,7 +46,9 @@ client config, skill directory and Python. Its existing explicit grant/egress
 flags remain required. The agent stage refuses any selection outside the rearm
 review. Existing lost-acknowledgement recovery remains available; ordinary retry
 never auto-rotates a missing credential. Fresh agent authority comes only from
-canonical `grants.create` under the retained owner.
+canonical `grants.create` under the retained owner. Removal deletes the skill
+directory when it is empty afterwards; owner files keep it, and the agent stage
+then refuses with `agent_skill_directory_unowned` until the owner moves it aside.
 
 This bounded source path is verified with synthetic host CLI responses and real
 local security/client files. It does not claim a Docker/Tailscale host, named model

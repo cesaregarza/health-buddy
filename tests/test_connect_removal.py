@@ -160,12 +160,15 @@ def test_owned_legacy_skill_stays_at_recorded_path_until_explicit_removal(
     assert all(path.read_bytes() == value for path, value in before.items())
     assert not discovered.exists()
     connect_agent.connect(config, legacy, client=client, remove=True)
-    assert not (legacy / ".health-buddy-install.json").exists()
+    assert [path.name for path in legacy.iterdir()] == ["owner-note.md"]
+    with pytest.raises(ServiceError, match="agent_skill_directory_unowned"):
+        fixture.setup(config, legacy, workspace, settings)
     fixture.setup(config, discovered, workspace, settings)
     assert (discovered / "SKILL.md").is_file()
     assert (discovered / ".health-buddy-install.json").is_file()
     assert (legacy / "owner-note.md").read_text() == "Retain this legacy note"
     connect_agent.connect(config, discovered, client=client, remove=True)
+    assert not discovered.exists()
     if client == "codex":
         assert config.read_bytes() == original_config
     else:

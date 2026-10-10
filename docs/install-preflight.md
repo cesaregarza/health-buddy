@@ -963,7 +963,9 @@ private journal's `agentSetup.binding.skill`; to change it, follow
 [owned removal and re-arm](install-reinstall.md) before reconnecting.
 Do not rewrite the journal or move/delete the ownership manifest. Setup and
 removal use one manifest and one removal intent at the recorded skill directory;
-unknown owner files survive removal.
+unknown owner files survive removal. Removal deletes that directory when it is
+empty afterwards; owner files keep it, and a later setup there refuses with
+`agent_skill_directory_unowned` until the owner moves it aside.
 
 Done: `agentGrantRetained: true` and `clientConfigurationPrepared: true`.
 Before journal progress, grant creation or managed-file writes, setup checks the

@@ -232,6 +232,9 @@ def finish_removal(
         fsync_path(skill)
     intent_path.unlink()
     fsync_path(skill)
+    if not any(skill.iterdir()):
+        skill.rmdir()
+        fsync_path(skill.parent)
 
 
 def connect(

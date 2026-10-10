@@ -195,7 +195,7 @@ def test_owned_removal_resumes_retaining_data_and_private_recovery(
         connection["client_config"].read_text()
         == 'model = "synthetic-kept"\n# owner comment\n'
     )
-    assert not (connection["skill_directory"] / "SKILL.md").exists()
+    assert not connection["skill_directory"].exists()
     summary = install_status.status(journal=selected["journal"])
     assert summary["removalLastCompleted"] and not summary["agentGrantRetained"]
     assert (
@@ -236,7 +236,7 @@ def test_removal_without_private_https_records_serve_not_applicable(
     assert removal["phase"] == "removed" and removal["serve"] == "not_applicable"
     assert "https" not in removal and "privateHttps" not in record
     assert state["calls"] == [["stop", "--time", "30", "a" * 64], ["rm", "a" * 64]]
-    assert not (connection["skill_directory"] / "SKILL.md").exists()
+    assert not connection["skill_directory"].exists()
     summary = install_status.status(journal=selected["journal"])
     assert summary["removalLastCompleted"] and not summary["agentGrantRetained"]
 
