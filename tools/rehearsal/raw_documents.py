@@ -228,7 +228,7 @@ def stdout_read(
         reasons.append("tool_result_error")
     if download.get("output_incomplete"):
         reasons.append("stdout_incomplete")
-        detail["stdoutTruncated"] = True
+        detail["stdoutIncomplete"] = True
     if (
         first is not None
         and download["result_position"] is not None

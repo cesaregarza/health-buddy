@@ -443,7 +443,8 @@ def test_run31_download_chain_recovers_only_after_complete_reads(tmp_path, scrip
 
 
 @pytest.mark.parametrize(
-    "directory", ["/tmp/hb-install-docs", "/home/owner/docs"]  # noqa: S108
+    "directory",
+    ["/tmp/hb-install-docs", "/home/owner/docs"],  # noqa: S108
 )
 @pytest.mark.parametrize("output", ["-o ", "--output ", "--output=", "-o"])
 @pytest.mark.parametrize("listing", [".", "absolute"])
@@ -897,17 +898,21 @@ def test_stdout_rejects_incomplete_or_unbound_evidence(tmp_path, failure):
         events.append(output)
     findings = evidence(tmp_path, events)
     assert "onboarding" in missing(findings)
-    onboarding = next(
-        item for item in findings if item.get("document") == "onboarding"
-    )
+    onboarding = next(item for item in findings if item.get("document") == "onboarding")
     attempts = onboarding.get("stdoutAttempts", [])
     if failure in {"pipe", "chained", "empty_output"}:
         assert attempts == []
         return
     assert len(attempts) == 1
     detail = attempts[0]
-    assert detail.get("stdoutTruncated") is (True if failure == "interrupted" else None)
-    if failure in {"truncated", "same_lines_changed", "two_missing_lfs", "wrong_digest"}:
+    assert detail.get("stdoutIncomplete", False) is (failure == "interrupted")
+    assert "stdoutTruncated" not in detail
+    if failure in {
+        "truncated",
+        "same_lines_changed",
+        "two_missing_lfs",
+        "wrong_digest",
+    }:
         assert "published_digest_mismatch" in detail["reasons"]
         assert detail["observedSha256"] == hashlib.sha256(body.encode()).hexdigest()
     else:
