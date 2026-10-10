@@ -15,10 +15,21 @@ DOCUMENT_DIRECTORIES = ("/tmp/", "/home/owner/")  # noqa: S108
 
 
 def local_path(value: str, cwd: str = "") -> str | None:
-    if not value or re.search(r"[$`~*?{}]", value):
+    if not value or re.search(r"[$`~*?{}\[\]]", value):
         return None
     path = posixpath.normpath(posixpath.join(cwd, value))
     return path if path.startswith("/") and path != "/dev/null" else None
+
+
+def document_path(value: str, cwd: str = "") -> str | None:
+    """Resolve literal paths only within the rehearsal's document roots."""
+    path = local_path(value, cwd)
+    if path and any(
+        path == root.rstrip("/") or path.startswith(root)
+        for root in DOCUMENT_DIRECTORIES
+    ):
+        return path
+    return None
 
 
 def curl_target(
@@ -49,7 +60,7 @@ def curl_target(
             return None
         index += 1
     parsed = urlsplit(url)
-    path = "" if stdout and output is None else local_path(output or "", cwd)
+    path = "" if stdout and output is None else document_path(output or "", cwd)
     if (
         path is not None
         and parsed.hostname
@@ -95,7 +106,7 @@ def raw_transfers(call: dict, command: str) -> list[tuple[str, str, bool]] | Non
                 return None
             transfers.append(target)
         elif words[0] == "cd" and len(words) == 2:
-            cwd = local_path(words[1], cwd) or ""
+            cwd = document_path(words[1], cwd) or ""
             if not cwd:
                 return None
         elif words[0] == "mkdir" and words[1:-1] in (
@@ -104,13 +115,18 @@ def raw_transfers(call: dict, command: str) -> list[tuple[str, str, bool]] | Non
             ["-m", "700", "-p"],
             ["-p", "-m", "700"],
         ):
-            if not (local_path(words[-1], cwd) or "").startswith(DOCUMENT_DIRECTORIES):
+            if not document_path(words[-1], cwd):
                 return None
         elif words[:2] == ["wc", "-l"] and len(words) > 2:
-            if not all(local_path(word, cwd) for word in words[2:]):
+            if not all(document_path(word, cwd) for word in words[2:]):
                 return None
-        elif words[0] == "ls" and all(re.fullmatch(r"-[al]+", w) for w in words[1:]):
-            continue
+        elif words[0] == "ls":
+            arguments = words[1:]
+            if arguments and not arguments[-1].startswith("-"):
+                if not document_path(arguments.pop(), cwd):
+                    return None
+            if not all(re.fullmatch(r"-[al]+", word) for word in arguments):
+                return None
         else:
             return None
     return transfers
@@ -198,12 +214,64 @@ def linked_reference(content: str, base: str, name: str) -> str | None:
     return next(iter(urls)) if len(urls) == 1 else None
 
 
+def stdout_read(
+    download: dict, reference: dict | None, first: tuple | None, published: dict
+) -> tuple[dict | None, dict | None]:
+    """Explain rejected stdout without guessing truncation or publication bytes."""
+    detail = {"ordinal": download["ordinal"], "reasons": []}
+    reasons = detail["reasons"]
+    if not download["fail_on_http_error"]:
+        reasons.append("missing_fail_on_http_error")
+    if download["result_position"] is None:
+        reasons.append("tool_result_missing")
+    if download["is_error"]:
+        reasons.append("tool_result_error")
+    if download.get("output_incomplete"):
+        reasons.append("stdout_incomplete")
+        detail["stdoutIncomplete"] = True
+    if (
+        first is not None
+        and download["result_position"] is not None
+        and download["result_position"] >= first
+    ):
+        reasons.append("after_first_install_mutation")
+    body, witness = download["result"], None
+    expected = published.get(download["url"])
+    if download["result_position"] is not None:
+        for content in (body, body + "\n"):
+            if hashlib.sha256(content.encode("utf-8")).hexdigest() == expected:
+                witness = "publishedSha256"
+                break
+            if reference and content == reference["content"]:
+                witness = "completeRead"
+                break
+        if witness is None and (expected is not None or reference):
+            reasons.append(
+                "published_digest_mismatch" if expected else "complete_read_mismatch"
+            )
+            detail["observedSha256"] = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    if expected is None and reference is None:
+        reasons.append("missing_independent_completeness_witness")
+    if reasons:
+        return None, detail
+    return {
+        "url": download["url"],
+        "path": "stdout",
+        "downloadOrdinal": download["ordinal"],
+        "readOrdinals": [download["ordinal"]],
+        "totalLines": len(content.split("\n")),
+        "content": content,
+        "completenessWitness": witness,
+        "terminalLfRestored": content != body,
+    }, None
+
+
 def observed_reads(
     calls: list[dict],
     commands: list[str],
     first: tuple | None,
     published: dict[str, str],
-) -> dict:
+) -> tuple[dict, dict]:
     downloads, barriers, writes = [], [], []
     for call, command in zip(calls, commands, strict=True):
         transfers = raw_transfers(call, command)
@@ -250,42 +318,18 @@ def observed_reads(
         read = complete_read(download, calls, end)
         if read is not None:
             observed[download["url"]] = read
+    stdout_failures = {}
     for download in downloads:
-        # Printed bytes need independent, URL-bound completeness evidence.
-        reference = observed.get(download["url"])
-        if (
-            download["path"]
-            or download["is_error"]
-            or download.get("output_incomplete")
-            or download["result_position"] is None
-            or not download["fail_on_http_error"]
-            or (first is not None and download["result_position"] >= first)
-        ):
+        if download["path"]:
             continue
-        body = download["result"]
-        witness = None
-        for content in (body, body + "\n"):
-            if hashlib.sha256(content.encode("utf-8")).hexdigest() == published.get(
-                download["url"]
-            ):
-                witness = "publishedSha256"
-                break
-            if reference and content == reference["content"]:
-                witness = "completeRead"
-                break
-        if witness is None:
-            continue
-        observed[download["url"]] = {
-            "url": download["url"],
-            "path": "stdout",
-            "downloadOrdinal": download["ordinal"],
-            "readOrdinals": [download["ordinal"]],
-            "totalLines": len(content.split("\n")),
-            "content": content,
-            "completenessWitness": witness,
-            "terminalLfRestored": content != body,
-        }
-    return observed
+        read, failure = stdout_read(
+            download, observed.get(download["url"]), first, published
+        )
+        if read is not None:
+            observed[download["url"]] = read
+        elif failure is not None:
+            stdout_failures.setdefault(download["url"], []).append(failure)
+    return observed, stdout_failures
 
 
 def document_findings(
@@ -295,7 +339,7 @@ def document_findings(
     first: tuple | None,
     published: dict[str, str],
 ) -> list[dict]:
-    observed = observed_reads(calls, commands, first, published)
+    observed, stdout_failures = observed_reads(calls, commands, first, published)
     # A root HTML page and its same-site /onboarding.md are representations of
     # one document. A selected versioned Markdown URL must remain that exact URL.
     raw_url = (
@@ -331,6 +375,11 @@ def document_findings(
                     "url": url,
                     "beforeFirstInstallMutation": True,
                     "rawReviewRequired": True,
+                    **(
+                        {"stdoutAttempts": stdout_failures[url]}
+                        if url in stdout_failures
+                        else {}
+                    ),
                 }
             )
     return findings
