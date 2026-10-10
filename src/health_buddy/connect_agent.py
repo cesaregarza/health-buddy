@@ -606,7 +606,9 @@ def _skill_files(source: Path, workspace: Path) -> dict[str, bytes]:
         + b"\n"
     )
     return {
-        name: metadata if name == "WORKSPACE.json" else bundle.joinpath(name).read_bytes()
+        name: metadata
+        if name == "WORKSPACE.json"
+        else bundle.joinpath(name).read_bytes()
         for name in MANAGED
     }
 
