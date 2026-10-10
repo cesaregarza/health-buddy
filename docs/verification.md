@@ -20,6 +20,9 @@ uses `sudo` for three install stages.
 `make test-all` runs both tiers at once. Each target uses `--dist loadfile`,
 which keeps a module's tests on one worker, so a module-scoped server starts
 once.
+Before publishing a PR or moving its Linear ticket to `In Review`, follow the
+[final-head check rule](../AGENTS.md#checks-and-publication), including the
+full-suite command and pass count in the PR body.
 
 The owner-host tests in `tests/test_owner_host.py` use the
 [owner-host prerequisites](platforms.md#current-prerequisites) under umask 002.
@@ -43,7 +46,7 @@ removes only that empty directory afterward:
   HEALTH_BUDDY_TEST_SOCKET_ROOT="$(mktemp -d /tmp/hb-uds.XXXXXXXX)" || exit 1
   export HEALTH_BUDDY_TEST_SOCKET_ROOT
   trap 'rmdir -- "$HEALTH_BUDDY_TEST_SOCKET_ROOT"' EXIT
-  make PYTHON="$PWD/.venv/bin/python" contracts test dashboard-test lint typecheck
+  make PYTHON="$PWD/.venv/bin/python" contracts test-all dashboard-test lint typecheck
 )
 ```
 

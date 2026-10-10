@@ -31,7 +31,7 @@ private directory as [docs/verification.md](docs/verification.md) shows, then
 run from the repository root:
 
 ```sh
-make PYTHON="$PWD/.venv/bin/python" contracts test dashboard-test lint typecheck
+make PYTHON="$PWD/.venv/bin/python" contracts test-all dashboard-test lint typecheck
 ```
 
 `PYTHON` must be an absolute path because `dashboard-test` changes directory.
@@ -39,6 +39,25 @@ The `contracts` target validates contracts and example state transitions, not a
 production HTTP server; implementation work adds integration,
 persistence/crash, concurrency, authorization, UI and restore tests in its
 owning ticket.
+
+Before publishing a pull request or moving its Linear ticket to `In Review`,
+the complete pytest suite (both tiers, without marker filtering or focused
+file/node selections), `make lint` and `make typecheck` must pass on the
+final head being published. The Makefile targets define the commands and their
+scope: use `test-all` for the full suite. Focused selections are for iteration
+only and do not satisfy this gate. The PR body must state the exact full-suite
+command, tested commit and pass count, with any skips or environment limitations.
+Do not reformat files outside the change; formatter enforcement is tracked
+separately in CES-1221.
+
+Changes under `src/health_buddy/install/` or to
+`src/health_buddy/connect_agent.py` must also run
+`tests/test_owner_host.py` where the
+[documented owner-host prerequisites](docs/verification.md) are supported.
+
+This rule addresses PR83/CES-1177, where a 62-test selection missed two re-arm
+failures, and PR85/CES-1178, where a focused run missed
+`tests/test_agent_python.py`.
 
 Pushes, pull requests and merges wait for the coordinator's review and the
 operator's approval. GitHub Actions stay manual during the Actions-minutes
