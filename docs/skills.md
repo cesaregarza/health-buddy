@@ -34,6 +34,34 @@ be read; profile context is not permission to read restricted profile fields.
 Missing, disabled, restricted, unavailable, stale and truncated data stay
 distinct. This playbook never changes the policy or treats missing data as zero.
 
+## Playbook contracts and policy changes
+
+Each playbook's `Grant:` JSON header names its minimum `grants`, write
+`sourceIds`, `readSources` and `readKinds`. Status needs `records:read`,
+manual read visibility and `body-mass`; its empty `sourceIds` requires no
+write source. The stage 7 example already supplies those lines, so Status
+needs no policy addition. Its other selected kinds are `water-intake`,
+`workout-session`, `workout-set`, `cardio-segment`, `plan`, `intake`,
+`blood-pressure` and `circumference`; they do not turn Status into a read of
+every kind.
+
+Tests validate every fenced `json health-buddy:<tool>` request with the actual
+MCP schema, including nested workout bodies and each logger kind's fields.
+They also compare every Grant header with the stage 7 example. A playbook that
+requires more must include one `Add to policy:` line containing a JSON object
+with exactly its missing scope entries, for example
+`Add to policy: {"grants":["providers:invoke"]}` when that grant is required.
+This documents an owner-reviewed prerequisite; running a playbook never
+changes an installed grant. Malformed headers, examples and exceptions fail
+the contract tests.
+
+Read visibility `null` means unrestricted, while `[]` means no visibility.
+A finite policy cannot satisfy a requirement for unrestricted reads; an
+explicit `null` addition would require that broader owner authorization.
+`grants` and write `sourceIds` always use explicit lists. The example's
+`readFields: null` allows all fields within its selected sources and kinds;
+a narrower installed field policy can still restrict a playbook's result.
+
 ## Owned updates and removal
 
 The router and `playbooks/` live together in the selected directory with

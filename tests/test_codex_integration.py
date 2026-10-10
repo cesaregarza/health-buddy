@@ -265,7 +265,13 @@ def test_interpreter_resolving_under_mnt_is_refused(tmp_path, monkeypatch):
     mounted = Path("/mnt") / "synthetic-drive" / "bin" / "python3.12"
     python = tmp_path / "venv" / "bin" / "python"
     python.parent.mkdir(parents=True)
-    python.symlink_to(mounted)
+    realpath = os.path.realpath
+
+    def resolved_python(path, **kwargs):
+        return str(mounted) if path == python else realpath(path, **kwargs)
+
+    # Simulate resolution without creating, following or stat'ing a mounted link.
+    monkeypatch.setattr(os.path, "realpath", resolved_python)
     is_file, access = Path.is_file, os.access
     # Report the mounted file as runnable so only the mount rule can refuse it.
     monkeypatch.setattr(Path, "is_file", lambda path: path == mounted or is_file(path))
