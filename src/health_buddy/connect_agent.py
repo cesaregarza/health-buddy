@@ -36,6 +36,13 @@ PYTHON_NAMES = frozenset({"python", "python3", "python3.12"})
 # Raspberry Pi OS Python is 3.13. Only the configured name stays fixed.
 RESOLVED_PYTHON_NAME = re.compile(r"python(3(\.[0-9]+)?)?")
 DEPENDENCY_TIMEOUT_SECONDS = 10
+SKILL_TARGET_RECOVERY = (
+    "Keep the existing skill directory for owner inspection; setup does not "
+    "adopt even an empty unowned target. Move unrelated files only after owner "
+    "review. For an owned legacy installation, retain its original skill path "
+    "and use explicit removal/reconnection before selecting a discovery path; "
+    "never delete its manifest or edit the installation journal to force setup."
+)
 
 
 class McpReadinessError(ServiceError):
@@ -225,6 +232,9 @@ def finish_removal(
         fsync_path(skill)
     intent_path.unlink()
     fsync_path(skill)
+    if not any(skill.iterdir()):
+        skill.rmdir()
+        fsync_path(skill.parent)
 
 
 def connect(
@@ -242,6 +252,8 @@ def connect(
 ) -> None:
     """Refuse unowned edits; preserve unrelated Codex bytes/Claude JSON values."""
     validate_targets(config, skill, client)
+    if not remove:
+        _refuse_unowned_skill_directory(skill)
     lock = config.parent / ".health-buddy-connect.lock"
     native_path(lock)
     with exclusive(lock):
@@ -274,6 +286,8 @@ def connect(
                 check_only=check_only,
             )
             return
+        if not remove:
+            _refuse_unowned_skill_directory(skill)
         _validate_owned_files(skill, old, previous)
         if check_only:
             return
@@ -355,6 +369,15 @@ def validate_targets(config: Path, skill: Path, client: str) -> None:
         private_directory(path.parent)
     if skill.name != "health-buddy":
         raise ServiceError(422, "invalid_codex_skill_directory")
+
+
+def _refuse_unowned_skill_directory(skill: Path) -> None:
+    """An existing directory is owned only through its retained manifest."""
+    if skill.exists():
+        if optional(skill / ".health-buddy-remove.json"):
+            raise ServiceError(409, "codex_removal_requires_owner_lifecycle_review")
+        if not optional(skill / ".health-buddy-install.json"):
+            raise ServiceError(409, "agent_skill_directory_unowned")
 
 
 def _codex_sections(raw: bytes) -> tuple[str, str, str]:
@@ -559,7 +582,24 @@ def main(argv: list[str] | None = None) -> int:
     except McpReadinessError as error:
         print(json.dumps(error.summary(), sort_keys=True))
         return 2
-    except (ServiceError, OSError, ValueError, TypeError, KeyError):
+    except ServiceError as error:
+        if error.code == "agent_skill_directory_unowned":
+            print(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "code": error.code,
+                        "connected": False,
+                        "recovery": SKILL_TARGET_RECOVERY,
+                    }
+                )
+            )
+        else:
+            print(
+                "Agent setup refused; inspect private paths and managed-file ownership."
+            )
+        return 2
+    except (OSError, ValueError, TypeError, KeyError):
         print("Agent setup refused; inspect private paths and managed-file ownership.")
         return 2
     print("Agent integration updated. Restart the client; inspect /mcp and /skills.")

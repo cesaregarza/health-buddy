@@ -52,16 +52,20 @@ def done(owner: Owner, name: str, key: str, *arguments: str) -> dict[str, Any]:
 def agent_arguments(owner: Owner, client: str) -> list[str]:
     """The guide's supported handoff arguments for the selected client."""
     config = owner.client / "config.toml"
+    skill_root = owner.home / ".agents"
     if client == "claude":
         (owner.client / "claude").mkdir(mode=0o700)
         config = owner.client / "claude/.mcp.json"
+        skill_root = config.parent / ".claude"
+    skill_root.mkdir(mode=0o700)
+    (skill_root / "skills").mkdir(mode=0o700)
     return [
         *("--policy", str(owner.client / "policy.json")),
         *("--agent-token", str(owner.client / "agent-token")),
         *("--settings", str(owner.client / "adapter.json")),
         *("--retry-root", str(owner.client / "retries")),
         *("--client", client, "--client-config", str(config)),
-        *("--skill-directory", str(owner.client / "skills/health-buddy")),
+        *("--skill-directory", str(skill_root / "skills/health-buddy")),
         *("--python", str(owner.python), "--confirm-grant", "--acknowledge-ai-egress"),
     ]
 
@@ -361,6 +365,13 @@ def test_documented_stage_blocks_run_as_written(tmp_path: Path, client: str) -> 
     assert {key: status[key] for key in COMPLETION} == dict.fromkeys(COMPLETION, True)
     config = owner.client / ("config.toml" if client == "codex" else "claude/.mcp.json")
     assert config.is_file()
+    skill = (
+        owner.home / ".agents/skills/health-buddy"
+        if client == "codex"
+        else owner.client / "claude/.claude/skills/health-buddy"
+    )
+    assert (skill / "SKILL.md").is_file()
+    assert (skill / ".health-buddy-install.json").is_file()
     retained_token = (owner.client / "agent-token").read_bytes()
     repeated_agent, repeated_status = printed(owner.run(setup))
     assert repeated_agent["agentGrantRetained"]

@@ -79,9 +79,11 @@ If this table still shows placeholders, stop and ask the owner for the values.
 ## Expected footprint
 
 The documented setup runs as the ordinary owner. Its managed bundle, Python
-environment, workspace, installer journal and client setup live under
-`$HOME/health-buddy`; the product's installer and application source are readable
-Python in the bundle. The guide also uses Git and standard shell/download tools.
+environment, workspace and installer journal live under `$HOME/health-buddy`.
+[Stage 7](install-preflight.md#connect-the-owners-coding-agent-and-view-status)
+names the selected client's config and skill locations. The product's installer
+and application source are readable Python in the bundle. The guide also uses
+Git and standard shell/download tools.
 Follow the [current prerequisites and preparation boundary](platforms.md#current-prerequisites)
 before starting these stages.
 Downloads include the pinned bundle, pinned Python wheels and release archives,

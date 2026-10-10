@@ -36,8 +36,10 @@ Create private setup/skill-parent directories with `umask 077`; each parent must
 already exist as an owned mode-0700 native directory. The helper never adopts
 symlinks or broadens permissions. SOURCE, PYTHON, CONFIG and SKILL_DIRECTORY
 are explicit operator-selected paths, not secret values. CONFIG is the desired
-Codex host's config.toml; SKILL_DIRECTORY ends in `.agents/skills/health-buddy`
-for user discovery (or repository `.agents/skills/health-buddy` for repo scope).
+Codex host's config.toml. For this installation, select
+`SKILL_DIRECTORY="$HOME/.agents/skills/health-buddy"` for user discovery.
+Create only its private `$HOME/.agents` and `$HOME/.agents/skills` parents;
+leave `health-buddy` absent for the helper to create.
 Do not run these commands against the user's actual settings during project
 verification; use isolated synthetic directories instead, as the tests do.
 
@@ -128,6 +130,16 @@ To remove this integration, stop its client session, then:
 ```sh
 "$PYTHON" -m health_buddy.connect_agent codex --config-file "$CONFIG" --skill-directory "$SKILL_DIRECTORY" --remove
 ```
+
+An existing unowned skill directory, even an empty one, refuses setup with
+`agent_skill_directory_unowned` and recovery guidance. Inspect it before moving
+unrelated files; never overwrite another skill. An owned legacy installation
+keeps its recorded directory, including `PRIVATE_CLIENT/skills/health-buddy`.
+Use that original `SKILL_DIRECTORY` for repeat setup or removal. For a guided
+installation, find the original path in the private journal's
+`agentSetup.binding.skill` and follow [owned removal and re-arm](install-reinstall.md)
+before reconnecting at the discovery path. Do not edit the journal or move its
+manifest. The same one manifest and removal intent own the selected directory.
 
 Restart Codex afterward. Removal retains credentials, client retry state, health
 records, unrelated configuration/plugins and unknown skill files. Revoke the

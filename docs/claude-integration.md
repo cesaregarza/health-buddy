@@ -21,9 +21,9 @@ project `.mcp.json` entries under `mcpServers` with `type: "stdio"`, `command`,
 `args` and `env`. Project servers require interactive trust/approval. The helper
 uses an explicitly chosen private launcher project, not user `~/.claude.json`.
 The [official skills documentation](https://code.claude.com/docs/en/skills)
-supports personal `~/.claude/skills/health-buddy/SKILL.md` or project
-`.claude/skills/health-buddy/SKILL.md`; invoke `/health-buddy`. This native setup
-does not qualify Cowork/cloud sessions, which do not read local personal skills.
+supports project `.claude/skills/health-buddy/SKILL.md`; this setup places it
+under the same private launcher as `.mcp.json`. Invoke `/health-buddy`. This native
+setup does not qualify Cowork/cloud sessions, which do not read local personal skills.
 
 ## Private setup and lifecycle
 
@@ -41,9 +41,12 @@ Select retained matching SOURCE, its pinned Python 3.12 PYTHON, reachable privat
 persistent WORKSPACE and mode-0600 PRIVATE_SETUP/adapter.json. The canonical
 [locked source setup](agent-guide.md#first-runnable-change-weekly-mass-display)
 already provides the exact dependency commands. Create a private mode-0700 native
-CLAUDE_PROJECT launcher and the selected skill parent first (`umask 077`).
-CONFIG must be `$CLAUDE_PROJECT/.mcp.json`; SKILL_DIRECTORY must end in
-`health-buddy`. Personal discovery normally uses `$HOME/.claude/skills/health-buddy`.
+CLAUDE_PROJECT launcher (`$PRIVATE_CLIENT/claude` in stage 7), then its
+`.claude` and `.claude/skills` parents first (`umask 077`).
+CONFIG must be `$CLAUDE_PROJECT/.mcp.json`; select
+`SKILL_DIRECTORY="$CLAUDE_PROJECT/.claude/skills/health-buddy"`. Leave that final
+directory absent for the helper to create. Start Claude from CLAUDE_PROJECT so
+the project skill and MCP config are discovered together.
 Use isolated synthetic directories for verification, never the owner's actual
 settings. The helper refuses native paths containing `${` because Claude would
 expand them and change the selected command/environment. PYTHON follows the
@@ -94,6 +97,16 @@ or client update is performed by connect-agent. Removal after stopping the clien
 ```sh
 "$PYTHON" -m health_buddy.connect_agent claude --config-file "$CLAUDE_PROJECT/.mcp.json" --skill-directory "$SKILL_DIRECTORY" --remove
 ```
+
+Setup refuses any pre-existing unowned skill directory, including an empty
+one, with `agent_skill_directory_unowned` and recovery guidance. Owned legacy
+directories remain supported at their original path for repeat setup and removal.
+To change locations, use the original `SKILL_DIRECTORY` for deliberate removal
+before reconnecting; guided installations retain that path in
+`agentSetup.binding.skill` in the private journal and use
+[owned removal and re-arm](install-reinstall.md). Never move/delete the manifest
+or rewrite the journal to adopt a different target. There is still one ownership
+manifest and one removal intent for the selected directory.
 
 Restart afterward. This retains unrelated servers/plugins, credentials, retry
 state, canonical records and owner notes. Revoke the grant separately if intended.
