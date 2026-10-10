@@ -128,7 +128,8 @@ def test_lost_dependencies_preserve_resumable_handoff_and_allow_removal(
     arguments["python"] = isolated_python
     install_agent.setup(**arguments)
     paths = [selected["journal"], arguments["agent_token"], arguments["settings"]]
-    paths += [arguments["client_config"], *arguments["skill_directory"].iterdir()]
+    paths += [arguments["client_config"]]
+    paths += sorted(p for p in arguments["skill_directory"].rglob("*") if p.is_file())
     before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
     (site_packages(isolated_python) / "admitted.pth").unlink()
     with pytest.raises(connect_agent.McpReadinessError):
