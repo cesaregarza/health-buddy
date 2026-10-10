@@ -14,7 +14,15 @@ from tests.test_mcp_settings import settings_file
 
 @pytest.mark.parametrize("client", ["codex", "claude"])
 @pytest.mark.parametrize(
-    "point", ["config", "SKILL.md", "WORKSPACE.json", ".health-buddy-install.json"]
+    "point",
+    [
+        "config",
+        "SKILL.md",
+        "WORKSPACE.json",
+        "playbooks/status.md",
+        "playbooks",
+        ".health-buddy-install.json",
+    ],
 )
 def test_internal_removal_interruptions_resume_exact_owned_files(
     tmp_path, monkeypatch, client, point
@@ -28,6 +36,7 @@ def test_internal_removal_interruptions_resume_exact_owned_files(
     note.write_text("Synthetic retained owner file")
     original_atomic = connect_agent.atomic_bytes
     original_unlink = Path.unlink
+    original_rmdir = Path.rmdir
 
     def publish(path, payload):
         original_atomic(path, payload)
@@ -36,11 +45,17 @@ def test_internal_removal_interruptions_resume_exact_owned_files(
 
     def unlink(path, *args, **kwargs):
         original_unlink(path, *args, **kwargs)
-        if point == path.name and path.parent == skill:
+        if path.is_relative_to(skill) and point == path.relative_to(skill).as_posix():
             raise OSError("synthetic interruption after owned unlink")
+
+    def rmdir(path, *args, **kwargs):
+        original_rmdir(path, *args, **kwargs)
+        if point == "playbooks" and path == skill / "playbooks":
+            raise OSError("synthetic interruption after owned directory removal")
 
     monkeypatch.setattr(connect_agent, "atomic_bytes", publish)
     monkeypatch.setattr(Path, "unlink", unlink)
+    monkeypatch.setattr(Path, "rmdir", rmdir)
     with pytest.raises(OSError):
         connect_agent.connect(config, skill, client=client, remove=True)
     intent = (skill / ".health-buddy-remove.json").read_bytes()
@@ -51,6 +66,7 @@ def test_internal_removal_interruptions_resume_exact_owned_files(
     assert (skill / ".health-buddy-remove.json").read_bytes() == intent
     monkeypatch.setattr(connect_agent, "atomic_bytes", original_atomic)
     monkeypatch.setattr(Path, "unlink", original_unlink)
+    monkeypatch.setattr(Path, "rmdir", original_rmdir)
     connect_agent.connect(config, skill, client=client, remove=True)
     connect_agent.connect(config, skill, client=client, remove=True)
     if client == "codex":
@@ -70,8 +86,9 @@ def test_internal_removal_interruptions_resume_exact_owned_files(
 
 
 @pytest.mark.parametrize("client", ["codex", "claude"])
+@pytest.mark.parametrize("name", ["WORKSPACE.json", "playbooks/status.md"])
 def test_present_owned_edit_during_removal_intent_refuses_without_overwrite(
-    tmp_path, monkeypatch, client
+    tmp_path, monkeypatch, client, name
 ):
     fixture = codex if client == "codex" else claude
     config, skill, workspace = fixture.targets(tmp_path)
@@ -88,7 +105,7 @@ def test_present_owned_edit_during_removal_intent_refuses_without_overwrite(
     with pytest.raises(OSError):
         connect_agent.connect(config, skill, client=client, remove=True)
     monkeypatch.setattr(connect_agent, "atomic_bytes", original)
-    path = skill / "WORKSPACE.json"
+    path = skill / name
     path.write_text("Synthetic foreign edited file")
     before = {
         target: target.read_bytes()
@@ -173,3 +190,145 @@ def test_owned_legacy_skill_stays_at_recorded_path_until_explicit_removal(
         assert config.read_bytes() == original_config
     else:
         assert json.loads(config.read_bytes()) == json.loads(original_config)
+
+
+def legacy_installation(tmp_path, monkeypatch, client):
+    """Produce the original two-file ownership record through the real writer."""
+    fixture = codex if client == "codex" else claude
+    config, skill, workspace = fixture.targets(tmp_path)
+    settings, _unused = settings_file(tmp_path)
+    with monkeypatch.context() as older:
+        older.setattr(connect_agent, "MANAGED", connect_agent.BASE_MANAGED)
+        fixture.setup(config, skill, workspace, settings)
+    manifest = json.loads((skill / ".health-buddy-install.json").read_bytes())
+    assert set(manifest["files"]) == set(connect_agent.BASE_MANAGED)
+    assert not (skill / "playbooks").exists()
+    return fixture, config, skill, workspace, settings
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+def test_two_file_owned_installation_adds_playbook_without_claiming_owner_files(
+    tmp_path, monkeypatch, client
+):
+    fixture, config, skill, workspace, settings = legacy_installation(
+        tmp_path, monkeypatch, client
+    )
+    note = skill / "owner-note.md"
+    note.write_text("Keep this pre-upgrade owner note")
+    fixture.setup(config, skill, workspace, settings)
+    manifest = json.loads((skill / ".health-buddy-install.json").read_bytes())
+    assert set(manifest["files"]) == set(connect_agent.MANAGED)
+    assert (skill / "playbooks/status.md").is_file()
+    fixture.setup(config, skill, workspace, settings)
+    connect_agent.connect(config, skill, client=client, remove=True)
+    assert [path.name for path in skill.iterdir()] == ["owner-note.md"]
+    assert note.read_text() == "Keep this pre-upgrade owner note"
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_two_file_removal_preserves_unowned_playbooks_and_resumes_old_intent(
+    tmp_path, monkeypatch, client, interrupted
+):
+    _fixture, config, skill, _workspace, _settings = legacy_installation(
+        tmp_path, monkeypatch, client
+    )
+    playbooks = skill / "playbooks"
+    playbooks.mkdir(mode=0o700)
+    unowned = playbooks / "status.md"
+    unowned.write_text("This pre-existing playbook belongs to the owner")
+
+    def interrupted_finish(*args, **kwargs):
+        raise OSError("synthetic interruption after legacy intent publication")
+
+    if interrupted:
+        with monkeypatch.context() as crash:
+            crash.setattr(connect_agent, "finish_removal", interrupted_finish)
+            with pytest.raises(OSError):
+                connect_agent.connect(config, skill, client=client, remove=True)
+        intent = json.loads((skill / ".health-buddy-remove.json").read_bytes())
+        assert set(intent["files"]) == set(connect_agent.BASE_MANAGED)
+        connect_agent.connect(
+            config, skill, client=client, remove=True, check_only=True
+        )
+    connect_agent.connect(config, skill, client=client, remove=True)
+    connect_agent.connect(config, skill, client=client, remove=True)
+    assert {path.name for path in skill.iterdir()} == {"playbooks"}
+    assert unowned.read_text() == "This pre-existing playbook belongs to the owner"
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+@pytest.mark.parametrize("existing", ["empty-directory", "file", "symlink"])
+def test_owned_upgrade_refuses_unowned_playbook_paths_without_mutation(
+    tmp_path, monkeypatch, client, existing
+):
+    fixture, config, skill, workspace, settings = legacy_installation(
+        tmp_path, monkeypatch, client
+    )
+    playbooks = skill / "playbooks"
+    foreign = tmp_path / "owner-playbooks"
+    foreign.mkdir(mode=0o700)
+    sentinel = foreign / "status.md"
+    sentinel.write_text("Unrelated owner playbook")
+    if existing == "symlink":
+        playbooks.symlink_to(foreign, target_is_directory=True)
+    else:
+        playbooks.mkdir(mode=0o700)
+        if existing == "file":
+            (playbooks / "status.md").write_text("Do not adopt this file")
+    before = {
+        path: path.read_bytes()
+        for path in (
+            config,
+            skill / "SKILL.md",
+            skill / "WORKSPACE.json",
+            skill / ".health-buddy-install.json",
+            sentinel,
+        )
+    }
+    with pytest.raises(ServiceError):
+        fixture.setup(config, skill, workspace, settings)
+    assert all(path.read_bytes() == value for path, value in before.items())
+    if existing == "file":
+        assert (playbooks / "status.md").read_text() == "Do not adopt this file"
+    elif existing == "empty-directory":
+        assert not list(playbooks.iterdir())
+    else:
+        assert playbooks.is_symlink()
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+@pytest.mark.parametrize("record", ["manifest", "intent"])
+def test_unknown_owned_path_is_refused_before_any_removal(
+    tmp_path, monkeypatch, client, record
+):
+    fixture = codex if client == "codex" else claude
+    config, skill, workspace = fixture.targets(tmp_path)
+    settings, _unused = settings_file(tmp_path)
+    fixture.setup(config, skill, workspace, settings)
+    foreign = skill.parent / "owner-file.md"
+    foreign.write_text("An ownership record cannot claim this file")
+
+    def interrupted_finish(*args, **kwargs):
+        raise OSError("synthetic interruption after intent publication")
+
+    path = skill / ".health-buddy-install.json"
+    if record == "intent":
+        with monkeypatch.context() as crash:
+            crash.setattr(connect_agent, "finish_removal", interrupted_finish)
+            with pytest.raises(OSError):
+                connect_agent.connect(config, skill, client=client, remove=True)
+        path = skill / ".health-buddy-remove.json"
+    document = json.loads(path.read_bytes())
+    document["files"]["../owner-file.md"] = connect_agent.checksum(foreign.read_bytes())
+    path.write_text(json.dumps(document))
+    before = {
+        target: target.read_bytes()
+        for target in (config, path, foreign, skill / "playbooks/status.md")
+    }
+    for check_only in (True, False):
+        with pytest.raises(ServiceError):
+            connect_agent.connect(
+                config, skill, client=client, remove=True, check_only=check_only
+            )
+    assert all(target.read_bytes() == value for target, value in before.items())

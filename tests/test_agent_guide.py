@@ -18,6 +18,7 @@ ENTRYPOINTS = (
     "docs/agent-guide.md",
     "docs/codex-integration.md",
     "docs/claude-integration.md",
+    "docs/skills.md",
     "docs/onboarding.md",
 )
 GUIDE = ROOT / "docs/install-preflight.md"

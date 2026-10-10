@@ -6,6 +6,9 @@ canonical MCP tools, receiver/revision checks, private retry state and
 are integration evidence; named-client discovery, workflows and cross-client
 upgrade qualification require separate live evidence.
 
+See [the skill and playbooks](skills.md) for invocation, supported requests,
+required read grants and owned updates/removal.
+
 Everyday use is supported with Haiku-class agents, with all three successful MCP reads required by the [independent observer gate](verification.md#6-check-the-fresh-client-and-observer-calls).
 
 | Component | Exact evidence |
@@ -64,8 +67,8 @@ export PYTHONPATH="$SOURCE/src"
 
 The installed matching package also exposes `health-buddy-connect-agent`.
 Repeating setup is idempotent; updated source/settings/workspace replaces only
-its owned server entry, SKILL.md and WORKSPACE.json. JSON formatting is rewritten;
-unrelated parsed server/config values survive. Unrelated settings/plugins files
+its owned server entry, router, playbooks and WORKSPACE.json. JSON formatting
+is rewritten; unrelated parsed server/config values survive. Unrelated settings/plugins files
 are not read or modified. Duplicate JSON keys, an unowned same-name entry,
 local edits, insecure files or interrupted multi-file setup refuse overwrite.
 The private ownership manifest binds the entire owned entry and skill files;

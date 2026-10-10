@@ -30,7 +30,8 @@ INTEGRATION_VERSION = "1.0.0"
 PACKAGE_VERSION = "0.1.0.dev0"
 BEGIN = "# BEGIN health-buddy managed Codex integration\n"
 END = "# END health-buddy managed Codex integration\n"
-MANAGED = ("SKILL.md", "WORKSPACE.json")
+BASE_MANAGED = ("SKILL.md", "WORKSPACE.json")
+MANAGED = (*BASE_MANAGED, "playbooks/status.md")
 PYTHON_NAMES = frozenset({"python", "python3", "python3.12"})
 # A venv resolves to its base interpreter, which can be any python3.N: the
 # Raspberry Pi OS Python is 3.13. Only the configured name stays fixed.
@@ -182,12 +183,13 @@ def finish_removal(
     manifest = skill / ".health-buddy-install.json"
     intent_path = skill / ".health-buddy-remove.json"
     hashes = intent.get("files")
+    names = _managed_names(hashes)
     if (
         intent.get("schemaVersion") != 1
         or intent.get("config") != str(config)
         or intent.get("client") != client
         or not isinstance(hashes, dict)
-        or set(hashes) != set(MANAGED)
+        or names is None
         or checksum(raw)
         not in (intent.get("originalSha256"), intent.get("remainingSha256"))
     ):
@@ -197,8 +199,11 @@ def finish_removal(
             raise ServiceError(409, "codex_integration_locally_changed")
     elif previous:
         raise ServiceError(409, "codex_integration_locally_changed")
-    for name in MANAGED:
+    for name in names:
         path = skill / name
+        native_path(path)
+        if path.parent != skill and path.parent.exists():
+            private_directory(path.parent)
         if path.exists() and checksum(optional(path)) != hashes[name]:
             raise ServiceError(409, "codex_integration_locally_changed")
     if manifest.exists() and checksum(optional(manifest)) != intent.get(
@@ -218,13 +223,23 @@ def finish_removal(
         if checksum(remaining) != intent.get("remainingSha256"):
             raise ServiceError(409, "codex_removal_requires_original_intent")
         atomic_bytes(config, remaining)
-    for name in MANAGED:
+    for name in names:
         path = skill / name
+        native_path(path)
         if path.exists():
             if checksum(optional(path)) != hashes[name]:
                 raise ServiceError(409, "codex_integration_locally_changed")
             path.unlink()
-            fsync_path(skill)
+        if path.parent.exists():
+            fsync_path(path.parent)
+    parents = {(skill / name).parent for name in names} - {skill}
+    for parent in sorted(parents, reverse=True):
+        native_path(parent)
+        if parent.exists():
+            private_directory(parent)
+            if not any(parent.iterdir()):
+                parent.rmdir()
+                fsync_path(parent.parent)
     if manifest.exists():
         if checksum(optional(manifest)) != intent.get("manifestSha256"):
             raise ServiceError(409, "codex_integration_locally_changed")
@@ -288,7 +303,9 @@ def connect(
             return
         if not remove:
             _refuse_unowned_skill_directory(skill)
-        _validate_owned_files(skill, old, previous)
+        names = _validate_owned_files(skill, old, previous)
+        if not remove:
+            _validate_new_skill_files(skill, names)
         if check_only:
             return
         if remove:
@@ -307,6 +324,7 @@ def connect(
                 previous=previous,
                 manifest=old,
                 remaining=remaining,
+                names=names,
             )
             return
         if settings is None or python is None or source is None or workspace is None:
@@ -332,6 +350,7 @@ def _begin_removal(
     previous: str,
     manifest: bytes,
     remaining: bytes,
+    names: tuple[str, ...],
 ) -> None:
     """Record a private removal intent naming every owned byte, then finish it."""
     intent: dict[str, object] = {
@@ -342,7 +361,7 @@ def _begin_removal(
         "remainingSha256": checksum(remaining),
         "configBlockSha256": checksum(previous.encode()),
         "manifestSha256": checksum(manifest),
-        "files": {name: checksum(optional(skill / name)) for name in MANAGED},
+        "files": {name: checksum(optional(skill / name)) for name in names},
     }
     atomic_bytes(
         skill / ".health-buddy-remove.json",
@@ -412,19 +431,52 @@ def _claude_document(raw: bytes) -> tuple[dict[str, Any], str]:
     return parsed, previous
 
 
-def _validate_owned_files(skill: Path, old: bytes, previous: str) -> None:
-    """Managed files must match the install manifest, or not exist without one."""
+def _managed_names(hashes: object) -> tuple[str, ...] | None:
+    """Only known paths, including the original two-file installation, are owned."""
+    if (
+        not isinstance(hashes, dict)
+        or not set(BASE_MANAGED) <= set(hashes) <= set(MANAGED)
+        or any(
+            not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+            for value in hashes.values()
+        )
+    ):
+        return None
+    return tuple(name for name in MANAGED if name in hashes)
+
+
+def _validate_owned_files(skill: Path, old: bytes, previous: str) -> tuple[str, ...]:
+    """Verify only manifest-owned known files; old manifests need no new files."""
     if old:
         owned = json.loads(old)
+        names = _managed_names(owned.get("files") if isinstance(owned, dict) else None)
+        if names is None:
+            raise ServiceError(409, "codex_integration_locally_changed")
         expected = {
             "schemaVersion": 1,
             "configBlockSha256": checksum(previous.encode()),
-            "files": {name: checksum(optional(skill / name)) for name in MANAGED},
+            "files": {name: checksum(optional(skill / name)) for name in names},
         }
         if owned != expected:
             raise ServiceError(409, "codex_integration_locally_changed")
-    elif previous or any((skill / name).exists() for name in MANAGED):
+        return names
+    if previous or any((skill / name).exists() for name in BASE_MANAGED):
         raise ServiceError(409, "codex_integration_requires_reconciliation")
+    return ()
+
+
+def _validate_new_skill_files(skill: Path, owned: tuple[str, ...]) -> None:
+    """Adding a file cannot adopt another file or an unowned nested directory."""
+    owned_parents = {(skill / name).parent for name in owned}
+    for name in MANAGED:
+        path = skill / name
+        native_path(path)
+        if name not in owned and path.exists():
+            raise ServiceError(409, "codex_integration_requires_reconciliation")
+        if path.parent != skill and path.parent.exists():
+            private_directory(path.parent)
+            if path.parent not in owned_parents:
+                raise ServiceError(409, "codex_integration_requires_reconciliation")
 
 
 def _claude_without_entry(document: dict[str, Any]) -> bytes:
@@ -522,7 +574,11 @@ def _write_install(
     """Skill files, then the manifest that owns them, then the client config."""
     private_directory(skill, create=True)
     for name, payload in content.items():
-        atomic_bytes(skill / name, payload)
+        path = skill / name
+        native_path(path)
+        if path.parent != skill:
+            private_directory(path.parent, create=True)
+        atomic_bytes(path, payload)
     record = {
         "schemaVersion": 1,
         "configBlockSha256": checksum(block.encode()),
@@ -536,14 +592,9 @@ def _write_install(
 
 
 def _skill_files(source: Path, workspace: Path) -> dict[str, bytes]:
-    skill_bytes = (
-        files("health_buddy")
-        .joinpath("integrations/codex/health-buddy/SKILL.md")
-        .read_bytes()
-    )
-    return {
-        "SKILL.md": skill_bytes,
-        "WORKSPACE.json": json.dumps(
+    bundle = files("health_buddy").joinpath("integrations/codex/health-buddy")
+    metadata = (
+        json.dumps(
             {
                 "integrationVersion": INTEGRATION_VERSION,
                 "packageVersion": PACKAGE_VERSION,
@@ -552,7 +603,11 @@ def _skill_files(source: Path, workspace: Path) -> dict[str, bytes]:
             },
             indent=2,
         ).encode()
-        + b"\n",
+        + b"\n"
+    )
+    return {
+        name: metadata if name == "WORKSPACE.json" else bundle.joinpath(name).read_bytes()
+        for name in MANAGED
     }
 
 
