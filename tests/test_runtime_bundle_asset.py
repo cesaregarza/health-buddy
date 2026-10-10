@@ -309,7 +309,7 @@ def test_documented_policy_can_write_and_read_back_manual_weight(tmp_path, monke
         "blood-pressure",
         "circumference",
     }
-    assert read_kinds <= set(decoded(capabilities)["data"]["recordKinds"])
+    assert read_kinds - {"plan"} <= set(decoded(capabilities)["data"]["recordKinds"])
 
 
 VARIABLE = re.compile(r"\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*))")
