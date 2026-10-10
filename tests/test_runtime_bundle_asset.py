@@ -297,9 +297,19 @@ def test_documented_policy_can_write_and_read_back_manual_weight(tmp_path, monke
     assert record["value"] == 72 and record["unit"] == "kg"
     capabilities = runtime.operations.execute(agent.principal, Request("capabilities"))
     assert capabilities.status == 200
-    assert set(json.loads(policy_json)["readKinds"]) <= set(
-        decoded(capabilities)["data"]["recordKinds"]
-    )
+    read_kinds = set(json.loads(policy_json)["readKinds"])
+    assert read_kinds == {
+        "body-mass",
+        "water-intake",
+        "workout-session",
+        "workout-set",
+        "cardio-segment",
+        "plan",
+        "intake",
+        "blood-pressure",
+        "circumference",
+    }
+    assert read_kinds - {"plan"} <= set(decoded(capabilities)["data"]["recordKinds"])
 
 
 VARIABLE = re.compile(r"\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*))")

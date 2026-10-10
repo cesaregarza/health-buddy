@@ -873,7 +873,7 @@ keep and review the original policy rather than recreating it:
   "grants": ["records:read", "records:write"],
   "sourceIds": ["manual"],
   "readSources": ["manual"],
-  "readKinds": ["body-mass", "water-intake", "workout-session", "workout-set", "cardio-segment"],
+  "readKinds": ["body-mass", "water-intake", "workout-session", "workout-set", "cardio-segment", "plan", "intake", "blood-pressure", "circumference"],
   "readFields": null
 }
 EOF
@@ -884,10 +884,13 @@ stat -c '%a %U %n' "$PRIVATE_CLIENT/policy.json"
 Done: `600` and your user name. This policy is the owner-authored input.
 
 `readKinds` uses canonical record names: `body-mass` for weight,
-`water-intake` for hydration, and `workout-session`, `workout-set` and
-`cardio-segment` for workout records. These are the names reported by
-`capabilities.recordKinds`; display labels such as `weight` or `workout` do not
-match them. This example does not authorize reading other manual record kinds.
+`water-intake` for hydration, `workout-session`, `workout-set` and
+`cardio-segment` for workout records, `plan` for the training plan, `intake`
+for meals, and `blood-pressure` and `circumference` for those measurements.
+Record kinds are listed in `capabilities.recordKinds`; `plan` separately
+authorizes canonical plan reads. Display labels such as `weight` or `workout`
+do not match record kinds. This example does not authorize reading other
+manual record kinds.
 
 `null` read fields deliberately authorizes all fields within those selected
 sources/kinds. Select only the scopes you want to disclose to the AI client;
