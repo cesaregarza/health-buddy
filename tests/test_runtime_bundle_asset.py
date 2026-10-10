@@ -238,9 +238,9 @@ def assert_private_bootstrap(home: Path, tools: Path, owner: dict[str, str]) -> 
     root = home / "health-buddy"
     for name in ("env.sh", ASSET):
         assert (root / name).stat().st_mode & 0o777 == 0o600
-    for name in ("artifacts", "install", "workspace", "client", "client/skills"):
+    for name in ("artifacts", "install", "workspace", "client"):
         assert (root / name).stat().st_mode & 0o777 == 0o700
-    assert list((root / "client").iterdir()) == [root / "client/skills"]
+    assert list((root / "client").iterdir()) == []
     # These choices must survive a new shell, not only an export in step 7/8.
     script = (
         '. "$HOME/health-buddy/env.sh"\n'
@@ -425,3 +425,80 @@ def test_variable_checker_accepts_saved_values_only_after_reload():
         f'{ENV_SOURCE}\nLOCAL="$HB_HOME/local"\necho "$DOCKER" "${{LOCAL}}"',
     ]
     assert undefined_variables(shell_blocks) == []
+
+
+def skill_selection(tmp_path, client):
+    """Execute the guide's selection in a synthetic HOME, without a host install."""
+    home = tmp_path / "home"
+    home.mkdir(mode=0o700)
+    private = home / "health-buddy"
+    private.mkdir(mode=0o700)
+    client_root = private / "client"
+    client_root.mkdir(mode=0o700)
+    env = private / "env.sh"
+    env.write_text(
+        f"export PYTHON={shlex.quote(sys.executable)}\n"
+        f"export PYTHONPATH={shlex.quote(str(ROOT / 'src'))}\n"
+        "export PYTHONDONTWRITEBYTECODE=1\n"
+        f"export PRIVATE_CLIENT={shlex.quote(str(client_root))}\n"
+    )
+    _policy, block = blocks("Connect the owner's coding agent and view status")
+    selection = block.split('"$PYTHON" -m health_buddy.install.agent', 1)[0]
+    selection = selection.replace(
+        "HEALTH_BUDDY_CLIENT=codex", f"HEALTH_BUDDY_CLIENT={client}"
+    )
+    selection += (
+        'printf "%s\\n" "$HEALTH_BUDDY_CLIENT_CONFIG" '
+        '"$HEALTH_BUDDY_SKILL_DIRECTORY"\n'
+    )
+    if client == "claude":
+        (client_root / "claude").mkdir(mode=0o700)
+        config = client_root / "claude/.mcp.json"
+        skill_root = config.parent / ".claude"
+    else:
+        config = client_root / "config.toml"
+        skill_root = home / ".agents"
+    return selection, home, config, skill_root
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+@pytest.mark.parametrize("existing", [False, True])
+def test_documented_skill_selection_creates_only_private_parents(
+    tmp_path, client, existing
+):
+    selection, home, config, skill_root = skill_selection(tmp_path, client)
+    if existing:
+        skill_root.mkdir(mode=0o700)
+        (skill_root / "skills").mkdir(mode=0o700)
+        note = skill_root / "skills/owner-note"
+        note.write_text("Keep unrelated client content")
+    expected = [str(config), str(skill_root / "skills/health-buddy")]
+    assert run(selection, home, tmp_path, {}).splitlines() == expected
+    assert run(selection, home, tmp_path, {}).splitlines() == expected
+    assert not config.exists()
+    assert not (skill_root / "skills/health-buddy").exists()
+    for parent in (skill_root, skill_root / "skills"):
+        assert parent.stat().st_mode & 0o777 == 0o700
+    if existing:
+        assert note.read_text() == "Keep unrelated client content"
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+@pytest.mark.parametrize("unsafe", ["symlink", "permissions"])
+def test_documented_skill_selection_refuses_unsafe_parents(tmp_path, client, unsafe):
+    selection, home, config, skill_root = skill_selection(tmp_path, client)
+    if unsafe == "symlink":
+        foreign = tmp_path / "foreign"
+        foreign.mkdir(mode=0o700)
+        skill_root.symlink_to(foreign, target_is_directory=True)
+    else:
+        skill_root.mkdir(mode=0o755)
+        skill_root.chmod(0o755)
+    with pytest.raises(AssertionError):
+        run(selection, home, tmp_path, {})
+    assert not config.exists()
+    assert not (skill_root / "skills").exists()
+    if unsafe == "symlink":
+        assert skill_root.is_symlink() and list(foreign.iterdir()) == []
+    else:
+        assert skill_root.stat().st_mode & 0o777 == 0o755

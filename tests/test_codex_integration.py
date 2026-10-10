@@ -27,7 +27,9 @@ UNRELATED = (
 def targets(tmp_path):
     home = tmp_path / "codex-config"
     home.mkdir(mode=0o700)
-    skills = tmp_path / "skills"
+    skill_root = tmp_path / ".agents"
+    skill_root.mkdir(mode=0o700)
+    skills = skill_root / "skills"
     skills.mkdir(mode=0o700)
     config = home / "config.toml"
     config.write_text(UNRELATED)
@@ -53,6 +55,12 @@ def test_repeat_update_remove_preserves_unrelated_settings_and_owner_files(tmp_p
     config, skill, workspace = targets(tmp_path)
     settings, _ = settings_file(tmp_path)
     launch = setup(config, skill, workspace, settings)
+    assert skill == tmp_path / ".agents/skills/health-buddy"
+    assert {path.name for path in skill.iterdir()} == {
+        "SKILL.md",
+        "WORKSPACE.json",
+        ".health-buddy-install.json",
+    }
     before = config.read_bytes()
     assert setup(config, skill, workspace, settings) == launch
     assert config.read_bytes() == before and config.read_text().startswith(UNRELATED)

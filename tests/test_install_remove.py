@@ -16,10 +16,28 @@ from health_buddy.core.service_api import ServiceError
 from tests.test_install_agent import connection_fixture
 
 
-def removal_fixture(tmp_path, monkeypatch, *, private_https=True):
+def removal_fixture(
+    tmp_path, monkeypatch, *, private_https=True, discovery_client=None
+):
     connection, selected, _identity, note = connection_fixture(
         tmp_path, monkeypatch, private_https=private_https
     )
+    if discovery_client is not None:
+        connection["client"] = discovery_client
+        if discovery_client == "claude":
+            launcher = connection["client_config"].parent / "claude"
+            launcher.mkdir(mode=0o700)
+            connection["client_config"] = launcher / ".mcp.json"
+            connection["client_config"].write_text(
+                '{"mcpServers":{"other":{"command":"owner-choice"}}}'
+            )
+            connection["client_config"].chmod(0o600)
+            skill_root = launcher / ".claude"
+        else:
+            skill_root = tmp_path / ".agents"
+        skill_root.mkdir(mode=0o700)
+        (skill_root / "skills").mkdir(mode=0o700)
+        connection["skill_directory"] = skill_root / "skills/health-buddy"
     install_agent.setup(**connection)
     record = json.loads(selected["journal"].read_bytes())
     active = record["activation"]["binding"]
@@ -317,3 +335,49 @@ def test_explicit_rotation_refuses_existing_empty_file(tmp_path, monkeypatch):
     with pytest.raises(ServiceError, match="requires_owner_rotation"):
         install_agent.setup(**connection, rotate_pending_missing_secret=True)
     assert connection["agent_token"].read_bytes() == b""
+
+
+@pytest.mark.parametrize("client", ["codex", "claude"])
+def test_removal_uses_recorded_discovery_target_and_preserves_unowned_files(
+    tmp_path, monkeypatch, client
+):
+    arguments, connection, selected, _note, _state = removal_fixture(
+        tmp_path, monkeypatch, discovery_client=client
+    )
+    skill = connection["skill_directory"]
+    expected = (
+        tmp_path / ".agents/skills/health-buddy"
+        if client == "codex"
+        else connection["client_config"].parent / ".claude/skills/health-buddy"
+    )
+    assert skill == expected
+    binding = json.loads(selected["journal"].read_bytes())["agentSetup"]["binding"]
+    assert binding["skill"] == str(expected)
+    assert {path.name for path in skill.iterdir()} == {
+        "SKILL.md",
+        "WORKSPACE.json",
+        ".health-buddy-install.json",
+    }
+    note = skill / "owner-note.md"
+    note.write_text("Retain this owner note")
+    sibling = skill.parent / "other-skill"
+    sibling.mkdir(mode=0o700)
+    (sibling / "SKILL.md").write_text("Unrelated owner skill")
+    parent_mode = skill.parent.stat().st_mode
+    retained = {
+        path: path.read_bytes()
+        for path in (note, sibling / "SKILL.md", connection["agent_token"])
+    }
+    assert install_remove.remove(**arguments)["removed"]
+    assert install_remove.remove(**arguments)["removed"]
+    assert {path.name for path in skill.iterdir()} == {"owner-note.md"}
+    assert all(path.read_bytes() == value for path, value in retained.items())
+    assert skill.parent.stat().st_mode == parent_mode
+    if client == "claude":
+        assert json.loads(connection["client_config"].read_bytes()) == {
+            "mcpServers": {"other": {"command": "owner-choice"}}
+        }
+    else:
+        assert connection["client_config"].read_text() == (
+            'model = "synthetic-kept"\n# owner comment\n'
+        )

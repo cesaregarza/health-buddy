@@ -29,7 +29,9 @@ def targets(tmp_path):
     config = project / ".mcp.json"
     config.write_text(json.dumps(UNRELATED))
     config.chmod(0o600)
-    skills = tmp_path / "claude-skills"
+    skill_root = project / ".claude"
+    skill_root.mkdir(mode=0o700)
+    skills = skill_root / "skills"
     skills.mkdir(mode=0o700)
     workspace = tmp_path / "claude-workspace"
     workspace.mkdir(mode=0o700)
@@ -53,6 +55,12 @@ def test_repeat_update_remove_keeps_unrelated_config_and_workspace(tmp_path):
     config, skill, workspace = targets(tmp_path)
     settings, _ = settings_file(tmp_path)
     launch = setup(config, skill, workspace, settings)
+    assert skill == config.parent / ".claude/skills/health-buddy"
+    assert {path.name for path in skill.iterdir()} == {
+        "SKILL.md",
+        "WORKSPACE.json",
+        ".health-buddy-install.json",
+    }
     before = config.read_bytes()
     assert setup(config, skill, workspace, settings) == launch
     assert config.read_bytes() == before

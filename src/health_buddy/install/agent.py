@@ -20,6 +20,7 @@ sys.dont_write_bytecode = True
 from health_buddy.backup.lifecycle import private_path
 from health_buddy.client.retry_paths import native_path
 from health_buddy.connect_agent import (
+    SKILL_TARGET_RECOVERY,
     McpReadinessError,
     check_mcp_readiness,
     connect,
@@ -205,6 +206,9 @@ def setup(
         _validate_reinstall_review(record.get("reviewedReinstall"), selected, policy)
         inventory = actors(runtime, admitted)
         progress = record.get("agentSetup")
+        if progress is not None:
+            _validate_resume(progress, selected)
+        connect(client_config, skill_directory, client=client, check_only=True)
         if progress is None:
             handoff = (agent_token, settings, retry_root)
             progress = _first_progress(
@@ -212,8 +216,6 @@ def setup(
             )
             record["agentSetup"] = progress
             atomic_bytes(journal, encode(record))
-        else:
-            _validate_resume(progress, selected)
         actor_id = progress["actorId"]
         # The actor is journaled before its one-time secret is written, so a
         # lost secret is recovered by explicit rotation, never a second grant.
@@ -550,6 +552,7 @@ def _write_settings(
 
 
 RECOVERY = {
+    "agent_skill_directory_unowned": SKILL_TARGET_RECOVERY,
     "claude_project_config_required": (
         "Use the .mcp.json file in the directory Claude Code starts from as "
         "--client-config."

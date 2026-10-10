@@ -299,7 +299,7 @@ the owner's Tailscale identity.
 | `INSPECTED_NATIVE_DOCKER` | Absolute native path to a regular executable with no symlinks in the path, for example `/usr/bin/docker`. `/var/run/docker.sock` is a socket, not the CLI. | Run `command -v docker`, inspect the result and `stat` its ownership/mode. If it is a link, inspect the native target from `readlink -f` before selecting that target. No Docker daemon is contacted by preflight. |
 | `PRIVATE_HTTPS_ORIGIN` | Canonical HTTPS origin, at most 500 ASCII characters: lowercase DNS host, no trailing dot, whitespace, credentials, path (even `/`), query, fragment, backslash, percent escapes or `:443`. Canonical IPv4/bracketed IPv6 and nondefault ports are supported by config; this Serve flow uses port 443, omitted from the origin. Local-only example: `https://health-buddy.local`. Synthetic HTTPS example: `https://health-buddy.example.test`; replace it with the real Serve DNS origin. | For local-only use, keep the saved example. For phone/browser access, inspect `tailscale status --json` on the admitted host: use `https://` plus `Self.DNSName` without its trailing dot; confirm the machine's HTTPS name in the Tailscale admin console. |
 | `EXACT_OWNER_SUBJECT` | Exact, case-sensitive owner subject: 1–254 printable ASCII characters, no spaces/control characters and no `=?` sequence. Local-only example: `owner`. Tailscale login example: `user@github`; it is not an agent/client name. | For local-only use, keep `owner`. For Serve, inspect `tailscale whois <owner-device-tailnet-IP>` and use the owner's exact login identity, or read it from the Tailscale admin console. Do not use the device name or display name. |
-| `PRIVATE_CLIENT` | Native owner-controlled 0700 directory **outside** the workspace and bundle: `$HB_HOME/client`. | The saved path is beside the workspace. Step 9 creates only this directory and its `skills` parent. The owner later writes `policy.json`; the agent stage writes its own outputs. |
+| `PRIVATE_CLIENT` | Native owner-controlled 0700 directory **outside** the workspace and bundle: `$HB_HOME/client`. | The saved path is beside the workspace. Step 9 creates only this directory. The owner later writes `policy.json`; the agent stage writes its own outputs. |
 
 Discover the Docker executable:
 
@@ -340,19 +340,19 @@ change this binding; never edit the bound config or journal by hand.
 ```sh
 . "$HOME/health-buddy/env.sh"
 mkdir -m 0700 "$ARTIFACTS" "$PRIVATE_INSTALL" "$OWNER_WORKSPACE"
-mkdir -m 0700 "$PRIVATE_CLIENT" "$PRIVATE_CLIENT/skills"
-stat -c '%a %U %n' "$ARTIFACTS" "$PRIVATE_INSTALL" "$OWNER_WORKSPACE" "$PRIVATE_CLIENT" "$PRIVATE_CLIENT/skills"
+mkdir -m 0700 "$PRIVATE_CLIENT"
+stat -c '%a %U %n' "$ARTIFACTS" "$PRIVATE_INSTALL" "$OWNER_WORKSPACE" "$PRIVATE_CLIENT"
 printf '%s\n' "$OWNER_WORKSPACE" | grep -Ex '/[A-Za-z0-9_./-]+'
 ```
 
-Done: five lines starting with `700` and your user name, then the workspace
+Done: four lines starting with `700` and your user name, then the workspace
 path once more. Use these explicit modes even if a fresh shell has forgotten
 the private umask. Plain `mkdir` or `mkdir -p` under the default `002` leaves
 a mode the stages refuse, reported by acquire as
 `install_acquire_staging_unavailable` for the staging directory, by preflight
 as `permissions_partial` for the workspace and by prepare as
 `install_preparation_refused` for the journal directory. `File exists` on a
-rerun is fine when all five lines still show `700` and your user; otherwise
+rerun is fine when all four lines still show `700` and your user; otherwise
 stop and ask the owner, and never change the mode, owner or contents of an
 existing directory. If the last command prints nothing, the path holds
 characters activation refuses (anything but letters, digits and `_./-`): stop
@@ -362,12 +362,11 @@ Leave staging, journal and workspace empty. Acquire downloads the manifest and
 image archives into `$ARTIFACTS` itself and refuses files it did not put there,
 and preflight treats a non-empty workspace as an existing installation.
 
-Under `$PRIVATE_CLIENT`, only the empty `skills` parent may exist at this point.
-The shared client-setup block adds a private launcher directory when Claude is
-selected.
-Do not precreate `agent-token`, `adapter.json`, `retries`, `config.toml` or
-`skills/health-buddy`. The policy block in the agent section creates the one
-owner-authored input, `policy.json`, after review. The agent stage creates the
+Leave `$PRIVATE_CLIENT` empty at this point. The shared client-setup block
+creates the selected client's private skill parents and, for Claude, its launcher.
+Do not precreate `agent-token`, `adapter.json`, `retries`, `config.toml` or the
+final `health-buddy` skill directory. The policy block in the agent section creates
+the one owner-authored input, `policy.json`, after review. The agent stage creates the
 token, settings, client configuration and managed skill files; the adapter
 creates `retries` when it needs durable retry state. It must also be absent on
 the first handoff. For this fresh-client example, nothing else goes under
@@ -560,11 +559,14 @@ Optional existing-credential workflow: skip this variant for the default guided
 install, which uses the agent stage below to create its grant and settings.
 After the owner independently establishes matching origin/authority and authors
 an explicit reviewed `$PRIVATE_CLIENT/adapter.json` plus credential, prepare can
-connect that existing profile. It does not create those inputs:
+connect that existing profile. It does not create those inputs. Prepare the
+private `$HOME/.agents/skills` parent as described in
+[Codex setup](codex-integration.md#private-operator-preparation), leaving the
+final `health-buddy` directory absent:
 
 ```sh
 . "$HOME/health-buddy/env.sh"
-"$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --settings "$PRIVATE_CLIENT/adapter.json" --python "$PYTHON"
+"$PYTHON" -m health_buddy.install.prepare --journal "$PRIVATE_INSTALL/install.json" --bundle "$BUNDLE" --manifest "$ARTIFACTS/runtime-manifest.json" --trusted-manifest-sha256 "$TRUSTED_MANIFEST_SHA256" --workspace "$OWNER_WORKSPACE" --docker "$INSPECTED_NATIVE_DOCKER" --client codex --client-config "$PRIVATE_CLIENT/config.toml" --skill-directory "$HOME/.agents/skills/health-buddy" --settings "$PRIVATE_CLIENT/adapter.json" --python "$PYTHON"
 ```
 
 Use `--client claude` with the `.mcp.json` private launcher and supported skill
@@ -893,10 +895,10 @@ sources/kinds. Select only the scopes you want to disclose to the AI client;
 `grants.create/list` validator and current native owner token authentication.
 No new authority or source registration is created by the installer.
 
-Use the saved external `PRIVATE_CLIENT` and its 0700 `skills` parent from step 9.
-Keep token/settings/retry paths and the fresh example's client config and
-`skills/health-buddy` directory absent. Do not `mkdir retries` or create empty
-token/settings files; the installer/adapter owns those outputs. Existing unrelated
+Use the saved external `PRIVATE_CLIENT` from step 9. The shared block creates
+only the selected client's private skill parents. Keep token/settings/retry
+paths, the fresh example's client config and its final `health-buddy` skill
+directory absent. Do not `mkdir retries` or create empty token/settings files; the installer/adapter owns those outputs. Existing unrelated
 client settings, when deliberately selecting an existing native config instead,
 are preserved by `connect_agent`; owned local edits refuse further changes.
 Stop competing config/grant editors while running this explicit setup. No client
@@ -904,11 +906,13 @@ process is launched or logged in by this command.
 
 Set `HEALTH_BUDDY_CLIENT` below to the owner's chosen `codex` or `claude` before
 running this shared block. Codex uses `config.toml`; Claude Code uses `.mcp.json`
-in its private launcher directory. The target check rejects an invalid path
-before setup writes. The first accepted setup binds the client, config path and
-policy in the journal: keep that selection and the original policy on retries.
-A retained Claude launcher directory is reused without changing it; installer
-target checks still apply.
+in its private launcher directory. Codex discovers the skill at
+`$HOME/.agents/skills/health-buddy`; Claude discovers it at
+`$PRIVATE_CLIENT/claude/.claude/skills/health-buddy`. The target check rejects an
+invalid path before setup writes. The first accepted setup binds the client,
+config path, skill path and policy in the journal: keep that selection and the
+original policy on retries. Existing private parents are reused without changing
+their permissions; unsafe parents refuse setup.
 
 ```sh
 . "$HOME/health-buddy/env.sh"
@@ -916,9 +920,11 @@ HEALTH_BUDDY_CLIENT=codex
 case "$HEALTH_BUDDY_CLIENT" in
   codex)
     HEALTH_BUDDY_CLIENT_CONFIG="$PRIVATE_CLIENT/config.toml"
+    HEALTH_BUDDY_SKILL_ROOT="$HOME/.agents"
     ;;
   claude)
     HEALTH_BUDDY_CLIENT_CONFIG="$PRIVATE_CLIENT/claude/.mcp.json"
+    HEALTH_BUDDY_SKILL_ROOT="$PRIVATE_CLIENT/claude/.claude"
     if [ ! -e "$PRIVATE_CLIENT/claude" ]; then
       mkdir -m 0700 "$PRIVATE_CLIENT/claude" || exit 1
     fi
@@ -928,13 +934,36 @@ case "$HEALTH_BUDDY_CLIENT" in
     exit 1
     ;;
 esac
-"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client "$HEALTH_BUDDY_CLIENT" --client-config "$HEALTH_BUDDY_CLIENT_CONFIG" --skill-directory "$PRIVATE_CLIENT/skills/health-buddy" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
+"$PYTHON" - "$HEALTH_BUDDY_SKILL_ROOT" <<'PY' || exit 1
+import sys
+from pathlib import Path
+from health_buddy.client.retry_paths import native_path
+from health_buddy.core.files import private_directory
+
+root = Path(sys.argv[1])
+for directory in (root, root / "skills"):
+    native_path(directory)
+    private_directory(directory, create=True)
+PY
+HEALTH_BUDDY_SKILL_DIRECTORY="$HEALTH_BUDDY_SKILL_ROOT/skills/health-buddy"
+"$PYTHON" -m health_buddy.install.agent --journal "$PRIVATE_INSTALL/install.json" --policy "$PRIVATE_CLIENT/policy.json" --agent-token "$PRIVATE_CLIENT/agent-token" --settings "$PRIVATE_CLIENT/adapter.json" --retry-root "$PRIVATE_CLIENT/retries" --client "$HEALTH_BUDDY_CLIENT" --client-config "$HEALTH_BUDDY_CLIENT_CONFIG" --skill-directory "$HEALTH_BUDDY_SKILL_DIRECTORY" --python "$PYTHON" --confirm-grant --acknowledge-ai-egress
 "$PYTHON" -m health_buddy.install.status --journal "$PRIVATE_INSTALL/install.json"
 ```
 
 For Claude Code, the owner starts a fresh client session from
-`$PRIVATE_CLIENT/claude` so it reads that `.mcp.json`. The fresh-client acceptance
-step remains separate from this configuration command.
+`$PRIVATE_CLIENT/claude` so it reads that `.mcp.json` and project skill, then
+invokes `/health-buddy`. In Codex, select `$health-buddy` via `/skills`.
+The fresh-client acceptance step remains separate from this configuration command.
+
+`agent_skill_directory_unowned` refuses an existing target even when empty.
+Keep it for owner inspection; move unrelated files only after owner review.
+An owned legacy skill at `PRIVATE_CLIENT/skills/health-buddy` remains bound to
+that original path for resume and removal. Find the original selection in the
+private journal's `agentSetup.binding.skill`; to change it, follow
+[owned removal and re-arm](install-reinstall.md) before reconnecting.
+Do not rewrite the journal or move/delete the ownership manifest. Setup and
+removal use one manifest and one removal intent at the recorded skill directory;
+unknown owner files survive removal.
 
 Done: `agentGrantRetained: true` and `clientConfigurationPrepared: true`.
 Before journal progress, grant creation or managed-file writes, setup checks the

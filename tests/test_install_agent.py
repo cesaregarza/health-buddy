@@ -500,6 +500,7 @@ def test_status_names_owner_setup_as_next_stage_for_prepared_install(
     [
         ("client_config", "claude", "claude_project_config_required"),
         ("skill_directory", "codex", "invalid_codex_skill_directory"),
+        ("unowned_skill", "codex", "agent_skill_directory_unowned"),
     ],
 )
 def test_invalid_client_target_refuses_before_grant_or_journal_changes(
@@ -515,6 +516,8 @@ def test_invalid_client_target_refuses_before_grant_or_journal_changes(
     invalid = dict(arguments, client=client)
     if change == "skill_directory":
         invalid["skill_directory"] = arguments["skill_directory"].parent / "wrong-name"
+    elif change == "unowned_skill":
+        invalid["skill_directory"].mkdir(mode=0o700)
     argv = [
         "--journal",
         str(invalid["journal"]),
@@ -559,6 +562,12 @@ def test_invalid_client_target_refuses_before_grant_or_journal_changes(
     )
     if client == "claude":
         corrected["client_config"].parent.mkdir(mode=0o700)
+    if change == "unowned_skill":
+        # Leave the unrelated empty target intact; choose a fresh isolated path.
+        parent = tmp_path / ".agents"
+        parent.mkdir(mode=0o700)
+        (parent / "skills").mkdir(mode=0o700)
+        corrected = dict(arguments, skill_directory=parent / "skills/health-buddy")
     result = install_agent.setup(**corrected)
     assert result["agentGrantRetained"] and result["clientConfigurationPrepared"]
     if client == "claude":
@@ -571,15 +580,22 @@ def test_invalid_client_target_refuses_before_grant_or_journal_changes(
     assert len(install_agent.actors(runtime, admitted)) == 1
 
 
+@pytest.mark.parametrize("field", ["client_config", "skill_directory"])
 def test_agent_resume_reports_only_differing_binding_field_names(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, field
 ):
     arguments, _selected, _identity, _note = connection_fixture(tmp_path, monkeypatch)
     install_agent.setup(**arguments)
-    alternate = dict(
-        arguments,
-        client_config=arguments["client_config"].parent / "other.toml",
-    )
+    original_skill = arguments["skill_directory"]
+    before = (original_skill / ".health-buddy-install.json").read_bytes()
+    if field == "skill_directory":
+        parent = tmp_path / ".agents"
+        parent.mkdir(mode=0o700)
+        (parent / "skills").mkdir(mode=0o700)
+        target = parent / "skills/health-buddy"
+    else:
+        target = arguments["client_config"].parent / "other.toml"
+    alternate = {**arguments, field: target}
     argv = [
         "--journal",
         str(alternate["journal"]),
@@ -606,14 +622,17 @@ def test_agent_resume_reports_only_differing_binding_field_names(
     output = capsys.readouterr().out
     data = json.loads(output)
     assert data["code"] == "install_agent_resume_requires_original_binding"
-    assert data["differingFields"] == ["config"]
+    assert data["differingFields"] == ["config" if field == "client_config" else "skill"]
     assert "removal/re-arm" in data["recovery"]
-    assert str(alternate["client_config"]) not in output
+    assert str(target) not in output
+    assert (original_skill / ".health-buddy-install.json").read_bytes() == before
+    assert not target.exists()
+    assert install_agent.setup(**arguments)["clientConfigurationPrepared"]
     assert alternate["agent_token"].read_bytes().strip() not in output.encode()
     retained = json.loads(alternate["journal"].read_bytes())
     retained["agentSetup"]["binding"]["unboundField"] = None
     alternate["journal"].write_text(json.dumps(retained))
-    argv[argv.index(str(alternate["client_config"]))] = str(arguments["client_config"])
+    argv[argv.index(str(target))] = str(arguments[field])
     assert install_agent.main(argv) == 2
     data = json.loads(capsys.readouterr().out)
     assert data["code"] == "install_agent_resume_requires_original_binding"
