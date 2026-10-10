@@ -122,9 +122,12 @@ def test_unowned_skill_directory_refuses_without_writes(
     before = {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
     with pytest.raises(ServiceError, match="agent_skill_directory_unowned"):
         fixture.setup(config, skill, workspace, settings)
-    assert connect_agent.main(
-        [client, "--config-file", str(config), "--skill-directory", str(skill)]
-    ) == 2
+    assert (
+        connect_agent.main(
+            [client, "--config-file", str(config), "--skill-directory", str(skill)]
+        )
+        == 2
+    )
     refusal = json.loads(capsys.readouterr().out)
     assert refusal["code"] == "agent_skill_directory_unowned"
     assert "owner inspection" in refusal["recovery"]

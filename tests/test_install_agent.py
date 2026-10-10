@@ -622,7 +622,9 @@ def test_agent_resume_reports_only_differing_binding_field_names(
     output = capsys.readouterr().out
     data = json.loads(output)
     assert data["code"] == "install_agent_resume_requires_original_binding"
-    assert data["differingFields"] == ["config" if field == "client_config" else "skill"]
+    assert data["differingFields"] == [
+        "config" if field == "client_config" else "skill"
+    ]
     assert "removal/re-arm" in data["recovery"]
     assert str(target) not in output
     assert (original_skill / ".health-buddy-install.json").read_bytes() == before

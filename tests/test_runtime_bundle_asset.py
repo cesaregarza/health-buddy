@@ -448,8 +448,7 @@ def skill_selection(tmp_path, client):
         "HEALTH_BUDDY_CLIENT=codex", f"HEALTH_BUDDY_CLIENT={client}"
     )
     selection += (
-        'printf "%s\\n" "$HEALTH_BUDDY_CLIENT_CONFIG" '
-        '"$HEALTH_BUDDY_SKILL_DIRECTORY"\n'
+        'printf "%s\\n" "$HEALTH_BUDDY_CLIENT_CONFIG" "$HEALTH_BUDDY_SKILL_DIRECTORY"\n'
     )
     if client == "claude":
         (client_root / "claude").mkdir(mode=0o700)
