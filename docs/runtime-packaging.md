@@ -183,10 +183,10 @@ not a claim to constrain the Docker daemon, export buffers or BuildKit cache.
 The isolated runner VM and job timeout bound that wider workload. No local
 Docker build is admitted merely because its CLI runs in a cgroup.
 
-The manifest loader accepts an explicitly inspected native executable and local
-Unix-socket daemon only. The operator must establish native storage/ownership
-and safe CLI/plugin discovery before invocation; the loader does not reconfigure
-Docker, install emulation or silently use a remote context. After admission:
+Admit the host, storage and Docker CLI/daemon under the
+[platform requirements](platforms.md#transport-and-admission-limits) before invoking
+the manifest loader; it does not reconfigure Docker, install emulation or silently
+use a remote context. After admission:
 
 ```sh
 python scripts/package_runtime.py load --manifest "$ARTIFACTS/runtime-manifest.json" --architecture amd64 --workspace "$OWNER_WORKSPACE" --uid "$SERVICE_UID" --gid "$SERVICE_GID" --output-env "$PRIVATE/runtime.env"
@@ -253,9 +253,10 @@ separately configured and authorized.
 
 The external host Serve proxy and all API containers see the same bind-mounted
 `OWNER_WORKSPACE/security/runtime/http.sock`; there is no container-private
-socket tmpfs, public TCP bypass or hidden proxy container. Both host and container
-path lengths must fit Unix socket limits. A shared persistent
-`operations/http-listener.lock` serializes launcher lifetimes across containers;
+socket tmpfs, public TCP bypass or hidden proxy container. Apply the
+[platform socket and filesystem limits](platforms.md#transport-and-admission-limits).
+A shared persistent `operations/http-listener.lock` serializes launcher lifetimes
+across containers;
 it is never replaced/unlinked and is separate from the canonical writer lock.
 A competing launcher fails before touching the socket. Jobs do not take it.
 

@@ -27,7 +27,8 @@ does not qualify Cowork/cloud sessions, which do not read local personal skills.
 
 ## Private setup and lifecycle
 
-Use Bash on native Linux. Reuse the [secure owner-to-agent credential-file
+Follow the [platform prerequisites](platforms.md#current-prerequisites).
+Reuse the [secure owner-to-agent credential-file
 handoff and adapter settings](codex-integration.md#private-operator-preparation),
 with an independently reviewed grant named Health Buddy Claude and a stable
 `clientId: "claude-health-buddy"`. Configure its own external private retryRoot;

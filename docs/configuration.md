@@ -1,10 +1,11 @@
 # Portable local first run and canonical operations
 
-Use Python 3.12+ and Git from a Health Buddy source checkout or unpacked source
-bundle. Native core operations need no model key, global Git identity, signing setup,
+Prepare a Health Buddy source checkout or unpacked source bundle under the
+[source-development prerequisites](platforms.md#source-development).
+Native core operations need no model key, global Git identity, signing setup,
 GitHub connection or host service. Install the declared project dependencies
 for the maintained Granian/Starlette HTTP entrypoint, for example with
-`python -m pip install .` in a Python 3.12 virtual environment.
+`python -m pip install .` in the selected virtual environment.
 
 ```sh
 export PYTHONPATH="$PWD/src"
@@ -31,11 +32,10 @@ workouts with no plan. Settings → context pack lets you choose sections and
 copy a local summary for Codex, Claude Code or another assistant, without Jev.
 No fabricated demo rows are inserted during initialization.
 
-The selected workspace must be outside the replaceable release tree. There is
-no product restriction against a particular mount prefix. Its filesystem must
-support private POSIX permissions, local advisory locks and atomic rename.
-The coding-agent environment separately requires native Linux paths. Root and
-owner directories use mode 0700; config and created owner files use mode 0600.
+Keep the selected workspace outside the replaceable release tree and follow
+[platform storage admission](platforms.md#transport-and-admission-limits).
+Root and owner directories use mode 0700; config and created owner files use
+mode 0600.
 Existing permissive files are reported, never silently chmodded. Configured
 child symlinks and overlapping storage/config/secret paths are rejected.
 

@@ -3,7 +3,8 @@
 The recorded output of an actual run, not this document, establishes observed
 outcomes. Who runs these checks, and what must pass, is set in
 [AGENTS.md](../AGENTS.md#checks-and-publication). Use an exact clean candidate
-and Python 3.12+. Run one check job at a time; its pytest targets start four
+with the [source-development prerequisites](platforms.md#source-development).
+Run one check job at a time; its pytest targets start four
 pytest-xdist workers (`WORKERS=8` on a larger host). Limit numerical-library
 threads to one, and set `RAYON_NUM_THREADS=1` and
 `RUFF_NUM_THREADS=1` for Ruff. Synthetic fixtures use an
@@ -20,11 +21,10 @@ uses `sudo` for three install stages.
 which keeps a module's tests on one worker, so a module-scoped server starts
 once.
 
-The owner-host tests in `tests/test_owner_host.py` run the install stages the
-way an owner's shell does: as an unprivileged user under umask 002, on a host
-where `/run/docker.sock` exists (preflight inspects it). As root they fail by
-name instead of skipping, because root makes the stages refuse or pass for
-reasons an owner never meets, so run the slow tier as such a user; the gate
+The owner-host tests in `tests/test_owner_host.py` use the
+[owner-host prerequisites](platforms.md#current-prerequisites) under umask 002.
+As root they fail by name instead of skipping, because root makes the stages
+refuse or pass for reasons an owner never meets, so run the slow tier as such a user; the gate
 runner, `hb-check-nonroot.sh`, runs pytest as the user `hb`. The case that runs
 a stage as root needs passwordless `sudo` for `/usr/bin/env` and fails by name
 without it.
@@ -159,9 +159,12 @@ A versioned preview must retain its exact selected raw page URL and working
 reference links; downloading the current canonical page instead does not prove
 that the preview was read.
 
-Use a private native Linux kit, authenticated `doctl`, OpenSSH, Bash and Python 3. The fresh host needs at least 2 vCPU/4 GB; the helper prepares CPython 3.12 venv support, Docker Compose and Claude Code,
-records versions and creates ordinary `owner`. It must satisfy every prerequisite the onboarding page lists; a prerequisite stop is a kit defect, not an agent finding. It seeds no workspace, checkout, credential, receipts or stage answers. Record actual OS/architecture and Claude Code version. Enter
-operator inputs once:
+Use the [rehearsal host prerequisites](platforms.md#rehearsal-hosts); the helper
+prepares the documented host and agent harness, records versions and creates
+ordinary `owner`. It must satisfy the platform page's prerequisites; a prerequisite
+stop is a kit defect, not an agent finding. It seeds no workspace, checkout,
+credential, receipts or stage answers. Record actual OS/architecture and Claude
+Code version. Enter operator inputs once:
 
 ```sh
 umask 077

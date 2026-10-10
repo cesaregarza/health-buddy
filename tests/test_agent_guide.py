@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from health_buddy.extension.discovery import DOCUMENTS
+from health_buddy.install.preflight import GUIDANCE
 from health_buddy.runtime.bundle import create_bundle
 from scripts.audit_distribution import REQUIRED_AGENT_REFERENCES
 from tests.test_runtime_bundle import git, source
@@ -148,3 +149,72 @@ def test_signed_candidate_directory_is_a_supported_install_source() -> None:
     assert "public repository and, when one exists, its GitHub Release" in onboarding
     for document in (guide, publisher, onboarding):
         assert "supported source is a GitHub Release" not in " ".join(document.split())
+
+
+def test_platform_prerequisites_have_one_canonical_source() -> None:
+    platform = ROOT / "docs/platforms.md"
+    phrases = ("must already be available", "does not install Python")
+    canonical = " ".join(platform.read_text().split())
+    for phrase in phrases:
+        assert phrase in canonical
+    for document in (*ROOT.glob("*.md"), *(ROOT / "docs").rglob("*.md")):
+        prose = " ".join(document.read_text().split())
+        for phrase in phrases:
+            if phrase in prose:
+                assert document == platform, (document, phrase)
+    for name in (
+        "README.md",
+        "CONTRIBUTING.md",
+        "docs/agent-guide.md",
+        "docs/onboarding.md",
+        "docs/install-preflight.md",
+        "docs/verification.md",
+        "docs/v1-contract.md",
+        "docs/configuration.md",
+        "docs/runtime-packaging.md",
+        "docs/codex-integration.md",
+        "docs/claude-integration.md",
+    ):
+        document = ROOT / name
+        links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", document.read_text())
+        assert any(
+            (document.parent / target.split("#", 1)[0]).resolve() == platform
+            for target in links
+            if ":" not in target
+        ), name
+    for code in (
+        "unsupported_host",
+        "resources_unknown",
+        "resources_low",
+        "disk_low",
+        "path_unavailable",
+        "docker_cli_unavailable",
+        "docker_socket_unavailable",
+    ):
+        assert "docs/platforms.md" in GUIDANCE[code], code
+
+
+def test_platform_matrix_separates_recorded_and_planned_support() -> None:
+    document = (ROOT / "docs/platforms.md").read_text()
+    rows = {}
+    for line in document.splitlines():
+        if line.startswith("| "):
+            cells = [cell.strip() for cell in line.split("|")[1:-1]]
+            rows[cells[0]] = cells
+    linux = rows["Linux x86_64 native"]
+    assert "Ubuntu 24.04 amd64" in linux[5]
+    assert "Sonnet 5" in linux[5] and "`one-url/4`" in linux[5]
+    arm = rows["Linux aarch64 native, including Raspberry Pi"]
+    assert "Wheel/bootstrap checks only" in arm[5]
+    assert "no complete Sonnet `one-url/4` ARM install recorded" in arm[5]
+    assert "CES-1083" in arm[6]
+    for name, blocker in (
+        ("Windows through WSL2 Ubuntu", "CES-1190"),
+        ("macOS", "CES-1191"),
+    ):
+        assert "Not yet verified" in rows[name][5]
+        assert "no recorded installation model tier" in rows[name][5]
+        assert blocker in rows[name][6]
+    assert "**not implemented**" in document
+    for ticket in ("CES-1187", "CES-1188", "CES-1189", "CES-1193"):
+        assert ticket in document
