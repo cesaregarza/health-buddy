@@ -317,9 +317,13 @@ interrupted or mismatched output remains missing, including incomplete reference
 
 The bounded recognizer covers literal curl file downloads with HTTP-error failure
 and the documented `mkdir`/`cd`/`curl` chains joined by `&&`. Directory creation
-must use a literal path under `/tmp/` or the kit's `/home/owner/`. An unresolved
-variable, script or unknown intervening shell form requires manual review. Later transfer
-attempts (including failures) and explicit Write/Edit attempts bound earlier read
+must use a literal path under `/tmp/` or the kit's `/home/owner/`.
+These chains accept relative curl outputs after literal `cd` and a trailing
+`ls -la <directory>` within those roots; missing-read findings explain stdout
+rejection per attempt without inferring truncation or a digest mismatch from
+absent witnesses.
+An unresolved variable, script or unknown intervening shell form requires manual
+review. Later transfer attempts (including failures) and explicit Write/Edit attempts bound earlier read
 evidence. Codex completed calls retain shared normalization, but command output
 without full file-read metadata is missing evidence, not automatic acceptance.
 Raw review still compares exact downloaded bytes with the selected published

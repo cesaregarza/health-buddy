@@ -112,6 +112,14 @@ def download(entry=ENTRY):
     ]
 
 
+def run31_download():
+    events = download()
+    inputs = events[0]["message"]["content"][0]["input"]
+    command = inputs["command"].replace("mkdir -m 700", "mkdir -m 700 -p")
+    inputs["command"] = command.replace("\n", " ") + " && ls -la /tmp/hb-install-docs"
+    return events
+
+
 def install():
     return tool("Bash", "install", command="tar -xf health-buddy-bundle.tar")
 
@@ -415,6 +423,106 @@ def test_observed_single_line_chain_does_not_mistake_hostname_for_installation(
     for name in DOCS:
         events += read(name)
     assert missing(evidence(tmp_path, [*events, install()], entry=entry)) == set()
+
+
+@pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
+def test_run31_download_chain_recovers_only_after_complete_reads(tmp_path, script):
+    events = [
+        tool("WebFetch", "fetch", url=ENTRY, prompt="Return the raw page"),
+        result("fetch", "Synthetic summarized response"),
+        *run31_download(),
+    ]
+    for name in DOCS:
+        events += read(name)
+    findings = evidence(tmp_path, [*events, install()], script)
+    assert missing(findings) == set()
+    summarized = next(
+        item for item in findings if item["name"] == "onboarding_summarized_fetch"
+    )
+    assert summarized["rawRecoveryObserved"] is True
+
+
+@pytest.mark.parametrize(
+    "directory", ["/tmp/hb-install-docs", "/home/owner/docs"]  # noqa: S108
+)
+@pytest.mark.parametrize("output", ["-o ", "--output ", "--output=", "-o"])
+@pytest.mark.parametrize("listing", [".", "absolute"])
+def test_relative_outputs_remain_bound_to_literal_cwd(directory, output, listing):
+    probe = directory if listing == "absolute" else "."
+    command = (
+        f"mkdir -m 700 -p {directory} && cd {directory} && "
+        f"curl -fsSL '{ENTRY}' {output}onboarding.md && ls -la {probe}"
+    )
+    assert raw_transfers({"name": "Bash"}, command) == [
+        (ENTRY, directory + "/onboarding.md", True)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("cd /tmp/hb-install-docs", "cd /etc"),
+        ("cd /tmp/hb-install-docs", "cd /tmp/../etc"),
+        ("-o onboarding.md", "-o ../../etc/onboarding.md"),
+        ("-o onboarding.md", "-o /home/owner-other/onboarding.md"),
+        ("-o onboarding.md", "-o [ab].md"),
+        ("ls -la /tmp/hb-install-docs", "ls -la /etc"),
+        ("ls -la /tmp/hb-install-docs", "ls -la /home/owner/../other"),
+        ("ls -la /tmp/hb-install-docs", "ls -la '$HOME/docs'"),
+        ("ls -la /tmp/hb-install-docs", "ls -la /tmp/hb-*"),
+        ("ls -la /tmp/hb-install-docs", "ls -R /tmp/hb-install-docs"),
+        ("ls -la /tmp/hb-install-docs", "ls -la . extra"),
+        ("ls -la /tmp/hb-install-docs", "cat onboarding.md"),
+    ],
+)
+def test_document_chain_rejects_unbounded_paths_and_probes(tmp_path, old, new):
+    events = run31_download()
+    inputs = events[0]["message"]["content"][0]["input"]
+    inputs["command"] = inputs["command"].replace(old, new)
+    assert raw_transfers({"name": "Bash"}, inputs["command"]) is None
+    for name in DOCS:
+        events += read(name)
+    assert missing(evidence(tmp_path, [*events, install()])) == set(DOCS)
+
+
+@pytest.mark.parametrize("onboarding_read", [False, True])
+def test_run31_partial_preflight_coverage_stays_missing(
+    tmp_path, monkeypatch, onboarding_read
+):
+    content = "\n".join(f"Synthetic line {number}" for number in range(1, 1143)) + "\n"
+    monkeypatch.setitem(DOCS, "install-preflight", content)
+    events = [
+        tool("WebFetch", "fetch", url=ENTRY, prompt="Return the raw page"),
+        result("fetch", "Synthetic summarized response"),
+        tool("Bash", "stdout", command=f"curl -s -L {ENTRY}"),
+        result("stdout", DOCS["onboarding"]),
+        *run31_download(),
+        *read("publisher-verification"),
+    ]
+    for start, count in ((1, 250), (250, 250), (500, 300), (853, 166), (1019, 124)):
+        events += read("install-preflight", start, count, identity=f"page-{start}")
+    if onboarding_read:
+        events += read("onboarding")
+    findings = evidence(tmp_path, [*events, install()])
+    expected = {"install-preflight"} if onboarding_read else set(DOCS)
+    assert missing(findings) == expected
+    summarized = next(
+        item for item in findings if item["name"] == "onboarding_summarized_fetch"
+    )
+    assert summarized["rawRecoveryObserved"] is onboarding_read
+    if not onboarding_read:
+        onboarding = next(
+            item for item in findings if item.get("document") == "onboarding"
+        )
+        assert onboarding["stdoutAttempts"] == [
+            {
+                "ordinal": 2,
+                "reasons": [
+                    "missing_fail_on_http_error",
+                    "missing_independent_completeness_witness",
+                ],
+            }
+        ]
 
 
 @pytest.mark.parametrize("script", ["stages.py", "summarize.py"])
@@ -787,7 +895,33 @@ def test_stdout_rejects_incomplete_or_unbound_evidence(tmp_path, failure):
     events.append(install())
     if failure == "late":
         events.append(output)
-    assert "onboarding" in missing(evidence(tmp_path, events))
+    findings = evidence(tmp_path, events)
+    assert "onboarding" in missing(findings)
+    onboarding = next(
+        item for item in findings if item.get("document") == "onboarding"
+    )
+    attempts = onboarding.get("stdoutAttempts", [])
+    if failure in {"pipe", "chained", "empty_output"}:
+        assert attempts == []
+        return
+    assert len(attempts) == 1
+    detail = attempts[0]
+    assert detail.get("stdoutTruncated") is (True if failure == "interrupted" else None)
+    if failure in {"truncated", "same_lines_changed", "two_missing_lfs", "wrong_digest"}:
+        assert "published_digest_mismatch" in detail["reasons"]
+        assert detail["observedSha256"] == hashlib.sha256(body.encode()).hexdigest()
+    else:
+        assert "observedSha256" not in detail
+    if failure in {
+        "missing_witness",
+        "wrong_url",
+        "bad_digest",
+        "invalid_url",
+        "invalid_mapping",
+    }:
+        assert "missing_independent_completeness_witness" in detail["reasons"]
+    if failure == "no_fail":
+        assert detail["reasons"] == ["missing_fail_on_http_error"]
 
 
 def test_run27_stdout_witness_does_not_complete_partial_reference(tmp_path):
